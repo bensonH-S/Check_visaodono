@@ -135,7 +135,7 @@ export function DdaPage() {
           </Typography>
         </Stack>
         <Button variant="outlined" onClick={() => navigate('/financeiro/inbox')}>
-          {t('Abrir Inbox DDA', 'Open DDA inbox')}
+          {t('Abrir inbox', 'Open inbox')}
         </Button>
         <Button variant="outlined" onClick={() => navigate('/financeiro/configuracoes')}>
           {t('Config BB / Itaú', 'BB / Itaú setup')}

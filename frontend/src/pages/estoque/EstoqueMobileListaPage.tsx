@@ -80,7 +80,7 @@ function rotuloLoja(l: Loja) {
   return l.bk_number ? `${l.bk_number} · ${nome}` : nome;
 }
 
-type FiltroNfHub = 'todas' | 'platlog' | 'coca';
+type FiltroNfHub = 'todas' | 'platlog' | 'coca' | 'receita';
 
 function rotuloFornecedorHub(codigo: string | null | undefined, emitente?: string | null) {
   const f = String(codigo || '').toLowerCase();
@@ -110,6 +110,7 @@ function buscaNf(n: EstoqueNfeResumo, q: string) {
 
 function passaFiltroNf(n: EstoqueNfeResumo, filtro: FiltroNfHub) {
   if (filtro === 'todas') return true;
+  if (filtro === 'receita') return String(n.fornecedor || '').toLowerCase() === 'sefaz';
   return String(n.fornecedor || '').toLowerCase() === filtro;
 }
 
@@ -345,12 +346,14 @@ export default function EstoqueMobileListaPage() {
   const nfContagem = useMemo(() => {
     let platlog = 0;
     let coca = 0;
+    let receita = 0;
     for (const n of nfes) {
       const f = String(n.fornecedor || '').toLowerCase();
       if (f === 'platlog') platlog += 1;
       if (f === 'coca') coca += 1;
+      if (f === 'sefaz') receita += 1;
     }
-    return { platlog, coca, todas: nfes.length };
+    return { platlog, coca, receita, todas: nfes.length };
   }, [nfes]);
   const rotuloLojaCurta = lojaAtual
     ? nomeLojaCurta(nomeLoja(lojaAtual), lojaAtual.bk_number)
@@ -624,6 +627,7 @@ export default function EstoqueMobileListaPage() {
                 {(
                   [
                     ['todas', `Todas (${nfContagem.todas})`],
+                    ['receita', `Receita (${nfContagem.receita})`],
                     ['platlog', `Platlog (${nfContagem.platlog})`],
                     ['coca', `Coca-Cola (${nfContagem.coca})`],
                   ] as const

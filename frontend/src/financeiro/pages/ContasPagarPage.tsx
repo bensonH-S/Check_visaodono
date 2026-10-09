@@ -207,7 +207,7 @@ export function ContasPagarPage() {
           {lojas.map((e) => <MenuItem key={e.id} value={e.id}>{e.apelido}</MenuItem>)}
         </TextField>
         <Box sx={{ flex: 1 }} />
-        <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/inbox')}>{t('Inbox DDA', 'DDA inbox')}</Button>
+        <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/inbox')}>{t('Inbox', 'Inbox')}</Button>
         <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')}>{t('Coletar DDA', 'Pull DDA')}</Button>
         <Button size="small" variant="contained" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAberto(true)}>{t('Nova despesa', 'New expense')}</Button>
       </Stack>

@@ -108,6 +108,23 @@ async function get<T>(url: string): Promise<T> {
   return res.json()
 }
 
+export type NotaReceita = {
+  id: string
+  chave: string
+  numero: string | null
+  serie: string | null
+  emissao: string | null
+  emitente_cnpj: string | null
+  emitente_nome: string | null
+  valor_total: number | null
+  situacao: 'autorizada' | 'cancelada' | 'denegada'
+  tem_xml: boolean
+  cnpj_empresa: string
+  origem: string | null
+}
+
+export type ColetaReceita = { ok: boolean; mensagem: string; novas: number; em: string | null }
+
 export type LinhaDda = {
   cedente: string
   cnpj_cedente: string
@@ -340,6 +357,14 @@ export const api = {
   },
   sfgDda: () => get<{ ok: boolean; mensagem: string; criadas: number; em: string | null }>(`${apiRoot}/dda/sfg`),
   bbDda: () => get<{ ok: boolean; mensagem: string; criadas: number; em: string | null }>(`${apiRoot}/dda/bb`),
+  notasReceita: (empresa?: string) => {
+    const q = empresa ? `?empresa=${encodeURIComponent(empresa)}` : ''
+    return get<{ notas: NotaReceita[]; coleta: ColetaReceita }>(`${apiRoot}/nfe/recebidas${q}`)
+  },
+  coletarNotasReceita: async () => {
+    const res = await financeFetch(`${apiRoot}/nfe/coletar`, { method: 'POST' })
+    if (!res.ok) throw new Error('Não iniciou a consulta na Receita')
+  },
   previaDda: async (arquivo: string) => {
     const res = await financeFetch(`${apiRoot}/dda/previa`, {
       method: 'POST',

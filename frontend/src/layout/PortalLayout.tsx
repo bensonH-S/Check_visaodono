@@ -335,7 +335,7 @@ function PortalLayoutInner() {
     { to: '/dashboard', label: 'Command Center', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
 
     // FINANCEIRO — Inbox (DDA/NF) → Agenda banco → caixa / integrações
-    { to: '/financeiro/inbox', label: 'Inbox DDA', icon: <InboxOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: 'FINANCEIRO' },
+    { to: '/financeiro/inbox', label: 'Inbox', icon: <InboxOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: 'FINANCEIRO' },
     { to: '/financeiro', label: 'Agenda banco', icon: <AccountBalanceOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), end: true, section: 'FINANCEIRO' },
     { to: '/financeiro/caixa', label: 'Fechamento de caixa', icon: <PointOfSaleOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: 'FINANCEIRO' },
     {

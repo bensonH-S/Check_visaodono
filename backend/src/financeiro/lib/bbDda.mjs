@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import https from 'node:https'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import forge from 'node-forge'
 
 const AMBIENTES = {
   homologacao: {
@@ -27,23 +28,77 @@ function digitos(valor) {
 
 const rootDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const schemaPath = path.join(rootDir, 'db', '005_bb_credenciais.sql')
-const pastaCertificados = path.join(rootDir, 'Certificados')
+const pastasCertificados = [
+  path.join(rootDir, '..', '..', '..', 'Certificados'),
+  path.join(rootDir, 'Certificados'),
+]
+
+function cnpjValido(valor) {
+  const d = digitos(valor)
+  if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false
+  const dv = (base, pesos) => {
+    let soma = 0
+    for (let i = 0; i < pesos.length; i += 1) soma += Number(base[i]) * pesos[i]
+    const resto = soma % 11
+    return resto < 2 ? 0 : 11 - resto
+  }
+  const primeiro = dv(d, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+  if (primeiro !== Number(d[12])) return false
+  const segundo = dv(d, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+  return segundo === Number(d[13])
+}
+
+function cnpjNoNome(arquivo) {
+  const nums = digitos(arquivo)
+  for (let i = 0; i + 14 <= nums.length; i += 1) {
+    const cnpj = nums.slice(i, i + 14)
+    if (cnpjValido(cnpj)) return cnpj
+  }
+  return ''
+}
+
+/** Um CNPJ por A1 na pasta Certificados (raiz do projeto ou a pasta do financeiro). */
+export function cnpjsDosCertificados() {
+  const achados = new Map()
+  for (const pasta of pastasCertificados) {
+    if (!fs.existsSync(pasta)) continue
+    let arquivos = []
+    try {
+      arquivos = fs.readdirSync(pasta)
+    } catch {
+      continue
+    }
+    for (const item of arquivos) {
+      const baixo = item.toLowerCase()
+      if (!baixo.endsWith('.pfx') && !baixo.endsWith('.p12')) continue
+      const cnpj = cnpjNoNome(item)
+      if (!cnpj || achados.has(cnpj)) continue
+      achados.set(cnpj, path.join(pasta, item))
+    }
+  }
+  return [...achados.keys()]
+}
 
 function acharPfxNaPasta(cnpj) {
   const chave = digitos(cnpj)
-  if (!chave || !fs.existsSync(pastaCertificados)) return ''
-  let arquivos = []
-  try {
-    arquivos = fs.readdirSync(pastaCertificados)
-  } catch {
-    return ''
+  if (!chave) return ''
+  for (const pasta of pastasCertificados) {
+    if (!fs.existsSync(pasta)) continue
+    let arquivos = []
+    try {
+      arquivos = fs.readdirSync(pasta)
+    } catch {
+      continue
+    }
+    const nome = arquivos.find((item) => {
+      const baixo = item.toLowerCase()
+      if (!baixo.endsWith('.pfx') && !baixo.endsWith('.p12')) return false
+      const nums = digitos(item)
+      return nums === chave || nums.includes(chave)
+    })
+    if (nome) return path.join(pasta, nome)
   }
-  const nome = arquivos.find((item) => {
-    const baixo = item.toLowerCase()
-    if (!baixo.endsWith('.pfx') && !baixo.endsWith('.p12')) return false
-    return digitos(item) === chave || digitos(item).includes(chave)
-  })
-  return nome ? path.join(pastaCertificados, nome) : ''
+  return ''
 }
 
 function pfxDaPasta(cnpj) {
@@ -303,6 +358,39 @@ function pemDaPasta(cnpj) {
   return null
 }
 
+const pemCache = new Map()
+
+/** A1 brasileiro costuma ser PFX antigo (RC2). O Node 24 não abre; o forge abre. */
+function pemDoPfx(pfxBase64, senha) {
+  const id = `${String(pfxBase64).length}:${String(pfxBase64).slice(0, 24)}`
+  if (pemCache.has(id)) return pemCache.get(id)
+  const der = forge.util.createBuffer(Buffer.from(pfxBase64, 'base64').toString('binary'))
+  const p12 = forge.pkcs12.pkcs12FromAsn1(forge.asn1.fromDer(der), false, senha || '')
+  const shrouded = forge.pki.oids.pkcs8ShroudedKeyBag
+  const keyBag = forge.pki.oids.keyBag
+  const bagsChave = [
+    ...(p12.getBags({ bagType: shrouded })[shrouded] || []),
+    ...(p12.getBags({ bagType: keyBag })[keyBag] || []),
+  ]
+  const bagsCert = p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag] || []
+  const key = bagsChave.find((bag) => bag.key)?.key
+  const certs = bagsCert.map((bag) => bag.cert).filter(Boolean)
+  const cert = certs.find((item) => {
+    try {
+      return key?.n && item.publicKey?.n && item.publicKey.n.compareTo(key.n) === 0
+    } catch {
+      return false
+    }
+  }) || certs[0]
+  if (!key || !cert) throw new Error('O PFX não tem chave e certificado.')
+  const pem = {
+    key: forge.pki.privateKeyToPem(key),
+    cert: forge.pki.certificateToPem(cert),
+  }
+  pemCache.set(id, pem)
+  return pem
+}
+
 function agenteTls(config) {
   if (config.cert_pem && config.key_pem) {
     return {
@@ -319,15 +407,24 @@ function agenteTls(config) {
   const pfx = config.pfx || pfxDaPasta(config.cnpj)
   if (pfx) {
     // A1 do Grupo Alvim (Diag2026) — senha padrão quando não está no banco.
-    // Node às vezes rejeita PFX legado (RC2); preferir PEM quando existir.
     const senha = texto(config.cert_pass) || 'Diag2026'
-    return {
-      pfx: Buffer.from(pfx, 'base64'),
-      passphrase: senha,
-      minVersion: 'TLSv1.2',
+    try {
+      const pem = pemDoPfx(pfx, senha)
+      return { ...pem, minVersion: 'TLSv1.2' }
+    } catch {
+      return {
+        pfx: Buffer.from(pfx, 'base64'),
+        passphrase: senha,
+        minVersion: 'TLSv1.2',
+      }
     }
   }
   return null
+}
+
+/** Mesmo A1 do DDA (banco ou pasta Certificados) para falar com a Receita. */
+export function tlsDaCredencial(config) {
+  return agenteTls(config)
 }
 
 function pedir(url, { method = 'GET', headers = {}, body = null, tls = null }) {

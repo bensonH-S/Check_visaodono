@@ -435,6 +435,11 @@ export default function EstoqueMobileNfePage() {
           {det ? (
             <div className="ck-estoque-hub__table ck-estoque-hub__table--body">
               <div className="ck-estoque-hub__lista">
+                {det.fornecedor === 'sefaz' && !(det.itens || []).length ? (
+                  <p className="ck-estoque-hub__empty">
+                    A Receita já registrou esta nota no nome da loja. Os itens entram quando o XML completo chega.
+                  </p>
+                ) : null}
                 {(det.itens || []).map((it) => {
                   const c = checks[it.id_item];
                   const esp = c?.qtd_esperada ?? qtdEsperada(it);

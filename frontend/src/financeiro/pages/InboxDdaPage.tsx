@@ -18,13 +18,14 @@ import TablePagination from '@mui/material/TablePagination'
 import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
 import Typography from '@mui/material/Typography'
-import { api, brl, type Despesa, type Empresa } from '../api'
+import { api, brl, type ColetaReceita, type Despesa, type Empresa, type NotaReceita } from '../api'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
 
 const INBOX_STATUS = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
 const FILTROS = ['Todas', 'Vencidas', 'NF confirmada', 'Aguardando NF'] as const
+const FILTROS_NF = ['Todas', 'Autorizadas', 'Canceladas', 'Com XML'] as const
 const hoje = new Date().toISOString().slice(0, 10)
 
 function dataLocal(d: Date) {
@@ -42,6 +43,13 @@ function periodoAtual() {
   return { de: dataLocal(inicio), ate: dataLocal(fim) }
 }
 
+function periodoNotas() {
+  const fim = new Date()
+  const inicio = new Date()
+  inicio.setDate(inicio.getDate() - 90)
+  return { de: dataLocal(inicio), ate: dataLocal(fim) }
+}
+
 function dataBr(iso: string | null) {
   if (!iso) return '—'
   const [a, m, d] = iso.slice(0, 10).split('-')
@@ -52,7 +60,7 @@ function rotuloDescricao(e: Despesa) {
   return rotuloDespesa(e)
 }
 
-/** Inbox: DDA (e, em breve, NF) antes de entrar na Agenda banco. */
+/** Inbox: boletos DDA e notas destinadas ao CNPJ na Receita Federal. */
 export function InboxDdaPage() {
   const { t, modo } = usePrefs()
   const navigate = useNavigate()
@@ -64,12 +72,26 @@ export function InboxDdaPage() {
   const [busca, setBusca] = useState('')
   const [de, setDe] = useState(() => periodoAtual().de)
   const [ate, setAte] = useState(() => periodoAtual().ate)
+  const [deNf, setDeNf] = useState(() => periodoNotas().de)
+  const [ateNf, setAteNf] = useState(() => periodoNotas().ate)
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>('Todas')
   const [erro, setErro] = useState('')
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set())
   const [enviando, setEnviando] = useState(false)
   const [pagina, setPagina] = useState(0)
   const [porPagina, setPorPagina] = useState(30)
+  const [notas, setNotas] = useState<NotaReceita[]>([])
+  const [coletaNf, setColetaNf] = useState<ColetaReceita | null>(null)
+  const [filtroNf, setFiltroNf] = useState<(typeof FILTROS_NF)[number]>('Todas')
+  const [buscandoNf, setBuscandoNf] = useState(false)
+
+  const carregarNotas = (empresa = loja) =>
+    api.notasReceita(empresa || undefined).then((r) => {
+      setNotas(r.notas)
+      setColetaNf(r.coleta)
+    }).catch(() => {
+      setNotas([])
+    })
 
   const carregar = (empresa = loja) =>
     api.despesas(empresa || undefined).then((rows) => {
@@ -86,6 +108,7 @@ export function InboxDdaPage() {
   useEffect(() => {
     api.empresas().then(setEmpresas).catch(() => setEmpresas([]))
     carregar('')
+    carregarNotas('')
   }, [])
 
   const inbox = useMemo(
@@ -113,14 +136,35 @@ export function InboxDdaPage() {
     return ordenarLancamentosPorEmpresa(filtradas, empresas)
   }, [noPeriodo, busca, filtro, empresas])
 
-  useEffect(() => { setPagina(0) }, [busca, de, ate, loja, filtro])
+  const notasNoPeriodo = useMemo(() => notas.filter((n) => {
+    const emissao = (n.emissao || '').slice(0, 10)
+    if (!emissao) return !deNf && !ateNf
+    if (deNf && emissao < deNf) return false
+    if (ateNf && emissao > ateNf) return false
+    return true
+  }), [notas, deNf, ateNf])
+
+  const notasLinhas = useMemo(() => notasNoPeriodo.filter((n) => {
+    const texto = `${n.emitente_nome ?? ''} ${n.numero ?? ''} ${n.origem ?? ''} ${n.chave}`.toLowerCase()
+    if (busca && !texto.includes(busca.toLowerCase())) return false
+    if (filtroNf === 'Autorizadas') return n.situacao === 'autorizada'
+    if (filtroNf === 'Canceladas') return n.situacao === 'cancelada'
+    if (filtroNf === 'Com XML') return n.tem_xml
+    return true
+  }), [notasNoPeriodo, busca, filtroNf])
+
+  useEffect(() => { setPagina(0) }, [busca, de, ate, deNf, ateNf, loja, filtro, filtroNf, aba])
 
   const comNf = noPeriodo.filter((e) => e.nf_confirmada)
   const semNf = noPeriodo.filter((e) => !e.nf_confirmada)
   const vencidas = noPeriodo.filter((e) => e.vencimento && e.vencimento < hoje)
   const lojas = useMemo(() => ordenarEmpresas(empresas), [empresas])
 
+  const notasAutorizadas = notasNoPeriodo.filter((n) => n.situacao === 'autorizada')
+  const notasCanceladas = notasNoPeriodo.filter((n) => n.situacao === 'cancelada')
+  const notasComXml = notasNoPeriodo.filter((n) => n.tem_xml)
   const visiveis = linhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
+  const visiveisNf = notasLinhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
   const idsPagina = visiveis.map((e) => e.id)
   const todasMarcadas = idsPagina.length > 0 && idsPagina.every((id) => marcadas.has(id))
 
@@ -140,6 +184,20 @@ export function InboxDdaPage() {
       else next.add(id)
       return next
     })
+  }
+
+  const buscarReceita = async () => {
+    setBuscandoNf(true)
+    setErro('')
+    try {
+      await api.coletarNotasReceita()
+      window.setTimeout(() => carregarNotas(loja), 3000)
+      window.setTimeout(() => carregarNotas(loja), 8000)
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : t('Não consultou a Receita', 'Could not query Receita'))
+    } finally {
+      setBuscandoNf(false)
+    }
   }
 
   const abrirAgenda = () => {
@@ -193,61 +251,81 @@ export function InboxDdaPage() {
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { md: 'center' } }}>
         <TextField size="small" placeholder={t('Buscar lançamento', 'Search entry')} value={busca} onChange={(ev) => setBusca(ev.target.value)} sx={{ minWidth: 240, bgcolor: 'background.paper' }} />
-        <TextField size="small" label={t('De', 'From')} type="date" value={de} onChange={(ev) => setDe(ev.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 138, bgcolor: 'background.paper' }} />
-        <TextField size="small" label={t('Até', 'To')} type="date" value={ate} onChange={(ev) => setAte(ev.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 138, bgcolor: 'background.paper' }} />
+        <TextField size="small" label={t('De', 'From')} type="date" value={aba === 1 ? deNf : de} onChange={(ev) => (aba === 1 ? setDeNf(ev.target.value) : setDe(ev.target.value))} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 138, bgcolor: 'background.paper' }} />
+        <TextField size="small" label={t('Até', 'To')} type="date" value={aba === 1 ? ateNf : ate} onChange={(ev) => (aba === 1 ? setAteNf(ev.target.value) : setAte(ev.target.value))} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 138, bgcolor: 'background.paper' }} />
         <TextField
           select
           size="small"
           label={t('Loja', 'Store')}
           value={loja}
-          onChange={(ev) => { setLoja(ev.target.value); carregar(ev.target.value) }}
+          onChange={(ev) => { setLoja(ev.target.value); carregar(ev.target.value); carregarNotas(ev.target.value) }}
           sx={{ minWidth: 180, bgcolor: 'background.paper', '& .MuiOutlinedInput-notchedOutline': { borderColor: loja ? 'primary.main' : undefined } }}
         >
           <MenuItem value="">{t('Todas as lojas', 'All stores')}</MenuItem>
           {lojas.map((e) => <MenuItem key={e.id} value={e.id}>{e.apelido}</MenuItem>)}
         </TextField>
         <Box sx={{ flex: 1 }} />
-        <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')}>
-          {t('Coletar DDA', 'Pull DDA')}
-        </Button>
-        <Button size="small" variant="outlined" onClick={abrirAgenda}>
-          {t('Abrir Agenda banco', 'Open bank schedule')}
-        </Button>
-        <Button
-          size="small"
-          variant="contained"
-          disabled={enviando || !marcadas.size}
-          onClick={() => enviar()}
-        >
-          {enviando ? t('Enviando…', 'Sending…') : t(`Enviar para agenda (${marcadas.size})`, `Send to schedule (${marcadas.size})`)}
-        </Button>
+        {aba === 0 ? (
+          <>
+            <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')}>
+              {t('Coletar DDA', 'Pull DDA')}
+            </Button>
+            <Button size="small" variant="outlined" onClick={abrirAgenda}>
+              {t('Abrir Agenda banco', 'Open bank schedule')}
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              disabled={enviando || !marcadas.size}
+              onClick={() => enviar()}
+            >
+              {enviando ? t('Enviando…', 'Sending…') : t(`Enviar para agenda (${marcadas.size})`, `Send to schedule (${marcadas.size})`)}
+            </Button>
+          </>
+        ) : (
+          <Button size="small" variant="contained" disabled={buscandoNf} onClick={() => buscarReceita()}>
+            {buscandoNf ? t('Consultando…', 'Checking…') : t('Buscar na Receita', 'Pull from Receita')}
+          </Button>
+        )}
       </Stack>
 
+      {aba === 1 && coletaNf?.mensagem && (
+        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{coletaNf.mensagem}</Typography>
+      )}
+
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-        <Resumo rotulo={t('No inbox', 'In inbox')} valor={String(noPeriodo.length)} detalhe={t('boletos DDA', 'DDA boletos')} />
-        <Resumo rotulo={t('NF conferida', 'Invoice checked')} valor={String(comNf.length)} detalhe={t('prontos para agenda', 'ready for schedule')} />
-        <Resumo rotulo={t('Aguardando NF', 'Awaiting invoice')} valor={String(semNf.length)} detalhe={t('gestor no app', 'manager in the app')} />
-        <Resumo rotulo={t('Vencidas', 'Overdue')} valor={String(vencidas.length)} detalhe={t('no inbox', 'in inbox')} alerta={vencidas.length > 0} />
+        {aba === 0 ? (
+          <>
+            <Resumo rotulo={t('No inbox', 'In inbox')} valor={String(noPeriodo.length)} detalhe={t('boletos DDA', 'DDA boletos')} />
+            <Resumo rotulo={t('NF conferida', 'Invoice checked')} valor={String(comNf.length)} detalhe={t('prontos para agenda', 'ready for schedule')} />
+            <Resumo rotulo={t('Aguardando NF', 'Awaiting invoice')} valor={String(semNf.length)} detalhe={t('gestor no app', 'manager in the app')} />
+            <Resumo rotulo={t('Vencidas', 'Overdue')} valor={String(vencidas.length)} detalhe={t('no inbox', 'in inbox')} alerta={vencidas.length > 0} />
+          </>
+        ) : (
+          <>
+            <Resumo rotulo={t('No período', 'In period')} valor={String(notasNoPeriodo.length)} detalhe={t('notas da Receita', 'Receita invoices')} />
+            <Resumo rotulo={t('Autorizadas', 'Authorized')} valor={String(notasAutorizadas.length)} detalhe={t('no nome da empresa', 'issued to the company')} />
+            <Resumo rotulo={t('Com XML', 'With XML')} valor={String(notasComXml.length)} detalhe={t('itens no gestor', 'items in the app')} />
+            <Resumo rotulo={t('Canceladas', 'Cancelled')} valor={String(notasCanceladas.length)} detalhe={t('na Receita', 'at Receita')} alerta={notasCanceladas.length > 0} />
+          </>
+        )}
       </Stack>
 
       <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
-        {FILTROS.map((item) => (
+        {(aba === 0 ? FILTROS : FILTROS_NF).map((item) => (
           <Chip
             key={item}
             size="small"
-            label={t(
-              item === 'Todas' ? 'Todas' : item === 'Vencidas' ? 'Vencidas' : item === 'NF confirmada' ? 'NF confirmada' : 'Aguardando NF',
-              item === 'Todas' ? 'All' : item === 'Vencidas' ? 'Overdue' : item === 'NF confirmada' ? 'Invoice confirmed' : 'Awaiting invoice',
-            )}
+            label={rotuloFiltro(item, t)}
             variant="outlined"
-            onClick={() => { setFiltro(item); setPagina(0) }}
+            onClick={() => { if (aba === 0) setFiltro(item as (typeof FILTROS)[number]); else setFiltroNf(item as (typeof FILTROS_NF)[number]); setPagina(0) }}
             sx={{
               height: 24,
               fontSize: 11,
-              bgcolor: filtro === item ? (escuro ? 'rgba(27, 110, 243, 0.2)' : 'rgba(27, 110, 243, 0.1)') : 'background.paper',
-              borderColor: filtro === item ? 'primary.main' : 'divider',
-              color: filtro === item ? (escuro ? '#93C5FD' : '#0D4ECC') : 'text.secondary',
-              fontWeight: filtro === item ? 600 : 500,
+              bgcolor: (aba === 0 ? filtro : filtroNf) === item ? (escuro ? 'rgba(27, 110, 243, 0.2)' : 'rgba(27, 110, 243, 0.1)') : 'background.paper',
+              borderColor: (aba === 0 ? filtro : filtroNf) === item ? 'primary.main' : 'divider',
+              color: (aba === 0 ? filtro : filtroNf) === item ? (escuro ? '#93C5FD' : '#0D4ECC') : 'text.secondary',
+              fontWeight: (aba === 0 ? filtro : filtroNf) === item ? 600 : 500,
             }}
           />
         ))}
@@ -259,10 +337,7 @@ export function InboxDdaPage() {
         sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0, fontSize: 12, textTransform: 'none' } }}
       >
         <Tab label={t(`DDA (${linhas.length})`, `DDA (${linhas.length})`)} />
-        <Tab
-          label={t('Notas fiscais (em breve)', 'Invoices (soon)')}
-          disabled
-        />
+        <Tab label={t(`Notas fiscais (${notasLinhas.length})`, `Invoices (${notasLinhas.length})`)} />
       </Tabs>
 
       {aba === 0 && (
@@ -352,7 +427,117 @@ export function InboxDdaPage() {
         </Paper>
       )}
 
+      {aba === 1 && (
+        <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+            <Table size="small" stickyHeader>
+              <TableHead>
+                <TableRow>
+                  <TableCell>{t('Situação', 'Status')}</TableCell>
+                  <TableCell>{t('Emitente', 'Issuer')}</TableCell>
+                  <TableCell>{t('Loja', 'Store')}</TableCell>
+                  <TableCell>{t('Emissão', 'Issue date')}</TableCell>
+                  <TableCell align="right">{t('Valor', 'Amount')}</TableCell>
+                  <TableCell>{t('Documento', 'Document')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {!notasLinhas.length && (
+                  <TableRow>
+                    <TableCell colSpan={6} sx={{ color: 'text.secondary', py: 4 }}>
+                      {notas.length
+                        ? t('Nenhuma nota nesse filtro.', 'No invoices in this filter.')
+                        : t(
+                          'Nenhuma nota ainda. Buscar na Receita traz as NF-e emitidas no nome da empresa, como o DDA faz com o boleto.',
+                          'No invoices yet. Pull from Receita brings NF-e issued to the company, the same way DDA brings boletos.',
+                        )}
+                    </TableCell>
+                  </TableRow>
+                )}
+                {visiveisNf.map((n) => (
+                  <TableRow key={n.id} hover>
+                    <TableCell>{chipSituacao(n.situacao, t, escuro)}</TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25 }}>{n.emitente_nome || '—'}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                        {n.numero ? `NF ${n.numero}` : n.chave}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{n.origem || '—'}</TableCell>
+                    <TableCell>{dataBr(n.emissao)}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                      {n.valor_total != null ? brl(n.valor_total) : '—'}
+                    </TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+                        {n.tem_xml ? t('XML completo', 'Full XML') : t('Resumo', 'Summary')}
+                      </Typography>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+          <TablePagination
+            component="div"
+            count={notasLinhas.length}
+            page={pagina}
+            onPageChange={(_, n) => setPagina(n)}
+            rowsPerPage={porPagina}
+            onRowsPerPageChange={(ev) => { setPorPagina(Number(ev.target.value)); setPagina(0) }}
+            rowsPerPageOptions={[30, 50, 100]}
+            labelRowsPerPage={t('Por página', 'Per page')}
+            labelDisplayedRows={({ from, to, count }) => t(`${from}–${to} de ${count}`, `${from}–${to} of ${count}`)}
+            sx={{
+              flexShrink: 0,
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              '& .MuiTablePagination-toolbar': { minHeight: 32, height: 32, pl: 1.5, pr: 0.5 },
+              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 12, m: 0 },
+            }}
+          />
+        </Paper>
+      )}
+
     </Stack>
+  )
+}
+
+function rotuloFiltro(item: string, t: (pt: string, en: string) => string) {
+  const mapa: Record<string, [string, string]> = {
+    Todas: ['Todas', 'All'],
+    Vencidas: ['Vencidas', 'Overdue'],
+    'NF confirmada': ['NF confirmada', 'Invoice confirmed'],
+    'Aguardando NF': ['Aguardando NF', 'Awaiting invoice'],
+    Autorizadas: ['Autorizadas', 'Authorized'],
+    Canceladas: ['Canceladas', 'Cancelled'],
+    'Com XML': ['Com XML', 'With XML'],
+  }
+  const par = mapa[item] || [item, item]
+  return t(par[0], par[1])
+}
+
+function chipSituacao(situacao: NotaReceita['situacao'], t: (pt: string, en: string) => string, escuro: boolean) {
+  const cancelada = situacao === 'cancelada' || situacao === 'denegada'
+  const rotulo = situacao === 'cancelada'
+    ? t('Cancelada', 'Cancelled')
+    : situacao === 'denegada'
+      ? t('Denegada', 'Denied')
+      : t('Autorizada', 'Authorized')
+  return (
+    <Chip
+      size="small"
+      label={rotulo}
+      sx={{
+        height: 20,
+        fontSize: 11,
+        fontWeight: 600,
+        bgcolor: cancelada
+          ? (escuro ? 'rgba(248,113,113,0.14)' : 'rgba(239,68,68,0.1)')
+          : (escuro ? 'rgba(52,211,153,0.14)' : 'rgba(16,185,129,0.12)'),
+        color: cancelada ? (escuro ? '#FCA5A5' : '#B91C1C') : (escuro ? '#6EE7B7' : '#047857'),
+      }}
+    />
   )
 }
 

@@ -21,6 +21,7 @@ import { gerarDanfe } from './lib/danfe.mjs'
 import { baixarBoletoDaDespesa, baixarNotaDaDespesa } from './lib/boletoEsupri.mjs'
 import { cruzarNotas } from './lib/nfEntrada.mjs'
 import { hojeBR, lerConfigBkoffice, registrarFalhaVendas, resumoVendas, salvarConfigBkoffice, sincronizarVendasBk } from './lib/bkofficeVendas.mjs'
+import { coletarNotasReceita, garantirSchemaSefaz, listarNotasReceita } from './lib/syncNfeSefaz.mjs'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const portalRoot = path.resolve(root, '..', '..', '..')
@@ -92,6 +93,7 @@ const sessao = { nome: 'Felipe', papel: 'Autoriza' }
 let coletaVendas = null
 let coletaSfg = null
 let coletaBb = null
+let coletaSefaz = null
 let estadoBb = {
   ok: false,
   mensagem: 'A coleta do Banco do Brasil ainda não rodou.',
@@ -102,6 +104,12 @@ let estadoSfg = {
   ok: false,
   mensagem: 'A coleta da VAN do Itaú ainda não rodou.',
   criadas: 0,
+  em: null,
+}
+let estadoSefaz = {
+  ok: false,
+  mensagem: 'A consulta de notas na Receita Federal ainda não rodou.',
+  novas: 0,
   em: null,
 }
 
@@ -877,6 +885,17 @@ export async function handleFinance(req, res) {
       cicloBb().catch((err) => console.error(`[bb] ${err.message}`))
       return send(res, 202, JSON.stringify({ ok: true }))
     }
+    if (req.method === 'GET' && url.pathname === '/api/nfe/recebidas') {
+      const notas = await listarNotasReceita(pool, url.searchParams.get('empresa') || '')
+      return send(res, 200, JSON.stringify({ notas, coleta: estadoSefaz }))
+    }
+    if (req.method === 'GET' && url.pathname === '/api/nfe/sefaz') {
+      return send(res, 200, JSON.stringify(estadoSefaz))
+    }
+    if (req.method === 'POST' && url.pathname === '/api/nfe/coletar') {
+      cicloSefaz().catch((err) => console.error(`[sefaz] ${err.message}`))
+      return send(res, 202, JSON.stringify({ ok: true }))
+    }
     send(res, 404, JSON.stringify({ erro: 'Não encontrado' }))
   } catch (err) {
     if (!res.headersSent) send(res, 500, JSON.stringify({ erro: 'Falha ao falar com o banco.' }))
@@ -887,6 +906,9 @@ export async function handleFinance(req, res) {
 const intervaloVendas = Number(process.env.VENDAS_SYNC_MS || 180000)
 const intervaloSfg = Number(process.env.ITAU_SFG_MS || 900000)
 const intervaloBb = Number(process.env.BB_DDA_MS || 900000)
+// Ambiente Nacional: com a fila em dia, a próxima consulta só depois de 1 hora.
+// Menos que isso a Receita devolve consumo indevido e trava o CNPJ.
+const intervaloSefaz = Number(process.env.SEFAZ_DFE_MS || 3600000)
 let avisouSfg = false
 let avisouBb = false
 
@@ -1003,6 +1025,31 @@ async function cicloBb() {
   }
 }
 
+async function cicloSefaz() {
+  if (coletaSefaz) return coletaSefaz
+  coletaSefaz = coletarNotasReceita(pool)
+  try {
+    const resultado = await coletaSefaz
+    estadoSefaz = {
+      ok: resultado.ok,
+      mensagem: resultado.mensagem,
+      novas: resultado.novas,
+      em: new Date().toISOString(),
+    }
+    console.log(`[sefaz] ${resultado.mensagem}`)
+  } catch (err) {
+    estadoSefaz = {
+      ok: false,
+      mensagem: err.message || 'Falha ao consultar notas na Receita Federal',
+      novas: 0,
+      em: new Date().toISOString(),
+    }
+    console.error(`[sefaz] ${estadoSefaz.mensagem}`)
+  } finally {
+    coletaSefaz = null
+  }
+}
+
 async function cicloVendas() {
   if (coletaVendas) return
   const dia = hojeBR()
@@ -1038,6 +1085,11 @@ export function iniciarFinanceiro() {
   garantirSchemaBb(pool).catch((err) => console.error(`[financeiro] bb: ${err.message}`))
   garantirSchemaItau(pool).catch((err) => console.error(`[financeiro] sfg: ${err.message}`))
   garantirSchemaCaixa(pool).catch((err) => console.error(`[financeiro] caixa: ${err.message}`))
+  garantirSchemaSefaz(pool).catch((err) => console.error(`[financeiro] sefaz: ${err.message}`))
+  if (intervaloSefaz >= 60000) {
+    setTimeout(cicloSefaz, 20000)
+    setInterval(cicloSefaz, intervaloSefaz)
+  }
   if (intervaloBb >= 60000) {
     setTimeout(cicloBb, 15000)
     setInterval(cicloBb, intervaloBb)

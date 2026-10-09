@@ -140,7 +140,7 @@ export const CATALOGO_MODULOS: readonly Omit<ModuloCanalFlags, 'portal' | 'mobil
     codigo: 'financeiro',
     nome: 'Financeiro',
     secao: 'Gestão',
-    descricao: 'Inbox DDA, Agenda banco, caixa e integrações bancárias.',
+    descricao: 'Inbox de DDA e notas da Receita, Agenda banco, caixa e integrações.',
     temPortal: true,
     temMobile: false,
   },
