@@ -39,6 +39,7 @@ import RestaurantOutlinedIcon from '@mui/icons-material/RestaurantOutlined'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined'
 import { api, brl, type Empresa, type FechamentoDia, type Fornecedor, type LancamentoCaixa, type MesFechamento } from '../api'
+import { ordenarEmpresas } from '../ordemEmpresas'
 import { usePrefs } from '../prefs'
 
 function mesAtual() {
@@ -286,7 +287,7 @@ export function FechamentoCaixaPage() {
   const [debitoAberto, setDebitoAberto] = useState(false)
   const [creditoAberto, setCreditoAberto] = useState(false)
 
-  const lojas = useMemo(() => empresas.filter((e) => e.tipo === 'loja'), [empresas])
+  const lojas = useMemo(() => ordenarEmpresas(empresas.filter((e) => e.tipo === 'loja')), [empresas])
   const hoje = hojeIso()
 
   useEffect(() => {

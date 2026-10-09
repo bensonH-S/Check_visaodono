@@ -1,6 +1,6 @@
 import type { Empresa } from './api'
 
-/** Ordem do seletor de loja na Agenda banco e no Inbox DDA. */
+/** Ordem do seletor de loja na Agenda banco, no Inbox e no fechamento de caixa. */
 const ORDEM: string[][] = [
   ['REI'],
   ['LORD'],
