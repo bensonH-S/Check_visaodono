@@ -26,9 +26,11 @@ import {
   coletarNotasReceita,
   danfeNotaReceita,
   garantirSchemaSefaz,
+  importarXmlNaAgenda,
   lancarNotaNaAgenda,
   listarNotasReceita,
 } from './lib/syncNfeSefaz.mjs'
+import { parsePdfDespesa } from './lib/importarPdfDespesa.mjs'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const portalRoot = path.resolve(root, '..', '..', '..')
@@ -183,18 +185,224 @@ async function contextoDda() {
   }
 }
 
-async function lancarDda(selecionadas) {
+async function empresaPorCnpj(cnpjBruto) {
+  const digits = String(cnpjBruto || '').replace(/\D/g, '')
+  if (digits.length < 8) return null
+  if (digits.length === 14) {
+    const exata = await pool.query(
+      `SELECT id, apelido, cnpj FROM empresas
+       WHERE ativo AND regexp_replace(COALESCE(cnpj, ''), '\\D', '', 'g') = $1
+       LIMIT 1`,
+      [digits],
+    )
+    if (exata.rows[0]) return exata.rows[0]
+  }
+  const prefixo = digits.slice(0, 8)
+  const { rows } = await pool.query(
+    `SELECT id, apelido, cnpj FROM empresas
+     WHERE ativo AND regexp_replace(COALESCE(cnpj, ''), '\\D', '', 'g') LIKE $1
+     ORDER BY CASE WHEN tipo = 'loja' THEN 0 ELSE 1 END, apelido
+     LIMIT 1`,
+    [`${prefixo}%`],
+  )
+  return rows[0] || null
+}
+
+/** Resolve loja pelo CNPJ do PDF; se faltar, tenta razão social/apelido (sem hardcode). */
+async function empresaDoPdf(parsed) {
+  const porCnpj = await empresaPorCnpj(parsed.cnpj)
+  if (porCnpj) return porCnpj
+  const nome = String(parsed.razao_social || '').trim()
+  if (nome.length < 4) return null
+  const chave = nome
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/\b(LTDA|EIRELI|ME|EPP|SA|S\/A|COMERCIO|DE|ALIMENTOS|ASSESSORIA|CONSULTORIA|EMPRESARIAL)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (chave.length < 3) return null
+  const { rows } = await pool.query(
+    `SELECT id, apelido, cnpj FROM empresas
+     WHERE ativo AND (
+       upper(coalesce(apelido, '')) LIKE upper($1)
+       OR upper(coalesce(razao_social, '')) LIKE upper($1)
+       OR upper(coalesce(apelido, '')) LIKE upper($2)
+       OR upper(coalesce(razao_social, '')) LIKE upper($2)
+     )
+     ORDER BY CASE WHEN tipo = 'loja' THEN 0 ELSE 1 END, length(apelido)
+     LIMIT 1`,
+    [`%${chave}%`, `%${nome}%`],
+  )
+  return rows[0] || null
+}
+
+async function previaPdf(buffer, nomeArquivo) {
+  try {
+    const parsed = await parsePdfDespesa(buffer, nomeArquivo)
+    const empresa = await empresaDoPdf(parsed)
+    let jaExistia = false
+    if (empresa && parsed.documento_ref) {
+      const dup = await pool.query(
+        `SELECT id::text AS id FROM despesas
+         WHERE empresa_origem_id = $1 AND documento_ref = $2 AND status <> 'cancelada'
+         LIMIT 1`,
+        [empresa.id, parsed.documento_ref],
+      )
+      jaExistia = !!dup.rows[0]
+    }
+    if (!empresa) {
+      return {
+        nome: nomeArquivo,
+        ok: false,
+        tipo: parsed.tipo,
+        descricao: parsed.descricao,
+        valor: parsed.valor,
+        vencimento: parsed.vencimento,
+        forma_pagamento: parsed.forma_pagamento,
+        cnpj: parsed.cnpj,
+        razao_social: parsed.razao_social,
+        documento_ref: parsed.documento_ref,
+        erro: parsed.cnpj
+          ? `CNPJ ${parsed.cnpj} não cadastrado no financeiro.`
+          : 'PDF sem CNPJ da empresa.',
+      }
+    }
+    return {
+      nome: nomeArquivo,
+      ok: true,
+      tipo: parsed.tipo,
+      descricao: parsed.descricao,
+      valor: parsed.valor,
+      vencimento: parsed.vencimento,
+      forma_pagamento: parsed.forma_pagamento,
+      dados_pagamento: parsed.dados_pagamento
+        ? String(parsed.dados_pagamento).slice(0, 48)
+        : null,
+      cnpj: parsed.cnpj,
+      empresa: empresa.apelido,
+      empresa_id: empresa.id,
+      documento_ref: parsed.documento_ref,
+      ja_existia: jaExistia,
+      erro: jaExistia ? 'Já existe na agenda (não duplica).' : null,
+    }
+  } catch (err) {
+    return { nome: nomeArquivo, ok: false, tipo: 'pdf', erro: err.message || 'Não leu o PDF.' }
+  }
+}
+
+async function previaXml(xml, nomeArquivo) {
+  try {
+    const { parseNfeXml } = await import('../services/nfeXml.js')
+    const parseada = parseNfeXml(xml)
+    const cnpj = String(parseada.destinatario?.cnpj || '').replace(/\D/g, '')
+    const empresa = cnpj.length >= 8 ? await empresaPorCnpj(cnpj) : null
+    if (!parseada.chave || String(parseada.chave).length !== 44) {
+      return { nome: nomeArquivo, ok: false, tipo: 'nfe_xml', erro: 'XML sem chave de acesso da NF-e.' }
+    }
+    if (!empresa) {
+      return {
+        nome: nomeArquivo,
+        ok: false,
+        tipo: 'nfe_xml',
+        descricao: parseada.emitente?.nome || `NF ${parseada.numero || ''}`.trim(),
+        valor: parseada.valor_total != null ? Number(parseada.valor_total) : null,
+        vencimento: parseada.emissao || null,
+        cnpj,
+        erro: cnpj ? `CNPJ ${cnpj} não cadastrado no financeiro.` : 'XML sem CNPJ do destinatário.',
+      }
+    }
+    return {
+      nome: nomeArquivo,
+      ok: true,
+      tipo: 'nfe_xml',
+      descricao: `${parseada.emitente?.nome || 'NF-e'} · NF ${parseada.numero || parseada.chave.slice(25, 34)}`.slice(0, 200),
+      valor: parseada.valor_total != null ? Number(parseada.valor_total) : null,
+      vencimento: parseada.emissao || null,
+      empresa: empresa.apelido,
+      empresa_id: empresa.id,
+      cnpj,
+      forma_pagamento: 'boleto',
+      documento_ref: `NF|${parseada.chave}`,
+    }
+  } catch (err) {
+    return { nome: nomeArquivo, ok: false, tipo: 'nfe_xml', erro: err.message || 'Não leu o XML.' }
+  }
+}
+
+async function lancarPdfNaAgenda(buffer, nomeArquivo, { paraAgenda = true } = {}) {
+  const parsed = await parsePdfDespesa(buffer, nomeArquivo)
+  const empresa = await empresaDoPdf(parsed)
+  if (!empresa) {
+    const err = new Error(
+      parsed.cnpj
+        ? `CNPJ ${parsed.cnpj} do PDF não está cadastrado em empresas do financeiro${parsed.razao_social ? ` (${parsed.razao_social})` : ''}.`
+        : 'PDF sem CNPJ da empresa. Cadastre a empresa no financeiro ou use um PDF com CNPJ legível.',
+    )
+    err.status = 400
+    throw err
+  }
+  const status = paraAgenda ? 'pronta' : 'rascunho'
+  if (parsed.documento_ref) {
+    const dup = await pool.query(
+      `SELECT id::text AS id, status FROM despesas
+       WHERE empresa_origem_id = $1 AND documento_ref = $2 AND status <> 'cancelada'
+       LIMIT 1`,
+      [empresa.id, parsed.documento_ref],
+    )
+    if (dup.rows[0]) {
+      return {
+        criadas: 0,
+        ja_existia: true,
+        id: dup.rows[0].id,
+        tipo: parsed.tipo,
+        descricao: parsed.descricao,
+        empresa: empresa.apelido,
+      }
+    }
+  }
+  const { rows } = await pool.query(`
+    INSERT INTO despesas (
+      id, descricao, empresa_origem_id, documento_ref, competencia, vencimento,
+      valor, forma_pagamento, dados_pagamento, status, fonte
+    ) VALUES (
+      gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, 'manual'
+    )
+    RETURNING id::text AS id
+  `, [
+    parsed.descricao,
+    empresa.id,
+    parsed.documento_ref,
+    parsed.competencia,
+    parsed.vencimento,
+    parsed.valor,
+    parsed.forma_pagamento,
+    parsed.dados_pagamento,
+    status,
+  ])
+  return {
+    criadas: 1,
+    ja_existia: false,
+    id: rows[0].id,
+    tipo: parsed.tipo,
+    descricao: parsed.descricao,
+    empresa: empresa.apelido,
+  }
+}
+
+async function lancarDda(selecionadas, { paraAgenda = false } = {}) {
   const contexto = await contextoDda()
   const prontas = classificar(selecionadas, contexto).filter((linha) => linha.pronto)
   let criadas = 0
+  const ids = []
   for (const linha of prontas) {
-    const status = linha.fornecedor_id ? 'classificada' : 'rascunho'
+    const status = paraAgenda ? 'pronta' : (linha.fornecedor_id ? 'classificada' : 'rascunho')
     const descricao = descricaoDda(linha)
-    await pool.query(`
+    const { rows } = await pool.query(`
       insert into despesas (
         id, descricao, fornecedor_id, empresa_origem_id, plano_conta_id,
         documento_ref, numero_nf, cnpj_cedente, competencia, vencimento, valor, forma_pagamento, dados_pagamento, status, fonte
       ) values (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'boleto',$11,$12,'dda')
+      returning id::text as id
     `, [
       descricao,
       linha.fornecedor_id,
@@ -209,9 +417,10 @@ async function lancarDda(selecionadas) {
       linha.codigo ? String(linha.codigo).trim() : null,
       status,
     ])
+    if (rows[0]?.id) ids.push(rows[0].id)
     criadas += 1
   }
-  return { criadas, ignoradas: selecionadas.length - criadas }
+  return { criadas, ignoradas: selecionadas.length - criadas, ids }
 }
 
 function ledgerSfg() {
@@ -877,7 +1086,116 @@ export async function handleFinance(req, res) {
         return send(res, 200, JSON.stringify({ linhas }))
       }
       const selecionadas = Array.isArray(body.linhas) ? body.linhas : []
-      return send(res, 201, JSON.stringify(await lancarDda(selecionadas)))
+      return send(res, 201, JSON.stringify(await lancarDda(selecionadas, { paraAgenda: body.para_agenda === true })))
+    }
+    if (req.method === 'POST' && (
+      url.pathname === '/api/despesas/importar-arquivos'
+      || url.pathname === '/api/despesas/importar-arquivos/previa'
+    )) {
+      const body = await readBody(req)
+      const arquivos = Array.isArray(body.arquivos) ? body.arquivos : []
+      if (!arquivos.length) {
+        return send(res, 400, JSON.stringify({ erro: 'Envie ao menos um arquivo (PDF, DDA ou XML de NF-e).' }))
+      }
+      const soPrevia = url.pathname.endsWith('/previa')
+      const paraAgenda = body.para_agenda !== false
+      const contexto = await contextoDda()
+      await garantirSchemaSefaz(pool)
+      const resultados = []
+      let criadas = 0
+      for (const item of arquivos.slice(0, 30)) {
+        const nome = String(item?.nome || 'arquivo').trim() || 'arquivo'
+        const b64 = String(item?.base64 || '')
+        if (!b64) {
+          resultados.push({ nome, ok: false, erro: 'Arquivo vazio.', criadas: 0 })
+          continue
+        }
+        const ext = nome.includes('.') ? nome.split('.').pop().toLowerCase() : ''
+        try {
+          if (ext === 'pdf') {
+            if (soPrevia) {
+              resultados.push(await previaPdf(Buffer.from(b64, 'base64'), nome))
+              continue
+            }
+            const r = await lancarPdfNaAgenda(Buffer.from(b64, 'base64'), nome, { paraAgenda })
+            criadas += r.criadas
+            resultados.push({
+              nome,
+              ok: true,
+              tipo: r.tipo || 'pdf',
+              criadas: r.criadas,
+              ja_existia: !!r.ja_existia,
+              id: r.id,
+              descricao: r.descricao,
+              empresa: r.empresa,
+            })
+            continue
+          }
+          if (ext === 'xml') {
+            if (soPrevia) {
+              resultados.push(await previaXml(Buffer.from(b64, 'base64').toString('utf8'), nome))
+              continue
+            }
+            const xml = Buffer.from(b64, 'base64').toString('utf8')
+            const lancado = await importarXmlNaAgenda(pool, xml)
+            const qtd = lancado.ja_existia ? 0 : (Number(lancado.quantidade) || 1)
+            criadas += qtd
+            resultados.push({
+              nome,
+              ok: true,
+              tipo: 'nfe_xml',
+              criadas: qtd,
+              ja_existia: !!lancado.ja_existia,
+              id: lancado.id,
+            })
+            continue
+          }
+          const linhas = classificar(lerArquivoDda(Buffer.from(b64, 'base64')), contexto)
+          const prontas = linhas.filter((l) => l.pronto)
+          if (soPrevia) {
+            const total = linhas.reduce((a, l) => a + (Number(l.valor) || 0), 0)
+            const prontasValor = prontas.reduce((a, l) => a + (Number(l.valor) || 0), 0)
+            resultados.push({
+              nome,
+              ok: prontas.length > 0,
+              tipo: 'dda',
+              descricao: `${prontas.length} de ${linhas.length} linha(s) prontas`,
+              valor: prontasValor || total || null,
+              vencimento: prontas[0]?.vencimento || linhas[0]?.vencimento || null,
+              empresa: prontas[0]?.empresa || linhas[0]?.empresa || null,
+              forma_pagamento: 'boleto',
+              linhas: linhas.length,
+              prontas: prontas.length,
+              erro: prontas.length ? null : 'Nenhuma linha pronta (confira colunas / CNPJ da loja).',
+            })
+            continue
+          }
+          if (!prontas.length) {
+            resultados.push({
+              nome,
+              ok: false,
+              tipo: 'dda',
+              erro: 'Nenhuma linha pronta para lançar (confira colunas / CNPJ da loja).',
+              criadas: 0,
+              linhas: linhas.length,
+            })
+            continue
+          }
+          const r = await lancarDda(prontas, { paraAgenda })
+          criadas += r.criadas
+          resultados.push({
+            nome,
+            ok: true,
+            tipo: 'dda',
+            criadas: r.criadas,
+            ignoradas: r.ignoradas,
+            ids: r.ids,
+          })
+        } catch (err) {
+          resultados.push({ nome, ok: false, erro: err.message || 'Não importou.', criadas: 0 })
+        }
+      }
+      return send(res, soPrevia ? 200 : 201, JSON.stringify({ criadas, resultados }))
     }
     if (req.method === 'GET' && url.pathname === '/api/dda/sfg') {
       return send(res, 200, JSON.stringify(estadoSfg))

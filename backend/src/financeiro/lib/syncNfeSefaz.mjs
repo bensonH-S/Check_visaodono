@@ -914,6 +914,50 @@ function parcelasDaNota(nota) {
   }]
 }
 
+/** Grava XML de NF-e enviado pelo usuário e lança o(s) título(s) na agenda. */
+export async function importarXmlNaAgenda(financePool, xmlBruto) {
+  await garantirSchemaSefaz(financePool)
+  await garantirFonteNfe(financePool)
+  const parseada = parseNfeXml(xmlBruto)
+  if (!parseada.chave || String(parseada.chave).length !== 44) {
+    throw erroStatus(400, 'XML sem chave de acesso da NF-e.')
+  }
+  const cnpjDest = String(parseada.destinatario?.cnpj || '').replace(/\D/g, '')
+  if (cnpjDest.length !== 14) {
+    throw erroStatus(400, 'XML sem CNPJ do destinatário (loja).')
+  }
+  const empresa = await financePool.query(
+    `SELECT id FROM empresas
+     WHERE regexp_replace(COALESCE(cnpj, ''), '\\D', '', 'g') = $1 AND ativo
+     LIMIT 1`,
+    [cnpjDest],
+  )
+  if (!empresa.rows[0]) {
+    throw erroStatus(400, `Nenhuma empresa financeira para o CNPJ ${cnpjDest}.`)
+  }
+  await gravarFinance(financePool, {
+    empresa_id: empresa.rows[0].id,
+    cnpj_empresa: cnpjDest,
+    chave: parseada.chave,
+    numero: parseada.numero || null,
+    serie: parseada.serie || null,
+    emissao: parseada.emissao || null,
+    emitente_cnpj: String(parseada.emitente?.cnpj || '').replace(/\D/g, '') || null,
+    emitente_nome: parseada.emitente?.nome || null,
+    valor_total: parseada.valor_total,
+    situacao: 'autorizada',
+    tem_xml: true,
+    nsu: null,
+    xml: String(xmlBruto || ''),
+  })
+  const achada = await financePool.query(
+    `SELECT id FROM nfe_recebida WHERE chave = $1 ORDER BY atualizado_em DESC LIMIT 1`,
+    [parseada.chave],
+  )
+  if (!achada.rows[0]) throw erroStatus(500, 'Não gravou a nota no financeiro.')
+  return lancarNotaNaAgenda(financePool, achada.rows[0].id)
+}
+
 export async function lancarNotaNaAgenda(financePool, id) {
   await garantirSchemaSefaz(financePool)
   await garantirFonteNfe(financePool)

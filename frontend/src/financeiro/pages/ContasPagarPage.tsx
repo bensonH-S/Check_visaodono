@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
 import Chip from '@mui/material/Chip'
 import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
@@ -11,6 +12,7 @@ import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import Drawer from '@mui/material/Drawer'
 import IconButton from '@mui/material/IconButton'
+import LinearProgress from '@mui/material/LinearProgress'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Snackbar from '@mui/material/Snackbar'
@@ -27,7 +29,11 @@ import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined'
 import CheckIcon from '@mui/icons-material/Check'
+import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
+import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined'
+import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
 import { api, brl, type Despesa, type Empresa, type Fornecedor } from '../api'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
@@ -105,6 +111,17 @@ function periodoAtual() {
   return { de: dataLocal(inicio), ate: dataLocal(fim) }
 }
 
+function arquivoBase64(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer)
+  let binario = ''
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binario += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  }
+  return btoa(binario)
+}
+
+const EXT_OK = /\.(pdf|xlsx|xls|csv|ret|txt|rem|cnab|xml)$/i
+
 export function ContasPagarPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
@@ -126,6 +143,7 @@ export function ContasPagarPage() {
   const [aviso, setAviso] = useState('')
   const [erroExcluir, setErroExcluir] = useState('')
   const [erroBanco, setErroBanco] = useState('')
+  const [importarAberto, setImportarAberto] = useState(false)
 
   const carregar = (empresa = loja) => api.despesas(empresa || undefined).then((rows) => {
     setDespesas(rows)
@@ -209,6 +227,14 @@ export function ContasPagarPage() {
         <Box sx={{ flex: 1 }} />
         <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/inbox')}>{t('Inbox', 'Inbox')}</Button>
         <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')}>{t('Coletar DDA', 'Pull DDA')}</Button>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<UploadFileOutlinedIcon sx={{ fontSize: 16 }} />}
+          onClick={() => setImportarAberto(true)}
+        >
+          {t('Importar', 'Import')}
+        </Button>
         <Button size="small" variant="contained" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAberto(true)}>{t('Nova despesa', 'New expense')}</Button>
       </Stack>
 
@@ -389,10 +415,544 @@ export function ContasPagarPage() {
         onFechar={() => { setAberto(false); setEditando(null) }}
         onSalvou={(mensagem) => { setAberto(false); setEditando(null); carregar(); setAviso(mensagem) }}
       />
+      <ImportarArquivosDialog
+        aberto={importarAberto}
+        onFechar={() => setImportarAberto(false)}
+        onImportou={(mensagem) => {
+          carregar()
+          setAviso(mensagem)
+        }}
+      />
       <Snackbar open={!!aviso} autoHideDuration={3200} onClose={() => setAviso('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity="success" variant="filled" onClose={() => setAviso('')}>{aviso}</Alert>
       </Snackbar>
     </Stack>
+  )
+}
+
+type PreviaLinha = {
+  nome: string
+  ok: boolean
+  tipo?: string
+  descricao?: string | null
+  valor?: number | null
+  vencimento?: string | null
+  empresa?: string | null
+  forma_pagamento?: string | null
+  cnpj?: string | null
+  erro?: string | null
+  ja_existia?: boolean
+}
+
+function ImportarArquivosDialog({
+  aberto,
+  onFechar,
+  onImportou,
+}: {
+  aberto: boolean
+  onFechar: () => void
+  onImportou: (mensagem: string) => void
+}) {
+  const { t } = usePrefs()
+  const input = useRef<HTMLInputElement>(null)
+  const [arquivos, setArquivos] = useState<File[]>([])
+  const [previa, setPrevia] = useState<PreviaLinha[]>([])
+  const [marcadas, setMarcadas] = useState<Record<string, boolean>>({})
+  const [lendo, setLendo] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState('')
+  const [sucesso, setSucesso] = useState('')
+  const [resultado, setResultado] = useState<Array<{ nome: string; ok: boolean; texto: string }>>([])
+
+  const reset = () => {
+    setArquivos([])
+    setPrevia([])
+    setMarcadas({})
+    setErro('')
+    setSucesso('')
+    setResultado([])
+    setLendo(false)
+    setEnviando(false)
+    if (input.current) input.current.value = ''
+  }
+
+  useEffect(() => {
+    if (!aberto) reset()
+  }, [aberto])
+
+  const lerPrevia = async (lista: File[]) => {
+    if (!lista.length) {
+      setPrevia([])
+      setMarcadas({})
+      return
+    }
+    setLendo(true)
+    setErro('')
+    setSucesso('')
+    setResultado([])
+    try {
+      const payload = await Promise.all(
+        lista.map(async (f) => ({
+          nome: f.name,
+          base64: arquivoBase64(await f.arrayBuffer()),
+        })),
+      )
+      const r = await api.previaImportarArquivos(payload)
+      const linhas = r.resultados || []
+      setPrevia(linhas)
+      const next: Record<string, boolean> = {}
+      for (const linha of linhas) {
+        next[linha.nome] = !!linha.ok && !linha.ja_existia
+      }
+      setMarcadas(next)
+      if (!linhas.length) {
+        setErro(t('Nada foi lido nos arquivos.', 'Nothing was read from the files.'))
+      } else if (linhas.every((l) => !l.ok && !l.ja_existia)) {
+        setErro(t('Nenhum arquivo pronto para gerar despesa.', 'No file ready to create an expense.'))
+      }
+    } catch (err) {
+      setPrevia([])
+      setMarcadas({})
+      setErro(err instanceof Error ? err.message : t('Não leu os arquivos', 'Could not read the files'))
+    } finally {
+      setLendo(false)
+    }
+  }
+
+  const escolher = (lista: FileList | null) => {
+    if (!lista?.length) return
+    const novos = Array.from(lista).filter((f) => EXT_OK.test(f.name))
+    if (!novos.length) {
+      setErro(t(
+        'Tipo inválido. Use PDF (GFD, DARF/PGFN, TRCT, férias), DDA (xlsx, csv, ret, txt) ou XML de NF-e.',
+        'Invalid type. Use PDF (GFD, DARF/PGFN, TRCT, vacation), DDA (xlsx, csv, ret, txt) or NF-e XML.',
+      ))
+      return
+    }
+    const mesclados = (() => {
+      const nomes = new Set(arquivos.map((f) => f.name))
+      return [...arquivos, ...novos.filter((f) => !nomes.has(f.name))].slice(0, 30)
+    })()
+    setArquivos(mesclados)
+    if (input.current) input.current.value = ''
+    void lerPrevia(mesclados)
+  }
+
+  const remover = (nome: string) => {
+    const resto = arquivos.filter((f) => f.name !== nome)
+    setArquivos(resto)
+    void lerPrevia(resto)
+  }
+
+  const selecionaveis = previa.filter((p) => p.ok && !p.ja_existia)
+  const marcarQtd = selecionaveis.filter((p) => marcadas[p.nome]).length
+
+  const confirmar = async () => {
+    const escolhidos = arquivos.filter((f) => marcadas[f.name])
+    if (!escolhidos.length) {
+      setErro(t('Marque ao menos um arquivo pronto na prévia.', 'Select at least one ready file in the preview.'))
+      return
+    }
+    setEnviando(true)
+    setErro('')
+    setSucesso('')
+    setResultado([])
+    try {
+      const payload = await Promise.all(
+        escolhidos.map(async (f) => ({
+          nome: f.name,
+          base64: arquivoBase64(await f.arrayBuffer()),
+        })),
+      )
+      const r = await api.importarArquivosAgenda(payload)
+      const linhas = (r.resultados || []).map((item) => ({
+        nome: item.nome,
+        ok: !!item.ok,
+        texto: item.ok
+          ? (item.ja_existia
+            ? t('Já estava na agenda', 'Already on the agenda')
+            : t(`${item.criadas || 0} despesa(s) · ${item.empresa || item.descricao || ''}`, `${item.criadas || 0} expense(s) · ${item.empresa || item.descricao || ''}`))
+          : (item.erro || t('Falhou', 'Failed')),
+      }))
+      setResultado(linhas)
+      if (r.criadas > 0) {
+        const msg = r.criadas === 1
+          ? t('1 despesa gerada na agenda.', '1 expense added to the agenda.')
+          : t(`${r.criadas} despesas geradas na agenda.`, `${r.criadas} expenses added to the agenda.`)
+        setSucesso(msg)
+        onImportou(msg)
+      } else if (linhas.some((l) => l.ok)) {
+        const msg = t('Arquivos processados (já existiam).', 'Files processed (already existed).')
+        setSucesso(msg)
+        onImportou(msg)
+      } else {
+        setErro(t('Nenhuma despesa criada. Veja o detalhe abaixo.', 'No expense created. See details below.'))
+      }
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : t('Não importou', 'Import failed'))
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  const dataBr = (iso?: string | null) => {
+    if (!iso) return '—'
+    const [a, m, d] = iso.slice(0, 10).split('-')
+    return d && m && a ? `${d}/${m}/${a}` : iso
+  }
+
+  const rotuloTipo = (tipo?: string) => {
+    const mapa: Record<string, [string, string]> = {
+      ferias: ['Férias', 'Vacation'],
+      gfd: ['GFD FGTS', 'GFD FGTS'],
+      darf: ['DARF / PGFN', 'DARF / PGFN'],
+      trct: ['Rescisão', 'Termination'],
+      dda: ['DDA', 'DDA'],
+      nfe_xml: ['NF-e', 'NF-e'],
+      pdf: ['PDF', 'PDF'],
+    }
+    const par = mapa[(tipo || '').toLowerCase()]
+    return par ? t(par[0], par[1]) : (tipo || 'DOC').toUpperCase()
+  }
+
+  const rotuloForma = (forma?: string | null) => {
+    if (!forma) return null
+    return CODIGO[forma] || forma
+  }
+
+  const prontos = previa.filter((p) => p.ok && !p.ja_existia).length
+  const existentes = previa.filter((p) => p.ja_existia).length
+  const comErro = previa.filter((p) => !p.ok && !p.ja_existia).length
+  const totalMarcado = selecionaveis
+    .filter((p) => marcadas[p.nome])
+    .reduce((a, p) => a + (Number(p.valor) || 0), 0)
+
+  return (
+    <Dialog
+      open={aberto}
+      onClose={() => { if (!enviando && !lendo) onFechar() }}
+      fullWidth
+      maxWidth="sm"
+      slotProps={{ paper: { sx: { borderRadius: 2.5 } } }}
+    >
+      <DialogTitle sx={{ pb: 0.5, fontWeight: 650, letterSpacing: '-0.02em' }}>
+        {t('Importar para a agenda', 'Import to bank agenda')}
+      </DialogTitle>
+      <DialogContent sx={{ pt: '12px !important' }}>
+        <Stack spacing={1.75}>
+          <input
+            ref={input}
+            type="file"
+            hidden
+            multiple
+            accept=".pdf,.xlsx,.xls,.csv,.ret,.txt,.rem,.cnab,.xml,application/pdf,application/xml,text/xml"
+            onChange={(ev) => escolher(ev.target.files)}
+          />
+
+          {previa.length === 0 && !lendo ? (
+            <Box
+              onClick={() => { if (!enviando) input.current?.click() }}
+              onDragOver={(ev) => { ev.preventDefault(); ev.stopPropagation() }}
+              onDrop={(ev) => {
+                ev.preventDefault()
+                if (!enviando) escolher(ev.dataTransfer.files)
+              }}
+              sx={{
+                border: '1.5px dashed',
+                borderColor: 'divider',
+                borderRadius: 2,
+                px: 2.5,
+                py: 4,
+                textAlign: 'center',
+                cursor: 'pointer',
+                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(15,23,42,0.02)',
+                transition: 'border-color .15s, background-color .15s',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(27,110,243,0.08)' : 'rgba(27,110,243,0.04)',
+                },
+              }}
+            >
+              <UploadFileOutlinedIcon sx={{ fontSize: 32, color: 'primary.main', mb: 1, opacity: 0.9 }} />
+              <Typography sx={{ fontSize: 14, fontWeight: 650, letterSpacing: '-0.01em' }}>
+                {t('Solte os arquivos aqui', 'Drop files here')}
+              </Typography>
+              <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.5, maxWidth: 320, mx: 'auto', lineHeight: 1.45 }}>
+                {t(
+                  'PDF (GFD, DARF, TRCT, férias), DDA ou XML de NF-e. A prévia abre na hora.',
+                  'PDF (GFD, DARF, TRCT, vacation), DDA or NF-e XML. Preview opens right away.',
+                )}
+              </Typography>
+              <Button size="small" variant="outlined" sx={{ mt: 1.75 }} disabled={enviando}>
+                {t('Escolher arquivos', 'Choose files')}
+              </Button>
+            </Box>
+          ) : (
+            <Stack direction="row" spacing={1} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<UploadFileOutlinedIcon sx={{ fontSize: 16 }} />}
+                onClick={() => input.current?.click()}
+                disabled={lendo || enviando}
+              >
+                {t('Adicionar', 'Add more')}
+              </Button>
+              <Button size="small" disabled={lendo || enviando} onClick={() => reset()} sx={{ color: 'text.secondary' }}>
+                {t('Limpar', 'Clear')}
+              </Button>
+              {previa.length > 0 && (
+                <Typography sx={{ fontSize: 12, color: 'text.secondary', ml: 'auto' }}>
+                  {prontos > 0 && t(`${prontos} novo${prontos === 1 ? '' : 's'}`, `${prontos} new`)}
+                  {existentes > 0 && (prontos > 0 ? ' · ' : '') + t(`${existentes} já na agenda`, `${existentes} already on agenda`)}
+                  {comErro > 0 && ((prontos + existentes) > 0 ? ' · ' : '') + t(`${comErro} com erro`, `${comErro} with error`)}
+                </Typography>
+              )}
+            </Stack>
+          )}
+
+          {(lendo || enviando) && <LinearProgress sx={{ borderRadius: 1 }} />}
+          {erro && <Alert severity="error" sx={{ py: 0.5 }}>{erro}</Alert>}
+          {sucesso && <Alert severity="success" sx={{ py: 0.5 }}>{sucesso}</Alert>}
+
+          {previa.length > 0 && (
+            <Stack spacing={1.25} sx={{ maxHeight: 420, overflow: 'auto', pr: 0.25 }}>
+              {previa.map((p) => {
+                const pode = p.ok && !p.ja_existia
+                const marcada = !!marcadas[p.nome]
+                const pdf = p.nome.toLowerCase().endsWith('.pdf')
+                const borda = p.ja_existia
+                  ? 'rgba(245,158,11,0.45)'
+                  : !p.ok
+                    ? 'rgba(239,68,68,0.4)'
+                    : marcada
+                      ? 'primary.main'
+                      : 'divider'
+                const fundo = p.ja_existia
+                  ? 'rgba(245,158,11,0.05)'
+                  : !p.ok
+                    ? 'rgba(239,68,68,0.04)'
+                    : marcada
+                      ? 'rgba(27,110,243,0.06)'
+                      : 'background.paper'
+                return (
+                  <Box
+                    key={p.nome}
+                    onClick={() => {
+                      if (!pode || lendo || enviando) return
+                      setMarcadas((m) => ({ ...m, [p.nome]: !m[p.nome] }))
+                    }}
+                    sx={{
+                      position: 'relative',
+                      border: '1px solid',
+                      borderColor: borda,
+                      bgcolor: fundo,
+                      borderRadius: 2,
+                      px: 1.75,
+                      py: 1.5,
+                      cursor: pode ? 'pointer' : 'default',
+                      transition: 'border-color .12s, background-color .12s',
+                    }}
+                  >
+                    <Stack direction="row" spacing={1.25} sx={{ alignItems: 'flex-start' }}>
+                      <Box
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 1.25,
+                          display: 'grid',
+                          placeItems: 'center',
+                          flexShrink: 0,
+                          bgcolor: pdf ? 'rgba(220,38,38,0.1)' : 'rgba(27,110,243,0.1)',
+                          color: pdf ? '#DC2626' : 'primary.main',
+                        }}
+                      >
+                        {pdf
+                          ? <PictureAsPdfOutlinedIcon sx={{ fontSize: 22 }} />
+                          : <DescriptionOutlinedIcon sx={{ fontSize: 22 }} />}
+                      </Box>
+
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Stack direction="row" spacing={0.75} sx={{ alignItems: 'center', flexWrap: 'wrap', mb: 0.35 }}>
+                          <Chip
+                            size="small"
+                            label={rotuloTipo(p.tipo)}
+                            sx={{ height: 20, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.02em' }}
+                          />
+                          {p.empresa && (
+                            <Typography sx={{ fontSize: 12, fontWeight: 650, color: 'text.primary' }}>
+                              {p.empresa}
+                            </Typography>
+                          )}
+                          {p.ja_existia && (
+                            <Chip
+                              size="small"
+                              label={t('Já na agenda', 'Already on agenda')}
+                              sx={{
+                                height: 20,
+                                fontSize: 10.5,
+                                fontWeight: 600,
+                                bgcolor: 'rgba(245,158,11,0.12)',
+                                color: '#B45309',
+                                border: 'none',
+                              }}
+                            />
+                          )}
+                          {!p.ok && !p.ja_existia && (
+                            <Chip
+                              size="small"
+                              label={t('Não leu', 'Failed')}
+                              sx={{
+                                height: 20,
+                                fontSize: 10.5,
+                                fontWeight: 600,
+                                bgcolor: 'rgba(239,68,68,0.1)',
+                                color: '#B91C1C',
+                                border: 'none',
+                              }}
+                            />
+                          )}
+                          {pode && marcada && (
+                            <Chip
+                              size="small"
+                              icon={<CheckIcon sx={{ fontSize: '14px !important' }} />}
+                              label={t('Selecionado', 'Selected')}
+                              sx={{
+                                height: 20,
+                                fontSize: 10.5,
+                                fontWeight: 600,
+                                bgcolor: 'rgba(27,110,243,0.12)',
+                                color: '#0D4ECC',
+                                border: 'none',
+                                '& .MuiChip-icon': { color: '#0D4ECC' },
+                              }}
+                            />
+                          )}
+                        </Stack>
+
+                        <Typography sx={{ fontSize: 14.5, fontWeight: 650, letterSpacing: '-0.02em', lineHeight: 1.3 }}>
+                          {p.descricao || t('Sem descrição', 'No description')}
+                        </Typography>
+
+                        <Stack direction="row" spacing={1.5} sx={{ mt: 0.65, flexWrap: 'wrap', color: 'text.secondary' }}>
+                          <Typography sx={{ fontSize: 12 }}>
+                            {t('Venc.', 'Due')} {dataBr(p.vencimento)}
+                          </Typography>
+                          {rotuloForma(p.forma_pagamento) && (
+                            <Typography sx={{ fontSize: 12 }}>{rotuloForma(p.forma_pagamento)}</Typography>
+                          )}
+                          {p.cnpj && (
+                            <Typography sx={{ fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                              CNPJ {p.cnpj.length === 14
+                                ? p.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5')
+                                : p.cnpj}
+                            </Typography>
+                          )}
+                        </Stack>
+
+                        <Typography
+                          sx={{
+                            fontSize: 11,
+                            color: 'text.disabled',
+                            mt: 0.55,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                          title={p.nome}
+                        >
+                          {p.nome}
+                        </Typography>
+
+                        {!p.ok && !p.ja_existia && p.erro && (
+                          <Typography sx={{ fontSize: 12, color: 'error.main', mt: 0.6, lineHeight: 1.35 }}>
+                            {p.erro}
+                          </Typography>
+                        )}
+                        {p.ja_existia && (
+                          <Typography sx={{ fontSize: 12, color: '#B45309', mt: 0.6, lineHeight: 1.35 }}>
+                            {t('Esse lançamento já está na agenda — não será duplicado.', 'This entry is already on the agenda — it won’t be duplicated.')}
+                          </Typography>
+                        )}
+                      </Box>
+
+                      <Stack spacing={0.5} sx={{ alignItems: 'flex-end', flexShrink: 0, pl: 0.5 }}>
+                        <Typography
+                          sx={{
+                            fontSize: 17,
+                            fontWeight: 700,
+                            letterSpacing: '-0.03em',
+                            fontVariantNumeric: 'tabular-nums',
+                            lineHeight: 1.15,
+                            color: p.ok || p.ja_existia ? 'text.primary' : 'text.disabled',
+                          }}
+                        >
+                          {p.valor != null && Number.isFinite(Number(p.valor)) ? brl(Number(p.valor)) : '—'}
+                        </Typography>
+                        <Stack direction="row" spacing={0.25} sx={{ alignItems: 'center' }}>
+                          {pode && (
+                            <Checkbox
+                              size="small"
+                              checked={marcada}
+                              disabled={lendo || enviando}
+                              onClick={(ev) => ev.stopPropagation()}
+                              onChange={(ev) => setMarcadas((m) => ({ ...m, [p.nome]: ev.target.checked }))}
+                              sx={{ p: 0.35 }}
+                            />
+                          )}
+                          <IconButton
+                            size="small"
+                            disabled={lendo || enviando}
+                            aria-label={t('Remover', 'Remove')}
+                            onClick={(ev) => { ev.stopPropagation(); remover(p.nome) }}
+                            sx={{ color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}
+                          >
+                            <CloseIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Stack>
+                      </Stack>
+                    </Stack>
+                  </Box>
+                )
+              })}
+            </Stack>
+          )}
+
+          {resultado.length > 0 && (
+            <Stack spacing={0.4} sx={{ pt: 0.25 }}>
+              {resultado.map((d) => (
+                <Typography key={d.nome} sx={{ fontSize: 12.5, color: d.ok ? 'success.main' : 'error.main' }}>
+                  {d.ok ? '✓' : '✗'} {d.texto || d.nome}
+                </Typography>
+              ))}
+            </Stack>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2, pt: 1, gap: 1, justifyContent: 'space-between' }}>
+        <Typography sx={{ fontSize: 12.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+          {marcarQtd > 0
+            ? t(`${marcarQtd} selecionada${marcarQtd === 1 ? '' : 's'} · ${brl(totalMarcado)}`, `${marcarQtd} selected · ${brl(totalMarcado)}`)
+            : previa.length > 0
+              ? t('Nada selecionado para gerar', 'Nothing selected to create')
+              : ' '}
+        </Typography>
+        <Stack direction="row" spacing={1}>
+          <Button onClick={onFechar} disabled={enviando}>{t('Fechar', 'Close')}</Button>
+          <Button
+            variant="contained"
+            onClick={confirmar}
+            disabled={enviando || lendo || marcarQtd === 0}
+          >
+            {enviando
+              ? t('Gerando…', 'Creating…')
+              : marcarQtd === 0
+                ? t('Confirmar', 'Confirm')
+                : t(`Gerar ${marcarQtd} despesa${marcarQtd === 1 ? '' : 's'}`, `Create ${marcarQtd} expense${marcarQtd === 1 ? '' : 's'}`)}
+          </Button>
+        </Stack>
+      </DialogActions>
+    </Dialog>
   )
 }
 

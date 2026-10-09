@@ -467,15 +467,66 @@ export const api = {
     const res = await financeFetch(`${apiRoot}/config/bb/coletar`, { method: 'POST' })
     if (!res.ok) throw new Error('Não iniciou a coleta')
   },
-  importarDda: async (linhas: LinhaDda[]) => {
+  importarDda: async (linhas: LinhaDda[], opts?: { paraAgenda?: boolean }) => {
     const res = await financeFetch(`${apiRoot}/dda/importar`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ linhas }),
+      body: JSON.stringify({ linhas, para_agenda: opts?.paraAgenda === true }),
     })
     const data = await res.json()
     if (!res.ok) throw new Error(data.erro || 'Não importou')
-    return data as { criadas: number; ignoradas: number }
+    return data as { criadas: number; ignoradas: number; ids?: string[] }
+  },
+  /** Prévia: lê PDF/DDA/XML sem gravar. */
+  previaImportarArquivos: async (arquivos: Array<{ nome: string; base64: string }>) => {
+    const res = await financeFetch(`${apiRoot}/despesas/importar-arquivos/previa`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ arquivos }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.erro || data.error || 'Não leu os arquivos')
+    return data as {
+      resultados: Array<{
+        nome: string
+        ok: boolean
+        tipo?: string
+        descricao?: string | null
+        valor?: number | null
+        vencimento?: string | null
+        empresa?: string | null
+        forma_pagamento?: string | null
+        cnpj?: string | null
+        erro?: string | null
+        ja_existia?: boolean
+        prontas?: number
+        linhas?: number
+      }>
+    }
+  },
+  /** PDF (GFD/DARF/TRCT/férias), DDA e XML de NF-e → cria despesas na Agenda banco. */
+  importarArquivosAgenda: async (arquivos: Array<{ nome: string; base64: string }>) => {
+    const res = await financeFetch(`${apiRoot}/despesas/importar-arquivos`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ arquivos, para_agenda: true }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.erro || data.error || 'Não importou os arquivos')
+    return data as {
+      criadas: number
+      resultados: Array<{
+        nome: string
+        ok: boolean
+        tipo?: string
+        criadas?: number
+        ignoradas?: number
+        erro?: string
+        ja_existia?: boolean
+        descricao?: string
+        empresa?: string
+      }>
+    }
   },
   atualizarDespesa: async (id: string, body: Record<string, unknown>) => {
     const res = await financeFetch(`${apiRoot}/despesas/${id}`, {
