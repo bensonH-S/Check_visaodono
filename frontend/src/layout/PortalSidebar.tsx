@@ -158,16 +158,15 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
       <Box
         sx={{
           px: 1.5,
-          pt: 1.25,
-          pb: 0.85,
           height: layout.brandBarHeight,
           boxSizing: 'border-box',
           display: 'flex',
-          alignItems: 'flex-end',
+          alignItems: 'center',
+          justifyContent: 'center',
           flexShrink: 0,
         }}
       >
-        <MeridianMarca sx={{ width: '100%' }} />
+        <MeridianMarca sx={{ width: '92%', maxWidth: 200 }} />
       </Box>
 
       <Box
