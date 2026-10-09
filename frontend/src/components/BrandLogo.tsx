@@ -1,11 +1,11 @@
 import Box from '@mui/material/Box';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GRUPO_ALVIM } from '../config/paths';
+import { assetUrl, LOGO_MERIDIAN_LOCKUP } from '../config/paths';
 
 type BrandLogoProps = {
   maxWidth?: number | { xs?: number; sm?: number; md?: number };
   sx?: SxProps<Theme>;
-  /** `full` = wordmark; `icone` = Logo_Alvim_Icone (mobile/PWA). */
+  /** Mantido por compatibilidade — as duas variantes usam o lockup Meridian. */
   variante?: 'full' | 'icone';
   /** Desliga o scale no hover (ex.: sidebar com crop). */
   disableHover?: boolean;
@@ -14,15 +14,13 @@ type BrandLogoProps = {
 export default function BrandLogo({
   maxWidth = 200,
   sx,
-  variante = 'full',
   disableHover = false,
 }: BrandLogoProps) {
-  const src = assetUrl(variante === 'icone' ? LOGO_ALVIM_ICONE : LOGO_GRUPO_ALVIM);
   return (
     <Box
       component="img"
-      src={src}
-      alt="Grupo Alvim"
+      src={`${assetUrl(LOGO_MERIDIAN_LOCKUP)}?v=oficial1`}
+      alt="Meridian"
       sx={[
         {
           width: '100%',

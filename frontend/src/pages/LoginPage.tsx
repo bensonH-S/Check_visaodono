@@ -21,15 +21,12 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { assetUrl, normalizeAppRoute } from '../config/paths';
 import { isMobileDevice } from '../utils/device';
-import { APP_TAGLINE } from '../config/brand';
-
 import { ThemeProvider } from '@mui/material/styles';
 import { lightTheme } from '../theme';
 
 const FUNDO_LOGIN = `${assetUrl('Fundo_Principal.png')}?v=fill-ok`;
 const PAGE_BG = '#e8e8e8';
 const NAVY = '#1B6EF3';
-const FEATURES = APP_TAGLINE.split(' · ');
 const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos S/A';
 
 const loginFieldSx = {
@@ -220,80 +217,9 @@ export default function LoginPage() {
                 borderBottom: '1px solid rgba(27, 110, 243, 0.28)',
               }}
             >
-              <MeridianMarca variant="lockup" sx={{ width: '100%', maxWidth: 320, mx: 'auto' }} />
+              <MeridianMarca variant="lockup" sx={{ width: '100%', maxWidth: 300, mx: 'auto' }} />
             </Box>
-            <Box sx={{ px: { xs: 1.25, sm: 1.75 }, pt: { xs: 1.5, sm: 2 }, pb: { xs: 2.25, sm: 2.75 } }}>
-
-              <Box
-                sx={{
-                  display: 'inline-flex',
-                  flexWrap: 'wrap',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: { xs: 0.45, sm: 0.6 },
-                  mt: { xs: 0.25, sm: 0.5 },
-                  mb: { xs: 0.5, sm: 0.65 },
-                  py: { xs: 0.45, sm: 0.55 },
-                  px: { xs: 0.75, sm: 0.9 },
-                  mx: 'auto',
-                  borderRadius: 1,
-                  bgcolor: 'rgba(27, 42, 107, 0.06)',
-                  border: '1px solid rgba(27, 42, 107, 0.08)',
-                  maxWidth: '100%',
-                }}
-              >
-                {FEATURES.map((label, index) => (
-                  <Box
-                    key={label}
-                    component="span"
-                    sx={{ display: 'inline-flex', alignItems: 'center', gap: { xs: 0.45, sm: 0.6 } }}
-                  >
-                    {index > 0 && (
-                      <Typography
-                        component="span"
-                        sx={{
-                          color: '#E8520A',
-                          fontSize: { xs: '0.6rem', sm: '0.64rem', md: '0.66rem' },
-                          fontWeight: 600,
-                          lineHeight: 1,
-                          opacity: 0.8,
-                        }}
-                      >
-                        |
-                      </Typography>
-                    )}
-                    <Typography
-                      component="span"
-                      sx={{
-                        color: NAVY,
-                        lineHeight: 1.2,
-                        fontSize: { xs: '0.68rem', sm: '0.72rem', md: '0.76rem' },
-                        fontWeight: 600,
-                        letterSpacing: '0.01em',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {label}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-
-              <Typography
-                sx={{
-                  lineHeight: 1.4,
-                  fontSize: { xs: '0.78rem', sm: '0.82rem', md: '0.85rem' },
-                  fontWeight: 500,
-                  color: NAVY,
-                  opacity: 0.8,
-                  mt: 0,
-                  mb: { xs: 2, sm: 2.25 },
-                  px: 0.5,
-                }}
-              >
-                Visão operacional das unidades do Grupo.
-              </Typography>
-
+            <Box sx={{ px: { xs: 1.25, sm: 1.75 }, pt: { xs: 2, sm: 2.5 }, pb: { xs: 2.25, sm: 2.75 } }}>
               <Box
                 component="form"
                 noValidate

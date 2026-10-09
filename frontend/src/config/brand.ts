@@ -1,16 +1,15 @@
 /** Nome do produto exibido na interface */
 export const APP_NAME = 'Meridian';
 
-/** Linha curta para login desktop (chips) e referências gerais */
-export const APP_TAGLINE = 'Checklist · Chamados · Energia · Frota · Estoque · Financeiro · Visitas · Freelas';
+/** Linha da marca — curta, sem lista de módulos */
+export const APP_TAGLINE = 'Gestão financeira e operacional';
 
-/** Subtítulo do login mobile — cobre o conjunto operacional, não só manutenção */
-export const APP_LOGIN_SUBTITLE =
-  'Checklist, chamados, frota, estoque, financeiro, visitas, freelas e operação das lojas.';
+/** Subtítulo do login mobile */
+export const APP_LOGIN_SUBTITLE = 'Gestão financeira e operacional das unidades.';
 
 /** Descrição do produto no diálogo Sobre */
 export const APP_ABOUT =
-  'Plataforma do Grupo Alvim para a rotina das unidades: checklist e visitas, chamados de manutenção, energia, frota, estoque, NCs, freelancers, mapa de técnicos, metas e financeiro (contas a pagar, caixa, DDA) — com visão de dono em um só lugar.';
+  'Meridian — gestão financeira e operacional do Grupo Alvim: checklist, visitas, chamados, energia, frota, estoque, NCs, freelancers, metas e financeiro em um só lugar.';
 
 export const APP_MODULES = [
   'Checklist e visitas',

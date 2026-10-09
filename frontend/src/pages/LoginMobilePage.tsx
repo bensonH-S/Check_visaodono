@@ -18,8 +18,8 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { formatMobileVersionNumber } from '../components/MobileVersionBadge';
-import { assetUrl, LOGO_ALVIM_ICONE } from '../config/paths';
-import { APP_NAME, APP_LOGIN_SUBTITLE } from '../config/brand';
+import MeridianMarca from '../brand/MeridianMarca';
+import { assetUrl } from '../config/paths';
 import { MOBILE_VIEWPORT } from '../theme/safeArea';
 import './login-mobile.css';
 
@@ -128,19 +128,8 @@ export default function LoginMobilePage() {
         >
           <div className="ck-login__stage-veil" aria-hidden />
 
-          <img
-            src={assetUrl(LOGO_ALVIM_ICONE)}
-            alt=""
-            className="ck-login__logo"
-            width={104}
-            height={104}
-          />
-          <div className="ck-login__stage-inner">
-            <p className="ck-login__mark">Grupo Alvim</p>
-            <h1 className="ck-login__title">{APP_NAME}</h1>
-            <p className="ck-login__sub">
-              {APP_LOGIN_SUBTITLE}
-            </p>
+          <div className="ck-login__stage-inner" style={{ width: '100%', maxWidth: 280, margin: '0 auto', padding: '8px 12px 4px' }}>
+            <MeridianMarca variant="lockup" sx={{ width: '100%' }} />
           </div>
         </div>
 
