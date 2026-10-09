@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import fs from 'node:fs'
 import https from 'node:https'
 import path from 'node:path'
@@ -93,8 +94,7 @@ function acharPfxNaPasta(cnpj) {
     const nome = arquivos.find((item) => {
       const baixo = item.toLowerCase()
       if (!baixo.endsWith('.pfx') && !baixo.endsWith('.p12')) return false
-      const nums = digitos(item)
-      return nums === chave || nums.includes(chave)
+      return cnpjNoNome(item) === chave
     })
     if (nome) return path.join(pasta, nome)
   }
@@ -362,7 +362,7 @@ const pemCache = new Map()
 
 /** A1 brasileiro costuma ser PFX antigo (RC2). O Node 24 não abre; o forge abre. */
 function pemDoPfx(pfxBase64, senha) {
-  const id = `${String(pfxBase64).length}:${String(pfxBase64).slice(0, 24)}`
+  const id = crypto.createHash('sha256').update(String(pfxBase64)).digest('hex')
   if (pemCache.has(id)) return pemCache.get(id)
   const der = forge.util.createBuffer(Buffer.from(pfxBase64, 'base64').toString('binary'))
   const p12 = forge.pkcs12.pkcs12FromAsn1(forge.asn1.fromDer(der), false, senha || '')
@@ -391,32 +391,54 @@ function pemDoPfx(pfxBase64, senha) {
   return pem
 }
 
+function cnpjNoCertificado(certPem) {
+  try {
+    const assunto = new crypto.X509Certificate(certPem).subject || ''
+    const cn = assunto.split(/\r?\n/).map((parte) => parte.trim()).find((parte) => parte.startsWith('CN=')) || ''
+    const nums = cn.replace(/\D/g, '')
+    let achado = ''
+    for (let i = 0; i + 14 <= nums.length; i += 1) {
+      const cnpj = nums.slice(i, i + 14)
+      if (cnpjValido(cnpj)) achado = cnpj
+    }
+    return achado
+  } catch {
+    return ''
+  }
+}
+
 function agenteTls(config) {
+  const pedido = digitos(config.cnpj)
+  const combina = (tls) => {
+    if (!tls?.cert) return false
+    const doCert = cnpjNoCertificado(tls.cert)
+    return !pedido || !doCert || doCert.slice(0, 8) === pedido.slice(0, 8)
+  }
   if (config.cert_pem && config.key_pem) {
-    return {
+    const tls = {
       cert: config.cert_pem,
       key: config.key_pem,
       passphrase: config.cert_pass || undefined,
       minVersion: 'TLSv1.2',
     }
+    if (combina(tls)) return tls
   }
   const pem = pemDaPasta(config.cnpj)
-  if (pem) {
+  if (pem && combina(pem)) {
     return { ...pem, minVersion: 'TLSv1.2' }
   }
-  const pfx = config.pfx || pfxDaPasta(config.cnpj)
-  if (pfx) {
-    // A1 do Grupo Alvim (Diag2026) — senha padrão quando não está no banco.
-    const senha = texto(config.cert_pass) || 'Diag2026'
+  const senha = texto(config.cert_pass) || 'Diag2026'
+  const candidatos = []
+  if (config.pfx) candidatos.push(config.pfx)
+  const daPasta = pfxDaPasta(config.cnpj)
+  if (daPasta && daPasta !== config.pfx) candidatos.push(daPasta)
+  for (const pfx of candidatos) {
     try {
       const pem = pemDoPfx(pfx, senha)
-      return { ...pem, minVersion: 'TLSv1.2' }
+      const tls = { ...pem, minVersion: 'TLSv1.2' }
+      if (combina(tls)) return tls
     } catch {
-      return {
-        pfx: Buffer.from(pfx, 'base64'),
-        passphrase: senha,
-        minVersion: 'TLSv1.2',
-      }
+      // tenta o próximo A1
     }
   }
   return null

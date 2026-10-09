@@ -17,8 +17,13 @@ import TableHead from '@mui/material/TableHead'
 import TablePagination from '@mui/material/TablePagination'
 import TableRow from '@mui/material/TableRow'
 import Tabs from '@mui/material/Tabs'
+import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
-import { api, brl, type ColetaReceita, type Despesa, type Empresa, type NotaReceita } from '../api'
+import IconButton from '@mui/material/IconButton'
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
+import { api, brl, type Despesa, type Empresa, type NotaReceita } from '../api'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
@@ -81,7 +86,6 @@ export function InboxDdaPage() {
   const [pagina, setPagina] = useState(0)
   const [porPagina, setPorPagina] = useState(30)
   const [notas, setNotas] = useState<NotaReceita[]>([])
-  const [coletaNf, setColetaNf] = useState<ColetaReceita | null>(null)
   const [filtroNf, setFiltroNf] = useState<(typeof FILTROS_NF)[number]>('Todas')
   const [buscandoNf, setBuscandoNf] = useState(false)
   const [aviso, setAviso] = useState('')
@@ -90,7 +94,6 @@ export function InboxDdaPage() {
   const carregarNotas = (empresa = loja) =>
     api.notasReceita(empresa || undefined).then((r) => {
       setNotas(r.notas)
-      setColetaNf(r.coleta)
     }).catch(() => {
       setNotas([])
     })
@@ -306,7 +309,14 @@ export function InboxDdaPage() {
 
   return (
     <Stack spacing={1.25} sx={{ height: '100%', minHeight: 0 }}>
-      {erro && <Alert severity="warning" sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: 12 } }}>{erro}</Alert>}
+      {erro && (
+        <Alert
+          severity={/gravado no banco|download automático/.test(erro) ? 'info' : 'warning'}
+          sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: 12 } }}
+        >
+          {erro}
+        </Alert>
+      )}
       {aviso && <Alert severity="success" sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: 12 } }}>{aviso}</Alert>}
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { md: 'center' } }}>
@@ -348,10 +358,6 @@ export function InboxDdaPage() {
           </Button>
         )}
       </Stack>
-
-      {aba === 1 && coletaNf?.mensagem && (
-        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{coletaNf.mensagem}</Typography>
-      )}
 
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
         {aba === 0 ? (
@@ -493,12 +499,12 @@ export function InboxDdaPage() {
             <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
               <TableHead>
                 <TableRow>
+                  <TableCell sx={{ width: 132 }} />
                   <TableCell sx={{ width: 110 }}>{t('Situação', 'Status')}</TableCell>
                   <TableCell>{t('Emitente', 'Issuer')}</TableCell>
                   <TableCell sx={{ width: 120 }}>{t('Loja', 'Store')}</TableCell>
                   <TableCell sx={{ width: 108 }}>{t('Emissão', 'Issue date')}</TableCell>
                   <TableCell align="right" sx={{ width: 110 }}>{t('Valor', 'Amount')}</TableCell>
-                  <TableCell align="right" sx={{ width: 168 }}>{t('Documento', 'Document')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -516,6 +522,15 @@ export function InboxDdaPage() {
                 )}
                 {visiveisNf.map((n) => (
                   <TableRow key={n.id} hover>
+                    <TableCell sx={{ px: 1 }}>
+                      <SimbolosNota
+                        nota={n}
+                        ocupado={acaoNf?.id === n.id}
+                        t={t}
+                        onDanfe={() => abrirDanfeLinha(n)}
+                        onAgenda={() => lancarLinha(n)}
+                      />
+                    </TableCell>
                     <TableCell>{chipSituacao(n.situacao, t, escuro)}</TableCell>
                     <TableCell sx={{ overflow: 'hidden' }}>
                       <Typography noWrap sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25 }}>{n.emitente_nome || '—'}</Typography>
@@ -527,30 +542,6 @@ export function InboxDdaPage() {
                     <TableCell>{dataBr(n.emissao)}</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                       {n.valor_total != null ? brl(n.valor_total) : '—'}
-                    </TableCell>
-                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        disabled={acaoNf?.id === n.id}
-                        onClick={() => abrirDanfeLinha(n)}
-                        sx={{ minWidth: 0, px: 1, py: 0.25, fontSize: 11, fontWeight: 700 }}
-                      >
-                        {acaoNf?.id === n.id && acaoNf.tipo === 'danfe' ? t('Abrindo…', 'Opening…') : 'DANFE'}
-                      </Button>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        disabled={acaoNf?.id === n.id || ((n.situacao === 'cancelada' || n.situacao === 'denegada') && !n.despesa_id)}
-                        onClick={() => lancarLinha(n)}
-                        sx={{ minWidth: 0, ml: 0.5, px: 1, py: 0.25, fontSize: 11, fontWeight: 700 }}
-                      >
-                        {acaoNf?.id === n.id && acaoNf.tipo === 'agenda'
-                          ? t('Lançando…', 'Posting…')
-                          : n.despesa_id
-                            ? t('Na agenda', 'On agenda')
-                            : t('Agenda', 'Agenda')}
-                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -578,6 +569,80 @@ export function InboxDdaPage() {
         </Paper>
       )}
 
+    </Stack>
+  )
+}
+
+function SimbolosNota({
+  nota,
+  ocupado,
+  t,
+  onDanfe,
+  onAgenda,
+}: {
+  nota: NotaReceita
+  ocupado: boolean
+  t: (pt: string, en: string) => string
+  onDanfe: () => void
+  onAgenda: () => void
+}) {
+  const cancelada = nota.situacao === 'cancelada' || nota.situacao === 'denegada'
+  const semLoja = !nota.origem
+  const alerta = cancelada
+    ? t('Nota cancelada na Receita', 'Invoice cancelled at Receita')
+    : semLoja
+      ? t('Sem loja com este CNPJ', 'No store for this CNPJ')
+      : ''
+  return (
+    <Stack direction="row" spacing={0.25} sx={{ alignItems: 'center' }}>
+      <Tooltip title={cancelada ? t('NF-e cancelada', 'Cancelled NF-e') : t('Nota fiscal eletrônica', 'Electronic invoice')}>
+        <Box
+          sx={{
+            width: 28,
+            height: 22,
+            borderRadius: '4px',
+            bgcolor: cancelada ? '#DC2626' : '#1D4ED8',
+            color: '#fff',
+            fontSize: 9,
+            fontWeight: 800,
+            display: 'grid',
+            placeItems: 'center',
+            letterSpacing: '-0.03em',
+            flexShrink: 0,
+          }}
+        >
+          NFE
+        </Box>
+      </Tooltip>
+      <Tooltip title={t('Abrir DANFE', 'Open DANFE')}>
+        <span>
+          <IconButton size="small" disabled={ocupado} onClick={onDanfe} sx={{ p: 0.25, color: nota.tem_xml ? '#1D4ED8' : '#94A3B8' }}>
+            <DescriptionOutlinedIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title={nota.despesa_id
+        ? t('Na agenda de pagamento', 'On the payment agenda')
+        : t('Lançar na agenda', 'Add to the agenda')}
+      >
+        <span>
+          <IconButton
+            size="small"
+            disabled={ocupado || (cancelada && !nota.despesa_id)}
+            onClick={onAgenda}
+            sx={{ p: 0.25, color: nota.despesa_id ? '#D97706' : '#94A3B8' }}
+          >
+            <PaymentsOutlinedIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </span>
+      </Tooltip>
+      {alerta ? (
+        <Tooltip title={alerta}>
+          <WarningAmberOutlinedIcon sx={{ fontSize: 18, color: '#EA580C' }} />
+        </Tooltip>
+      ) : (
+        <Box sx={{ width: 18, flexShrink: 0 }} />
+      )}
     </Stack>
   )
 }

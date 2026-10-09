@@ -14,13 +14,11 @@ import { acharFornecedor, competenciaDe } from './dda.mjs'
 import { gerarDanfe } from './danfe.mjs'
 import {
   consultarDistribuicao,
-  consultarPorChave,
   cUfDe,
   interpretarDocumento,
   manifestarCiencia,
   notaDeEntrada,
   nsu15,
-  xmlNfeDe,
 } from './sefazDfe.mjs'
 
 const aqui = path.dirname(fileURLToPath(import.meta.url))
@@ -28,7 +26,7 @@ const schemaPath = path.join(aqui, '..', 'db', '012_sefaz_dfe.sql')
 const pastaXml = path.join(aqui, '..', '..', '..', '..', 'Logs', 'sefaz-nfe')
 
 const MAX_PAGINAS = 40
-const ESPERA_MS = 55 * 60 * 1000
+const ESPERA_MS = 60 * 60 * 1000
 const PAUSA_ENTRE_LOJAS_MS = 2000
 
 let constraintPronta = false
@@ -386,6 +384,7 @@ async function coletarEmpresa(financePool, empresa, lojas, ambiente) {
 
 export async function coletarNotasReceita(financePool, { ambiente, cnpj } = {}) {
   await garantirSchemaSefaz(financePool)
+  agendarCienciasPendentes(financePool)
   const amb = ambiente || (process.env.SEFAZ_DFE_AMBIENTE === 'homologacao' ? 'homologacao' : 'producao')
   const empresas = await empresasComCertificado(financePool)
   const alvo = digitos(cnpj)
@@ -437,6 +436,7 @@ export async function coletarNotasReceita(financePool, { ambiente, cnpj } = {}) 
       console.error(`[sefaz] ${empresa.empresa}: ${ultimoErro}`)
     }
   }
+  agendarCienciasPendentes(financePool)
   if (falhas === 0 && novas === 0 && esperas === comCert.length) {
     return {
       ok: true,
@@ -551,19 +551,33 @@ async function guardarXml(financePool, nota, xml) {
   })
 }
 
-async function minutosDeEspera(financePool, cnpj) {
-  const cursor = await cursorDe(financePool, cnpj)
-  if (!cursor || !recente(cursor.consultado_em)) return 0
-  const emEspera = String(cursor.ultimo_cstat) === '656'
-    || (cursor.ult_nsu && cursor.max_nsu && cursor.ult_nsu === cursor.max_nsu)
-  if (!emEspera) return 0
-  const falta = ESPERA_MS - (Date.now() - new Date(cursor.consultado_em).getTime())
-  return Math.max(1, Math.ceil(falta / 60000))
+async function tlsDaEmpresa(financePool, cnpj) {
+  const doc = digitos(cnpj)
+  await garantirSchemaBb(financePool)
+  const { rows } = await financePool.query(
+    `SELECT COALESCE(c.cert_pem, '') AS cert_pem,
+            COALESCE(c.key_pem, '') AS key_pem,
+            COALESCE(c.pfx, '') AS pfx,
+            COALESCE(c.cert_pass, '') AS cert_pass
+     FROM empresas e
+     LEFT JOIN bb_credenciais c ON c.empresa_id = e.id AND c.ativo IS NOT FALSE
+     WHERE regexp_replace(COALESCE(e.cnpj, ''), '\\D', '', 'g') = $1
+     LIMIT 1`,
+    [doc],
+  )
+  const linha = rows[0] || {}
+  return tlsDaCredencial({
+    cnpj: doc,
+    cert_pem: linha.cert_pem,
+    key_pem: linha.key_pem,
+    pfx: linha.pfx,
+    cert_pass: linha.cert_pass,
+  })
 }
 
 async function registrarCiencia(financePool, nota) {
   if (nota.ciencia_em) return 'A ciência dessa nota já estava registrada.'
-  const tls = tlsDaCredencial({ cnpj: nota.cnpj_empresa })
+  const tls = nota.tlsPronto || await tlsDaEmpresa(financePool, nota.cnpj_empresa)
   if (!tls?.cert || !tls?.key) return 'Sem certificado A1 para registrar a ciência.'
   try {
     const evento = await manifestarCiencia(tls, { cnpj: nota.cnpj_empresa, chave: nota.chave })
@@ -583,31 +597,80 @@ async function registrarCiencia(financePool, nota) {
   }
 }
 
-async function baixarXmlReceita(financePool, nota) {
-  const tls = tlsDaCredencial({ cnpj: nota.cnpj_empresa })
-  if (!tls?.cert || !tls?.key) {
-    throw erroStatus(400, 'Não achei o certificado A1 dessa empresa para baixar o XML.')
+async function guardarXmlsDoDisco(financePool) {
+  const { rows } = await financePool.query(
+    `SELECT id, cnpj_empresa, chave
+     FROM nfe_recebida
+     WHERE COALESCE(tem_xml, false) = false
+       AND chave ~ '^[0-9]{44}$'`,
+  )
+  let gravados = 0
+  for (const nota of rows) {
+    const xml = await xmlNoDisco(nota.chave)
+    if (!xmlEhNfe(xml)) continue
+    await guardarXml(financePool, nota, xml)
+    gravados += 1
   }
-  const loja = acharLoja(await lojasPorCnpj(), nota.cnpj_empresa, null)
-  const cUF = cUfDe(loja?.state)
-  const primeira = await consultarPorChave(tls, { cnpj: nota.cnpj_empresa, cUF, chave: nota.chave })
-  const xml1 = xmlNfeDe(primeira)
-  if (xml1) return xml1
-  if (primeira.cStat === '656') {
-    throw erroStatus(429, primeira.xMotivo || 'A Receita pediu para esperar uma hora antes de baixar o XML.')
-  }
-  const ciencia = await registrarCiencia(financePool, nota)
-  await esperar(1500)
-  const segunda = await consultarPorChave(tls, { cnpj: nota.cnpj_empresa, cUF, chave: nota.chave })
-  const xml2 = xmlNfeDe(segunda)
-  if (xml2) return xml2
-  if (segunda.cStat === '656') {
-    throw erroStatus(429, `${segunda.xMotivo || 'A Receita pediu para esperar uma hora.'} ${ciencia}`)
-  }
-  throw erroStatus(404, `A Receita ainda só tem o resumo dessa nota. ${ciencia} O DANFE abre quando o XML completo chegar.`)
+  if (gravados) console.log(`[sefaz] ${gravados} XML gravado(s) no banco a partir do arquivo local`)
+  return gravados
 }
 
-const baixandoXml = new Map()
+let cienciasEmCurso = null
+
+async function registrarCienciasPendentes(financePool, pular) {
+  const { rows } = await financePool.query(
+    `SELECT id, cnpj_empresa, chave
+     FROM nfe_recebida
+     WHERE COALESCE(tem_xml, false) = false
+       AND ciencia_em IS NULL
+       AND COALESCE(situacao, '') NOT IN ('cancelada', 'denegada')
+       AND chave ~ '^[0-9]{44}$'
+       AND NOT (id = ANY($1::uuid[]))
+     ORDER BY emissao DESC NULLS LAST
+     LIMIT 20`,
+    [pular.length ? pular : ['00000000-0000-0000-0000-000000000000']],
+  )
+  const tlsPorCnpj = new Map()
+  let ok = 0
+  const falhas = []
+  for (const nota of rows) {
+    if (!tlsPorCnpj.has(nota.cnpj_empresa)) {
+      tlsPorCnpj.set(nota.cnpj_empresa, await tlsDaEmpresa(financePool, nota.cnpj_empresa))
+    }
+    nota.tlsPronto = tlsPorCnpj.get(nota.cnpj_empresa)
+    const mensagem = await registrarCiencia(financePool, nota)
+    if (nota.ciencia_em) ok += 1
+    else {
+      falhas.push(nota.id)
+      console.error(`[sefaz] ciência da nota ${String(nota.chave).slice(0, 6)}…: ${mensagem}`)
+    }
+    await esperar(200)
+  }
+  if (rows.length) console.log(`[sefaz] ciência: ${ok} gravada(s) no banco, ${falhas.length} pendente(s) nesta leva`)
+  return { ok, feitas: rows.length, falhas }
+}
+
+/** Registra a ciência sem consultar a distribuição, para a próxima busca trazer o XML e guardar no banco. */
+export function agendarCienciasPendentes(financePool) {
+  if (cienciasEmCurso) return cienciasEmCurso
+  cienciasEmCurso = (async () => {
+    await guardarXmlsDoDisco(financePool)
+    const pular = []
+    let total = 0
+    for (let leva = 0; leva < 150; leva += 1) {
+      const lote = await registrarCienciasPendentes(financePool, pular)
+      total += lote.ok
+      pular.push(...lote.falhas)
+      if (!lote.feitas || !lote.ok) break
+    }
+    if (total) console.log(`[sefaz] ${total} ciência(s) registrada(s). O XML completo entra no banco na próxima consulta liberada.`)
+  })().catch((err) => {
+    console.error(`[sefaz] ciência: ${err.message}`)
+  }).finally(() => {
+    cienciasEmCurso = null
+  })
+  return cienciasEmCurso
+}
 
 async function xmlCompletoDaNota(financePool, nota) {
   if (xmlEhNfe(nota.xml)) return nota.xml
@@ -616,22 +679,7 @@ async function xmlCompletoDaNota(financePool, nota) {
     await guardarXml(financePool, nota, disco)
     return disco
   }
-  if (baixandoXml.has(nota.id)) return baixandoXml.get(nota.id)
-  const promessa = (async () => {
-    const falta = await minutosDeEspera(financePool, nota.cnpj_empresa)
-    if (falta) {
-      const ciencia = await registrarCiencia(financePool, nota)
-      throw erroStatus(
-        429,
-        `A Receita pediu para esperar cerca de ${falta} min antes de baixar o XML. ${ciencia} O DANFE abre na próxima consulta.`,
-      )
-    }
-    const xml = await baixarXmlReceita(financePool, nota)
-    await guardarXml(financePool, nota, xml)
-    return xml
-  })().finally(() => baixandoXml.delete(nota.id))
-  baixandoXml.set(nota.id, promessa)
-  return promessa
+  throw erroStatus(409, 'O XML dessa nota ainda está sendo gravado no banco. O DANFE abre quando o download automático terminar.')
 }
 
 export async function danfeNotaReceita(financePool, id) {
@@ -684,7 +732,7 @@ function poolFinanceiro() {
   return financeLazy
 }
 
-/** DANFE do gestor. Sem XML no disco, baixa na Receita pela chave. */
+/** DANFE do gestor, gerado com o XML já gravado no banco ou no disco. */
 export async function danfeNotaEstoque(idNfe) {
   const { rows } = await appPool.query(
     `SELECT n.id_nfe, n.chave, n.xml_path,

@@ -15,7 +15,7 @@ const URLS = {
 }
 
 const ACAO = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeDistribuicaoDFe/nfeDistDFeInteresse'
-const ACAO_EVENTO = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEvento'
+const ACAO_EVENTO = 'http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4/nfeRecepcaoEventoNF'
 const URLS_EVENTO = {
   producao: 'https://www.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx',
   homologacao: 'https://hom.nfe.fazenda.gov.br/NFeRecepcaoEvento4/NFeRecepcaoEvento4.asmx',
@@ -131,8 +131,23 @@ export function envelopeConsChave({ cnpj, cUF, chave, tpAmb = '1' }) {
 </soap12:Envelope>`
 }
 
-function certBase64(certPem) {
-  return String(certPem || '').replace(/-----[^-]+-----/g, '').replace(/\s+/g, '')
+function certBase64(certPem, keyPem) {
+  const blocos = [...String(certPem || '').matchAll(/-----BEGIN CERTIFICATE-----([\s\S]*?)-----END CERTIFICATE-----/g)]
+    .map((item) => item[1].replace(/\s+/g, ''))
+    .filter(Boolean)
+  if (!blocos.length) return String(certPem || '').replace(/-----[^-]+-----/g, '').replace(/\s+/g, '')
+  if (blocos.length === 1 || !keyPem) return blocos[0]
+  for (const bloco of blocos) {
+    try {
+      const pem = `-----BEGIN CERTIFICATE-----\n${bloco}\n-----END CERTIFICATE-----`
+      const cert = new crypto.X509Certificate(pem)
+      const publica = crypto.createPublicKey(keyPem).export({ type: 'spki', format: 'der' })
+      if (cert.publicKey.export({ type: 'spki', format: 'der' }).equals(publica)) return bloco
+    } catch {
+      // o próximo certificado da cadeia
+    }
+  }
+  return blocos[0]
 }
 
 /** Ciência da operação (210210), assinada com o A1 do destinatário. */
@@ -179,7 +194,7 @@ export function eventoCiencia({ cnpj, chave, dhEvento, tpAmb = '1', keyPem, cert
     '<Signature xmlns="http://www.w3.org/2000/09/xmldsig#">' +
     signedInfo +
     `<SignatureValue>${assinatura}</SignatureValue>` +
-    `<KeyInfo><X509Data><X509Certificate>${certBase64(certPem)}</X509Certificate></X509Data></KeyInfo>` +
+    `<KeyInfo><X509Data><X509Certificate>${certBase64(certPem, keyPem)}</X509Certificate></X509Data></KeyInfo>` +
     '</Signature>' +
     '</evento>'
   const lote = String(idLote).replace(/\D/g, '').slice(0, 15) || '1'
@@ -195,11 +210,9 @@ export function envelopeEvento(envEvento) {
   return `<?xml version="1.0" encoding="utf-8"?>
 <soap12:Envelope xmlns:soap12="http://www.w3.org/2003/05/soap-envelope">
   <soap12:Body>
-    <nfeRecepcaoEvento xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">
-      <nfeDadosMsg>
-        ${envEvento}
-      </nfeDadosMsg>
-    </nfeRecepcaoEvento>
+    <nfeDadosMsg xmlns="http://www.portalfiscal.inf.br/nfe/wsdl/NFeRecepcaoEvento4">
+      ${envEvento}
+    </nfeDadosMsg>
   </soap12:Body>
 </soap12:Envelope>`
 }
@@ -405,7 +418,39 @@ export function interpretarEvento(xmlBruto) {
   }
 }
 
+export function cnpjDoCertificado(certPem) {
+  if (!certPem) return ''
+  let assunto = ''
+  try {
+    assunto = new crypto.X509Certificate(certPem).subject || ''
+  } catch {
+    return ''
+  }
+  const cn = assunto.split(/\r?\n/).map((parte) => parte.trim()).find((parte) => parte.startsWith('CN=')) || ''
+  const nums = cn.replace(/\D/g, '')
+  let achado = ''
+  for (let i = 0; i + 14 <= nums.length; i += 1) {
+    const cnpj = nums.slice(i, i + 14)
+    if (/^(\d)\1+$/.test(cnpj)) continue
+    const dv = (base, pesos) => {
+      let soma = 0
+      for (let p = 0; p < pesos.length; p += 1) soma += Number(base[p]) * pesos[p]
+      const resto = soma % 11
+      return resto < 2 ? 0 : 11 - resto
+    }
+    if (dv(cnpj, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) !== Number(cnpj[12])) continue
+    if (dv(cnpj, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]) !== Number(cnpj[13])) continue
+    achado = cnpj
+  }
+  return achado
+}
+
 export async function manifestarCiencia(tls, { cnpj, chave, ambiente = 'producao' }) {
+  const doc = String(cnpj || '').replace(/\D/g, '')
+  const doCert = cnpjDoCertificado(tls?.cert)
+  if (doCert && doCert.slice(0, 8) !== doc.slice(0, 8)) {
+    throw new Error('O certificado A1 não é desta loja, então a Receita não registra a ciência.')
+  }
   const tpAmb = ambiente === 'homologacao' ? '2' : '1'
   const { env } = eventoCiencia({
     cnpj,

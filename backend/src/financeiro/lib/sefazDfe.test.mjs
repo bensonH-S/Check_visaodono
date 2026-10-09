@@ -113,7 +113,18 @@ describe('sefaz DF-e', () => {
     })
     assert.match(env, /<tpEvento>210210<\/tpEvento>/)
     assert.match(env, /<descEvento>Ciencia da Operacao<\/descEvento>/)
-    assert.match(env, /<idLote>7<\/idLote>/)
+    assert.match(env, /<X509Certificate>QQ==<\/X509Certificate>/)
+    const comCadeia = eventoCiencia({
+      cnpj: '26075154000136',
+      chave: CHAVE,
+      dhEvento: '2026-10-08T23:47:00-03:00',
+      tpAmb: '1',
+      keyPem,
+      certPem: '-----BEGIN CERTIFICATE-----\nQQ==\n-----END CERTIFICATE-----\n-----BEGIN CERTIFICATE-----\nRR==\n-----END CERTIFICATE-----',
+      idLote: '7',
+    })
+    assert.match(comCadeia.env, /<X509Certificate>QQ==<\/X509Certificate>/)
+    assert.doesNotMatch(comCadeia.env, /RR==/)
     const valor = env.match(/<SignatureValue>([^<]+)<\/SignatureValue>/)?.[1]
     const verificar = crypto.createVerify('RSA-SHA1')
     verificar.update(signedInfo)
