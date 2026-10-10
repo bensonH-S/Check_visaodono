@@ -75,7 +75,7 @@ import {
 import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
 import fs from 'fs/promises';
 import { parseNfeXml } from '../services/nfeXml.js';
-import { danfeNotaEstoque } from '../financeiro/lib/syncNfeSefaz.mjs';
+import { agendarXmlPendentesLoja, completarXmlNotaEstoque, danfeNotaEstoque } from '../financeiro/lib/syncNfeSefaz.mjs';
 
 const router = Router();
 const permOp = requirePermissao('estoque.operacional');
@@ -1827,12 +1827,15 @@ router.get('/nfes', permNfe, async (req, res, next) => {
     const bloqueio = acessoLoja(req, idLoja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
+    const origem = req.query.origem ? String(req.query.origem) : null;
     const rows = await listarNfesEstoque(idLoja, {
       pendentes: req.query.pendentes === '1' || req.query.pendentes === 'true',
       conferir: req.query.conferir === '1' || req.query.conferir === 'true',
       limit: req.query.limit ? Number(req.query.limit) : 50,
-      origem: req.query.origem ? String(req.query.origem) : null,
+      origem,
+      dias: req.query.dias ? Number(req.query.dias) : null,
     });
+    if (String(origem || '').toLowerCase() === 'sefaz') agendarXmlPendentesLoja(idLoja);
     res.json(rows);
   } catch (e) {
     next(e);
@@ -1841,7 +1844,11 @@ router.get('/nfes', permNfe, async (req, res, next) => {
 
 router.get('/nfes/:id', permNfe, async (req, res, next) => {
   try {
-    const det = await obterNfeDetalhe(Number(req.params.id));
+    const idNfe = Number(req.params.id);
+    await completarXmlNotaEstoque(idNfe).catch((err) => {
+      console.error(`[sefaz] xml da nota ${idNfe}: ${err.message}`);
+    });
+    const det = await obterNfeDetalhe(idNfe);
     if (!det) return res.status(404).json({ error: 'NF não encontrada' });
     const bloqueio = acessoLoja(req, det.id_loja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
@@ -1866,6 +1873,9 @@ router.get('/nfes/:id/danfe', permNfe, async (req, res, next) => {
 
     let pdf;
     try {
+      await completarXmlNotaEstoque(idNfe).catch((err) => {
+        console.error(`[sefaz] xml da nota ${idNfe}: ${err.message}`);
+      });
       pdf = await danfeNotaEstoque(idNfe);
     } catch (err) {
       if (err.status) return res.status(err.status).json({ error: err.message });
@@ -1895,6 +1905,16 @@ router.get('/nfes/:id/cobranca', permNfe, async (req, res, next) => {
     const nfe = rows[0];
     const bloqueio = acessoLoja(req, nfe.id_loja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    await completarXmlNotaEstoque(idNfe).catch((err) => {
+      console.error(`[sefaz] xml da nota ${idNfe}: ${err.message}`);
+    });
+    const { rows: atualizada } = await pool.query(
+      `SELECT xml_path, data_vencimento, valor_total, emitente_nome, numero
+       FROM estoque_nfe WHERE id_nfe = $1`,
+      [idNfe],
+    );
+    if (atualizada[0]) Object.assign(nfe, atualizada[0]);
 
     let duplicatas = [];
     let emitente = nfe.emitente_nome || '';

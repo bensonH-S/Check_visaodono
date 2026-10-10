@@ -289,7 +289,7 @@ export default function EstoqueMobileListaPage() {
       try {
         const [saldoRows, nfeRows] = await Promise.all([
           api.estoqueSaldos(idLoja),
-          api.estoqueNfes(idLoja, { pendentes: true, limit: 400, origem: 'sefaz' }),
+          api.estoqueNfes(idLoja, { limit: 400, origem: 'sefaz', dias: 30 }),
         ]);
         if (cancel) return;
         setSaldos(saldoRows);
@@ -333,13 +333,18 @@ export default function EstoqueMobileListaPage() {
     [saldosDiarios, busca, filtroInsumo],
   );
   const fornecedoresNf = useMemo(() => {
-    const map = new Map<string, { chave: string; nome: string; qtd: number }>();
+    const map = new Map<string, { chave: string; nome: string; qtd: number; feitas: number; valor: number }>();
     for (const n of nfes) {
       const nome = nomeEmitente(n);
       const chave = chaveEmitente(nome);
+      const valor = Number(n.valor_total) || 0;
+      const feita = n.entrada_registrada ? 1 : 0;
       const atual = map.get(chave);
-      if (atual) atual.qtd += 1;
-      else map.set(chave, { chave, nome, qtd: 1 });
+      if (atual) {
+        atual.qtd += 1;
+        atual.feitas += feita;
+        atual.valor += valor;
+      } else map.set(chave, { chave, nome, qtd: 1, feitas: feita, valor });
     }
     return [...map.values()].sort(
       (a, b) => b.qtd - a.qtd || a.nome.localeCompare(b.nome, 'pt-BR'),
@@ -354,20 +359,39 @@ export default function EstoqueMobileListaPage() {
       }),
     [nfes, busca, filtroNf],
   );
-  const gruposNf = useMemo(() => {
-    const map = new Map<string, EstoqueNfeResumo[]>();
-    for (const n of nfesFiltradas) {
-      const nome = nomeEmitente(n);
-      const listaAtual = map.get(nome) || [];
-      listaAtual.push(n);
-      map.set(nome, listaAtual);
-    }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0], 'pt-BR'));
-  }, [nfesFiltradas]);
   useEffect(() => {
     if (filtroNf === 'todas') return;
     if (!fornecedoresNf.some((f) => f.chave === filtroNf)) setFiltroNf('todas');
   }, [fornecedoresNf, filtroNf]);
+  const fornecedorAberto = fornecedoresNf.find((f) => f.chave === filtroNf) || null;
+  const fornecedoresVisiveis = useMemo(() => {
+    const t = busca.trim().toLowerCase();
+    if (!t) return fornecedoresNf;
+    return fornecedoresNf.filter((f) => f.nome.toLowerCase().includes(t));
+  }, [fornecedoresNf, busca]);
+  const notasDoFornecedor = useMemo(
+    () =>
+      [...nfesFiltradas].sort(
+        (a, b) => Number(a.entrada_registrada) - Number(b.entrada_registrada),
+      ),
+    [nfesFiltradas],
+  );
+  const recarregouXml = useRef(false);
+  useEffect(() => {
+    recarregouXml.current = false;
+  }, [idLoja]);
+  useEffect(() => {
+    if (aba !== 'nf' || !idLoja || recarregouXml.current) return;
+    if (!nfes.some((n) => !n.itens)) return;
+    recarregouXml.current = true;
+    const timer = window.setTimeout(() => {
+      api
+        .estoqueNfes(idLoja, { limit: 400, origem: 'sefaz', dias: 30 })
+        .then(setNfes)
+        .catch(() => {});
+    }, 15000);
+    return () => window.clearTimeout(timer);
+  }, [aba, idLoja, nfes]);
   const rotuloLojaCurta = lojaAtual
     ? nomeLojaCurta(nomeLoja(lojaAtual), lojaAtual.bk_number)
     : 'Selecionar loja';
@@ -623,41 +647,28 @@ export default function EstoqueMobileListaPage() {
                 <div>
                   <h2>
                     <DescriptionOutlinedIcon className="ck-estoque-hub__sec-ico" />
-                    Notas fiscais
+                    {fornecedorAberto ? 'Notas do fornecedor' : 'Fornecedores'}
                   </h2>
-                  <p>Da Receita Federal, separadas por fornecedor.</p>
+                  <p>
+                    {fornecedorAberto
+                      ? fornecedorAberto.nome
+                      : 'Últimos 30 dias, pela Receita Federal.'}
+                  </p>
                 </div>
+                {fornecedorAberto ? (
+                  <button type="button" onClick={() => setFiltroNf('todas')}>
+                    Todos
+                  </button>
+                ) : null}
               </div>
               <label className="ck-estoque-hub__search">
                 <SearchIcon sx={{ fontSize: 18, color: '#6b6b6b' }} />
                 <input
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
-                  placeholder="Buscar NF, fornecedor ou número..."
+                  placeholder={fornecedorAberto ? 'Buscar número da nota...' : 'Buscar fornecedor...'}
                 />
               </label>
-              <div className="ck-estoque-hub__chips ck-estoque-hub__chips--nf">
-                <button
-                  type="button"
-                  className={`ck-estoque-hub__chip${filtroNf === 'todas' ? ' is-on' : ''}`}
-                  onClick={() => setFiltroNf('todas')}
-                >
-                  {`Todas (${nfes.length})`}
-                </button>
-                {fornecedoresNf.map((forn) => (
-                  <button
-                    key={forn.chave}
-                    type="button"
-                    title={forn.nome}
-                    className={`ck-estoque-hub__chip ck-estoque-hub__chip--forn${
-                      filtroNf === forn.chave ? ' is-on' : ''
-                    }`}
-                    onClick={() => setFiltroNf(forn.chave)}
-                  >
-                    {`${forn.nome} (${forn.qtd})`}
-                  </button>
-                ))}
-              </div>
             </div>
             <div className="ck-estoque-hub__table ck-estoque-hub__table--nf ck-estoque-hub__table--head">
               <div className="ck-estoque-hub__cols">
@@ -707,52 +718,84 @@ export default function EstoqueMobileListaPage() {
           {aba === 'nf' ? (
             <div className="ck-estoque-hub__table ck-estoque-hub__table--nf ck-estoque-hub__table--body">
               <div className="ck-estoque-hub__lista">
-                {!gruposNf.length ? (
-                  <p className="ck-estoque-hub__empty">Nenhuma nota da Receita pendente neste filtro.</p>
-                ) : (
-                  gruposNf.map(([fornecedor, notas]) => (
-                    <div key={fornecedor} className="ck-estoque-hub__nf-grupo">
-                      <p className="ck-estoque-hub__nf-grupo-nome">
-                        {fornecedor}
-                        <span>{notas.length}</span>
-                      </p>
-                      {notas.map((n) => (
-                        <button
-                          key={n.id_nfe}
-                          type="button"
-                          className="ck-estoque-hub__row"
-                          onClick={() => navigate(`/estoque/mobile/nfes/${n.id_nfe}`)}
-                        >
-                          <span className="ck-estoque-hub__item">
-                            <span className="ck-estoque-hub__thumb ck-estoque-hub__thumb--nf">
-                              <DescriptionOutlinedIcon />
-                            </span>
-                            <span className="ck-estoque-hub__copy">
-                              <strong>{n.numero ? `NF ${n.numero}` : `NF ${n.id_nfe}`}</strong>
-                              <small>
-                                {fmtDataNf(n.emissao) || 'Sem emissão'}
-                                {n.valor_total != null
-                                  ? ` · ${n.valor_total.toLocaleString('pt-BR', {
-                                      style: 'currency',
-                                      currency: 'BRL',
-                                    })}`
-                                  : ''}
-                              </small>
-                            </span>
+                {!fornecedorAberto && !fornecedoresVisiveis.length ? (
+                  <p className="ck-estoque-hub__empty">Nenhuma nota da Receita nos últimos 30 dias.</p>
+                ) : null}
+                {!fornecedorAberto
+                  ? fornecedoresVisiveis.map((forn) => (
+                      <button
+                        key={forn.chave}
+                        type="button"
+                        className="ck-estoque-hub__row ck-estoque-hub__row--forn"
+                        onClick={() => {
+                          setBusca('');
+                          setFiltroNf(forn.chave);
+                        }}
+                      >
+                        <span className="ck-estoque-hub__item">
+                          <span className="ck-estoque-hub__thumb ck-estoque-hub__thumb--nf">
+                            <DescriptionOutlinedIcon />
                           </span>
-                          <span className="ck-estoque-hub__nf-side">
-                            <strong>{n.itens ?? '—'}</strong>
-                            <span className="ck-estoque-hub__status is-abaixo">
-                              <i />
-                              Pendente
-                            </span>
+                          <span className="ck-estoque-hub__copy">
+                            <strong>{forn.nome}</strong>
+                            <small>
+                              {forn.feitas === forn.qtd
+                                ? 'Entrada feita'
+                                : forn.feitas
+                                  ? `${forn.qtd - forn.feitas} pendente${forn.qtd - forn.feitas === 1 ? '' : 's'} · ${forn.feitas} com entrada`
+                                  : forn.qtd === 1
+                                    ? '1 nota'
+                                    : `${forn.qtd} notas`}
+                            </small>
                           </span>
-                          <ChevronRightIcon className="ck-estoque-hub__chev" sx={{ fontSize: 16 }} />
-                        </button>
-                      ))}
-                    </div>
-                  ))
-                )}
+                        </span>
+                        <span className="ck-estoque-hub__nf-side">
+                          <strong>
+                            {forn.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          </strong>
+                        </span>
+                        <ChevronRightIcon className="ck-estoque-hub__chev" sx={{ fontSize: 16 }} />
+                      </button>
+                    ))
+                  : null}
+                {fornecedorAberto && !notasDoFornecedor.length ? (
+                  <p className="ck-estoque-hub__empty">Nenhuma nota deste fornecedor na busca.</p>
+                ) : null}
+                {fornecedorAberto
+                  ? notasDoFornecedor.map((n) => (
+                      <button
+                        key={n.id_nfe}
+                        type="button"
+                        className="ck-estoque-hub__row"
+                        onClick={() => navigate(`/estoque/mobile/nfes/${n.id_nfe}`)}
+                      >
+                        <span className="ck-estoque-hub__item">
+                          <span className="ck-estoque-hub__thumb ck-estoque-hub__thumb--nf">
+                            <DescriptionOutlinedIcon />
+                          </span>
+                          <span className="ck-estoque-hub__copy">
+                            <strong>{n.numero ? `NF ${n.numero}` : `NF ${n.id_nfe}`}</strong>
+                            <small>
+                              {fmtDataNf(n.emissao) || 'Sem emissão'}
+                              {n.itens ? ` · ${n.itens} ${n.itens === 1 ? 'item' : 'itens'}` : ' · sem produtos no banco'}
+                            </small>
+                          </span>
+                        </span>
+                        <span className="ck-estoque-hub__nf-side">
+                          <strong>
+                            {n.valor_total != null
+                              ? n.valor_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                              : '—'}
+                          </strong>
+                          <span className={`ck-estoque-hub__status ${n.entrada_registrada ? 'is-ok' : 'is-abaixo'}`}>
+                            <i />
+                            {n.entrada_registrada ? 'Entrada feita' : 'Pendente'}
+                          </span>
+                        </span>
+                        <ChevronRightIcon className="ck-estoque-hub__chev" sx={{ fontSize: 16 }} />
+                      </button>
+                    ))
+                  : null}
               </div>
             </div>
           ) : null}

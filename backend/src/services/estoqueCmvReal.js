@@ -766,7 +766,7 @@ export async function obterNfeDetalhe(idNfe) {
 
 export async function listarNfesEstoque(
   idLoja,
-  { pendentes = false, conferir = false, limit = 50, origem = null } = {},
+  { pendentes = false, conferir = false, limit = 50, origem = null, dias = null } = {},
 ) {
   const params = [idLoja];
   let filtro = '';
@@ -776,6 +776,11 @@ export async function listarNfesEstoque(
   }
   if (String(origem || '').toLowerCase() === 'sefaz') {
     filtro += ` AND lower(COALESCE(n.fornecedor, '')) = 'sefaz'`;
+  }
+  const janela = Number(dias);
+  if (Number.isFinite(janela) && janela > 0) {
+    params.push(Math.min(janela, 365));
+    filtro += ` AND COALESCE(n.emissao::date, CURRENT_DATE) >= CURRENT_DATE - $${params.length}::int`;
   }
   params.push(Math.min(Math.max(Number(limit) || 50, 1), 400));
 

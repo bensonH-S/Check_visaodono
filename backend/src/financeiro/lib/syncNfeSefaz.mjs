@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import pg from 'pg'
 import { pool as appPool } from '../../db.js'
 import { persistirEstoqueNfe } from '../../services/estoquePersistirNfe.js'
-import { parseNfeXml } from '../../services/nfeXml.js'
+import { casarItensNfe, parseNfeXml } from '../../services/nfeXml.js'
 import { cnpjsDosCertificados, garantirSchemaBb, tlsDaCredencial } from './bbDda.mjs'
 import { cruzarDdaComNotas, escolherDdaParaNota } from './cruzarDdaNfe.mjs'
 import { acharFornecedor, competenciaDe } from './dda.mjs'
@@ -41,7 +41,7 @@ function recenteParaGestor(emissao) {
   const data = new Date(`${String(emissao).slice(0, 10)}T00:00:00`)
   if (Number.isNaN(data.getTime())) return true
   const corte = new Date()
-  corte.setDate(corte.getDate() - 90)
+  corte.setDate(corte.getDate() - 30)
   corte.setHours(0, 0, 0, 0)
   return data >= corte
 }
@@ -182,6 +182,70 @@ async function marcarCancelada(financePool, cnpj, chave) {
   )
 }
 
+async function gravarItensNaNota({ idNfe, idLoja, doc, xml }) {
+  const dir = path.join(pastaXml, String(idLoja))
+  fs.mkdirSync(dir, { recursive: true })
+  const arquivo = path.join(dir, `${doc.chave}.xml`)
+  fs.writeFileSync(arquivo, xml, 'utf8')
+  const nfe = doc.nfe
+  const { rows: insumos } = await appPool.query(
+    `SELECT id_insumo, codigo, descricao, und_convertida, und_parcial, unidade_contagem
+     FROM insumos WHERE id_loja = $1 AND ativo = TRUE`,
+    [idLoja],
+  )
+  const linhas = casarItensNfe(nfe.itens || [], insumos)
+  await appPool.query(
+    `UPDATE estoque_nfe SET
+       xml_path = $2,
+       numero = COALESCE($3, numero),
+       serie = COALESCE($4, serie),
+       emissao = COALESCE($5::date, emissao),
+       emitente_cnpj = COALESCE(NULLIF($6, ''), emitente_cnpj),
+       emitente_nome = COALESCE(NULLIF($7, ''), emitente_nome),
+       valor_total = COALESCE($8, valor_total),
+       data_vencimento = COALESCE($9::date, data_vencimento),
+       status_portal = 'Recebida na Receita Federal',
+       atualizado_em = NOW()
+     WHERE id_nfe = $1`,
+    [
+      idNfe,
+      arquivo,
+      nfe.numero || null,
+      nfe.serie || null,
+      nfe.emissao || null,
+      nfe.emitente?.cnpj || doc.emitente_cnpj || '',
+      nfe.emitente?.nome || doc.emitente_nome || '',
+      nfe.valor_total ?? null,
+      nfe.data_vencimento || null,
+    ],
+  )
+  await appPool.query('DELETE FROM estoque_nfe_itens WHERE id_nfe = $1', [idNfe])
+  for (const ln of linhas) {
+    await appPool.query(
+      `INSERT INTO estoque_nfe_itens (
+         id_nfe, n_item, codigo_nf, ean, descricao, u_com, q_com, v_un_com, v_prod,
+         id_insumo, match_tipo, preco_caixa_aplicado, qtd_estoque
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      [
+        idNfe,
+        ln.nItem,
+        ln.codigo,
+        ln.ean || null,
+        ln.descricao,
+        ln.uCom,
+        ln.qCom,
+        ln.vUnCom,
+        ln.vProd,
+        ln.match?.id_insumo || null,
+        ln.match_tipo,
+        ln.match ? ln.sugerido.preco_caixa : null,
+        ln.match ? ln.sugerido.qtd_estoque : null,
+      ],
+    )
+  }
+  return linhas.length
+}
+
 async function gravarNoGestor({ idLoja, doc, xml }) {
   if (!idLoja || !doc.chave) return false
   if (doc.situacao === 'cancelada' || doc.situacao === 'denegada') return false
@@ -195,9 +259,14 @@ async function gravarNoGestor({ idLoja, doc, xml }) {
   const atual = rows[0]
   if (atual?.entrada_registrada) return false
   if (doc.tipo === 'completa' && doc.nfe) {
-    if (atual?.xml_path) return false
     if (atual) {
-      await appPool.query('DELETE FROM estoque_nfe WHERE id_nfe = $1', [atual.id_nfe])
+      const { rows: contagem } = await appPool.query(
+        'SELECT COUNT(*)::int AS n FROM estoque_nfe_itens WHERE id_nfe = $1',
+        [atual.id_nfe],
+      )
+      if ((contagem.rows[0]?.n || 0) > 0) return false
+      await gravarItensNaNota({ idNfe: atual.id_nfe, idLoja, doc, xml })
+      return true
     }
     const dir = path.join(pastaXml, String(idLoja))
     fs.mkdirSync(dir, { recursive: true })
@@ -609,17 +678,30 @@ async function guardarXml(financePool, nota, xml) {
   if (doc.tipo !== 'completa' || !doc.chave) return
   const loja = acharLoja(await lojasPorCnpj(), nota.cnpj_empresa, null)
   if (!loja) return
-  const dir = path.join(pastaXml, String(loja.id_loja))
-  fs.mkdirSync(dir, { recursive: true })
-  const arquivo = path.join(dir, `${doc.chave}.xml`)
-  fs.writeFileSync(arquivo, xml, 'utf8')
-  await appPool.query(
-    `UPDATE estoque_nfe SET xml_path = $3, atualizado_em = NOW()
-     WHERE id_loja = $1 AND chave = $2 AND (xml_path IS NULL OR btrim(xml_path) = '')`,
-    [loja.id_loja, doc.chave, arquivo],
-  ).catch((err) => {
-    console.error(`[sefaz] xml ${doc.chave}: ${err.message}`)
-  })
+  const { rows } = await appPool.query(
+    `SELECT id_nfe, entrada_registrada,
+            (SELECT COUNT(*)::int FROM estoque_nfe_itens i WHERE i.id_nfe = estoque_nfe.id_nfe) AS itens
+     FROM estoque_nfe
+     WHERE id_loja = $1 AND chave = $2
+     LIMIT 1`,
+    [loja.id_loja, doc.chave],
+  )
+  const atual = rows[0]
+  if (!atual || atual.entrada_registrada || Number(atual.itens || 0) > 0) {
+    if (atual && !atual.entrada_registrada) {
+      const dir = path.join(pastaXml, String(loja.id_loja))
+      fs.mkdirSync(dir, { recursive: true })
+      const arquivo = path.join(dir, `${doc.chave}.xml`)
+      fs.writeFileSync(arquivo, xml, 'utf8')
+      await appPool.query(
+        `UPDATE estoque_nfe SET xml_path = $2, atualizado_em = NOW()
+         WHERE id_nfe = $1 AND (xml_path IS NULL OR btrim(xml_path) = '')`,
+        [atual.id_nfe, arquivo],
+      )
+    }
+    return
+  }
+  await gravarItensNaNota({ idNfe: atual.id_nfe, idLoja: loja.id_loja, doc, xml })
 }
 
 async function tlsDaEmpresa(financePool, cnpj) {
@@ -666,6 +748,103 @@ async function registrarCiencia(financePool, nota) {
   } catch (err) {
     return err.message || 'A ciência da operação não foi registrada.'
   }
+}
+
+const xmlEmCurso = new Map()
+const lojasXmlEmFila = new Set()
+
+async function xmlJaGuardado(finance, nfe) {
+  const arquivo = nfe.xml_path ? String(nfe.xml_path).trim() : ''
+  if (arquivo && fs.existsSync(arquivo)) {
+    const disco = fs.readFileSync(arquivo, 'utf8')
+    const docDisco = interpretarDocumento(disco)
+    if (docDisco.tipo === 'completa' && docDisco.nfe) return { doc: docDisco, xml: disco }
+  }
+  if (!nfe.chave) return null
+  const achada = await finance.query(
+    `SELECT id, xml
+     FROM nfe_recebida
+     WHERE chave = $1 AND COALESCE(tem_xml, false) = true AND xml IS NOT NULL
+     ORDER BY atualizado_em DESC
+     LIMIT 1`,
+    [nfe.chave],
+  )
+  const notaFin = achada.rows[0]
+  if (!xmlEhNfe(notaFin?.xml)) return null
+  const docBanco = interpretarDocumento(notaFin.xml)
+  if (docBanco.tipo !== 'completa' || !docBanco.nfe) return null
+  return { doc: docBanco, xml: notaFin.xml, notaId: notaFin.id }
+}
+
+/** Copia os produtos do XML que o portal já gravou em nfe_recebida para a nota da loja. */
+export function completarXmlNotaEstoque(idNfe) {
+  const id = Number(idNfe)
+  if (!Number.isFinite(id)) return Promise.resolve({ ok: false })
+  if (xmlEmCurso.has(id)) return xmlEmCurso.get(id)
+  const job = completarXmlNotaEstoqueAgora(id).finally(() => xmlEmCurso.delete(id))
+  xmlEmCurso.set(id, job)
+  return job
+}
+
+async function completarXmlNotaEstoqueAgora(idNfe) {
+  const { rows } = await appPool.query(
+    `SELECT n.id_nfe, n.id_loja, n.chave, n.fornecedor, n.xml_path, n.entrada_registrada,
+            (SELECT COUNT(*)::int FROM estoque_nfe_itens i WHERE i.id_nfe = n.id_nfe) AS itens,
+            regexp_replace(COALESCE(l.cnpj, ''), '\\D', '', 'g') AS cnpj,
+            l.state
+     FROM estoque_nfe n
+     JOIN lojas l ON l.id_loja = n.id_loja
+     WHERE n.id_nfe = $1`,
+    [idNfe],
+  )
+  const nfe = rows[0]
+  if (!nfe || String(nfe.fornecedor || '').toLowerCase() !== 'sefaz') return { ok: false, ignorada: true }
+  if (nfe.entrada_registrada || Number(nfe.itens || 0) > 0) return { ok: true, ja: true }
+  if (!nfe.chave) return { ok: false, motivo: 'Nota sem chave.' }
+  const finance = poolFinanceiro()
+  await garantirSchemaSefaz(finance)
+  const guardado = await xmlJaGuardado(finance, nfe)
+  if (!guardado) return { ok: false, motivo: 'O XML desta nota ainda não está no banco.' }
+  const qtd = await gravarItensNaNota({
+    idNfe: nfe.id_nfe,
+    idLoja: nfe.id_loja,
+    doc: guardado.doc,
+    xml: guardado.xml,
+  })
+  console.log(`[sefaz] NF ${nfe.id_nfe} com ${qtd} produto(s) a partir do XML já salvo`)
+  return { ok: true, itens: qtd }
+}
+
+/** Completa, em segundo plano, as notas da loja que ainda estão só com o resumo. */
+export function agendarXmlPendentesLoja(idLoja) {
+  const id = Number(idLoja)
+  if (!id || lojasXmlEmFila.has(id)) return
+  lojasXmlEmFila.add(id)
+  ;(async () => {
+    const { rows } = await appPool.query(
+      `SELECT n.id_nfe
+       FROM estoque_nfe n
+       WHERE n.id_loja = $1
+         AND lower(n.fornecedor) = 'sefaz'
+         AND n.entrada_registrada = FALSE
+         AND COALESCE(n.emissao, CURRENT_DATE) >= CURRENT_DATE - 30
+         AND NOT EXISTS (SELECT 1 FROM estoque_nfe_itens i WHERE i.id_nfe = n.id_nfe)
+       ORDER BY n.emissao DESC NULLS LAST
+       LIMIT 80`,
+      [id],
+    )
+    for (const row of rows) {
+      try {
+        await completarXmlNotaEstoque(row.id_nfe)
+      } catch (err) {
+        console.error(`[sefaz] xml da nota ${row.id_nfe}: ${err.message}`)
+      }
+    }
+  })().catch((err) => {
+    console.error(`[sefaz] fila de XML da loja ${id}: ${err.message}`)
+  }).finally(() => {
+    lojasXmlEmFila.delete(id)
+  })
 }
 
 async function guardarXmlsDoDisco(financePool) {

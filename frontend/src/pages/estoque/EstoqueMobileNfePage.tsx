@@ -226,6 +226,7 @@ export default function EstoqueMobileNfePage() {
   const voltarHubNf = () => navigate('/estoque/mobile', { state: { aba: 'nf' } });
 
   const marcar = (idItem: number, ok: boolean) => {
+    if (det?.entrada_registrada) return;
     setChecks((prev) => {
       const cur = prev[idItem];
       if (!cur) return prev;
@@ -299,7 +300,12 @@ export default function EstoqueMobileNfePage() {
     try {
       const c = await api.estoqueNfeCobranca(id);
       if (!c.duplicatas?.length && !c.vencimento) {
-        showToast('Esta NF não tem cobrança no XML', 'error');
+        showToast(
+          c.tem_xml
+            ? 'Esta NF não tem cobrança no XML'
+            : 'O XML desta nota ainda não está no banco.',
+          'error',
+        );
         return;
       }
       setCobranca(c);
@@ -311,7 +317,7 @@ export default function EstoqueMobileNfePage() {
   };
 
   const finalizar = async () => {
-    if (!det) return;
+    if (!det || det.entrada_registrada) return;
     if (resumo.pend > 0) {
       showToast(`Ainda faltam ${resumo.pend} item(ns) para marcar`, 'error');
       return;
@@ -339,7 +345,10 @@ export default function EstoqueMobileNfePage() {
     }
   };
 
+  const jaEntrou = !!det?.entrada_registrada;
+
   const marcarTodosOk = () => {
+    if (jaEntrou) return;
     setChecks((prev) => {
       const next: Record<number, ItemCheck> = {};
       for (const [k, c] of Object.entries(prev)) {
@@ -405,14 +414,17 @@ export default function EstoqueMobileNfePage() {
 
       <div className="ck-estoque-hub__panel">
         {loading && !det ? (
-          <LinearProgress
-            sx={{
-              my: 1,
-              borderRadius: 1,
-              bgcolor: '#333840',
-              '& .MuiLinearProgress-bar': { bgcolor: '#ff9a5c' },
-            }}
-          />
+          <>
+            <LinearProgress
+              sx={{
+                my: 1,
+                borderRadius: 1,
+                bgcolor: '#333840',
+                '& .MuiLinearProgress-bar': { bgcolor: '#ff9a5c' },
+              }}
+            />
+            <p className="ck-estoque-hub__empty">Abrindo a nota…</p>
+          </>
         ) : null}
         {!loading && !det ? <p className="ck-estoque-hub__empty">Nota fiscal não encontrada.</p> : null}
         {det ? (
@@ -451,10 +463,16 @@ export default function EstoqueMobileNfePage() {
           {det ? (
             <div className="ck-estoque-hub__table ck-estoque-hub__table--body">
               <div className="ck-estoque-hub__lista">
-                {det.fornecedor === 'sefaz' && !(det.itens || []).length ? (
-                  <p className="ck-estoque-hub__empty">
-                    A Receita já registrou esta nota no nome da loja. Os itens entram quando o XML completo chega.
-                  </p>
+                {jaEntrou ? (
+                  <p className="ck-estoque-hub__entrada-feita">Entrada já feita. Esta nota não entra de novo.</p>
+                ) : null}
+                {det.fornecedor === 'sefaz' && !(det.itens || []).length && !jaEntrou ? (
+                  <div className="ck-estoque-hub__empty">
+                    <p>Os produtos desta nota ainda não estão no banco.</p>
+                    <button type="button" disabled={loading} onClick={() => void carregarDetalhe(det.id_nfe)}>
+                      {loading ? 'Abrindo…' : 'Atualizar'}
+                    </button>
+                  </div>
                 ) : null}
                 {(det.itens || []).map((it) => {
                   const c = checks[it.id_item];
@@ -499,7 +517,7 @@ export default function EstoqueMobileNfePage() {
                             estado === true ? ' is-on' : ''
                           }`}
                           aria-label="Chegou"
-                          disabled={semMatch && esp <= 0}
+                          disabled={jaEntrou || (semMatch && esp <= 0)}
                           onClick={() => marcar(it.id_item, true)}
                         >
                           <CheckCircleOutlinedIcon />
@@ -510,6 +528,7 @@ export default function EstoqueMobileNfePage() {
                             estado === false ? ' is-on' : ''
                           }`}
                           aria-label="Não chegou"
+                          disabled={jaEntrou}
                           onClick={() => marcar(it.id_item, false)}
                         >
                           <HighlightOffIcon />
@@ -529,17 +548,25 @@ export default function EstoqueMobileNfePage() {
           <button type="button" onClick={voltarHubNf}>
             Voltar
           </button>
-          <button type="button" className="is-ghost" onClick={marcarTodosOk}>
-            Todos OK
-          </button>
-          <button
-            type="button"
-            className="is-pri"
-            disabled={salvando || resumo.pend > 0}
-            onClick={() => void finalizar()}
-          >
-            {salvando ? 'Salvando…' : `Continuar (${resumo.ok}/${resumo.total})`}
-          </button>
+          {jaEntrou ? (
+            <button type="button" className="is-feita" disabled>
+              Entrada já feita
+            </button>
+          ) : (
+            <>
+              <button type="button" className="is-ghost" onClick={marcarTodosOk}>
+                Todos OK
+              </button>
+              <button
+                type="button"
+                className="is-pri"
+                disabled={salvando || resumo.pend > 0}
+                onClick={() => void finalizar()}
+              >
+                {salvando ? 'Salvando…' : `Continuar (${resumo.ok}/${resumo.total})`}
+              </button>
+            </>
+          )}
         </div>
       ) : null}
       {dialogDanfe}
