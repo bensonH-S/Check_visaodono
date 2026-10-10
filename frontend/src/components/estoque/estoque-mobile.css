@@ -2979,10 +2979,11 @@ html.dark .ck-estoque .ck-estoque__empty {
   color: #f5f5f5;
 }
 .ck-estoque-nfe__danfe-frame {
+  flex: 1 1 auto;
   width: 100%;
-  height: calc(100% - 56px);
+  min-height: 0;
   border: 0;
-  background: #f3f1ec;
+  background: #525659;
 }
 .ck-estoque-nfe__danfe-preview {
   height: calc(100% - 56px);

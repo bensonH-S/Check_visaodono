@@ -1831,6 +1831,7 @@ router.get('/nfes', permNfe, async (req, res, next) => {
       pendentes: req.query.pendentes === '1' || req.query.pendentes === 'true',
       conferir: req.query.conferir === '1' || req.query.conferir === 'true',
       limit: req.query.limit ? Number(req.query.limit) : 50,
+      origem: req.query.origem ? String(req.query.origem) : null,
     });
     res.json(rows);
   } catch (e) {

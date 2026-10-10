@@ -155,6 +155,13 @@
   margin-bottom: 0;
 }
 
+.ck-estoque-hub--hero .ck-estoque-hub__chips--nf {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin-bottom: 2px;
+}
+
 .ck-estoque-hub--hero .ck-estoque-hub__lock {
   position: static;
   margin: 0 0 12px;
@@ -648,6 +655,39 @@
 .ck-estoque-hub__chip.is-on {
   background: #fff;
   color: #111;
+}
+
+.ck-estoque-hub__chip--forn {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-estoque-hub__nf-grupo {
+  margin-top: 14px;
+}
+
+.ck-estoque-hub__nf-grupo:first-child {
+  margin-top: 0;
+}
+
+.ck-estoque-hub__nf-grupo-nome {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 2px 6px;
+  color: #9a9a9a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ck-estoque-hub__nf-grupo-nome span {
+  color: #6b6b6b;
+  font-weight: 600;
 }
 
 .ck-estoque-hub__table {

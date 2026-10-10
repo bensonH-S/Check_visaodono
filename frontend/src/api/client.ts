@@ -1558,11 +1558,15 @@ export const api = {
     if (opts?.limit) params.set('limit', String(opts.limit));
     return request<EstoqueCmvVariancia>(`/estoque/cmv/variancia?${params}`);
   },
-  estoqueNfes: (idLoja: number, opts?: { pendentes?: boolean; conferir?: boolean; limit?: number }) => {
+  estoqueNfes: (
+    idLoja: number,
+    opts?: { pendentes?: boolean; conferir?: boolean; limit?: number; origem?: 'sefaz' },
+  ) => {
     const params = new URLSearchParams({ id_loja: String(idLoja) });
     if (opts?.pendentes) params.set('pendentes', '1');
     if (opts?.conferir) params.set('conferir', '1');
     if (opts?.limit) params.set('limit', String(opts.limit));
+    if (opts?.origem) params.set('origem', opts.origem);
     return request<EstoqueNfeResumo[]>(`/estoque/nfes?${params}`);
   },
   estoqueNfeDetalhe: (idNfe: number) => request<EstoqueNfeDetalhe>(`/estoque/nfes/${idNfe}`),

@@ -13,11 +13,11 @@ import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import RequestQuoteOutlinedIcon from '@mui/icons-material/RequestQuoteOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CloseIcon from '@mui/icons-material/Close';
 import { api, type EstoqueNfeDetalhe, type EstoqueNfeItem } from '../../api/client';
 import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
 import { thumbInsumo } from '../../components/estoque/estoqueHub';
-import DanfePdfPreview from '../../components/estoque/DanfePdfPreview';
 import { showToast } from '../../utils/toast';
 import '../../components/estoque/estoque-hub.css';
 import '../../components/estoque/estoque-mobile.css';
@@ -260,7 +260,13 @@ export default function EstoqueMobileNfePage() {
     setAbrindoDanfe(true);
     try {
       const blob = await api.estoqueNfeDanfePdf(id);
-      const url = URL.createObjectURL(blob);
+      const pdf = blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' });
+      const url = URL.createObjectURL(pdf);
+      const janela = window.open(url, '_blank');
+      if (janela) {
+        window.setTimeout(() => URL.revokeObjectURL(url), 120_000);
+        return;
+      }
       setDanfeUrl((atual) => {
         if (atual) URL.revokeObjectURL(atual);
         return url;
@@ -270,6 +276,11 @@ export default function EstoqueMobileNfePage() {
     } finally {
       setAbrindoDanfe(false);
     }
+  };
+
+  const abrirDanfeFora = () => {
+    if (!danfeUrl) return;
+    window.open(danfeUrl, '_blank', 'noopener');
   };
 
   const baixarDanfe = () => {
@@ -343,11 +354,16 @@ export default function EstoqueMobileNfePage() {
       fullScreen
       open={!!danfeUrl}
       onClose={fecharDanfe}
-      slotProps={{ paper: { sx: { bgcolor: '#111' } } }}
+      slotProps={{
+        paper: { sx: { bgcolor: '#525659', display: 'flex', flexDirection: 'column', height: '100%' } },
+      }}
     >
       <div className="ck-estoque-nfe__danfe-bar">
         <strong>DANFE</strong>
         <span>
+          <IconButton aria-label="Abrir em nova aba" onClick={abrirDanfeFora} size="small">
+            <OpenInNewIcon />
+          </IconButton>
           <IconButton aria-label="Baixar PDF" onClick={baixarDanfe} size="small">
             <DownloadIcon />
           </IconButton>
@@ -356,7 +372,7 @@ export default function EstoqueMobileNfePage() {
           </IconButton>
         </span>
       </div>
-      {danfeUrl ? <DanfePdfPreview url={danfeUrl} /> : null}
+      {danfeUrl ? <iframe className="ck-estoque-nfe__danfe-frame" title="DANFE" src={danfeUrl} /> : null}
     </Dialog>
   );
 
@@ -408,7 +424,7 @@ export default function EstoqueMobileNfePage() {
                 onClick={() => void abrirDanfe(det.id_nfe)}
               >
                 <DescriptionOutlinedIcon />
-                {abrindoDanfe ? 'Abrindo…' : 'DANFE'}
+                {abrindoDanfe ? 'Abrindo…' : 'Visualizar DANFE'}
               </button>
               <button
                 type="button"
