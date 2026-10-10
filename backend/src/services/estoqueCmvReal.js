@@ -775,7 +775,12 @@ export async function listarNfesEstoque(
                AND n.status_entrega IN ('aguardando_conferencia', 'em_transito', 'aguardando_portal', 'divergente')`;
   }
   if (String(origem || '').toLowerCase() === 'sefaz') {
-    filtro += ` AND lower(COALESCE(n.fornecedor, '')) = 'sefaz'`;
+    // Igual ao portal do fornecedor: só nota com produto (XML completo) ou já com entrada.
+    filtro += ` AND lower(COALESCE(n.fornecedor, '')) = 'sefaz'
+               AND (
+                 n.entrada_registrada = TRUE
+                 OR EXISTS (SELECT 1 FROM estoque_nfe_itens i WHERE i.id_nfe = n.id_nfe)
+               )`;
   }
   const janela = Number(dias);
   if (Number.isFinite(janela) && janela > 0) {

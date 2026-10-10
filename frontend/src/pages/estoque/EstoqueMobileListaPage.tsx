@@ -652,7 +652,7 @@ export default function EstoqueMobileListaPage() {
                   <p>
                     {fornecedorAberto
                       ? fornecedorAberto.nome
-                      : 'Últimos 30 dias, pela Receita Federal.'}
+                      : 'Últimos 30 dias · XML e produtos da Receita.'}
                   </p>
                 </div>
                 {fornecedorAberto ? (
@@ -719,7 +719,9 @@ export default function EstoqueMobileListaPage() {
             <div className="ck-estoque-hub__table ck-estoque-hub__table--nf ck-estoque-hub__table--body">
               <div className="ck-estoque-hub__lista">
                 {!fornecedorAberto && !fornecedoresVisiveis.length ? (
-                  <p className="ck-estoque-hub__empty">Nenhuma nota da Receita nos últimos 30 dias.</p>
+                  <p className="ck-estoque-hub__empty">
+                    Nenhuma nota pronta nos últimos 30 dias. Quando o XML chegar da Receita, a nota e os produtos aparecem juntos.
+                  </p>
                 ) : null}
                 {!fornecedorAberto
                   ? fornecedoresVisiveis.map((forn) => (
@@ -777,7 +779,7 @@ export default function EstoqueMobileListaPage() {
                             <strong>{n.numero ? `NF ${n.numero}` : `NF ${n.id_nfe}`}</strong>
                             <small>
                               {fmtDataNf(n.emissao) || 'Sem emissão'}
-                              {n.itens ? ` · ${n.itens} ${n.itens === 1 ? 'item' : 'itens'}` : ' · sem produtos no banco'}
+                              {n.itens ? ` · ${n.itens} ${n.itens === 1 ? 'item' : 'itens'}` : ''}
                             </small>
                           </span>
                         </span>

@@ -468,9 +468,9 @@ export default function EstoqueMobileNfePage() {
                 ) : null}
                 {det.fornecedor === 'sefaz' && !(det.itens || []).length && !jaEntrou ? (
                   <div className="ck-estoque-hub__empty">
-                    <p>Os produtos desta nota ainda não estão no banco.</p>
+                    <p>Esta nota ainda não tem o XML completo da Receita. Sem o XML não há produtos para dar entrada.</p>
                     <button type="button" disabled={loading} onClick={() => void carregarDetalhe(det.id_nfe)}>
-                      {loading ? 'Abrindo…' : 'Atualizar'}
+                      {loading ? 'Abrindo…' : 'Tentar de novo'}
                     </button>
                   </div>
                 ) : null}
