@@ -958,16 +958,10 @@ html.dark .ck-frota .ck-frota__termo-box {
   min-width: 0;
 }
 
-.ck-estoque-hub__sheet-tipo-btn.is-pri .ck-frota-hub__plus-row > .MuiSvgIcon-root {
-  color: #E8520A;
-}
-
-.ck-estoque-hub__sheet-tipo-btn.is-cinza .ck-frota-hub__plus-row > .MuiSvgIcon-root {
-  color: #cbd5e1;
-}
-
+.ck-estoque-hub__sheet-tipo-btn.is-pri .ck-frota-hub__plus-row > .MuiSvgIcon-root,
+.ck-estoque-hub__sheet-tipo-btn.is-cinza .ck-frota-hub__plus-row > .MuiSvgIcon-root,
 .ck-estoque-hub__sheet-tipo-btn.is-completa .ck-frota-hub__plus-row > .MuiSvgIcon-root {
-  color: #93c5fd;
+  color: #f5f5f5;
 }
 
 .ck-frota-hub__menu .MuiMenuItem-root {

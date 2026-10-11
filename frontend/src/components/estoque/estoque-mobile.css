@@ -502,16 +502,17 @@ html.dark .ck-estoque__lista-diaria-link.is-diario small {
 }
 
 .ck-estoque__modal-action-btn--pri {
-  background: rgba(5, 72, 209, 0.1) !important;
+  background: #0548d1 !important;
   border: 1.5px solid #0548d1 !important;
+  box-shadow: 0 6px 16px rgba(5, 72, 209, 0.28);
 }
 
 .ck-estoque__modal-action-btn--pri strong {
-  color: #c2410c !important;
+  color: #ffffff !important;
 }
 
 .ck-estoque__modal-action-btn--pri small {
-  color: #9a3412 !important;
+  color: rgba(255, 255, 255, 0.85) !important;
 }
 
 .ck-estoque__atalhos-grid {
@@ -3568,16 +3569,16 @@ html.dark .ck-estoque__modal-action-btn small {
 }
 
 html.dark .ck-estoque__modal-action-btn--pri {
-  background: rgba(5, 72, 209, 0.16);
-  border-color: rgba(5, 72, 209, 0.45);
+  background: #0548d1 !important;
+  border-color: #0548d1 !important;
 }
 
 html.dark .ck-estoque__modal-action-btn--pri strong {
-  color: #0548d1;
+  color: #ffffff !important;
 }
 
 html.dark .ck-estoque__modal-action-btn--pri small {
-  color: rgba(5, 72, 209, 0.85);
+  color: rgba(255, 255, 255, 0.85) !important;
 }
 
 /* O modal de nova contagem segue a tipografia clara do restante do tema escuro. */
@@ -3588,7 +3589,7 @@ html.dark .ck-estoque .ck-estoque__dlg p {
 
 html.dark .ck-estoque .ck-estoque__modal--center .ck-estoque__modal-action-btn--pri strong,
 html.dark .ck-estoque .ck-estoque__modal--center .ck-estoque__modal-action-btn--pri small {
-  color: var(--ga-text-primary);
+  color: #ffffff !important;
 }
 
 html.dark .ck-estoque--detalhe .ck-estoque__busca-fix input {

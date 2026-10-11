@@ -120,13 +120,13 @@ function rotuloGrupoHub(g: string | null | undefined) {
     vegetais: 'Vegetais',
     mix_sobremesa: 'Mix',
   };
-  return mapa[String(g || '')] || g || '—';
+  return mapa[String(g || '')] || g || '?';
 }
 
 function fmtQuando(iso?: string | null) {
-  if (!iso) return '—';
+  if (!iso) return '?';
   const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
+  if (Number.isNaN(d.getTime())) return '?';
   return d.toLocaleString('pt-BR', {
     day: '2-digit',
     month: '2-digit',
@@ -410,7 +410,7 @@ export default function EstoqueMobileListaPage() {
       setDlgTipo(false);
       navigate(`/estoque/mobile/${diariaHoje.id_contagem}`);
       if (diariaHoje.status === 'finalizada') {
-        showToast('Diária de hoje já foi feita — consulta');
+        showToast('Diária de hoje já foi feita ? consulta');
       }
       return;
     }
@@ -424,7 +424,7 @@ export default function EstoqueMobileListaPage() {
         });
       }
       if (det.meta?.ja_finalizada) {
-        showToast('Diária de hoje já foi finalizada — consulta');
+        showToast('Diária de hoje já foi finalizada ? consulta');
       } else {
         const label = labelIniciar(tipo);
         showToast(det.meta?.iniciada_agora ? `${label} iniciada` : `${label} aberta`);
@@ -458,7 +458,7 @@ export default function EstoqueMobileListaPage() {
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
         <div className="ck-estoque-hub__brand-row">
-          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Meridian Gest�o Operacional" />
+          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Meridian Gestão Operacional" />
           <div className="ck-estoque-hub__actions">
             <button type="button" className="ck-estoque-hub__icon-btn" aria-label="Buscar" onClick={abrirBusca}>
               <SearchIcon sx={{ fontSize: 22 }} />
@@ -563,7 +563,7 @@ export default function EstoqueMobileListaPage() {
                 <p>Principais pendências da loja.</p>
               </div>
               <button type="button" onClick={() => irParaInsumos()}>
-                Ver todos →
+                Ver todos ?
               </button>
             </div>
             <div className="ck-estoque-hub__kpis">
@@ -787,7 +787,7 @@ export default function EstoqueMobileListaPage() {
                           <strong>
                             {n.valor_total != null
                               ? n.valor_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-                              : '—'}
+                              : '?'}
                           </strong>
                           <span className={`ck-estoque-hub__status ${n.entrada_registrada ? 'is-ok' : 'is-abaixo'}`}>
                             <i />
@@ -919,7 +919,7 @@ export default function EstoqueMobileListaPage() {
                   {!ehDiaContagemCompletaObrigatoria() && (
                     <button
                       type="button"
-                      className="ck-estoque-hub__sheet-tipo-btn is-pri"
+                      className="ck-estoque-hub__sheet-tipo-btn"
                       disabled={iniciando}
                       onClick={() => void iniciar('diaria')}
                     >
@@ -940,7 +940,7 @@ export default function EstoqueMobileListaPage() {
                   )}
                 <button
                   type="button"
-                  className="ck-estoque-hub__sheet-tipo-btn is-completa"
+                  className="ck-estoque-hub__sheet-tipo-btn"
                   disabled={iniciando}
                   onClick={() => void iniciar('completa')}
                 >
