@@ -11,7 +11,10 @@ import { useLocation } from 'react-router-dom';
 import { isIosChrome, usePwaInstallPrompt } from '../hooks/usePwaInstallPrompt';
 import { APP_NAME } from '../config/brand';
 
-const ORANGE = '#0548d1';
+/** Ícones e destaques no sheet escuro — sem azul de botão. */
+const ACCENT = '#f5f5f5';
+const MUTED = 'rgba(245,245,245,0.72)';
+const WARN = '#ffb07a';
 
 function Passo({
   numero,
@@ -134,8 +137,8 @@ export default function PwaInstallDialog() {
         >
           {modo === 'computador' && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <PhoneIphoneIcon sx={{ color: ORANGE, fontSize: 22 }} />
-              <Typography sx={{ fontSize: '0.88rem', color: 'rgba(255,255,255,0.78)', lineHeight: 1.45 }}>
+              <PhoneIphoneIcon sx={{ color: ACCENT, fontSize: 22 }} />
+              <Typography sx={{ fontSize: '0.88rem', color: MUTED, lineHeight: 1.45 }}>
                 No telefone: Safari (iPhone) ou Chrome (Android) → instalar / adicionar à tela inicial → abrir o
                 ícone.
               </Typography>
@@ -143,7 +146,7 @@ export default function PwaInstallDialog() {
           )}
 
           {modo === 'ios' && chromeIos && (
-            <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, color: ORANGE, lineHeight: 1.4 }}>
+            <Typography sx={{ fontSize: '0.88rem', fontWeight: 700, color: WARN, lineHeight: 1.4 }}>
               No iPhone isso só funciona no Safari. Feche o Chrome e abra este mesmo endereço no Safari.
             </Typography>
           )}
@@ -152,19 +155,19 @@ export default function PwaInstallDialog() {
             <>
               <Passo
                 numero={1}
-                icone={<IosShareIcon sx={{ fontSize: 18, color: ORANGE }} />}
+                icone={<IosShareIcon sx={{ fontSize: 18, color: ACCENT }} />}
                 titulo="Compartilhar"
                 descricao={
                   <>
                     Toque em{' '}
-                    <IosShareIcon sx={{ fontSize: 16, verticalAlign: 'text-bottom' }} /> na barra de baixo do
-                    Safari.
+                    <IosShareIcon sx={{ fontSize: 16, verticalAlign: 'text-bottom', color: MUTED }} /> na
+                    barra de baixo do Safari.
                   </>
                 }
               />
               <Passo
                 numero={2}
-                icone={<AddBoxOutlinedIcon sx={{ fontSize: 18, color: ORANGE }} />}
+                icone={<AddBoxOutlinedIcon sx={{ fontSize: 18, color: ACCENT }} />}
                 titulo="Adicionar à Tela de Início"
                 descricao={`Role o menu, toque nisso e confirme. Depois abra sempre o ícone ${APP_NAME}.`}
               />
@@ -174,7 +177,7 @@ export default function PwaInstallDialog() {
           {modo === 'android' && (
             <Passo
               numero={1}
-              icone={<GetAppIcon sx={{ fontSize: 18, color: ORANGE }} />}
+              icone={<GetAppIcon sx={{ fontSize: 18, color: ACCENT }} />}
               titulo="Instalar agora"
               descricao="Toque no botão abaixo. O Chrome coloca o atalho na tela inicial."
             />
@@ -184,13 +187,13 @@ export default function PwaInstallDialog() {
             <>
               <Passo
                 numero={1}
-                icone={<Typography sx={{ fontWeight: 800, fontSize: '1rem', color: ORANGE }}>⋮</Typography>}
+                icone={<Typography sx={{ fontWeight: 800, fontSize: '1rem', color: ACCENT }}>⋮</Typography>}
                 titulo="Menu do Chrome"
                 descricao="Toque nos três pontos no canto de cima."
               />
               <Passo
                 numero={2}
-                icone={<GetAppIcon sx={{ fontSize: 18, color: ORANGE }} />}
+                icone={<GetAppIcon sx={{ fontSize: 18, color: ACCENT }} />}
                 titulo="Instalar aplicativo"
                 descricao='Escolha "Instalar aplicativo" ou "Adicionar à tela inicial".'
               />
@@ -199,7 +202,7 @@ export default function PwaInstallDialog() {
 
           {modo !== 'computador' && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pt: 0.5 }}>
-              <PhoneIphoneIcon sx={{ color: ORANGE, fontSize: 20 }} />
+              <PhoneIphoneIcon sx={{ color: MUTED, fontSize: 20 }} />
               <Typography sx={{ fontSize: '0.78rem', color: 'rgba(255,255,255,0.68)', lineHeight: 1.4 }}>
                 Sem instalar, o app não abre. Recusar não libera o uso no navegador.
               </Typography>
@@ -219,8 +222,11 @@ export default function PwaInstallDialog() {
               mt: 2.5,
               py: 1.4,
               fontWeight: 800,
-              bgcolor: ORANGE,
-              '&:hover': { bgcolor: '#e85f1a' },
+              color: '#0b1721',
+              bgcolor: '#f5f5f5',
+              boxShadow: 'none',
+              '&:hover': { bgcolor: '#ffffff', boxShadow: 'none' },
+              '&.Mui-disabled': { bgcolor: 'rgba(245,245,245,0.35)', color: 'rgba(11,23,33,0.55)' },
             }}
           >
             {instalando ? 'Abrindo instalação…' : 'Instalar agora'}
@@ -250,7 +256,7 @@ export default function PwaInstallDialog() {
             bottom: 'calc(10px + env(safe-area-inset-bottom, 0px))',
             left: '50%',
             transform: 'translateX(-50%)',
-            color: ORANGE,
+            color: ACCENT,
             fontSize: '2rem',
             lineHeight: 1,
             animation: 'pwa-bounce 1.2s ease-in-out infinite',

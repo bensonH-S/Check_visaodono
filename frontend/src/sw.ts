@@ -81,7 +81,7 @@ self.addEventListener('push', (event) => {
     : 'vision-check';
   const options = {
     body: data.body || 'Nova atualização nos chamados',
-    icon: `${self.registration.scope}Icone_pwa.png`,
+    icon: `${self.registration.scope}Icone_pwa-v3.png`,
     badge: `${self.registration.scope}favicon-32x32.png`,
     tag,
     renotify: false,

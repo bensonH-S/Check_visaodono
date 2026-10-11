@@ -11,7 +11,7 @@ export const LOGO_MERIDIAN_MARK_M = 'meridian-mark-m.png';
 /** Lockup usado nos headers mobile (mesmo logo do login). */
 export const LOGO_GA_LOCKUP = LOGO_MERIDIAN_GESTAO;
 /** Ícone PWA / fundo watermark do shell mobile. */
-export const ICONE_PWA = 'Icone_pwa.png';
+export const ICONE_PWA = 'Icone_pwa-v3.png';
 export const CHECKLIST_FUNDO_BK = 'checklist-fundo-bk.jpg';
 export const FAVICON_ICON = 'meridian-mark-m.png';
 export const VIDEO_VISAO_PILOTO = 'demo/visao-piloto.mp4';

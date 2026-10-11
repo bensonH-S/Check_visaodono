@@ -93,6 +93,7 @@ export default defineConfig({
         'favicon-32x32.png',
         'meridian-mark-m.png',
         'Icone_pwa.png',
+        'Icone_pwa-v3.png',
         'meridian-icon-192.png',
         'meridian-icon-512.png',
         'Logo_Icon.png',
@@ -118,19 +119,19 @@ export default defineConfig({
         categories: ['business', 'productivity'],
         icons: [
           {
-            src: 'Icone_pwa.png',
+            src: 'Icone_pwa-v3.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: 'Icone_pwa.png',
+            src: 'Icone_pwa-v3.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any',
           },
           {
-            src: 'Icone_pwa.png',
+            src: 'Icone_pwa-v3.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
