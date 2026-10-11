@@ -6,6 +6,7 @@ import TextField from '@mui/material/TextField';
 import Popover from '@mui/material/Popover';
 import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
 import ClearIcon from '@mui/icons-material/Clear';
 import { colors } from '../../theme/tokens';
 import { useAppTheme } from '../../context/ThemeContext';
@@ -18,6 +19,16 @@ import { dataHojeBrasilia, formatDataCampoData, parseIsoDateLocal } from '../../
 
 dayjs.locale('pt-br');
 
+const temaCalendarioEscuro = createTheme({
+  palette: {
+    mode: 'dark',
+    primary: { main: '#1B6EF3' },
+    text: { primary: '#F8FAFC', secondary: '#94A3B8', disabled: 'rgba(148,163,184,0.4)' },
+    action: { active: '#F8FAFC', hover: 'rgba(27,110,243,0.22)' },
+    background: { paper: '#122433', default: '#051017' },
+  },
+});
+
 type Props = {
   dataInicio: string;
   dataFim: string;
@@ -26,6 +37,10 @@ type Props = {
   compacto?: boolean;
   /** Texto clicável, sem campo — para cabeçalhos de dashboard. */
   variante?: 'campo' | 'texto';
+  /** Popover/calendário em superfície escura (ex.: Inbox financeiro). */
+  temaEscuro?: boolean;
+  /** Rótulos do campo (padrão PT). */
+  idioma?: 'pt' | 'en';
 };
 
 function isoParaDayjs(iso: string): Dayjs | null {
@@ -33,14 +48,16 @@ function isoParaDayjs(iso: string): Dayjs | null {
   return d ? dayjs(d) : null;
 }
 
-function formatarTexto(inicio: string, fim: string) {
+function formatarTexto(inicio: string, fim: string, idioma: 'pt' | 'en' = 'pt') {
   const fmt = (iso: string) => formatDataCampoData(iso);
+  const conj = idioma === 'en' ? ' to ' : ' a ';
   if (!inicio && !fim) return '';
-  if (inicio && fim && inicio !== fim) return `${fmt(inicio)} a ${fmt(fim)}`;
+  if (inicio && fim && inicio !== fim) return `${fmt(inicio)}${conj}${fmt(fim)}`;
   return fmt(inicio || fim);
 }
 
-function formatarTextoCurto(inicio: string, fim: string) {
+function formatarTextoCurto(inicio: string, fim: string, idioma: 'pt' | 'en' = 'pt') {
+  const periodoVazio = idioma === 'en' ? 'Period' : 'Período';
   const partes = (iso: string) => {
     const [y, m, d] = String(iso).slice(0, 10).split('-');
     return { d, m, y };
@@ -50,7 +67,7 @@ function formatarTextoCurto(inicio: string, fim: string) {
     if (!d || !m || !y) return formatDataCampoData(iso);
     return comAno ? `${d}/${m}/${y}` : `${d}/${m}`;
   };
-  if (!inicio && !fim) return 'Período';
+  if (!inicio && !fim) return periodoVazio;
   if (inicio && fim && inicio !== fim) {
     const mesmoAno = inicio.slice(0, 4) === fim.slice(0, 4);
     return `${fmt(inicio, !mesmoAno)} — ${fmt(fim, true)}`;
@@ -76,9 +93,9 @@ const filtroDataSx = {
 
 const filtroDataCompactoSx = {
   mb: 0,
-  width: 300,
-  minWidth: 300,
-  maxWidth: 300,
+  width: '100%',
+  minWidth: 0,
+  maxWidth: 'none',
   flex: '0 0 auto',
   position: 'relative',
   '& .MuiOutlinedInput-root': {
@@ -86,9 +103,11 @@ const filtroDataCompactoSx = {
     height: 32,
   },
   '& .MuiInputBase-input': {
-    fontSize: '0.74rem',
-    py: 0.25,
+    fontSize: '0.8125rem',
+    py: 0,
     px: 0.75,
+    height: 32,
+    boxSizing: 'border-box',
   },
   '& .MuiInputLabel-root': {
     fontSize: '0.75rem',
@@ -105,19 +124,34 @@ export default function FiltroIntervaloDatasFrota({
   onChangeFim,
   compacto = false,
   variante = 'campo',
+  temaEscuro = false,
+  idioma = 'pt',
 }: Props) {
   const { mode } = useAppTheme();
-  const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : '#1B2A6B';
-  const acentoHover = escuro ? 'rgba(232, 82, 10, 0.22)' : 'rgba(27, 42, 107, 0.1)';
+  const escuro = temaEscuro || mode === 'dark';
+  const acento = temaEscuro ? '#1B6EF3' : escuro ? '#0548d1' : '#1B2A6B';
+  const acentoHover = temaEscuro
+    ? 'rgba(27, 110, 243, 0.22)'
+    : escuro
+      ? 'rgba(5, 72, 209, 0.22)'
+      : 'rgba(27, 42, 107, 0.1)';
+  const papelCalendario = temaEscuro ? '#122433' : 'var(--ga-picker-paper)';
+  const textoCalendario = temaEscuro ? '#F8FAFC' : colors.textPrimary;
+  const textoSecCalendario = temaEscuro ? '#94A3B8' : colors.textSecondary;
+  const bordaCalendario = temaEscuro ? 'rgba(255,255,255,0.14)' : colors.borderStrong;
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [escolhendoFim, setEscolhendoFim] = useState(false);
   const aberto = Boolean(anchorEl);
   const hoje = dataHojeBrasilia();
+  const rotuloPeriodo = idioma === 'en' ? 'Period' : 'Período';
+  const placeholderPeriodo = idioma === 'en'
+    ? (compacto ? 'Dates' : 'Click to select')
+    : (compacto ? 'Datas' : 'Clique para selecionar');
+  const limparLabel = idioma === 'en' ? 'Clear period' : 'Limpar período';
 
   const inicioDayjs = useMemo(() => isoParaDayjs(dataInicio), [dataInicio]);
   const fimDayjs = useMemo(() => isoParaDayjs(dataFim), [dataFim]);
-  const texto = formatarTexto(dataInicio, dataFim);
+  const texto = formatarTexto(dataInicio, dataFim, idioma);
   const temValor = !!(dataInicio || dataFim);
 
   function abrir(e: React.MouseEvent<HTMLElement>) {
@@ -180,7 +214,7 @@ export default function FiltroIntervaloDatasFrota({
         <Box
           role="button"
           tabIndex={0}
-          aria-label="Período"
+          aria-label={rotuloPeriodo}
           onClick={abrir}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -210,7 +244,7 @@ export default function FiltroIntervaloDatasFrota({
               whiteSpace: 'nowrap',
             }}
           >
-            {formatarTextoCurto(dataInicio, dataFim)}
+            {formatarTextoCurto(dataInicio, dataFim, idioma)}
           </Typography>
         </Box>
       ) : (
@@ -218,9 +252,9 @@ export default function FiltroIntervaloDatasFrota({
         <TextField
           fullWidth={!compacto}
           size="small"
-          label="Período"
+          label={rotuloPeriodo}
           value={texto}
-          placeholder={compacto ? 'Datas' : 'Clique para selecionar'}
+          placeholder={placeholderPeriodo}
           onClick={abrir}
           slotProps={{
             inputLabel: compacto ? { shrink: true } : labelFixo.inputLabel,
@@ -231,7 +265,7 @@ export default function FiltroIntervaloDatasFrota({
                 <IconButton
                   size="small"
                   onClick={limpar}
-                  aria-label="Limpar período"
+                  aria-label={limparLabel}
                   edge="end"
                   sx={compacto ? { p: 0.25 } : undefined}
                 >
@@ -241,23 +275,26 @@ export default function FiltroIntervaloDatasFrota({
             },
           }}
           sx={{
-            ...(compacto ? { width: 300 } : campoAlturaFrotaSx),
+            ...(compacto ? { width: '100%' } : campoAlturaFrotaSx),
             mb: 0,
             '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
-              borderRadius: '8px',
-              minHeight: 40,
-              height: 40,
+              borderRadius: compacto ? '10px' : '8px',
+              minHeight: compacto ? 32 : 40,
+              height: compacto ? 32 : 40,
             },
             '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': {
-              borderRadius: '8px',
+              borderRadius: compacto ? '10px' : '8px',
             },
             '& .MuiInputBase-input': {
               letterSpacing: '0.01em',
+              ...(compacto
+                ? { height: 32, py: 0, boxSizing: 'border-box', fontSize: '0.8125rem' }
+                : {}),
             },
             '& .MuiInputBase-input::placeholder': {
               color: 'text.disabled',
               opacity: 1,
-              fontSize: compacto ? '0.74rem' : '0.8rem',
+              fontSize: compacto ? '0.8125rem' : '0.8rem',
             },
           }}
         />
@@ -278,108 +315,130 @@ export default function FiltroIntervaloDatasFrota({
                 overflow: 'visible',
                 width: 320,
                 maxWidth: 'calc(100vw - 24px)',
-                bgcolor: 'var(--ga-picker-paper)',
+                bgcolor: papelCalendario,
                 backgroundImage: 'none',
-                border: `1px solid ${colors.borderStrong}`,
+                border: `1px solid ${bordaCalendario}`,
                 boxShadow: '0 10px 28px rgba(0, 0, 0, 0.28)',
-                color: colors.textPrimary,
+                color: textoCalendario,
               },
             },
           }}
         >
-          <Box sx={{ pb: 1.25, pt: 0 }}>
-            <DateCalendar
-              value={fimDayjs ?? inicioDayjs}
-              onChange={selecionarDia}
-              maxDate={isoParaDayjs(hoje) ?? dayjs()}
-              reduceAnimations
-              sx={{
-                width: '100%',
-                maxWidth: 320,
-                mx: 0,
-                my: 0,
-                height: 'auto !important',
-                maxHeight: 'none',
-                color: colors.textPrimary,
-                '& .MuiPickersCalendarHeader-root': {
-                  pl: 1.5,
-                  pr: 1.5,
-                  mt: 0.5,
-                  mb: 0,
-                },
-                '& .MuiPickersCalendarHeader-label': {
-                  fontSize: '0.9rem',
-                  color: colors.textPrimary,
-                },
-                '& .MuiPickersArrowSwitcher-button': {
-                  color: colors.textPrimary,
-                },
-                '& .MuiDayCalendar-header': {
-                  justifyContent: 'space-around',
-                  px: 0.5,
-                },
-                '& .MuiDayCalendar-weekDayLabel': {
-                  color: colors.textSecondary,
-                },
-                '& .MuiDayCalendar-weekContainer': {
-                  justifyContent: 'space-around',
-                  margin: 0,
-                },
-                '& .MuiDayCalendar-monthContainer': {
-                  minHeight: 'unset !important',
+          <Box sx={{ pb: 1.25, pt: 0, color: textoCalendario }}>
+            {(() => {
+              const calendario = (
+              <DateCalendar
+                value={fimDayjs ?? inicioDayjs}
+                onChange={selecionarDia}
+                maxDate={isoParaDayjs(hoje) ?? dayjs()}
+                reduceAnimations
+                sx={{
+                  width: '100%',
+                  maxWidth: 320,
+                  mx: 0,
+                  my: 0,
                   height: 'auto !important',
-                  position: 'relative !important',
-                  overflow: 'visible !important',
-                },
-                '& .MuiPickersSlideTransition-root': {
-                  minHeight: 'unset !important',
-                  height: 'auto !important',
-                  overflow: 'visible !important',
-                  transition: 'none !important',
-                },
-                '& .MuiDateCalendar-viewTransitionContainer': {
-                  minHeight: 'unset !important',
-                  height: 'auto !important',
-                  overflow: 'visible !important',
-                  transition: 'none !important',
-                },
-                '& .MuiDayCalendar-slideTransition': {
-                  minHeight: 'unset !important',
-                  height: 'auto !important',
-                  overflow: 'visible !important',
-                  transition: 'none !important',
-                },
-                '& .MuiDayCalendar-slideTransition > *': {
-                  position: 'relative !important',
-                  transform: 'none !important',
-                  transition: 'none !important',
-                },
-                '& .MuiPickersDay-root': {
-                  margin: 0,
-                  color: colors.textPrimary,
-                },
-                '& .MuiPickersDay-root.Mui-selected': {
-                  bgcolor: `${acento} !important`,
-                  color: '#fff !important',
-                },
-                '& .MuiPickersDay-root.Mui-selected:hover, & .MuiPickersDay-root.Mui-selected:focus': {
-                  bgcolor: `${acento} !important`,
-                },
-                '& .MuiPickersDay-root:not(.Mui-selected):hover': {
-                  bgcolor: acentoHover,
-                },
-                '& .MuiPickersDay-today': {
-                  borderColor: `${acento} !important`,
-                },
-              }}
-            />
+                  maxHeight: 'none',
+                  color: textoCalendario,
+                  '& .MuiPickersCalendarHeader-root': {
+                    pl: 1.5,
+                    pr: 1.5,
+                    mt: 0.5,
+                    mb: 0,
+                  },
+                  '& .MuiPickersCalendarHeader-label': {
+                    fontSize: '0.9rem',
+                    color: `${textoCalendario} !important`,
+                  },
+                  '& .MuiPickersArrowSwitcher-button': {
+                    color: `${textoCalendario} !important`,
+                  },
+                  '& .MuiDayCalendar-header': {
+                    justifyContent: 'space-around',
+                    px: 0.5,
+                  },
+                  '& .MuiDayCalendar-weekDayLabel': {
+                    color: `${textoSecCalendario} !important`,
+                  },
+                  '& .MuiDayCalendar-weekContainer': {
+                    justifyContent: 'space-around',
+                    margin: 0,
+                  },
+                  '& .MuiDayCalendar-monthContainer': {
+                    minHeight: 'unset !important',
+                    height: 'auto !important',
+                    position: 'relative !important',
+                    overflow: 'visible !important',
+                  },
+                  '& .MuiPickersSlideTransition-root': {
+                    minHeight: 'unset !important',
+                    height: 'auto !important',
+                    overflow: 'visible !important',
+                    transition: 'none !important',
+                  },
+                  '& .MuiDateCalendar-viewTransitionContainer': {
+                    minHeight: 'unset !important',
+                    height: 'auto !important',
+                    overflow: 'visible !important',
+                    transition: 'none !important',
+                  },
+                  '& .MuiDayCalendar-slideTransition': {
+                    minHeight: 'unset !important',
+                    height: 'auto !important',
+                    overflow: 'visible !important',
+                    transition: 'none !important',
+                  },
+                  '& .MuiDayCalendar-slideTransition > *': {
+                    position: 'relative !important',
+                    transform: 'none !important',
+                    transition: 'none !important',
+                  },
+                  '& .MuiPickersDay-root, & button.MuiPickersDay-root': {
+                    margin: 0,
+                    color: `${textoCalendario} !important`,
+                    WebkitTextFillColor: `${textoCalendario} !important`,
+                  },
+                  '& .MuiPickersDay-root.Mui-disabled, & button.MuiPickersDay-root.Mui-disabled': {
+                    color: 'rgba(148,163,184,0.4) !important',
+                    WebkitTextFillColor: 'rgba(148,163,184,0.4) !important',
+                  },
+                  '& .MuiPickersDay-root.Mui-selected, & button.MuiPickersDay-root.Mui-selected': {
+                    bgcolor: `${acento} !important`,
+                    color: '#fff !important',
+                    WebkitTextFillColor: '#fff !important',
+                  },
+                  '& .MuiPickersDay-root.Mui-selected:hover, & .MuiPickersDay-root.Mui-selected:focus': {
+                    bgcolor: `${acento} !important`,
+                  },
+                  '& .MuiPickersDay-root:not(.Mui-selected):hover': {
+                    bgcolor: acentoHover,
+                  },
+                  '& .MuiPickersDay-today': {
+                    borderColor: `${acento} !important`,
+                  },
+                  '& .MuiYearCalendar-button, & .MuiMonthCalendar-button': {
+                    color: `${textoCalendario} !important`,
+                  },
+                  '& .MuiYearCalendar-button.Mui-selected, & .MuiMonthCalendar-button.Mui-selected': {
+                    bgcolor: `${acento} !important`,
+                    color: '#fff !important',
+                  },
+                }}
+              />
+              );
+              return temaEscuro ? (
+                <ThemeProvider theme={temaCalendarioEscuro}>{calendario}</ThemeProvider>
+              ) : (
+                calendario
+              );
+            })()}
             <Box
               sx={{
                 px: 2,
                 mt: 1,
                 mb: 0.25,
                 fontSize: '0.75rem',
-                color: 'text.secondary',
+                color: textoSecCalendario,
                 lineHeight: 1.35,
                 textAlign: 'center',
               }}

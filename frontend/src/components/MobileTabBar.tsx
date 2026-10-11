@@ -14,7 +14,16 @@ export type MobileTabItem = {
   isActive?: (pathname: string) => boolean;
 };
 
-const MobileMaisContext = createContext<{ openMais: () => void }>({ openMais: () => {} });
+type MobileMaisApi = {
+  openMais: () => void;
+  /** True quando a rota atual é um módulo do painel Mais. */
+  maisAtivo: boolean;
+};
+
+const MobileMaisContext = createContext<MobileMaisApi>({
+  openMais: () => {},
+  maisAtivo: false,
+});
 
 export function useMobileMais() {
   return useContext(MobileMaisContext);
@@ -35,7 +44,7 @@ export function MobileMaisDrawer({
   const location = useLocation();
   const path = toAppPath(location.pathname);
   /** Shell mobile dos hubs é sempre escuro — não seguir o tema claro do app. */
-  const effectiveAccent = accent || '#fe6c22';
+  const effectiveAccent = accent || '#0548d1';
 
   useEffect(() => {
     if (!open) return;
@@ -101,7 +110,15 @@ export function MobileMaisHost({
 }) {
   const [aberto, setAberto] = useState(false);
   const location = useLocation();
-  const api = useMemo(() => ({ openMais: () => setAberto(true) }), []);
+  const path = toAppPath(location.pathname);
+  const maisAtivo = items.some((item) => tabItemAtivo(item, path));
+  const api = useMemo(
+    () => ({
+      openMais: () => setAberto(true),
+      maisAtivo,
+    }),
+    [maisAtivo],
+  );
 
   useEffect(() => {
     setAberto(false);
@@ -169,7 +186,7 @@ export default function MobileTabBar({
   const [maisAberto, setMaisAberto] = useState(false);
 
   /** Dock mobile dos hubs é sempre escuro. */
-  const effectiveAccent = accent || '#fe6c22';
+  const effectiveAccent = accent || '#0548d1';
 
   useEffect(() => {
     setMaisAberto(false);
@@ -183,7 +200,7 @@ export default function MobileTabBar({
 
   const itemSx = (ativo: boolean) => ({
     ...mobileTabBarItemSx(tabHeight),
-    color: ativo ? effectiveAccent : '#94A3B8',
+    color: ativo ? '#ffffff' : '#94A3B8',
     fontSize,
     fontWeight: ativo ? 700 : 600,
     letterSpacing: '-0.01em',
@@ -197,8 +214,8 @@ export default function MobileTabBar({
       p: '5px',
       boxSizing: 'content-box',
       borderRadius: '12px',
-      color: ativo ? effectiveAccent : 'inherit',
-      bgcolor: ativo ? 'rgba(254, 108, 34, 0.16)' : 'transparent',
+      color: ativo ? '#ffffff' : 'inherit',
+      bgcolor: ativo ? effectiveAccent : 'transparent',
     },
   });
 

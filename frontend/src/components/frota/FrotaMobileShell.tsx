@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { getUsuario, logout } from '../../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import MobileUsuarioMenu from '../MobileUsuarioMenu';
 import NotificacoesSino from '../NotificacoesSino';
 import AppHubDock from '../hub/AppHubDock';
@@ -59,7 +59,7 @@ export default function FrotaMobileShell({
       className={`ck-estoque-hub ck-estoque-hub--hero ck-frota-hub${
         variant === 'page' ? ' ck-frota-hub--page' : ''
       }`}
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
@@ -67,7 +67,7 @@ export default function FrotaMobileShell({
           <img
             className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
             src={assetUrl(LOGO_GA_LOCKUP)}
-            alt="Grupo Alvim"
+            alt="Meridian Gestão Operacional"
           />
           <div className="ck-estoque-hub__actions">
             {onBack ? (

@@ -3,7 +3,7 @@
   --cal-muted: rgba(20, 32, 72, 0.48);
   --cal-ink: var(--ga-text-primary, #142048);
   --cal-paper: var(--ga-surface, #fff);
-  --cal-today: rgba(232, 82, 10, 0.08);
+  --cal-today: rgba(5, 72, 209, 0.08);
   min-width: 0;
   color: var(--cal-ink);
 }
@@ -75,7 +75,7 @@
 }
 
 .ck-escala-cal__col-h b.is-today {
-  background: #e8520a;
+  background: #0548d1;
   color: #fff;
 }
 
@@ -207,16 +207,16 @@
 }
 
 .ck-escala-cal__dia.is-today {
-  border-color: rgba(232, 82, 10, 0.45);
+  border-color: rgba(5, 72, 209, 0.45);
 }
 
 .ck-escala-cal__dia.is-on {
-  border-color: #e8520a;
-  background: rgba(232, 82, 10, 0.1);
+  border-color: #0548d1;
+  background: rgba(5, 72, 209, 0.1);
 }
 
 .ck-escala-cal__dia.is-on em {
-  background: #e8520a;
+  background: #0548d1;
   color: #fff;
 }
 
@@ -226,12 +226,12 @@ html.dark .ck-escala-cal__dia {
 }
 
 html.dark .ck-escala-cal__dia.is-on {
-  background: rgba(255, 122, 61, 0.12);
-  border-color: #ff7a3d;
+  background: rgba(5, 72, 209, 0.12);
+  border-color: #0548d1;
 }
 
 html.dark .ck-escala-cal__dia.is-on em {
-  background: #ff7a3d;
+  background: #0548d1;
 }
 
 .ck-escala-cal__bloco {
@@ -252,7 +252,7 @@ html.dark .ck-escala-cal__dia.is-on em {
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  background: #e8520a;
+  background: #0548d1;
   color: #fff;
 }
 
@@ -301,7 +301,7 @@ html.dark .ck-escala-cal {
   --cal-muted: #94a3b8;
   --cal-ink: var(--ga-text-primary, #f8fafc);
   --cal-paper: var(--ga-surface, #111827);
-  --cal-today: rgba(255, 122, 61, 0.1);
+  --cal-today: rgba(5, 72, 209, 0.1);
 }
 
 html.dark .ck-escala-cal__ev {
@@ -423,7 +423,7 @@ html.dark .ck-escala-cal__ev {
 }
 
 .ck-escala-reg__dia.is-today > span {
-  color: #e8520a;
+  color: #0548d1;
 }
 
 .ck-escala-reg__dia > span small {
@@ -469,5 +469,5 @@ html.dark .ck-escala-cal__ev {
 
 html.dark .ck-escala-reg__h {
   background: #0f172a;
-  box-shadow: inset 3px 0 0 #ff7a3d;
+  box-shadow: inset 3px 0 0 #0548d1;
 }

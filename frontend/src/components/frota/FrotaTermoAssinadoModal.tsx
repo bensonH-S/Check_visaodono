@@ -85,7 +85,7 @@ type Props = {
 
 export default function FrotaTermoAssinadoModal({ idTermo, open, onClose }: Props) {
   const { mode } = useAppTheme();
-  const acento = mode === 'dark' ? '#E8520A' : colors.navy;
+  const acento = mode === 'dark' ? '#0548d1' : colors.navy;
   const [termo, setTermo] = useState<FrotaTermoPortalDetalhe | null>(null);
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');

@@ -33,7 +33,7 @@ export default function MobilePaginaTitulo({
 }: Props) {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : '#1B2A6B';
+  const acento = escuro ? '#0548d1' : '#1B2A6B';
 
   return (
     <Box sx={{ mb: compacto ? 0.75 : 1.75, pt: 0.25, pl: 0.25 }}>
@@ -77,8 +77,8 @@ export default function MobilePaginaTitulo({
               px: tagExpandida ? 1 : 0.75,
               py: 0.25,
               borderRadius: 1,
-              bgcolor: escuro ? 'rgba(232, 82, 10, 0.16)' : 'rgba(27, 42, 107, 0.07)',
-              border: `1px solid ${escuro ? 'rgba(232, 82, 10, 0.28)' : 'rgba(27, 42, 107, 0.14)'}`,
+              bgcolor: escuro ? 'rgba(5, 72, 209, 0.16)' : 'rgba(27, 42, 107, 0.07)',
+              border: `1px solid ${escuro ? 'rgba(5, 72, 209, 0.28)' : 'rgba(27, 42, 107, 0.14)'}`,
               flexShrink: 0,
               maxWidth: tagExpandida ? '100%' : 120,
               overflow: 'hidden',

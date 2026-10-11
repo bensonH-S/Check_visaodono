@@ -4,7 +4,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import { getUsuario, logout } from '../../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
 import NotificacoesSino from '../../components/NotificacoesSino';
 import AppHubDock from '../../components/hub/AppHubDock';
@@ -28,7 +28,7 @@ export function EnergiaMobileChrome({
   return (
     <div
       className="ck-estoque-hub ck-estoque-hub--hero ck-energia-hub"
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       {children}
@@ -65,7 +65,7 @@ export function EnergiaMobileStage({
           <img
             className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
             src={assetUrl(LOGO_GA_LOCKUP)}
-            alt="Grupo Alvim"
+            alt="Meridian Gestão Operacional"
           />
           <div className="ck-estoque-hub__actions">
             {onBack ? (

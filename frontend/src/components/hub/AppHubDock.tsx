@@ -22,7 +22,7 @@ export default function AppHubDock({
   onPlus,
 }: Props) {
   const navigate = useNavigate();
-  const { openMais } = useMobileMais();
+  const { openMais, maisAtivo } = useMobileMais();
 
   return (
     <nav className="ck-estoque-hub__dock" aria-label="App">
@@ -51,7 +51,13 @@ export default function AppHubDock({
         <Inventory2OutlinedIcon />
         Estoque
       </button>
-      <button type="button" className="ck-estoque-hub__dock-mais" aria-label="Mais módulos" onClick={openMais}>
+      <button
+        type="button"
+        className={`ck-estoque-hub__dock-mais${maisAtivo ? ' is-on' : ''}`}
+        aria-label="Mais módulos"
+        aria-current={maisAtivo ? 'page' : undefined}
+        onClick={openMais}
+      >
         <MoreHorizIcon />
         Mais
       </button>

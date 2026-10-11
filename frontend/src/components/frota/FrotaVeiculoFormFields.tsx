@@ -207,7 +207,7 @@ export default function FrotaVeiculoFormFields({ form, onChange }: Props) {
 
 function SecaoFormTitulo({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   const { mode } = useAppTheme();
-  const acento = mode === 'dark' ? '#E8520A' : colors.navy;
+  const acento = mode === 'dark' ? '#0548d1' : colors.navy;
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
       <Box sx={{ display: 'inline-flex', color: acento, opacity: 0.85 }}>{icon}</Box>

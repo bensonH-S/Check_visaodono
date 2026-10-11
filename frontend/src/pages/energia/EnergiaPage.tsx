@@ -40,7 +40,7 @@ export default function EnergiaPage() {
   const location = useLocation();
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : colors.navy;
+  const acento = escuro ? '#0548d1' : colors.navy;
   const acentoHover = escuro ? '#c94508' : colors.navyDark;
   const podeAbrir = podeAbrirEnergia(getUsuario());
   const [itens, setItens] = useState<EnergiaChamado[]>([]);
@@ -154,7 +154,7 @@ export default function EnergiaPage() {
             border: 'none',
             textTransform: 'none',
             '&.Mui-selected': {
-              bgcolor: escuro ? 'rgba(232, 82, 10, 0.2)' : 'rgba(27, 42, 107, 0.08)',
+              bgcolor: escuro ? 'rgba(5, 72, 209, 0.2)' : 'rgba(27, 42, 107, 0.08)',
               color: acento,
               fontWeight: 700,
             },

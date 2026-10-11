@@ -1198,8 +1198,8 @@ export default function ChecklistMobilePage() {
             borderRadius: 4,
             mt: 0.75,
             mb: 1.5,
-            backgroundColor: 'rgba(254, 108, 34, 0.18)',
-            '& .MuiLinearProgress-bar': { backgroundColor: '#fe6c22' },
+            backgroundColor: 'rgba(5, 72, 209, 0.18)',
+            '& .MuiLinearProgress-bar': { backgroundColor: '#0548d1' },
           }}
         />
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -9,7 +9,6 @@ import Dialog from '@mui/material/Dialog'
 import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
-import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import TextField from '@mui/material/TextField'
 import Stack from '@mui/material/Stack'
@@ -33,11 +32,143 @@ import { api, brl, type Despesa, type Empresa, type NotaReceita } from '../api'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
+import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota'
+import SeletorLojaFinanceiro from '../SeletorLojaFinanceiro'
+
+/** Conteúdo claro — alinhado ao temaFinanceiro (sidebar permanece escura no layout). */
+const INBOX_BG = '#F4F7FB'
+const INBOX_SURFACE = '#FFFFFF'
+const INBOX_SURFACE_ALT = '#F8FAFC'
+const INBOX_BORDER = 'rgba(15, 23, 42, 0.12)'
+const INBOX_TEXT = '#0F172A'
+const INBOX_MUTED = '#64748B'
+
+const CAMPO_H = 32
+const CAMPO_W = { xs: '100%', md: 220 } as const
+
+const menuEscuroSx = {
+  bgcolor: `${INBOX_SURFACE} !important`,
+  backgroundColor: `${INBOX_SURFACE} !important`,
+  color: INBOX_TEXT,
+  backgroundImage: 'none',
+  border: `1px solid ${INBOX_BORDER}`,
+  maxHeight: 'min(70vh, 520px)',
+  overflow: 'auto',
+  '& .MuiMenuItem-root, & .MuiAutocomplete-option': {
+    color: `${INBOX_TEXT} !important`,
+    fontSize: 13,
+    minHeight: 36,
+    '&:hover, &[aria-selected="true"]': { bgcolor: 'rgba(27, 110, 243, 0.2) !important' },
+    '&.Mui-focused': { bgcolor: 'rgba(27, 110, 243, 0.16) !important' },
+  },
+  '& .MuiList-root': { py: 0.5, maxHeight: 'none' },
+} as const
+
+const selectMenuEscuro = {
+  MenuProps: {
+    slotProps: {
+      paper: { sx: menuEscuroSx },
+      list: { dense: true, sx: { maxHeight: 'none', py: 0.5 } },
+    },
+  },
+} as const
+
+const campoInboxSx = {
+  bgcolor: `${INBOX_SURFACE} !important`,
+  borderRadius: '10px',
+  '& .MuiOutlinedInput-root': {
+    color: INBOX_TEXT,
+    bgcolor: INBOX_SURFACE,
+    minHeight: CAMPO_H,
+    height: CAMPO_H,
+    borderRadius: '10px !important',
+    overflow: 'hidden',
+    '& fieldset, & .MuiOutlinedInput-notchedOutline': {
+      borderColor: INBOX_BORDER,
+      borderRadius: '10px !important',
+    },
+    '&:hover fieldset, &:hover .MuiOutlinedInput-notchedOutline': {
+      borderColor: 'rgba(15, 23, 42, 0.28)',
+    },
+  },
+  '& .MuiInputBase-input': {
+    color: INBOX_TEXT,
+    py: 0,
+    height: CAMPO_H,
+    boxSizing: 'border-box',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  '& .MuiInputLabel-root': { color: INBOX_MUTED },
+  '& .MuiSelect-select': {
+    py: '0 !important',
+    display: 'flex',
+    alignItems: 'center',
+    minHeight: `${CAMPO_H}px !important`,
+    height: CAMPO_H,
+  },
+  '& .MuiSelect-icon': { color: INBOX_MUTED },
+} as const
+
+const paperInboxSx = {
+  bgcolor: INBOX_SURFACE,
+  borderColor: INBOX_BORDER,
+  color: INBOX_TEXT,
+  '--ga-surface': INBOX_SURFACE_ALT,
+  '--ga-text-muted': INBOX_MUTED,
+  '--ga-border': INBOX_BORDER,
+  '& .MuiTableCell-root': {
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    color: INBOX_TEXT,
+  },
+  '& .MuiTableHead-root .MuiTableCell-head, & .MuiTableCell-head, & .MuiTableCell-stickyHeader': {
+    bgcolor: `${INBOX_SURFACE_ALT} !important`,
+    backgroundColor: `${INBOX_SURFACE_ALT} !important`,
+    color: `${INBOX_MUTED} !important`,
+    fontWeight: 650,
+    backgroundImage: 'none',
+  },
+  '& .MuiTablePagination-root, & .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+    color: INBOX_MUTED,
+  },
+  '& .MuiTablePagination-selectIcon': { color: INBOX_MUTED },
+  '& .MuiIconButton-root': { color: INBOX_MUTED },
+  '& .MuiTableRow-root.Mui-selected': {
+    bgcolor: 'rgba(27, 110, 243, 0.1) !important',
+  },
+  '& .MuiTableRow-hover:hover': {
+    bgcolor: 'rgba(15, 23, 42, 0.03)',
+  },
+} as const
 
 const INBOX_STATUS = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
 const FILTROS = ['Todas', 'Vencidas', 'NF confirmada', 'Aguardando NF'] as const
 const FILTROS_NF = ['Todas', 'Autorizadas', 'Canceladas', 'Com XML'] as const
 const hoje = new Date().toISOString().slice(0, 10)
+
+/** Checkbox da 1ª coluna: alinhado à esquerda, mesmo padding no thead e no tbody. */
+const celulaCheckSx = {
+  width: 44,
+  minWidth: 44,
+  maxWidth: 44,
+  pl: '12px !important',
+  pr: '4px !important',
+  py: '6px !important',
+  textAlign: 'left' as const,
+  verticalAlign: 'middle' as const,
+  lineHeight: 0,
+}
+const checkSx = {
+  p: 0,
+  m: 0,
+  display: 'block',
+  color: INBOX_MUTED,
+  '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#1B6EF3' },
+} as const
+const celulaCentroSx = {
+  textAlign: 'center' as const,
+  verticalAlign: 'middle' as const,
+}
 
 function dataLocal(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -73,9 +204,8 @@ function rotuloDescricao(e: Despesa) {
 
 /** Inbox: boletos DDA e notas destinadas ao CNPJ na Receita Federal. */
 export function InboxDdaPage() {
-  const { t, modo } = usePrefs()
+  const { t, idioma } = usePrefs()
   const navigate = useNavigate()
-  const escuro = modo === 'escuro'
   const [aba, setAba] = useState(0)
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [despesas, setDespesas] = useState<Despesa[]>([])
@@ -421,7 +551,26 @@ export function InboxDdaPage() {
   }
 
   return (
-    <Stack spacing={1.25} sx={{ height: '100%', minHeight: 0 }}>
+    <Stack
+      spacing={1.75}
+      sx={{
+        height: '100%',
+        minHeight: 0,
+        m: { xs: -1.5, md: -2 },
+        p: { xs: 1.5, md: 2 },
+        bgcolor: INBOX_BG,
+        color: INBOX_TEXT,
+        boxSizing: 'border-box',
+        '--ga-surface': INBOX_SURFACE_ALT,
+        '--ga-canvas': INBOX_BG,
+        '--ga-canvas-alt': INBOX_SURFACE,
+        '--ga-picker-paper': INBOX_SURFACE,
+        '--ga-border': INBOX_BORDER,
+        '--ga-text-primary': INBOX_TEXT,
+        '--ga-text-secondary': INBOX_MUTED,
+        '--ga-text-muted': INBOX_MUTED,
+      }}
+    >
       {erro && (
         <Alert
           severity={/gravado no banco|download automático/.test(erro) ? 'info' : 'warning'}
@@ -432,65 +581,175 @@ export function InboxDdaPage() {
       )}
       {aviso && <Alert severity="success" sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: 12 } }}>{aviso}</Alert>}
 
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { md: 'center' } }}>
-        <TextField size="small" placeholder={t('Buscar lançamento', 'Search entry')} value={busca} onChange={(ev) => setBusca(ev.target.value)} sx={{ minWidth: 240, bgcolor: 'background.paper' }} />
-        <TextField size="small" label={t('De', 'From')} type="date" value={aba === 1 ? deNf : de} onChange={(ev) => (aba === 1 ? setDeNf(ev.target.value) : setDe(ev.target.value))} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 138, bgcolor: 'background.paper' }} />
-        <TextField size="small" label={t('Até', 'To')} type="date" value={aba === 1 ? ateNf : ate} onChange={(ev) => (aba === 1 ? setAteNf(ev.target.value) : setAte(ev.target.value))} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 138, bgcolor: 'background.paper' }} />
+      <Stack
+        component="form"
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={1}
+        sx={{ alignItems: { md: 'flex-end' }, mb: 0.5 }}
+        onSubmit={(ev) => ev.preventDefault()}
+      >
         <TextField
-          select
           size="small"
-          label={t('Loja', 'Store')}
-          value={loja}
-          onChange={(ev) => { setLoja(ev.target.value); carregar(ev.target.value); carregarNotas(ev.target.value) }}
-          sx={{ minWidth: 180, bgcolor: 'background.paper', '& .MuiOutlinedInput-notchedOutline': { borderColor: loja ? 'primary.main' : undefined } }}
+          placeholder={t('Buscar lançamento', 'Search entry')}
+          value={busca}
+          onChange={(ev) => setBusca(ev.target.value)}
+          onKeyDown={(ev) => { if (ev.key === 'Enter') ev.preventDefault() }}
+          sx={{ width: CAMPO_W, flexShrink: 0, ...campoInboxSx }}
+        />
+        <Box
+          sx={{
+            width: CAMPO_W,
+            flexShrink: 0,
+            '& > .MuiBox-root': { width: '100%', minWidth: '0 !important', maxWidth: 'none !important', mb: 0 },
+            '& .MuiTextField-root': { width: '100% !important', minWidth: '0 !important', maxWidth: 'none !important' },
+            '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
+              bgcolor: `${INBOX_SURFACE} !important`,
+              color: INBOX_TEXT,
+              minHeight: `${CAMPO_H}px !important`,
+              height: `${CAMPO_H}px !important`,
+              borderRadius: '10px !important',
+              overflow: 'hidden',
+              '& fieldset, & .MuiOutlinedInput-notchedOutline': {
+                borderColor: INBOX_BORDER,
+                borderRadius: '10px !important',
+              },
+              '&:hover fieldset, &:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: 'rgba(15, 23, 42, 0.28)',
+              },
+            },
+            '& .MuiInputBase-input': {
+              color: `${INBOX_TEXT} !important`,
+              fontSize: '0.8125rem !important',
+              py: '0 !important',
+              height: `${CAMPO_H}px !important`,
+              boxSizing: 'border-box',
+            },
+            '& .MuiInputLabel-root': {
+              color: INBOX_MUTED,
+              fontSize: '0.75rem',
+              transform: 'translate(12px, -8px) scale(0.85)',
+            },
+            '& .MuiIconButton-root': { color: INBOX_MUTED, p: 0.25 },
+          }}
         >
-          <MenuItem value="">{t('Todas as lojas', 'All stores')}</MenuItem>
-          {lojas.map((e) => <MenuItem key={e.id} value={e.id}>{e.apelido}</MenuItem>)}
-        </TextField>
+          <FiltroIntervaloDatasFrota
+            compacto
+            idioma={idioma}
+            dataInicio={aba === 1 ? deNf : de}
+            dataFim={aba === 1 ? ateNf : ate}
+            onChangeInicio={aba === 1 ? setDeNf : setDe}
+            onChangeFim={aba === 1 ? setAteNf : setAte}
+          />
+        </Box>
+        <SeletorLojaFinanceiro
+          lojas={lojas}
+          value={loja}
+          incluirTodas
+          todasLabel={t('Todas as lojas', 'All stores')}
+          label={t('Loja', 'Store')}
+          width={CAMPO_W}
+          onChange={(id) => {
+            setLoja(id)
+            carregar(id)
+            carregarNotas(id)
+          }}
+          sx={{
+            ...campoInboxSx,
+            '& .MuiInputLabel-root': {
+              color: INBOX_MUTED,
+              fontSize: '0.75rem',
+              transform: 'translate(12px, -8px) scale(0.85)',
+            },
+            '& .MuiInputLabel-root.MuiInputLabel-shrink': {
+              transform: 'translate(12px, -8px) scale(0.85)',
+            },
+            '& .MuiSelect-select': {
+              fontSize: '0.8125rem',
+              py: '0 !important',
+              minHeight: `${CAMPO_H}px !important`,
+              height: CAMPO_H,
+              display: 'flex',
+              alignItems: 'center',
+            },
+          }}
+        />
         <Box sx={{ flex: 1 }} />
         {aba === 0 ? (
           <>
-            <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')}>
+            <Button
+              type="button"
+              size="small"
+              variant="outlined"
+              onClick={() => navigate('/financeiro/integracoes')}
+              sx={{ color: INBOX_TEXT, borderColor: INBOX_BORDER, '&:hover': { borderColor: '#1B6EF3', bgcolor: 'rgba(27,110,243,0.1)' } }}
+            >
               {t('Coletar DDA', 'Pull DDA')}
             </Button>
-            <Button size="small" variant="outlined" onClick={abrirAgenda}>
+            <Button
+              type="button"
+              size="small"
+              variant="outlined"
+              onClick={abrirAgenda}
+              sx={{ color: INBOX_TEXT, borderColor: INBOX_BORDER, '&:hover': { borderColor: '#1B6EF3', bgcolor: 'rgba(27,110,243,0.1)' } }}
+            >
               {t('Abrir Agenda banco', 'Open bank schedule')}
             </Button>
             <Button
+              type="button"
               size="small"
               variant="contained"
               disabled={enviando || !marcadas.size}
               onClick={() => enviar()}
+              sx={{
+                color: '#fff',
+                bgcolor: '#1B6EF3',
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#0D4ECC', boxShadow: 'none' },
+                '&.Mui-disabled': { color: 'rgba(255,255,255,0.7)', opacity: 0.5, bgcolor: '#1B6EF3' },
+              }}
             >
               {enviando ? t('Enviando…', 'Sending…') : t(`Enviar para agenda (${marcadas.size})`, `Send to schedule (${marcadas.size})`)}
             </Button>
           </>
         ) : (
-          <Button size="small" variant="contained" disabled={buscandoNf} onClick={() => buscarReceita()}>
+          <Button
+            type="button"
+            size="small"
+            variant="contained"
+            disabled={buscandoNf}
+            onClick={() => buscarReceita()}
+            sx={{
+              color: '#fff',
+              bgcolor: '#1B6EF3',
+              boxShadow: 'none',
+              '&:hover': { bgcolor: '#0D4ECC', boxShadow: 'none' },
+              '&.Mui-disabled': { color: 'rgba(255,255,255,0.7)', opacity: 0.5, bgcolor: '#1B6EF3' },
+            }}
+          >
             {buscandoNf ? t('Consultando…', 'Checking…') : t('Buscar na Receita', 'Pull from Receita')}
           </Button>
         )}
       </Stack>
 
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+      <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap', mt: 0.75 }}>
         {aba === 0 ? (
           <>
-            <Resumo rotulo={t('No inbox', 'In inbox')} valor={String(noPeriodo.length)} detalhe={t('boletos DDA', 'DDA boletos')} />
-            <Resumo rotulo={t('NF conferida', 'Invoice checked')} valor={String(comNf.length)} detalhe={t('prontos para agenda', 'ready for schedule')} />
-            <Resumo rotulo={t('Aguardando NF', 'Awaiting invoice')} valor={String(semNf.length)} detalhe={t('gestor no app', 'manager in the app')} />
-            <Resumo rotulo={t('Vencidas', 'Overdue')} valor={String(vencidas.length)} detalhe={t('no inbox', 'in inbox')} alerta={vencidas.length > 0} />
+            <Resumo cor="#1B6EF3" rotulo={t('No inbox', 'In inbox')} valor={String(noPeriodo.length)} detalhe={t('boletos DDA', 'DDA boletos')} />
+            <Resumo cor="#10B981" rotulo={t('NF conferida', 'Invoice checked')} valor={String(comNf.length)} detalhe={t('prontos para agenda', 'ready for schedule')} />
+            <Resumo cor="#F59E0B" rotulo={t('Aguardando NF', 'Awaiting invoice')} valor={String(semNf.length)} detalhe={t('gestor no app', 'manager in the app')} />
+            <Resumo cor="#EF4444" rotulo={t('Vencidas', 'Overdue')} valor={String(vencidas.length)} detalhe={t('no inbox', 'in inbox')} alerta={vencidas.length > 0} />
           </>
         ) : (
           <>
-            <Resumo rotulo={t('No período', 'In period')} valor={String(notasNoPeriodo.length)} detalhe={t('notas da Receita', 'Receita invoices')} />
-            <Resumo rotulo={t('Autorizadas', 'Authorized')} valor={String(notasAutorizadas.length)} detalhe={t('no nome da empresa', 'issued to the company')} />
-            <Resumo rotulo={t('Com XML', 'With XML')} valor={String(notasComXml.length)} detalhe={t('itens no gestor', 'items in the app')} />
-            <Resumo rotulo={t('Canceladas', 'Cancelled')} valor={String(notasCanceladas.length)} detalhe={t('na Receita', 'at Receita')} alerta={notasCanceladas.length > 0} />
+            <Resumo cor="#1B6EF3" rotulo={t('No período', 'In period')} valor={String(notasNoPeriodo.length)} detalhe={t('notas da Receita', 'Receita invoices')} />
+            <Resumo cor="#10B981" rotulo={t('Autorizadas', 'Authorized')} valor={String(notasAutorizadas.length)} detalhe={t('no nome da empresa', 'issued to the company')} />
+            <Resumo cor="#38BDF8" rotulo={t('Com XML', 'With XML')} valor={String(notasComXml.length)} detalhe={t('itens no gestor', 'items in the app')} />
+            <Resumo cor="#EF4444" rotulo={t('Canceladas', 'Cancelled')} valor={String(notasCanceladas.length)} detalhe={t('na Receita', 'at Receita')} alerta={notasCanceladas.length > 0} />
           </>
         )}
       </Stack>
 
-      <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
+      <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', mt: 0.25 }}>
         {(aba === 0 ? FILTROS : FILTROS_NF).map((item) => (
           <Chip
             key={item}
@@ -501,9 +760,9 @@ export function InboxDdaPage() {
             sx={{
               height: 24,
               fontSize: 11,
-              bgcolor: (aba === 0 ? filtro : filtroNf) === item ? (escuro ? 'rgba(27, 110, 243, 0.2)' : 'rgba(27, 110, 243, 0.1)') : 'background.paper',
-              borderColor: (aba === 0 ? filtro : filtroNf) === item ? 'primary.main' : 'divider',
-              color: (aba === 0 ? filtro : filtroNf) === item ? (escuro ? '#93C5FD' : '#0D4ECC') : 'text.secondary',
+              bgcolor: (aba === 0 ? filtro : filtroNf) === item ? 'rgba(27, 110, 243, 0.1)' : INBOX_SURFACE,
+              borderColor: (aba === 0 ? filtro : filtroNf) === item ? '#1B6EF3' : INBOX_BORDER,
+              color: (aba === 0 ? filtro : filtroNf) === item ? '#0D4ECC' : INBOX_MUTED,
               fontWeight: (aba === 0 ? filtro : filtroNf) === item ? 600 : 500,
             }}
           />
@@ -515,6 +774,7 @@ export function InboxDdaPage() {
         onChange={(_, v) => { setAba(v); setPagina(0) }}
         sx={{
           minHeight: 40,
+          '& .MuiTabs-indicator': { bgcolor: '#1B6EF3' },
           '& .MuiTab-root': {
             minHeight: 40,
             py: 0,
@@ -522,6 +782,8 @@ export function InboxDdaPage() {
             fontSize: 12,
             textTransform: 'none',
             gap: 0.75,
+            color: INBOX_MUTED,
+            '&.Mui-selected': { color: INBOX_TEXT },
           },
           '& .MuiTab-iconWrapper': { mb: '0 !important', mr: 0 },
         }}
@@ -539,34 +801,47 @@ export function InboxDdaPage() {
       </Tabs>
 
       {aba === 0 && (
-        <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', ...paperInboxSx }}>
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
+            <Table size="small" stickyHeader sx={{ width: '100%', minWidth: 720, tableLayout: 'fixed' }}>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 48, px: 0.5, overflow: 'visible' }}>
+                <TableRow sx={{ '& .MuiTableCell-head': { verticalAlign: 'middle' } }}>
+                  <TableCell sx={celulaCheckSx}>
                     <Checkbox
                       size="small"
                       checked={todasMarcadas}
                       indeterminate={!!marcadas.size && !todasMarcadas}
                       onChange={toggleTodas}
-                      sx={{ p: 0.5 }}
+                      sx={checkSx}
                     />
                   </TableCell>
-                  <TableCell sx={{ width: 158 }} />
-                  <TableCell>{t('Fornecedor', 'Supplier')}</TableCell>
-                  <TableCell sx={{ width: 120 }}>{t('Origem', 'Source')}</TableCell>
+                  <TableCell align="center" sx={{ width: 120, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
+                  <TableCell sx={{ width: '34%' }}>{t('Fornecedor', 'Supplier')}</TableCell>
+                  <TableCell align="center" sx={{ width: '16%', ...celulaCentroSx }}>{t('Loja', 'Store')}</TableCell>
                   <TableCell sx={{ width: 108 }}>{t('Vencimento', 'Due date')}</TableCell>
-                  <TableCell align="right" sx={{ width: 110 }}>{t('Valor', 'Amount')}</TableCell>
+                  <TableCell align="right" sx={{ width: 128, pr: 2.5 }}>{t('Valor', 'Amount')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {!linhas.length && (
                   <TableRow>
-                    <TableCell colSpan={6} sx={{ color: 'text.secondary', py: 4 }}>
-                      {inbox.length
-                        ? t('Nenhuma despesa nesse filtro.', 'No expenses in this filter.')
-                        : t('Inbox limpo. Novos DDA da coleta aparecem aqui.', 'Inbox clear. New DDA from the pull show up here.')}
+                    <TableCell colSpan={6} sx={{ border: 0, py: 0 }}>
+                      <EstadoVazio
+                        icone={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 40 }} />}
+                        titulo={
+                          inbox.length
+                            ? t('Nenhum boleto neste filtro', 'No boletos in this filter')
+                            : t('Nenhum boleto DDA no período', 'No DDA boletos in this period')
+                        }
+                        texto={
+                          inbox.length
+                            ? t('Ajuste o período, a loja ou o filtro acima para ver outros títulos.', 'Adjust the period, store or filter above to see other titles.')
+                            : t(
+                              'Clique em “Coletar DDA” para puxar os títulos do banco. Depois confira a NF e envie para a agenda.',
+                              'Click “Pull DDA” to fetch bank titles. Then check the invoice and send them to the schedule.',
+                            )
+                        }
+                      />
                     </TableCell>
                   </TableRow>
                 )}
@@ -575,35 +850,43 @@ export function InboxDdaPage() {
                   const chave = e.id || `${e.documento_ref || ''}|${e.vencimento || ''}|${e.valor}`
                   return (
                     <TableRow key={chave} hover selected={!!e.id && marcadas.has(e.id)}>
-                      <TableCell sx={{ width: 48, px: 0.5, overflow: 'visible' }}>
+                      <TableCell sx={celulaCheckSx}>
                         <Checkbox
                           size="small"
                           disabled={!e.id}
                           checked={!!e.id && marcadas.has(e.id)}
                           onChange={() => { if (e.id) toggle(e.id) }}
-                          sx={{ p: 0.5 }}
+                          sx={checkSx}
                         />
                       </TableCell>
-                      <TableCell sx={{ px: 1 }}>
-                        <SimbolosDda
-                          despesa={e}
-                          vencida={vencida}
-                          ocupado={enviando || acaoNf?.id === e.nfe_recebida_id}
-                          t={t}
-                          onNota={() => verNotaDoDda(e)}
-                          onDanfe={() => { void abrirDanfeDoDda(e) }}
-                          onAgenda={() => { if (e.id) void enviar([e.id]) }}
-                        />
+                      <TableCell align="center" sx={{ ...celulaCentroSx, px: 1 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                          <SimbolosDda
+                            despesa={e}
+                            vencida={vencida}
+                            ocupado={enviando || acaoNf?.id === e.nfe_recebida_id}
+                            t={t}
+                            onNota={() => verNotaDoDda(e)}
+                            onDanfe={() => { void abrirDanfeDoDda(e) }}
+                            onAgenda={() => { if (e.id) void enviar([e.id]) }}
+                          />
+                        </Box>
                       </TableCell>
                       <TableCell sx={{ overflow: 'hidden' }}>
-                        <Typography noWrap sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25 }}>{rotuloDescricao(e)}</Typography>
+                        <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 650, lineHeight: 1.25 }}>{rotuloDescricao(e)}</Typography>
                         {e.numero_nf && (
-                          <Typography noWrap sx={{ fontSize: 11, color: 'text.secondary' }}>NF {e.numero_nf}</Typography>
+                          <Typography noWrap sx={{ fontSize: 11, color: INBOX_MUTED }}>NF {e.numero_nf}</Typography>
                         )}
                       </TableCell>
-                      <TableCell>{e.origem}</TableCell>
-                      <TableCell sx={{ color: vencida ? 'error.main' : 'inherit' }}>{dataBr(e.vencimento)}</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{brl(Number(e.valor))}</TableCell>
+                      <TableCell align="center" sx={celulaCentroSx}>
+                        <Typography noWrap sx={{ fontSize: 12, color: INBOX_TEXT }}>{e.origem || '—'}</Typography>
+                      </TableCell>
+                      <TableCell sx={{ color: vencida ? '#B91C1C' : INBOX_TEXT, fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
+                        {dataBr(e.vencimento)}
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontSize: 12.5, pr: 2.5 }}>
+                        {brl(Number(e.valor))}
+                      </TableCell>
                     </TableRow>
                   )
                 })}
@@ -620,65 +903,85 @@ export function InboxDdaPage() {
             rowsPerPageOptions={[30, 50, 100]}
             labelRowsPerPage={t('Por página', 'Per page')}
             labelDisplayedRows={({ from, to, count }) => t(`${from}–${to} de ${count}`, `${from}–${to} of ${count}`)}
+            slotProps={{
+              select: selectMenuEscuro,
+            }}
             sx={{
               flexShrink: 0,
               borderTop: '1px solid',
-              borderColor: 'divider',
+              borderColor: INBOX_BORDER,
+              color: INBOX_MUTED,
               '& .MuiTablePagination-toolbar': { minHeight: 32, height: 32, pl: 1.5, pr: 0.5 },
-              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 12, m: 0 },
+              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 12, m: 0, color: INBOX_MUTED },
+              '& .MuiTablePagination-select': { color: INBOX_TEXT },
+              '& .MuiTablePagination-input': { color: INBOX_TEXT },
             }}
           />
         </Paper>
       )}
 
       {aba === 1 && (
-        <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', ...paperInboxSx }}>
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-            <Table size="small" stickyHeader sx={{ width: '100%', tableLayout: 'fixed' }}>
+            <Table size="small" stickyHeader sx={{ width: '100%', minWidth: 760, tableLayout: 'fixed' }}>
               <TableHead>
-                <TableRow>
-                  <TableCell sx={{ width: 158 }} />
-                  <TableCell sx={{ width: 110 }}>{t('Situação', 'Status')}</TableCell>
-                  <TableCell>{t('Emitente', 'Issuer')}</TableCell>
-                  <TableCell sx={{ width: 120 }}>{t('Loja', 'Store')}</TableCell>
+                <TableRow sx={{ '& .MuiTableCell-head': { verticalAlign: 'middle' } }}>
+                  <TableCell align="center" sx={{ width: 112, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
+                  <TableCell sx={{ width: 120 }}>{t('Situação', 'Status')}</TableCell>
+                  <TableCell sx={{ width: '32%' }}>{t('Emitente', 'Issuer')}</TableCell>
+                  <TableCell align="center" sx={{ width: '15%', ...celulaCentroSx }}>{t('Loja', 'Store')}</TableCell>
                   <TableCell sx={{ width: 108 }}>{t('Emissão', 'Issue date')}</TableCell>
-                  <TableCell align="right" sx={{ width: 110 }}>{t('Valor', 'Amount')}</TableCell>
+                  <TableCell align="right" sx={{ width: 128, pr: 2.5 }}>{t('Valor', 'Amount')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {!notasLinhas.length && (
                   <TableRow>
-                    <TableCell colSpan={6} sx={{ color: 'text.secondary', py: 4 }}>
-                      {notas.length
-                        ? t('Nenhuma nota nesse filtro.', 'No invoices in this filter.')
-                        : t(
-                          'Nenhuma nota ainda. Buscar na Receita traz as NF-e emitidas no nome da empresa, como o DDA faz com o boleto.',
-                          'No invoices yet. Pull from Receita brings NF-e issued to the company, the same way DDA brings boletos.',
-                        )}
+                    <TableCell colSpan={6} sx={{ border: 0, py: 0 }}>
+                      <EstadoVazio
+                        icone={<ReceiptLongOutlinedIcon sx={{ fontSize: 40 }} />}
+                        titulo={
+                          notas.length
+                            ? t('Nenhuma nota neste filtro', 'No invoices in this filter')
+                            : t('Ainda não há notas da Receita', 'No Receita invoices yet')
+                        }
+                        texto={
+                          notas.length
+                            ? t('Mude o período, a loja ou o filtro para ver outras NF-e.', 'Change the period, store or filter to see other invoices.')
+                            : t(
+                              'Clique em “Buscar na Receita” para trazer as NF-e do CNPJ da empresa. Depois confira o XML e lance na agenda.',
+                              'Click “Pull from Receita” to fetch NF-e for the company CNPJ. Then check the XML and post to the schedule.',
+                            )
+                        }
+                      />
                     </TableCell>
                   </TableRow>
                 )}
                 {visiveisNf.map((n) => (
                   <TableRow key={n.id} hover>
-                    <TableCell sx={{ px: 1 }}>
-                      <SimbolosNota
-                        nota={n}
-                        ocupado={acaoNf?.id === n.id}
-                        t={t}
-                        onDanfe={() => abrirDanfeLinha(n)}
-                        onAgenda={() => lancarLinha(n)}
-                      />
+                    <TableCell align="center" sx={{ ...celulaCentroSx, px: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                        <SimbolosNota
+                          nota={n}
+                          ocupado={acaoNf?.id === n.id}
+                          t={t}
+                          onDanfe={() => abrirDanfeLinha(n)}
+                          onAgenda={() => lancarLinha(n)}
+                        />
+                      </Box>
                     </TableCell>
-                    <TableCell>{chipSituacao(n.situacao, t, escuro)}</TableCell>
+                    <TableCell>{chipSituacao(n.situacao, t, true)}</TableCell>
                     <TableCell sx={{ overflow: 'hidden' }}>
-                      <Typography noWrap sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25 }}>{n.emitente_nome || '—'}</Typography>
-                      <Typography noWrap sx={{ fontSize: 11, color: 'text.secondary' }}>
+                      <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 650, lineHeight: 1.25 }}>{n.emitente_nome || '—'}</Typography>
+                      <Typography noWrap sx={{ fontSize: 11, color: INBOX_MUTED }}>
                         {n.numero ? `NF ${n.numero}` : n.chave}
                       </Typography>
                     </TableCell>
-                    <TableCell>{n.origem || '—'}</TableCell>
-                    <TableCell>{dataBr(n.emissao)}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                    <TableCell align="center" sx={celulaCentroSx}>
+                      <Typography noWrap sx={{ fontSize: 12 }}>{n.origem || '—'}</Typography>
+                    </TableCell>
+                    <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>{dataBr(n.emissao)}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontSize: 12.5, pr: 2.5 }}>
                       {n.valor_total != null ? brl(n.valor_total) : '—'}
                     </TableCell>
                   </TableRow>
@@ -696,12 +999,18 @@ export function InboxDdaPage() {
             rowsPerPageOptions={[30, 50, 100]}
             labelRowsPerPage={t('Por página', 'Per page')}
             labelDisplayedRows={({ from, to, count }) => t(`${from}–${to} de ${count}`, `${from}–${to} of ${count}`)}
+            slotProps={{
+              select: selectMenuEscuro,
+            }}
             sx={{
               flexShrink: 0,
               borderTop: '1px solid',
-              borderColor: 'divider',
+              borderColor: INBOX_BORDER,
+              color: INBOX_MUTED,
               '& .MuiTablePagination-toolbar': { minHeight: 32, height: 32, pl: 1.5, pr: 0.5 },
-              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 12, m: 0 },
+              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 12, m: 0, color: INBOX_MUTED },
+              '& .MuiTablePagination-select': { color: INBOX_TEXT },
+              '& .MuiTablePagination-input': { color: INBOX_TEXT },
             }}
           />
         </Paper>
@@ -945,21 +1254,81 @@ function chipSituacao(situacao: NotaReceita['situacao'], t: (pt: string, en: str
   )
 }
 
-function Resumo({ rotulo, valor, detalhe, alerta = false }: { rotulo: string; valor: string; detalhe: string; alerta?: boolean }) {
+function Resumo({
+  rotulo,
+  valor,
+  detalhe,
+  alerta = false,
+  cor = '#1B6EF3',
+}: {
+  rotulo: string
+  valor: string
+  detalhe: string
+  alerta?: boolean
+  cor?: string
+}) {
+  const faixa = alerta ? '#EF4444' : cor
   return (
     <Paper
       variant="outlined"
       sx={{
-        px: 1.25,
-        py: 0.7,
+        position: 'relative',
+        px: 1.35,
+        py: 0.75,
+        pl: 1.6,
         minWidth: 120,
         flex: 1,
-        ...(alerta ? { borderColor: '#EF4444', bgcolor: 'rgba(239,68,68,0.06)' } : {}),
+        overflow: 'hidden',
+        bgcolor: INBOX_SURFACE,
+        borderColor: INBOX_BORDER,
+        ...(alerta ? { bgcolor: 'rgba(239,68,68,0.12)' } : {}),
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 3,
+          bgcolor: faixa,
+          borderRadius: '2px 0 0 2px',
+        },
       }}
     >
-      <Typography sx={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: alerta ? 'error.main' : 'text.secondary' }}>{rotulo}</Typography>
-      <Typography sx={{ fontSize: 15, fontWeight: 650, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15, color: alerta ? 'error.main' : 'inherit' }}>{valor}</Typography>
-      <Typography sx={{ fontSize: 11, color: alerta ? 'error.main' : 'text.secondary' }}>{detalhe}</Typography>
+      <Typography sx={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: alerta ? '#B91C1C' : INBOX_MUTED }}>{rotulo}</Typography>
+      <Typography sx={{ fontSize: 15, fontWeight: 650, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15, color: alerta ? '#B91C1C' : INBOX_TEXT }}>{valor}</Typography>
+      <Typography sx={{ fontSize: 11, color: alerta ? '#B91C1C' : INBOX_MUTED }}>{detalhe}</Typography>
     </Paper>
+  )
+}
+
+function EstadoVazio({
+  icone,
+  titulo,
+  texto,
+}: {
+  icone: ReactNode
+  titulo: string
+  texto: string
+}) {
+  return (
+    <Box
+      sx={{
+        py: 5.5,
+        px: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        gap: 1,
+      }}
+    >
+      <Box sx={{ color: 'rgba(148,163,184,0.7)', display: 'flex', mb: 0.5 }}>{icone}</Box>
+      <Typography sx={{ fontSize: 15, fontWeight: 700, color: INBOX_TEXT, letterSpacing: '-0.02em' }}>
+        {titulo}
+      </Typography>
+      <Typography sx={{ fontSize: 13, color: INBOX_MUTED, maxWidth: 460, lineHeight: 1.55 }}>
+        {texto}
+      </Typography>
+    </Box>
   )
 }

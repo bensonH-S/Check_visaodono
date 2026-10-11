@@ -77,6 +77,7 @@ export function logout() {
       )
       .catch(() => undefined);
   }
+  // Mantém mf-idioma (PT/EN) para o próximo login.
   localStorage.removeItem('token');
   localStorage.removeItem('usuario');
   void import('../utils/pushNotifications').then((m) => m.cancelarPushNotificacoes(token));

@@ -30,6 +30,8 @@ import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
+import FinanceIdiomaToggle from '../financeiro/FinanceIdiomaToggle';
+import { useIdiomaFinanceiro } from '../financeiro/useIdiomaFinanceiro';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -116,6 +118,16 @@ function PortalLayoutInner() {
   const isChamadoNovo = path === '/chamados/novo';
   const emAprovacoes = path.startsWith('/chamados/aprovacoes');
   const isDashboard = path === '/dashboard';
+  /** Agenda + Inbox + Caixa + Integrações + Config. financeiro: PT/EN no header. */
+  const isFinanceiroRota =
+    path === '/financeiro' ||
+    path.startsWith('/financeiro/inbox') ||
+    path.startsWith('/financeiro/caixa') ||
+    path.startsWith('/financeiro/integracoes') ||
+    path.startsWith('/financeiro/configuracoes');
+  const mostraIdiomaFinanceiro = isFinanceiroRota;
+  const idiomaFinanceiro = useIdiomaFinanceiro();
+  const finEn = idiomaFinanceiro === 'en';
   const emChamados = path.startsWith('/chamados') && !emAprovacoes;
   const emEscala = path === '/escalas/visitas' || path.startsWith('/escalas/visitas');
 
@@ -331,19 +343,33 @@ function PortalLayoutInner() {
   const emConfiguracoes = path === '/configuracoes' || path.startsWith('/configuracoes/');
   const emFrota = path === '/frota' || (path.startsWith('/frota/') && !path.startsWith('/frota/mobile'));
 
+  const secFin = finEn ? 'FINANCE' : 'FINANCEIRO';
   const nav: NavItem[] = [
     { to: '/dashboard', label: 'Command Center', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
 
     // FINANCEIRO — Inbox (DDA/NF) → Agenda banco → caixa / integrações
-    { to: '/financeiro/inbox', label: 'Inbox', icon: <InboxOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: 'FINANCEIRO' },
-    { to: '/financeiro', label: 'Agenda banco', icon: <AccountBalanceOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), end: true, section: 'FINANCEIRO' },
-    { to: '/financeiro/caixa', label: 'Fechamento de caixa', icon: <PointOfSaleOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: 'FINANCEIRO' },
+    { to: '/financeiro/inbox', label: 'Inbox', icon: <InboxOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: secFin },
+    {
+      to: '/financeiro',
+      label: finEn ? 'Bank schedule' : 'Agenda banco',
+      icon: <AccountBalanceOutlinedIcon fontSize="small" />,
+      show: podeVerFinanceiro(user),
+      end: true,
+      section: secFin,
+    },
+    {
+      to: '/financeiro/caixa',
+      label: finEn ? 'Cash closing' : 'Fechamento de caixa',
+      icon: <PointOfSaleOutlinedIcon fontSize="small" />,
+      show: podeVerFinanceiro(user),
+      section: secFin,
+    },
     {
       to: '/financeiro/integracoes',
-      label: 'Integrações',
+      label: finEn ? 'Integrations' : 'Integrações',
       icon: <HubOutlinedIcon fontSize="small" />,
       show: podeVerFinanceiro(user),
-      section: 'FINANCEIRO',
+      section: secFin,
       isActive: (pathname: string) =>
         pathname.startsWith('/financeiro/integracoes') || pathname.startsWith('/financeiro/configuracoes'),
     },
@@ -369,7 +395,10 @@ function PortalLayoutInner() {
   const sidebarNav = nav.filter((n) => !n.mobileOnly && canalLigado(n.to, 'portal'));
   const mobileTabsRodape = nav.filter((n) => canalLigado(n.to, 'portal'));
 
-  const pageTitle = resolvePageTitle(path);
+  const pageTitle = resolvePageTitle(
+    path,
+    path === '/financeiro' || path.startsWith('/financeiro/') ? idiomaFinanceiro : 'pt',
+  );
   usePageTitle(pageTitle.title);
 
   const iniciais =
@@ -409,7 +438,10 @@ function PortalLayoutInner() {
         />
       )}
 
-      <Box className="flex-1 flex flex-col min-w-0 min-h-0" sx={{ bgcolor: isDashboard ? CC_BG : colors.canvas }}>
+      <Box
+        className="flex-1 flex flex-col min-w-0 min-h-0"
+        sx={{ bgcolor: isDashboard ? CC_BG : colors.canvas }}
+      >
         {/* Topbar desktop */}
         {!hideSidebar && (
           <Box
@@ -429,18 +461,22 @@ function PortalLayoutInner() {
               zIndex: isDashboard ? 10000 : 1,
             }}
           >
-            <PageHeaderTitle {...pageTitle} variant="desktop" />
+            <PageHeaderTitle {...pageTitle} variant="desktop" tone="default" />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               {dashboardFilters}
+              {mostraIdiomaFinanceiro ? <FinanceIdiomaToggle /> : null}
               {podeConfig ? (
-                <Tooltip title="Configurações">
+                <Tooltip title={mostraIdiomaFinanceiro && finEn ? 'Settings' : 'Configurações'}>
                   <IconButton
                     size="small"
-                    aria-label="Configurações"
+                    aria-label={mostraIdiomaFinanceiro && finEn ? 'Settings' : 'Configurações'}
                     onClick={() => navigate('/configuracoes')}
                     sx={{
                       color: emConfiguracoes ? colors.navy : colors.textSecondary,
-                      '&:hover': { color: colors.navy, bgcolor: colors.navyMuted },
+                      '&:hover': {
+                        color: colors.navy,
+                        bgcolor: colors.navyMuted,
+                      },
                     }}
                   >
                     <SettingsIcon sx={{ fontSize: 20 }} />
@@ -474,23 +510,31 @@ function PortalLayoutInner() {
             <Box component="img" src={assetUrl(LOGO_GRUPO_ALVIM)} alt="" sx={{ height: 28, objectFit: 'contain' }} />
           )}
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <PageHeaderTitle {...pageTitle} variant="mobile" />
+            <PageHeaderTitle {...pageTitle} variant="mobile" tone="default" />
           </Box>
           <SobreSistemaButton variante="portal" />
           <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
           {/* Tema escuro oculto no mobile por enquanto — só claro. */}
+          {mostraIdiomaFinanceiro ? <FinanceIdiomaToggle size="tiny" /> : null}
           {podeConfig ? (
             <IconButton
               size="small"
               aria-label="Configurações"
               onClick={() => navigate('/configuracoes')}
-              sx={{ color: emConfiguracoes ? colors.navy : colors.textSecondary }}
+              sx={{
+                color: emConfiguracoes ? colors.navy : colors.textSecondary,
+              }}
             >
               <SettingsIcon sx={{ fontSize: 18 }} />
             </IconButton>
           ) : null}
           {isMobileLayout ? notificacoes : null}
-          <IconButton size="small" aria-label="Sair" onClick={handleLogout} sx={{ color: colors.textSecondary }}>
+          <IconButton
+            size="small"
+            aria-label="Sair"
+            onClick={handleLogout}
+            sx={{ color: colors.textSecondary }}
+          >
             <LogoutIcon sx={{ fontSize: 18 }} />
           </IconButton>
         </Box>

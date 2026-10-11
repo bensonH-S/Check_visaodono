@@ -31,7 +31,7 @@ import { showToast } from '../../utils/toast';
 import { usePageTitle } from '../../hooks/usePageTitle';
 import CampoDataFrota from '../../components/frota/CampoDataFrota';
 import { getUsuario, logout } from '../../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
 import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
 import NotificacoesSino from '../../components/NotificacoesSino';
@@ -68,7 +68,7 @@ type DialogoHorario = {
 } | null;
 
 const NAVY = '#1B2A6B';
-const ORANGE = '#E8520A';
+const ORANGE = '#0548d1';
 
 const STATUS_TABS: Array<{ id: StatusFiltro; label: string }> = [
   { id: 'ALL', label: 'Todos' },
@@ -529,7 +529,7 @@ export default function FreelancersAprovacaoMobilePage() {
   return (
     <div
       className="ck-estoque-hub ck-estoque-hub--hero ck-freela ck-freela-hub"
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
@@ -537,7 +537,7 @@ export default function FreelancersAprovacaoMobilePage() {
           <img
             className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
             src={assetUrl(LOGO_GA_LOCKUP)}
-            alt="Grupo Alvim"
+            alt="Meridian Gest�o Operacional"
           />
           <div className="ck-estoque-hub__actions">
             <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
@@ -850,7 +850,7 @@ export default function FreelancersAprovacaoMobilePage() {
                     <img src={ico} alt="" className="ck-freela-hub__loja-ico" />
                   ) : (
                     <StorefrontOutlinedIcon
-                      sx={{ fontSize: 20, color: ativa ? ORANGE : '#8d8d8d' }}
+                      sx={{ fontSize: 20, color: ativa ? '#ffffff' : '#8d8d8d' }}
                     />
                   )}
                 </ListItemIcon>
@@ -862,7 +862,7 @@ export default function FreelancersAprovacaoMobilePage() {
                       sx: {
                         fontWeight: ativa ? 700 : 600,
                         fontSize: '0.9rem',
-                        color: '#f5f5f5',
+                        color: '#ffffff',
                         whiteSpace: 'normal',
                         overflowWrap: 'anywhere',
                         lineHeight: 1.3,
@@ -1159,7 +1159,7 @@ export default function FreelancersAprovacaoMobilePage() {
                     <img src={ico} alt="" className="ck-freela-hub__loja-ico" />
                   ) : (
                     <StorefrontOutlinedIcon
-                      sx={{ fontSize: 20, color: ativa ? ORANGE : '#8d8d8d' }}
+                      sx={{ fontSize: 20, color: ativa ? '#ffffff' : '#8d8d8d' }}
                     />
                   )}
                 </ListItemIcon>
@@ -1171,7 +1171,7 @@ export default function FreelancersAprovacaoMobilePage() {
                       sx: {
                         fontWeight: ativa ? 700 : 600,
                         fontSize: '0.9rem',
-                        color: '#f5f5f5',
+                        color: '#ffffff',
                         whiteSpace: 'normal',
                         overflowWrap: 'anywhere',
                         lineHeight: 1.3,

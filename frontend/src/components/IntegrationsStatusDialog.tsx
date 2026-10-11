@@ -97,7 +97,7 @@ export default function IntegrationsStatusDialog({
 }: Props) {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark' || deveForcarTemaClaroMobile();
-  const acento = '#E8520A';
+  const acento = escuro ? '#0548d1' : '#1B6EF3';
   const surface = escuro ? '#333840' : colors.surface;
   const cardBg = escuro ? '#2a3038' : colors.canvasAlt;
   const border = escuro ? 'rgba(255, 255, 255, 0.1)' : colors.border;

@@ -227,7 +227,7 @@ function KpiItem({ label, valor }: { label: string; valor: string }) {
 export default function FrotaOperacaoPage() {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : colors.navy;
+  const acento = escuro ? '#0548d1' : colors.navy;
   const acentoHover = escuro ? '#c94508' : colors.navyDark;
   const navigate = useNavigate();
   const { aba: abaParam } = useParams<{ aba: string }>();
@@ -1264,7 +1264,7 @@ export default function FrotaOperacaoPage() {
                       bgcolor: colors.orange,
                       color: '#fff',
                       '&:hover': { bgcolor: colors.orangeHover },
-                      '&.Mui-disabled': { bgcolor: 'rgba(232, 82, 10, 0.35)', color: '#fff' },
+                      '&.Mui-disabled': { bgcolor: 'rgba(5, 72, 209, 0.35)', color: '#fff' },
                     }}
                   >
                     {gerandoPdfMultas ? 'Gerando...' : 'Relatório'}

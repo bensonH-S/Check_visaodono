@@ -33,7 +33,7 @@ import '../../components/manutencao/chamados-mobile.css';
 
 const ROTA_LISTA = '/chamados/mobile';
 const CACHE_KEY = 'manut_formulario_mobile_v1';
-const ORANGE = '#E8520A';
+const ORANGE = '#0548d1';
 const NAVY = '#1B2A6B';
 
 const campoFormularioProps = {
@@ -85,11 +85,11 @@ function IndicadorEtapasNovoChamado({ etapaAtiva }: { etapaAtiva: 0 | 1 }) {
                 borderRadius: '50%',
                 bgcolor: (theme) =>
                   etapaAtiva === i || etapaAtiva > i
-                    ? (theme.palette.mode === 'dark' ? '#FF7A3D' : ORANGE)
+                    ? (theme.palette.mode === 'dark' ? '#0548d1' : ORANGE)
                     : (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.2)' : 'rgba(27, 42, 107, 0.2)'),
                 boxShadow: (theme) =>
                   etapaAtiva === i
-                    ? (theme.palette.mode === 'dark' ? '0 0 0 3px rgba(255, 122, 61, 0.25)' : '0 0 0 3px rgba(232, 82, 10, 0.22)')
+                    ? (theme.palette.mode === 'dark' ? '0 0 0 3px rgba(5, 72, 209, 0.25)' : '0 0 0 3px rgba(5, 72, 209, 0.22)')
                     : 'none',
                 transition: 'background-color 0.2s ease, box-shadow 0.2s ease',
               }}
@@ -103,7 +103,7 @@ function IndicadorEtapasNovoChamado({ etapaAtiva }: { etapaAtiva: 0 | 1 }) {
                   etapaAtiva === i
                     ? (theme.palette.mode === 'dark' ? '#F8FAFC' : NAVY)
                     : etapaAtiva > i
-                      ? (theme.palette.mode === 'dark' ? '#FF7A3D' : ORANGE)
+                      ? (theme.palette.mode === 'dark' ? '#0548d1' : ORANGE)
                       : 'text.secondary',
                 lineHeight: 1.2,
               }}
@@ -121,7 +121,7 @@ function IndicadorEtapasNovoChamado({ etapaAtiva }: { etapaAtiva: 0 | 1 }) {
                 borderRadius: 1,
                 bgcolor: (theme) =>
                   etapaAtiva > i
-                    ? (theme.palette.mode === 'dark' ? '#FF7A3D' : ORANGE)
+                    ? (theme.palette.mode === 'dark' ? '#0548d1' : ORANGE)
                     : (theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(27, 42, 107, 0.12)'),
               }}
             />
@@ -226,7 +226,7 @@ function SeletorLojaNovoChamado({
                 }}
                 sx={{
                   py: 1.25,
-                  '&.Mui-selected': { bgcolor: 'rgba(232, 82, 10, 0.08)' },
+                  '&.Mui-selected': { bgcolor: 'rgba(5, 72, 209, 0.08)' },
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
@@ -238,7 +238,7 @@ function SeletorLojaNovoChamado({
                     primary: {
                       sx: {
                         fontWeight: ativa ? 700 : 600,
-                        color: ativa ? (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : NAVY) : 'text.primary',
+                        color: ativa ? (theme) => (theme.palette.mode === 'dark' ? '#0548d1' : NAVY) : 'text.primary',
                         fontSize: '0.9rem',
                       },
                     },
@@ -484,7 +484,7 @@ export default function ChamadosMobileNovoPage() {
               <PersonOutlineOutlinedIcon
                 sx={{
                   fontSize: 20,
-                  color: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : NAVY),
+                  color: (theme) => (theme.palette.mode === 'dark' ? '#0548d1' : NAVY),
                   opacity: 0.85,
                   flexShrink: 0,
                   display: 'block',
@@ -680,7 +680,7 @@ export default function ChamadosMobileNovoPage() {
             disabled={salvando || !podeEnviar}
             sx={{
               fontWeight: 800,
-              bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : '#1B2A6B'),
+              bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#0548d1' : '#1B2A6B'),
               color: '#fff',
               '&:hover': {
                 bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#d04809' : '#152255'),

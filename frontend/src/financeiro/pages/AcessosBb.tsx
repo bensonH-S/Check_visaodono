@@ -14,7 +14,8 @@ import Typography from '@mui/material/Typography'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
 import { api, type AcessoBb } from '../api'
-import { Barra, cnpjFormatado, PainelLateral, quando, Resumo, Resumos, Secao, Selo, TabelaConfig, Titulo, type Coluna, type Tom } from '../components/ConfigUi'
+import { Barra, BotaoEditar, cnpjFormatado, PainelLateral, quando, Resumo, Resumos, Secao, Selo, TabelaConfig, Titulo, type Coluna, type Tom } from '../components/ConfigUi'
+import { usePrefs } from '../prefs'
 
 function base64(buffer: ArrayBuffer) {
   const bytes = new Uint8Array(buffer)
@@ -23,16 +24,34 @@ function base64(buffer: ArrayBuffer) {
   return btoa(binario)
 }
 
-function situacao(acesso: AcessoBb): { texto: string; tom: Tom } {
-  if (!acesso.cadastrada) return { texto: 'Sem acesso', tom: 'neutro' }
-  if (!acesso.pronta) return { texto: 'Incompleto', tom: 'alerta' }
-  if (!acesso.ativo) return { texto: 'Pausado', tom: 'neutro' }
-  if (acesso.ultimo_ok === false) return { texto: 'Com erro', tom: 'erro' }
-  if (acesso.ultimo_ok === true) return { texto: 'Coletando', tom: 'ok' }
-  return { texto: 'Aguardando coleta', tom: 'ok' }
+function situacao(acesso: AcessoBb, t: (pt: string, en: string) => string): { texto: string; tom: Tom } {
+  if (!acesso.cadastrada) return { texto: t('Sem acesso', 'No access'), tom: 'neutro' }
+  if (!acesso.pronta) return { texto: t('Incompleto', 'Incomplete'), tom: 'alerta' }
+  if (!acesso.ativo) return { texto: t('Pausado', 'Paused'), tom: 'neutro' }
+  if (acesso.ultimo_ok === false) return { texto: t('Com erro', 'Error'), tom: 'erro' }
+  if (acesso.ultimo_ok === true) return { texto: t('Coletando', 'Collecting'), tom: 'ok' }
+  return { texto: t('Aguardando coleta', 'Waiting'), tom: 'ok' }
+}
+
+function mensagemColeta(texto: string | null | undefined, t: (pt: string, en: string) => string) {
+  if (!texto) return ''
+  const m = texto.match(/^(\d+) boleto\(s\),\s*(\d+) novo\(s\)\.?$/)
+  if (m) {
+    return t(
+      `${m[1]} boleto(s), ${m[2]} novo(s).`,
+      `${m[1]} boleto${m[1] === '1' ? '' : 's'}, ${m[2]} new.`,
+    )
+  }
+  const fixas: Record<string, [string, string]> = {
+    'Nenhum boleto a pagar no período.': ['Nenhum boleto a pagar no período.', 'No boletos to pay in the period.'],
+    'VAN consultada. Nenhum retorno novo.': ['VAN consultada. Nenhum retorno novo.', 'VAN checked. No new returns.'],
+  }
+  const par = fixas[texto]
+  return par ? t(par[0], par[1]) : texto
 }
 
 export function AcessosBb() {
+  const { t, idioma } = usePrefs()
   const [acessos, setAcessos] = useState<AcessoBb[]>([])
   const [busca, setBusca] = useState('')
   const [editando, setEditando] = useState<AcessoBb | null>(null)
@@ -40,7 +59,7 @@ export function AcessosBb() {
   const [aviso, setAviso] = useState('')
   const [coletando, setColetando] = useState(false)
 
-  const carregar = () => api.acessosBb().then(setAcessos).catch((err: unknown) => setErro(err instanceof Error ? err.message : 'Não carregou'))
+  const carregar = () => api.acessosBb().then(setAcessos).catch((err: unknown) => setErro(err instanceof Error ? err.message : t('Não carregou', 'Could not load')))
 
   useEffect(() => { carregar() }, [])
 
@@ -58,56 +77,62 @@ export function AcessosBb() {
     setColetando(true)
     try {
       await api.coletarBb()
-      setAviso('Consulta iniciada. O status de cada empresa atualiza em instantes.')
+      setAviso(t('Consulta iniciada. O status de cada empresa atualiza em instantes.', 'Pull started. Each company status updates shortly.'))
       setTimeout(() => { carregar(); setColetando(false) }, 6000)
     } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Não iniciou a coleta')
+      setErro(err instanceof Error ? err.message : t('Não iniciou a coleta', 'Could not start the pull'))
       setColetando(false)
     }
   }
 
   const colunas: Coluna<AcessoBb>[] = [
-    { titulo: 'Empresa', render: (a) => <Titulo texto={a.empresa} sub={a.razao_social} /> },
+    { titulo: t('Empresa', 'Company'), render: (a) => <Titulo texto={a.empresa} sub={a.razao_social} /> },
     { titulo: 'CNPJ', render: (a) => <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{cnpjFormatado(a.cnpj)}</Box> },
-    { titulo: 'Ambiente', render: (a) => (a.cadastrada ? (a.ambiente === 'producao' ? 'Produção' : 'Homologação') : '—') },
-    { titulo: 'Certificado', render: (a) => (a.certificado_definido ? (a.certificado_pasta ? 'A1 na pasta' : 'A1 carregado') : '—') },
-    { titulo: 'Situação', render: (a) => { const s = situacao(a); return <Selo texto={s.texto} tom={s.tom} /> } },
     {
-      titulo: 'Última consulta',
+      titulo: t('Ambiente', 'Environment'),
+      render: (a) => (a.cadastrada ? (a.ambiente === 'producao' ? t('Produção', 'Production') : t('Homologação', 'Sandbox')) : '—'),
+    },
+    {
+      titulo: t('Certificado', 'Certificate'),
+      render: (a) => (a.certificado_definido ? (a.certificado_pasta ? t('A1 na pasta', 'A1 on disk') : t('A1 carregado', 'A1 loaded')) : '—'),
+    },
+    { titulo: t('Situação', 'Status'), render: (a) => { const s = situacao(a, t); return <Selo texto={s.texto} tom={s.tom} /> } },
+    {
+      titulo: t('Última consulta', 'Last pull'),
       largura: 280,
       render: (a) => (a.ultima_coleta ? (
         <>
-          <Typography sx={{ fontSize: 13 }}>{quando(a.ultima_coleta)}</Typography>
+          <Typography sx={{ fontSize: 13 }}>{quando(a.ultima_coleta, idioma)}</Typography>
           <Typography sx={{ fontSize: 12, color: a.ultimo_ok === false ? 'error.main' : 'text.secondary', maxWidth: 280 }} noWrap title={a.ultima_mensagem || ''}>
-            {a.ultima_mensagem}
+            {mensagemColeta(a.ultima_mensagem, t)}
           </Typography>
         </>
       ) : '—'),
     },
-    {
-      titulo: ' ',
-      align: 'right',
-      render: (a) => <Button size="small" onClick={(ev) => { ev.stopPropagation(); setEditando(a) }}>{a.cadastrada ? 'Editar' : 'Configurar'}</Button>,
-    },
+    { titulo: ' ', align: 'right', largura: 48, render: (a) => <BotaoEditar onClick={() => setEditando(a)} configurar={!a.cadastrada} /> },
   ]
 
   return (
     <Stack spacing={2}>
       <Resumos>
-        <Resumo rotulo="Empresas com acesso" valor={`${prontas.length} de ${acessos.length}`} detalhe="entram na coleta automática" />
-        <Resumo rotulo="Em produção" valor={String(producao.length)} detalhe="com certificado A1" />
-        <Resumo rotulo="Com erro" valor={String(comErro.length)} detalhe="na última consulta" />
+        <Resumo
+          rotulo={t('Empresas com acesso', 'Companies with access')}
+          valor={`${prontas.length} ${t('de', 'of')} ${acessos.length}`}
+          detalhe={t('entram na coleta automática', 'included in the automatic pull')}
+        />
+        <Resumo rotulo={t('Em produção', 'In production')} valor={String(producao.length)} detalhe={t('com certificado A1', 'with A1 certificate')} />
+        <Resumo rotulo={t('Com erro', 'With error')} valor={String(comErro.length)} detalhe={t('na última consulta', 'on the last pull')} />
       </Resumos>
 
-      <Barra busca={busca} onBusca={setBusca} placeholder="Buscar empresa ou CNPJ">
+      <Barra busca={busca} onBusca={setBusca} placeholder={t('Buscar empresa ou CNPJ', 'Search company or CNPJ')}>
         <Button variant="outlined" startIcon={<RefreshIcon />} disabled={coletando || !prontas.length} onClick={coletar}>
-          {coletando ? 'Consultando…' : 'Consultar agora'}
+          {coletando ? t('Consultando…', 'Pulling…') : t('Consultar agora', 'Pull now')}
         </Button>
       </Barra>
 
       {erro ? <Alert severity="error" onClose={() => setErro('')}>{erro}</Alert> : null}
 
-      <TabelaConfig colunas={colunas} linhas={visiveis} chave={(a) => a.empresa_id} vazio="Nenhuma empresa encontrada." onLinha={setEditando} />
+      <TabelaConfig colunas={colunas} linhas={visiveis} chave={(a) => a.empresa_id} vazio={t('Nenhuma empresa encontrada.', 'No company found.')} onLinha={setEditando} />
 
       {editando ? (
         <FormAcesso
@@ -132,17 +157,18 @@ function Arquivo({ rotulo, nome, carregado, accept, onEscolher }: {
   accept: string
   onEscolher: (arquivo: File) => void
 }) {
+  const { t } = usePrefs()
   return (
     <Paper variant="outlined" sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, bgcolor: 'var(--ga-canvas-alt)' }}>
       <UploadFileOutlinedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{rotulo}</Typography>
         <Typography sx={{ fontSize: 12, color: nome ? 'text.primary' : 'text.secondary' }} noWrap>
-          {nome || (carregado ? 'Já carregado. Escolha outro para trocar.' : 'Nenhum arquivo')}
+          {nome || (carregado ? t('Já carregado. Escolha outro para trocar.', 'Already loaded. Choose another to replace.') : t('Nenhum arquivo', 'No file'))}
         </Typography>
       </Box>
       <Button size="small" variant="outlined" component="label">
-        Escolher
+        {t('Escolher', 'Choose')}
         <input hidden type="file" accept={accept} onChange={(ev) => { const f = ev.target.files?.[0]; if (f) onEscolher(f); ev.target.value = '' }} />
       </Button>
     </Paper>
@@ -150,6 +176,7 @@ function Arquivo({ rotulo, nome, carregado, accept, onEscolher }: {
 }
 
 function FormAcesso({ acesso, onFechar, onSalvo }: { acesso: AcessoBb; onFechar: () => void; onSalvo: (mensagem: string) => void }) {
+  const { t } = usePrefs()
   const [form, setForm] = useState({
     ambiente: acesso.ambiente,
     client_id: acesso.client_id,
@@ -168,7 +195,7 @@ function FormAcesso({ acesso, onFechar, onSalvo }: { acesso: AcessoBb; onFechar:
 
   const salvar = async () => {
     setErro('')
-    if (!acesso.segredo_definido && !form.client_secret) return setErro('Informe o client secret.')
+    if (!acesso.segredo_definido && !form.client_secret) return setErro(t('Informe o client secret.', 'Enter the client secret.'))
     setSalvando(true)
     try {
       await api.salvarAcessoBb(acesso.empresa_id, {
@@ -177,9 +204,9 @@ function FormAcesso({ acesso, onFechar, onSalvo }: { acesso: AcessoBb; onFechar:
         cert_pem: tipoCert === 'pem' ? cert.conteudo : '',
         key_pem: tipoCert === 'pem' ? chave.conteudo : '',
       })
-      onSalvo(`Acesso de ${acesso.empresa} salvo.`)
+      onSalvo(t(`Acesso de ${acesso.empresa} salvo.`, `Access for ${acesso.empresa} saved.`))
     } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Não salvou')
+      setErro(err instanceof Error ? err.message : t('Não salvou', 'Could not save'))
     } finally {
       setSalvando(false)
     }
@@ -189,9 +216,9 @@ function FormAcesso({ acesso, onFechar, onSalvo }: { acesso: AcessoBb; onFechar:
     setRemovendo(true)
     try {
       await api.removerAcessoBb(acesso.empresa_id)
-      onSalvo(`Acesso de ${acesso.empresa} removido.`)
+      onSalvo(t(`Acesso de ${acesso.empresa} removido.`, `Access for ${acesso.empresa} removed.`))
     } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Não removeu')
+      setErro(err instanceof Error ? err.message : t('Não removeu', 'Could not remove'))
     } finally {
       setRemovendo(false)
     }
@@ -206,20 +233,22 @@ function FormAcesso({ acesso, onFechar, onSalvo }: { acesso: AcessoBb; onFechar:
       rodape={(
         <>
           {acesso.cadastrada ? (
-            <Button color="error" disabled={removendo || salvando} onClick={remover}>{removendo ? 'Removendo…' : 'Remover acesso'}</Button>
+            <Button color="error" disabled={removendo || salvando} onClick={remover}>
+              {removendo ? t('Removendo…', 'Removing…') : t('Remover acesso', 'Remove access')}
+            </Button>
           ) : null}
           <Box sx={{ flex: 1 }} />
-          <Button onClick={onFechar}>Cancelar</Button>
+          <Button onClick={onFechar}>{t('Cancelar', 'Cancel')}</Button>
           <Button variant="contained" disabled={salvando || !form.client_id || !form.app_key} onClick={salvar}>
-            {salvando ? 'Salvando…' : 'Salvar'}
+            {salvando ? t('Salvando…', 'Saving…') : t('Salvar', 'Save')}
           </Button>
         </>
       )}
     >
-      <Secao titulo="Aplicação no Portal Developers">
-        <TextField select label="Ambiente" size="small" value={form.ambiente} onChange={(ev) => setForm({ ...form, ambiente: ev.target.value as AcessoBb['ambiente'] })}>
-          <MenuItem value="homologacao">Homologação</MenuItem>
-          <MenuItem value="producao">Produção</MenuItem>
+      <Secao titulo={t('Aplicação no Portal Developers', 'App on the Developers Portal')}>
+        <TextField select label={t('Ambiente', 'Environment')} size="small" value={form.ambiente} onChange={(ev) => setForm({ ...form, ambiente: ev.target.value as AcessoBb['ambiente'] })}>
+          <MenuItem value="homologacao">{t('Homologação', 'Sandbox')}</MenuItem>
+          <MenuItem value="producao">{t('Produção', 'Production')}</MenuItem>
         </TextField>
         <TextField label="Client id" size="small" value={form.client_id} onChange={(ev) => setForm({ ...form, client_id: ev.target.value })} />
         <TextField
@@ -230,21 +259,21 @@ function FormAcesso({ acesso, onFechar, onSalvo }: { acesso: AcessoBb; onFechar:
           value={form.client_secret}
           placeholder={acesso.segredo_definido ? '••••••••' : ''}
           onChange={(ev) => setForm({ ...form, client_secret: ev.target.value })}
-          helperText={acesso.segredo_definido ? 'Já salvo. Preencha só para trocar.' : undefined}
+          helperText={acesso.segredo_definido ? t('Já salvo. Preencha só para trocar.', 'Already saved. Fill only to replace.') : undefined}
         />
         <TextField label="Developer application key" size="small" value={form.app_key} onChange={(ev) => setForm({ ...form, app_key: ev.target.value })} helperText="gw-dev-app-key" />
       </Secao>
 
       <Divider />
 
-      <Secao titulo="Certificado A1 da empresa">
-        <TextField select label="Formato" size="small" value={tipoCert} onChange={(ev) => setTipoCert(ev.target.value as 'pfx' | 'pem')}>
-          <MenuItem value="pfx">Arquivo .pfx / .p12</MenuItem>
-          <MenuItem value="pem">Certificado e chave em PEM</MenuItem>
+      <Secao titulo={t('Certificado A1 da empresa', 'Company A1 certificate')}>
+        <TextField select label={t('Formato', 'Format')} size="small" value={tipoCert} onChange={(ev) => setTipoCert(ev.target.value as 'pfx' | 'pem')}>
+          <MenuItem value="pfx">{t('Arquivo .pfx / .p12', '.pfx / .p12 file')}</MenuItem>
+          <MenuItem value="pem">{t('Certificado e chave em PEM', 'Certificate and key as PEM')}</MenuItem>
         </TextField>
         {tipoCert === 'pfx' ? (
           <Arquivo
-            rotulo="Certificado A1"
+            rotulo={t('Certificado A1', 'A1 certificate')}
             nome={pfx.nome}
             carregado={acesso.certificado_definido}
             accept=".pfx,.p12"
@@ -252,20 +281,20 @@ function FormAcesso({ acesso, onFechar, onSalvo }: { acesso: AcessoBb; onFechar:
           />
         ) : (
           <>
-            <Arquivo rotulo="Certificado" nome={cert.nome} carregado={acesso.certificado_definido} accept=".pem,.crt,.cer" onEscolher={async (f) => setCert({ conteudo: await f.text(), nome: f.name })} />
-            <Arquivo rotulo="Chave privada" nome={chave.nome} carregado={acesso.chave_definida} accept=".pem,.key" onEscolher={async (f) => setChave({ conteudo: await f.text(), nome: f.name })} />
+            <Arquivo rotulo={t('Certificado', 'Certificate')} nome={cert.nome} carregado={acesso.certificado_definido} accept=".pem,.crt,.cer" onEscolher={async (f) => setCert({ conteudo: await f.text(), nome: f.name })} />
+            <Arquivo rotulo={t('Chave privada', 'Private key')} nome={chave.nome} carregado={acesso.chave_definida} accept=".pem,.key" onEscolher={async (f) => setChave({ conteudo: await f.text(), nome: f.name })} />
           </>
         )}
         <TextField
-          label="Senha do certificado"
+          label={t('Senha do certificado', 'Certificate password')}
           type="password"
           size="small"
           autoComplete="new-password"
           value={form.cert_pass}
           onChange={(ev) => setForm({ ...form, cert_pass: ev.target.value })}
           helperText={acesso.certificado_pasta
-            ? 'A1 já está na pasta Certificados desta empresa. Só a senha, se for produção.'
-            : 'Obrigatório em produção. Homologação consulta sem certificado.'}
+            ? t('A1 já está na pasta Certificados desta empresa. Só a senha, se for produção.', 'A1 is already in this company’s Certificates folder. Password only if production.')
+            : t('Obrigatório em produção. Homologação consulta sem certificado.', 'Required in production. Sandbox can query without a certificate.')}
         />
       </Secao>
 
@@ -273,7 +302,7 @@ function FormAcesso({ acesso, onFechar, onSalvo }: { acesso: AcessoBb; onFechar:
 
       <FormControlLabel
         control={<Switch checked={form.ativo} onChange={(ev) => setForm({ ...form, ativo: ev.target.checked })} />}
-        label={<Typography sx={{ fontSize: 13 }}>Incluir esta empresa na coleta automática</Typography>}
+        label={<Typography sx={{ fontSize: 13 }}>{t('Incluir esta empresa na coleta automática', 'Include this company in the automatic pull')}</Typography>}
       />
 
       {erro ? <Alert severity="error">{erro}</Alert> : null}

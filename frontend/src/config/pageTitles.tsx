@@ -39,6 +39,8 @@ const iconSx = { fontSize: 20, color: colors.textPrimary };
 export type PageTitleConfig = {
   title: string;
   subtitle?: string;
+  titleEn?: string;
+  subtitleEn?: string;
   icon: ReactNode;
 };
 
@@ -56,12 +58,40 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/chamados': { title: 'Chamados', icon: <BuildIcon sx={iconSx} /> },
   '/energia': { title: 'Energia', icon: <BoltIcon sx={iconSx} /> },
   '/energia/novo': { title: 'Registrar ocorrência', icon: <BoltIcon sx={iconSx} /> },
-  '/financeiro': { title: 'Agenda banco', subtitle: 'Lote da semana · planilha BANCO', icon: <PaymentsOutlinedIcon sx={iconSx} /> },
-  '/financeiro/inbox': { title: 'Inbox', subtitle: 'DDA e notas da Receita Federal', icon: <PaymentsOutlinedIcon sx={iconSx} /> },
-  '/financeiro/caixa': { title: 'Fechamento de caixa', icon: <PaymentsOutlinedIcon sx={iconSx} /> },
-  '/financeiro/integracoes': { title: 'Integrações', icon: <PaymentsOutlinedIcon sx={iconSx} /> },
-  '/financeiro/configuracoes': { title: 'Configuração financeira', icon: <PaymentsOutlinedIcon sx={iconSx} /> },
-  '/financeiro/vendas': { title: 'Vendas', icon: <PaymentsOutlinedIcon sx={iconSx} /> },
+  '/financeiro': {
+    title: 'Agenda banco',
+    titleEn: 'Bank schedule',
+    subtitle: 'Lote da semana · planilha BANCO',
+    subtitleEn: 'Week batch · BANK spreadsheet',
+    icon: <PaymentsOutlinedIcon sx={iconSx} />,
+  },
+  '/financeiro/inbox': {
+    title: 'Inbox',
+    titleEn: 'Inbox',
+    subtitle: 'DDA e notas da Receita Federal',
+    subtitleEn: 'DDA and Receita Federal invoices',
+    icon: <PaymentsOutlinedIcon sx={iconSx} />,
+  },
+  '/financeiro/caixa': {
+    title: 'Fechamento de caixa',
+    titleEn: 'Cash closing',
+    icon: <PaymentsOutlinedIcon sx={iconSx} />,
+  },
+  '/financeiro/integracoes': {
+    title: 'Integrações',
+    titleEn: 'Integrations',
+    icon: <PaymentsOutlinedIcon sx={iconSx} />,
+  },
+  '/financeiro/configuracoes': {
+    title: 'Configuração financeira',
+    titleEn: 'Finance settings',
+    icon: <PaymentsOutlinedIcon sx={iconSx} />,
+  },
+  '/financeiro/vendas': {
+    title: 'Vendas',
+    titleEn: 'Sales',
+    icon: <PaymentsOutlinedIcon sx={iconSx} />,
+  },
   '/chamados/novo': { title: 'Abrir chamado', icon: <AddIcon sx={iconSx} /> },
   '/chamados/aprovacoes': { title: 'Aprovações', icon: <ThumbUpAltOutlinedIcon sx={iconSx} /> },
   '/frota': { title: 'Frota', icon: <DirectionsCarIcon sx={iconSx} /> },
@@ -116,35 +146,47 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/relatorio': { title: 'Relatório da Visita', icon: <DescriptionIcon sx={iconSx} /> },
 };
 
-export function resolvePageTitle(path: string): PageTitleConfig {
-  if (PAGE_TITLES[path]) return PAGE_TITLES[path];
+function comIdioma(cfg: PageTitleConfig, idioma: 'pt' | 'en' = 'pt'): PageTitleConfig {
+  if (idioma !== 'en') return cfg;
+  return {
+    ...cfg,
+    title: cfg.titleEn || cfg.title,
+    subtitle: cfg.subtitleEn || cfg.subtitle,
+  };
+}
+
+export function resolvePageTitle(path: string, idioma: 'pt' | 'en' = 'pt'): PageTitleConfig {
+  if (PAGE_TITLES[path]) return comIdioma(PAGE_TITLES[path], idioma);
   if (path.startsWith('/checklist/concluido')) {
-    return { title: 'Visita concluída', icon: <CheckCircleIcon sx={iconSx} /> };
+    return { title: idioma === 'en' ? 'Visit completed' : 'Visita concluída', icon: <CheckCircleIcon sx={iconSx} /> };
   }
-  if (path.startsWith('/relatorio/')) return PAGE_TITLES['/relatorio'];
+  if (path.startsWith('/relatorio/')) return comIdioma(PAGE_TITLES['/relatorio'], idioma);
   if (path.startsWith('/frota/operacao')) {
-    return PAGE_TITLES[path] ?? PAGE_TITLES['/frota/operacao/cadastro'];
+    return comIdioma(PAGE_TITLES[path] ?? PAGE_TITLES['/frota/operacao/cadastro'], idioma);
   }
   if (path.startsWith('/frota/veiculos/')) {
-    return { title: 'Frota. Veículo', icon: <DirectionsCarIcon sx={iconSx} /> };
+    return { title: idioma === 'en' ? 'Fleet. Vehicle' : 'Frota. Veículo', icon: <DirectionsCarIcon sx={iconSx} /> };
   }
-  if (path.startsWith('/frota/')) return PAGE_TITLES[path] ?? PAGE_TITLES['/frota'];
-  if (path.startsWith('/chamados/aprovacoes/')) return PAGE_TITLES['/chamados/aprovacoes'];
+  if (path.startsWith('/frota/')) return comIdioma(PAGE_TITLES[path] ?? PAGE_TITLES['/frota'], idioma);
+  if (path.startsWith('/chamados/aprovacoes/')) return comIdioma(PAGE_TITLES['/chamados/aprovacoes'], idioma);
   if (path.startsWith('/energia/')) {
     return { title: 'Energia', icon: <BoltIcon sx={iconSx} /> };
   }
-  if (path === '/financeiro' || path.startsWith('/financeiro/')) {
-    return PAGE_TITLES[path] ?? PAGE_TITLES['/financeiro'];
+  if (path.startsWith('/financeiro/configuracoes')) {
+    return comIdioma(PAGE_TITLES['/financeiro/configuracoes'], idioma);
   }
-  if (path.startsWith('/chamados/')) return PAGE_TITLES['/chamados'];
+  if (path === '/financeiro' || path.startsWith('/financeiro/')) {
+    return comIdioma(PAGE_TITLES[path] ?? PAGE_TITLES['/financeiro'], idioma);
+  }
+  if (path.startsWith('/chamados/')) return comIdioma(PAGE_TITLES['/chamados'], idioma);
   if (path.startsWith('/configuracoes/')) {
-    return PAGE_TITLES[path] ?? PAGE_TITLES['/configuracoes'];
+    return comIdioma(PAGE_TITLES[path] ?? PAGE_TITLES['/configuracoes'], idioma);
   }
   if (path === '/estoque' || path.startsWith('/estoque/')) {
     if (path.startsWith('/estoque/mobile/') && path !== '/estoque/mobile/break') {
-      return { title: 'Estoque. Conferência', icon: <Inventory2Icon sx={iconSx} /> };
+      return { title: idioma === 'en' ? 'Stock. Count' : 'Estoque. Conferência', icon: <Inventory2Icon sx={iconSx} /> };
     }
-    return PAGE_TITLES[path] ?? PAGE_TITLES['/estoque'];
+    return comIdioma(PAGE_TITLES[path] ?? PAGE_TITLES['/estoque'], idioma);
   }
   return { title: 'Portal Grupo Alvim', icon: <DashboardIcon sx={iconSx} /> };
 }

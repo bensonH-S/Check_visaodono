@@ -62,7 +62,7 @@
   padding: 0;
   border: 0;
   background: none;
-  color: #fe6c22;
+  color: #0548d1;
   font: inherit;
   font-size: 0.84rem;
   font-weight: 700;
@@ -105,8 +105,8 @@
 }
 
 .ck-nc-hub__kpi.is-on {
-  border-color: rgba(254, 108, 34, 0.35);
-  background: rgba(254, 108, 34, 0.12);
+  border-color: rgba(5, 72, 209, 0.35);
+  background: rgba(5, 72, 209, 0.12);
 }
 
 .ck-nc-hub__kpi.is-crit {
@@ -128,7 +128,7 @@
 }
 
 .ck-nc-hub__kpi.is-on strong {
-  color: #fe6c22;
+  color: #0548d1;
 }
 
 .ck-nc-hub__kpi span {
@@ -159,7 +159,7 @@
   overflow: hidden;
   background: rgba(51, 56, 64, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-left: 4px solid #fe6c22;
+  border-left: 4px solid #0548d1;
 }
 
 .ck-nc-hub__visita-head {
@@ -204,7 +204,7 @@
 
 .ck-nc-hub__chev.is-open {
   transform: rotate(180deg);
-  color: #fe6c22 !important;
+  color: #0548d1 !important;
 }
 
 .ck-nc-hub__meta-chips {
@@ -295,7 +295,7 @@
 }
 
 .ck-nc-hub__item:active:not(:disabled) {
-  background: rgba(254, 108, 34, 0.1);
+  background: rgba(5, 72, 209, 0.1);
 }
 
 .ck-nc-hub__item-icon {
@@ -339,7 +339,7 @@
   border-radius: 16px;
   background: rgba(51, 56, 64, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-left: 4px solid #fe6c22;
+  border-left: 4px solid #0548d1;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
 }
 
@@ -391,7 +391,7 @@
 }
 
 .ck-nc-hub__form .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
-  border-color: rgba(254, 108, 34, 0.55) !important;
+  border-color: rgba(5, 72, 209, 0.55) !important;
 }
 
 .ck-nc-hub__form .MuiInputBase-input {
@@ -447,8 +447,8 @@
 }
 
 .ck-nc-hub__alert.MuiAlert-standardInfo {
-  border-color: rgba(254, 108, 34, 0.3);
-  background: rgba(254, 108, 34, 0.12);
+  border-color: rgba(5, 72, 209, 0.3);
+  background: rgba(5, 72, 209, 0.12);
   color: #ffd0b5;
 }
 
@@ -472,16 +472,16 @@
 .ck-nc-hub__cta {
   min-height: 48px !important;
   border-radius: 14px !important;
-  background: #fe6c22 !important;
+  background: #0548d1 !important;
   color: #fff !important;
   font-weight: 800 !important;
   text-transform: none !important;
-  box-shadow: 0 8px 22px rgba(254, 108, 34, 0.35) !important;
+  box-shadow: 0 8px 22px rgba(5, 72, 209, 0.35) !important;
   border: 0 !important;
 }
 
 .ck-nc-hub__cta.Mui-disabled {
-  background: rgba(254, 108, 34, 0.28) !important;
+  background: rgba(5, 72, 209, 0.28) !important;
   color: rgba(255, 255, 255, 0.55) !important;
 }
 

@@ -9,7 +9,7 @@ import {
 } from '../../api/client';
 import { getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
-import { assetUrl, LOGO_ALVIM_ICONE } from '../../config/paths';
+import { assetUrl, ICONE_PWA } from '../../config/paths';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/estoque/estoque-mobile.css';
 import '../../components/estoque/estoque-hub.css';
@@ -627,7 +627,7 @@ export default function EstoqueMobileConferenciaPage() {
       className={`ck-visitas ck-visitas--lista ck-estoque ck-estoque--contagem ck-estoque--contagem-hub${
         teclado ? ' is-numpad' : ''
       }`}
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque__contagem-watermark" aria-hidden />
       <div className="ck-estoque__contagem-sticky">
@@ -698,7 +698,7 @@ export default function EstoqueMobileConferenciaPage() {
                 my: 1.5,
                 borderRadius: 1,
                 backgroundColor: 'rgba(255,154,92,0.18)',
-                '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+                '& .MuiLinearProgress-bar': { backgroundColor: '#0548d1' },
               }}
             />
           )}

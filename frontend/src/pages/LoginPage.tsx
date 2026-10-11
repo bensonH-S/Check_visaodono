@@ -12,47 +12,62 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
-import MeridianMarca from '../brand/MeridianMarca';
 import SupportContact from '../components/SupportContact';
 import { api } from '../api/client';
 import { setSessao, logout } from '../lib/auth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
-import { assetUrl, LOGO_MERIDIAN_MARK_M, normalizeAppRoute } from '../config/paths';
+import { assetUrl, LOGO_MERIDIAN_GESTAO, LOGO_MERIDIAN_MARK_M, normalizeAppRoute } from '../config/paths';
 import { isMobileDevice } from '../utils/device';
 import { ThemeProvider } from '@mui/material/styles';
 import { lightTheme } from '../theme';
+import { textosLogin } from '../financeiro/loginI18n';
 import './login-desktop.css';
 
 const FUNDO_LOGIN = `${assetUrl('Fundo_Principal.png')}?v=fill-ok`;
 const MARK_M = `${assetUrl(LOGO_MERIDIAN_MARK_M)}?v=2`;
-const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos S/A';
-const NAVY = '#1B6EF3';
+const LOGO_GESTAO = `${assetUrl(LOGO_MERIDIAN_GESTAO)}?v=1`;
+const COPYRIGHT = '©2026 Grupo Alvim · Alvim Participações e Investimentos S/A';
+/** Azul normal → azul bem escuro (sem ciano, para não “brilhar” no card). */
+const BTN_GRAD = 'linear-gradient(90deg, #0548d1 0%, #0439b0 42%, #02061f 100%)';
+const BTN_GRAD_HOVER = 'linear-gradient(90deg, #0D4ECC 0%, #0548d1 42%, #040c3b 100%)';
+
+const FIELD_BG = '#0b1220';
 
 const fieldSx = {
   '& .MuiOutlinedInput-root': {
-    minHeight: 50,
-    bgcolor: 'rgba(255,255,255,0.04)',
-    borderRadius: '12px',
+    minHeight: 42,
+    bgcolor: `${FIELD_BG} !important`,
+    borderRadius: '10px',
     fontFamily: 'Manrope, system-ui, sans-serif',
-    '& fieldset': { borderColor: 'rgba(148, 163, 184, 0.28)' },
-    '&:hover fieldset': { borderColor: 'rgba(27, 110, 243, 0.5)' },
-    '&.Mui-focused fieldset': { borderColor: NAVY, borderWidth: 1.5 },
+    overflow: 'hidden',
+    '& fieldset': { borderColor: 'rgba(5, 72, 209, 0.45)' },
+    '&:hover fieldset': { borderColor: 'rgba(5, 72, 209, 0.75)' },
+    '&.Mui-focused fieldset': { borderColor: '#0548d1', borderWidth: 1.5 },
   },
   '& .MuiOutlinedInput-input': {
-    py: '13px',
+    py: '10px',
     color: '#F8FAFC !important',
-    fontSize: '0.95rem',
+    WebkitTextFillColor: '#F8FAFC',
+    caretColor: '#F8FAFC',
+    bgcolor: 'transparent !important',
+    borderRadius: 0,
+    fontSize: '0.875rem',
     fontFamily: 'Manrope, system-ui, sans-serif',
-    '&::placeholder': { color: 'rgba(148,163,184,0.65)', opacity: 1 },
+    '&::placeholder': {
+      color: 'rgba(148, 163, 184, 0.55) !important',
+      WebkitTextFillColor: 'rgba(148, 163, 184, 0.55) !important',
+      opacity: 1,
+    },
   },
   '& .MuiInputLabel-root': {
     color: 'rgba(148, 163, 184, 0.9)',
     fontFamily: 'Manrope, system-ui, sans-serif',
     fontWeight: 600,
-    '&.Mui-focused': { color: NAVY },
+    fontSize: '0.875rem',
+    '&.Mui-focused': { color: '#3B82F6' },
   },
-  '& .MuiSvgIcon-root': { color: 'rgba(148, 163, 184, 0.85)' },
+  '& .MuiSvgIcon-root': { color: 'rgba(148, 163, 184, 0.85)', fontSize: 17 },
 };
 
 const ERROS_CONHECIDOS = [
@@ -72,6 +87,7 @@ export default function LoginPage() {
   const versionLabel =
     version === 'dev' ? 'dev' : version.startsWith('v') ? version : `v${version}`;
 
+  const tx = textosLogin('pt');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
@@ -79,11 +95,11 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
 
-  function avisar(campo: string) {
-    setToast(`Preencha o campo ${campo}.`);
+  function avisar(campo: 'email' | 'senha' | 'ambos') {
+    setToast(tx.preencha(campo));
   }
 
-  usePageTitle('Login');
+  usePageTitle(tx.titulo);
 
   useEffect(() => {
     logout();
@@ -100,11 +116,11 @@ export default function LoginPage() {
     setErro('');
     const emailTrim = email.trim();
     if (!emailTrim && !senha) {
-      avisar('e-mail e senha');
+      avisar('ambos');
       return;
     }
     if (!emailTrim) {
-      avisar('e-mail');
+      avisar('email');
       return;
     }
     if (!senha) {
@@ -122,7 +138,7 @@ export default function LoginPage() {
       setErro(
         msg && ERROS_CONHECIDOS.some((t) => msg.includes(t))
           ? msg
-          : 'E-mail ou senha incorretos'
+          : tx.credenciaisInvalidas
       );
     } finally {
       setLoading(false);
@@ -141,9 +157,11 @@ export default function LoginPage() {
           alignItems: 'center',
           justifyContent: 'center',
           px: 2,
-          py: 4,
+          pt: 4,
+          pb: 5.5,
           overflow: 'hidden',
           bgcolor: '#051017',
+          colorScheme: 'dark',
         }}
       >
         <Box
@@ -179,7 +197,7 @@ export default function LoginPage() {
             position: 'relative',
             zIndex: 1,
             width: '100%',
-            maxWidth: 420,
+            maxWidth: 360,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -187,51 +205,8 @@ export default function LoginPage() {
           }}
         >
           <Box
-            aria-hidden
-            sx={{
-              position: 'absolute',
-              top: -20,
-              width: 280,
-              height: 280,
-              borderRadius: '50%',
-              background: 'radial-gradient(circle, rgba(27,110,243,0.28), transparent 68%)',
-              filter: 'blur(8px)',
-              pointerEvents: 'none',
-            }}
-          />
-
-          <Box
-            component="img"
-            className="meridian-login__mark"
-            src={MARK_M}
-            alt=""
             sx={{
               position: 'relative',
-              width: { xs: 96, sm: 112 },
-              height: 'auto',
-              mb: 1.75,
-              filter: 'drop-shadow(0 0 28px rgba(27,110,243,0.4))',
-            }}
-          />
-
-          <MeridianMarca sx={{ width: '100%', maxWidth: 280, mb: 1.75 }} />
-
-          <Typography
-            sx={{
-              fontFamily: 'Manrope, system-ui, sans-serif',
-              fontWeight: 700,
-              fontSize: { xs: '0.88rem', sm: '0.95rem' },
-              color: 'rgba(186, 230, 253, 0.9)',
-              lineHeight: 1.4,
-              maxWidth: 320,
-              mb: 3,
-            }}
-          >
-            Do caixa ao campo — uma visão só para quem decide.
-          </Typography>
-
-          <Box
-            sx={{
               width: '100%',
               p: { xs: 2.5, sm: 3 },
               borderRadius: '16px',
@@ -240,40 +215,66 @@ export default function LoginPage() {
               boxShadow: '0 20px 56px rgba(0,0,0,0.4)',
               backdropFilter: 'blur(16px)',
               textAlign: 'center',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 3,
+                background: 'linear-gradient(90deg, #0548d1 0%, #0439b0 45%, #02061f 100%)',
+              },
             }}
           >
-            <Typography
+            <Box
+              component="img"
+              className="meridian-login__mark"
+              src={MARK_M}
+              alt=""
               sx={{
-                fontFamily: 'Manrope, system-ui, sans-serif',
-                fontWeight: 800,
-                fontSize: '1.5rem',
-                letterSpacing: '-0.02em',
-                color: '#F8FAFC',
-                mb: 0.4,
+                width: 72,
+                height: 'auto',
+                mb: 1.1,
+                mx: 'auto',
+                display: 'block',
+                filter: 'drop-shadow(0 4px 12px rgba(2, 6, 31, 0.45))',
               }}
-            >
-              Entrar
-            </Typography>
+            />
+            <Box
+              component="img"
+              src={LOGO_GESTAO}
+              alt="Meridian Gestão Operacional"
+              sx={{
+                width: '100%',
+                maxWidth: 200,
+                height: 'auto',
+                mb: 1.75,
+                mx: 'auto',
+                display: 'block',
+                objectFit: 'contain',
+              }}
+            />
             <Typography
               sx={{
                 fontFamily: 'Manrope, system-ui, sans-serif',
                 fontSize: '0.85rem',
                 fontWeight: 500,
                 color: 'rgba(148, 163, 184, 0.95)',
-                mb: 2.75,
+                mb: 2.5,
               }}
             >
-              Acesse com seu e-mail corporativo
+              {tx.subtitulo}
             </Typography>
 
             <Box
               component="form"
               noValidate
               onSubmit={handleSubmit}
-              sx={{ display: 'flex', flexDirection: 'column', gap: 2.15, textAlign: 'left' }}
+              sx={{ display: 'flex', flexDirection: 'column', gap: 1.65, textAlign: 'left' }}
             >
               <TextField
-                label="E-mail"
+                label={tx.email}
                 type="email"
                 size="small"
                 fullWidth
@@ -294,7 +295,7 @@ export default function LoginPage() {
               />
 
               <TextField
-                label="Senha"
+                label={tx.senha}
                 type={mostrarSenha ? 'text' : 'password'}
                 size="small"
                 fullWidth
@@ -314,7 +315,7 @@ export default function LoginPage() {
                       <InputAdornment position="end">
                         <IconButton
                           type="button"
-                          aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                          aria-label={mostrarSenha ? tx.ocultarSenha : tx.mostrarSenha}
                           onClick={() => setMostrarSenha((v) => !v)}
                           edge="end"
                           size="small"
@@ -343,68 +344,94 @@ export default function LoginPage() {
                 variant="contained"
                 disabled={loading}
                 sx={{
-                  mt: 0.35,
-                  py: 1.35,
-                  borderRadius: '12px',
+                  mt: 0.25,
+                  py: 0.95,
+                  minHeight: 40,
+                  borderRadius: '10px',
                   fontFamily: 'Manrope, system-ui, sans-serif',
-                  fontWeight: 800,
-                  fontSize: '0.98rem',
+                  fontWeight: 700,
+                  fontSize: '0.875rem',
                   textTransform: 'none',
-                  color: '#fff',
-                  background: `linear-gradient(90deg, ${NAVY} 0%, #0EA5E9 100%)`,
-                  boxShadow: '0 12px 28px rgba(27, 110, 243, 0.32)',
+                  color: '#fff !important',
+                  textShadow: '0 1px 2px rgba(4, 12, 59, 0.45)',
+                  background: BTN_GRAD,
+                  boxShadow: '0 8px 18px rgba(2, 6, 31, 0.45)',
                   '&:hover': {
-                    background: 'linear-gradient(90deg, #0D4ECC 0%, #0284C7 100%)',
+                    background: BTN_GRAD_HOVER,
+                    boxShadow: '0 10px 22px rgba(5, 72, 209, 0.35)',
+                  },
+                  '&.Mui-disabled': {
+                    color: '#fff !important',
+                    opacity: 0.88,
+                    background: BTN_GRAD,
                   },
                 }}
               >
-                {loading ? 'Entrando…' : 'Entrar no Meridian'}
+                {loading ? tx.entrando : tx.entrar}
               </Button>
             </Box>
 
             <Box
               sx={{
                 mt: 2,
-                '& .MuiTypography-root': { color: 'rgba(148,163,184,0.8) !important' },
-                '& button': { color: '#60A5FA !important' },
+                '& .MuiTypography-caption:not(button)': { color: 'rgba(148,163,184,0.7)' },
+                '& button': {
+                  color: '#F8FAFC !important',
+                  textDecorationColor: 'rgba(248, 250, 252, 0.45) !important',
+                  transition: 'color 0.15s ease, text-decoration-color 0.15s ease',
+                  '&:hover': {
+                    color: '#0548d1 !important',
+                    textDecorationColor: 'rgba(5, 72, 209, 0.9) !important',
+                  },
+                },
               }}
             >
               <SupportContact compact />
             </Box>
           </Box>
-
-          <Typography
-            sx={{
-              mt: 2.5,
-              fontFamily: 'Manrope, system-ui, sans-serif',
-              fontSize: '0.7rem',
-              color: 'rgba(148,163,184,0.5)',
-            }}
-          >
-            {COPYRIGHT}
-            <Box component="span" sx={{ mx: 0.55 }}>
-              ·
-            </Box>
-            {versionLabel} · {environment}
-          </Typography>
         </Box>
 
-        <Snackbar
-          open={!!toast}
-          autoHideDuration={2000}
-          onClose={() => setToast('')}
-          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        <Typography
+          component="footer"
+          sx={{
+            position: 'absolute',
+            zIndex: 1,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            px: 2,
+            py: 1.5,
+            textAlign: 'center',
+            fontFamily: 'Manrope, system-ui, sans-serif',
+            fontSize: '0.7rem',
+            color: 'rgba(148,163,184,0.5)',
+            pointerEvents: 'none',
+          }}
         >
-          <Alert
-            severity="warning"
-            variant="filled"
-            onClose={() => setToast('')}
-            sx={{ width: '100%', minWidth: 280 }}
-          >
-            {toast}
-          </Alert>
-        </Snackbar>
+          {COPYRIGHT}
+          <Box component="span" sx={{ mx: 0.55 }}>
+            ·
+          </Box>
+          {versionLabel} · {environment}
+        </Typography>
       </Box>
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={2000}
+        onClose={() => setToast('')}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ zIndex: 20000 }}
+      >
+        <Alert
+          severity="warning"
+          variant="filled"
+          onClose={() => setToast('')}
+          sx={{ width: '100%', minWidth: 280, boxShadow: '0 12px 32px rgba(0,0,0,0.45)' }}
+        >
+          {toast}
+        </Alert>
+      </Snackbar>
     </ThemeProvider>
   );
 }

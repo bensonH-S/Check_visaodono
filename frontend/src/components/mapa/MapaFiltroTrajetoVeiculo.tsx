@@ -85,7 +85,7 @@ function ListaVeiculos({
   if (carregando) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-        <CircularProgress size={24} sx={{ color: escuro ? '#fe6c22' : undefined }} />
+        <CircularProgress size={24} sx={{ color: escuro ? '#0548d1' : undefined }} />
       </Box>
     );
   }
@@ -125,18 +125,18 @@ function ListaVeiculos({
               borderRadius: 2,
               border: '1px solid',
               borderColor: selecionado
-                ? 'rgba(254, 108, 34, 0.4)'
+                ? 'rgba(5, 72, 209, 0.4)'
                 : escuro
                   ? 'rgba(255, 255, 255, 0.1)'
                   : 'rgba(27, 42, 107, 0.08)',
               bgcolor: selecionado
-                ? 'rgba(254, 108, 34, 0.14)'
+                ? 'rgba(5, 72, 209, 0.14)'
                 : escuro
                   ? 'rgba(255,255,255,0.03)'
                   : 'transparent',
               '&.Mui-selected': {
-                bgcolor: 'rgba(254, 108, 34, 0.16)',
-                '&:hover': { bgcolor: 'rgba(254, 108, 34, 0.22)' },
+                bgcolor: 'rgba(5, 72, 209, 0.16)',
+                '&:hover': { bgcolor: 'rgba(5, 72, 209, 0.22)' },
               },
             }}
           >
@@ -154,7 +154,7 @@ function ListaVeiculos({
                   sx={{
                     fontSize: 18,
                     flexShrink: 0,
-                    color: selecionado ? '#fe6c22' : escuro ? '#ff9a5c' : colors.navy,
+                    color: selecionado ? '#0548d1' : escuro ? '#0548d1' : colors.navy,
                   }}
                 />
                 <Typography
@@ -199,7 +199,7 @@ function ListaVeiculos({
                   sx={{
                     display: 'block',
                     fontWeight: 700,
-                    color: temGps ? (escuro ? '#ff9a5c' : colors.navy) : muted,
+                    color: temGps ? (escuro ? '#0548d1' : colors.navy) : muted,
                     pl: '26px',
                   }}
                 >
@@ -217,7 +217,7 @@ function ListaVeiculos({
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, pl: '26px' }}>
                   {v.nome_regiao ? (
                     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.35, minWidth: 0 }}>
-                      <LocationOnOutlinedIcon sx={{ fontSize: 13, color: '#ff9a5c', opacity: 0.9, flexShrink: 0 }} />
+                      <LocationOnOutlinedIcon sx={{ fontSize: 13, color: '#0548d1', opacity: 0.9, flexShrink: 0 }} />
                       <Typography
                         variant="caption"
                         sx={{
@@ -413,7 +413,7 @@ export default function MapaFiltroTrajetoVeiculo({
           <span className="ck-mapa__consulta-label">Veículo</span>
           <span className="ck-mapa__consulta-value">
             <DirectionsCarFilledOutlinedIcon
-              sx={{ fontSize: 18, color: tomEscuro ? '#ff9a5c' : colors.navy, flexShrink: 0 }}
+              sx={{ fontSize: 18, color: tomEscuro ? '#0548d1' : colors.navy, flexShrink: 0 }}
             />
             <span className="ck-mapa__consulta-value-txt">{rotuloCampo}</span>
             <KeyboardArrowDownIcon
@@ -437,7 +437,7 @@ export default function MapaFiltroTrajetoVeiculo({
                   ? 'rgba(255, 255, 255, 0.14)'
                   : 'rgba(27, 42, 107, 0.06)',
               color: veiculoId || tomEscuro ? '#fff' : colors.navy,
-              boxShadow: veiculoId ? '0 2px 8px rgba(232, 82, 10, 0.28)' : 'none',
+              boxShadow: veiculoId ? '0 2px 8px rgba(5, 72, 209, 0.28)' : 'none',
               '&:hover': {
                 bgcolor: veiculoId
                   ? colors.orange

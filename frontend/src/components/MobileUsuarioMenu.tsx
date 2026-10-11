@@ -12,7 +12,7 @@ import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { Activity } from 'lucide-react';
 import { iniciaisUsuario, type UsuarioSessao } from '../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, toAppPath } from '../config/paths';
+import { assetUrl, ICONE_PWA, toAppPath } from '../config/paths';
 import { getFotoPerfil } from '../utils/fotoPerfil';
 import { api, type IntegrationStatusGroup } from '../api/client';
 import SobreSistemaDialog from './SobreSistemaDialog';
@@ -119,8 +119,8 @@ export default function MobileUsuarioMenu({
         {triggerLogo ? (
           <Box
             component="img"
-            src={assetUrl(LOGO_ALVIM_ICONE)}
-            alt="Grupo Alvim"
+            src={assetUrl(ICONE_PWA)}
+            alt="Meridian Gestão Operacional"
             className={logoClassName || 'ck-visitas__mark-icon'}
             sx={{
               width: logoSize,

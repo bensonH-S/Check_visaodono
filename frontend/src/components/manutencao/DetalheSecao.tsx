@@ -19,7 +19,7 @@ export default function DetalheSecao({ titulo, icone, children, destaque = 'defa
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
   const bordaTopo =
-    destaque === 'sucesso' ? '#22C55E' : destaque === 'alerta' ? '#F59E0B' : escuro ? '#E8520A' : colors.navy;
+    destaque === 'sucesso' ? '#22C55E' : destaque === 'alerta' ? '#F59E0B' : escuro ? '#0548d1' : colors.navy;
 
   return (
     <Paper

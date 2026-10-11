@@ -61,7 +61,7 @@ function nomeArquivo(d: FrotaDocumento) {
 
 function DocumentoIconePequeno({ mime }: { mime?: string | null }) {
   const { mode } = useAppTheme();
-  const acento = mode === 'dark' ? '#E8520A' : colors.navy;
+  const acento = mode === 'dark' ? '#0548d1' : colors.navy;
   const isPdf = mime === 'application/pdf';
   return (
     <Box
@@ -70,12 +70,12 @@ function DocumentoIconePequeno({ mime }: { mime?: string | null }) {
         height: 40,
         mx: 'auto',
         borderRadius: 1,
-        bgcolor: isPdf ? 'rgba(220, 38, 38, 0.08)' : mode === 'dark' ? 'rgba(232, 82, 10, 0.12)' : 'rgba(27, 42, 107, 0.08)',
+        bgcolor: isPdf ? 'rgba(220, 38, 38, 0.08)' : mode === 'dark' ? 'rgba(5, 72, 209, 0.12)' : 'rgba(27, 42, 107, 0.08)',
         border: '1px solid',
         borderColor: isPdf
           ? 'rgba(220, 38, 38, 0.2)'
           : mode === 'dark'
-            ? 'rgba(232, 82, 10, 0.28)'
+            ? 'rgba(5, 72, 209, 0.28)'
             : 'rgba(27, 42, 107, 0.12)',
         display: 'flex',
         alignItems: 'center',
@@ -111,10 +111,10 @@ export default function FrotaVeiculoDocumentosPanel({
 }: Props) {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : colors.navy;
+  const acento = escuro ? '#0548d1' : colors.navy;
   const acentoHover = escuro ? '#c94508' : colors.navyDark;
-  const acentoMuted = escuro ? 'rgba(232, 82, 10, 0.12)' : 'rgba(27, 42, 107, 0.04)';
-  const acentoBorder = escuro ? 'rgba(232, 82, 10, 0.35)' : 'rgba(27, 42, 107, 0.2)';
+  const acentoMuted = escuro ? 'rgba(5, 72, 209, 0.12)' : 'rgba(27, 42, 107, 0.04)';
+  const acentoBorder = escuro ? 'rgba(5, 72, 209, 0.35)' : 'rgba(27, 42, 107, 0.2)';
   const [documentos, setDocumentos] = useState<FrotaDocumento[]>([]);
   const [loading, setLoading] = useState(false);
   const [salvando, setSalvando] = useState(false);
@@ -410,13 +410,13 @@ export default function FrotaVeiculoDocumentosPanel({
             border: '2px dashed',
             borderColor: arquivosDoc.length ? acento : acentoBorder,
             borderRadius: 2,
-            bgcolor: arquivosDoc.length ? acentoMuted : escuro ? 'rgba(232, 82, 10, 0.04)' : 'rgba(27, 42, 107, 0.02)',
+            bgcolor: arquivosDoc.length ? acentoMuted : escuro ? 'rgba(5, 72, 209, 0.04)' : 'rgba(27, 42, 107, 0.02)',
             cursor: 'pointer',
             transition: 'border-color 0.2s, background-color 0.2s, box-shadow 0.2s',
             '&:hover': {
               borderColor: acento,
               bgcolor: acentoMuted,
-              boxShadow: escuro ? '0 4px 16px rgba(232, 82, 10, 0.12)' : '0 4px 16px rgba(27, 42, 107, 0.08)',
+              boxShadow: escuro ? '0 4px 16px rgba(5, 72, 209, 0.12)' : '0 4px 16px rgba(27, 42, 107, 0.08)',
             },
           }}
         >

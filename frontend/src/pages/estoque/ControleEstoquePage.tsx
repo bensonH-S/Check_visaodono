@@ -986,7 +986,7 @@ export default function ControleEstoquePage() {
                             }}
                           >
                             <StorefrontOutlinedIcon
-                              sx={{ fontSize: 18, color: '#E8520A', mt: '1px', flexShrink: 0 }}
+                              sx={{ fontSize: 18, color: '#0548d1', mt: '1px', flexShrink: 0 }}
                             />
                             <Box component="span" sx={{ lineHeight: 1.35 }}>
                               {rotuloLoja(l)}
@@ -1163,7 +1163,7 @@ export default function ControleEstoquePage() {
                             : ativo
                               ? {
                                   bgcolor: (theme: any) =>
-                                    theme.palette.mode === 'dark' ? 'rgba(232, 82, 10, 0.15)' : colors.navyMuted,
+                                    theme.palette.mode === 'dark' ? 'rgba(5, 72, 209, 0.15)' : colors.navyMuted,
                                   color: (theme: any) =>
                                     theme.palette.mode === 'dark' ? colors.orange : colors.navy,
                                   fontWeight: 700,

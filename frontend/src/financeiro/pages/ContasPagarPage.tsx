@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Autocomplete from '@mui/material/Autocomplete'
@@ -31,13 +31,53 @@ import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined'
 import CheckIcon from '@mui/icons-material/Check'
 import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
 import { api, brl, type Despesa, type Empresa, type Fornecedor } from '../api'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
+import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota'
+import { showToast } from '../../utils/toast'
+import CampoDataFinanceiro from '../CampoDataFinanceiro'
+import SeletorLojaFinanceiro from '../SeletorLojaFinanceiro'
+import {
+  FIN_BORDER,
+  FIN_MUTED,
+  FIN_SURFACE,
+  FIN_SURFACE_ALT,
+  FIN_TEXT,
+  finBtnContainedSx,
+  finBtnOutlinedSx,
+  finCalendarioWrapSx,
+  finCampoErroSx,
+  finCampoSx,
+  finChipSx,
+  finMenuSx,
+  finPageSx,
+  finPaperSx,
+  finSelectMenu,
+} from '../temaFinanceiroEscuro'
+
+const dialogEscuroPaper = {
+  bgcolor: FIN_SURFACE,
+  color: FIN_TEXT,
+  backgroundImage: 'none',
+  border: `1px solid ${FIN_BORDER}`,
+  borderRadius: '12px',
+} as const
+
+const drawerEscuroPaper = {
+  width: { xs: '100%', sm: 440 },
+  bgcolor: FIN_SURFACE_ALT,
+  color: FIN_TEXT,
+  backgroundImage: 'none',
+  borderLeft: `1px solid ${FIN_BORDER}`,
+} as const
 
 function situacao(e: Despesa) {
   if (e.status === 'conciliada') return 'conciliada'
@@ -64,18 +104,6 @@ const TOM_CLARO: Record<string, { color: string; border: string; bg: string }> =
   conciliada: { color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'rgba(16,185,129,0.12)' },
   bloqueada_duplicata: { color: '#B91C1C', border: 'rgba(239,68,68,0.45)', bg: 'rgba(239,68,68,0.08)' },
   a_pagar: { color: '#B45309', border: 'rgba(245,158,11,0.5)', bg: 'rgba(245,158,11,0.12)' },
-}
-
-const TOM_ESCURO: Record<string, { color: string; border: string; bg: string }> = {
-  rascunho: { color: '#94A3B8', border: '#1C3040', bg: 'transparent' },
-  classificada: { color: '#93C5FD', border: 'rgba(27,110,243,0.45)', bg: 'rgba(27,110,243,0.16)' },
-  pronta: { color: '#93C5FD', border: 'rgba(96,165,250,0.5)', bg: 'rgba(96,165,250,0.14)' },
-  autorizada: { color: '#93C5FD', border: 'rgba(96,165,250,0.5)', bg: 'rgba(96,165,250,0.14)' },
-  enviada: { color: '#93C5FD', border: 'rgba(96,165,250,0.5)', bg: 'rgba(96,165,250,0.14)' },
-  paga: { color: '#6EE7B7', border: 'rgba(52,211,153,0.45)', bg: 'rgba(52,211,153,0.14)' },
-  conciliada: { color: '#6EE7B7', border: 'rgba(52,211,153,0.45)', bg: 'rgba(52,211,153,0.14)' },
-  bloqueada_duplicata: { color: '#FCA5A5', border: 'rgba(248,113,113,0.5)', bg: 'rgba(248,113,113,0.12)' },
-  a_pagar: { color: '#FCD34D', border: 'rgba(251,191,36,0.5)', bg: 'rgba(251,191,36,0.12)' },
 }
 
 const ROTULO: Record<string, [string, string]> = {
@@ -125,8 +153,7 @@ const EXT_OK = /\.(pdf|xlsx|xls|csv|ret|txt|rem|cnab|xml)$/i
 export function ContasPagarPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const { t, modo, idioma } = usePrefs()
-  const escuro = modo === 'escuro'
+  const { t, idioma } = usePrefs()
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [despesas, setDespesas] = useState<Despesa[]>([])
   const [loja, setLoja] = useState(() => params.get('loja') || '')
@@ -207,42 +234,65 @@ export function ContasPagarPage() {
   const vencida = soma((e) => aberta(e) && !!e.vencimento && e.vencimento < hoje)
 
   return (
-    <Stack spacing={1.25} sx={{ height: '100%', minHeight: 0 }}>
+    <Stack spacing={1.75} sx={finPageSx}>
       {erroBanco && <Alert severity="warning" sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: 12 } }}>{erroBanco}</Alert>}
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} sx={{ alignItems: { md: 'center' } }}>
-        <TextField size="small" placeholder={t('Buscar lançamento', 'Search entry')} value={busca} onChange={(ev) => setBusca(ev.target.value)} sx={{ minWidth: 240, bgcolor: 'background.paper' }} />
-        <TextField size="small" label={t('De', 'From')} type="date" value={de} onChange={(ev) => setDe(ev.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 138, bgcolor: 'background.paper' }} />
-        <TextField size="small" label={t('Até', 'To')} type="date" value={ate} onChange={(ev) => setAte(ev.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 138, bgcolor: 'background.paper' }} />
+      <Stack
+        component="form"
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={1.25}
+        sx={{ alignItems: { md: 'center' } }}
+        onSubmit={(ev) => ev.preventDefault()}
+      >
         <TextField
-          select
           size="small"
-          label={t('Loja', 'Store')}
+          placeholder={t('Buscar lançamento', 'Search entry')}
+          value={busca}
+          onChange={(ev) => setBusca(ev.target.value)}
+          onKeyDown={(ev) => { if (ev.key === 'Enter') ev.preventDefault() }}
+          sx={{ width: { xs: '100%', md: 240 }, flexShrink: 0, ...finCampoSx }}
+        />
+        <Box sx={finCalendarioWrapSx}>
+          <FiltroIntervaloDatasFrota
+            compacto
+            idioma={idioma}
+            dataInicio={de}
+            dataFim={ate}
+            onChangeInicio={setDe}
+            onChangeFim={setAte}
+          />
+        </Box>
+        <SeletorLojaFinanceiro
+          lojas={lojas}
           value={loja}
-          onChange={(ev) => { setLoja(ev.target.value); carregar(ev.target.value) }}
-          sx={{ minWidth: 180, bgcolor: 'background.paper', '& .MuiOutlinedInput-notchedOutline': { borderColor: loja ? 'primary.main' : undefined } }}
-        >
-          <MenuItem value="">{t('Todas as lojas', 'All stores')}</MenuItem>
-          {lojas.map((e) => <MenuItem key={e.id} value={e.id}>{e.apelido}</MenuItem>)}
-        </TextField>
+          incluirTodas
+          todasLabel={t('Todas as lojas', 'All stores')}
+          label={t('Loja', 'Store')}
+          onChange={(id) => {
+            setLoja(id)
+            carregar(id)
+          }}
+        />
         <Box sx={{ flex: 1 }} />
-        <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/inbox')}>{t('Inbox', 'Inbox')}</Button>
-        <Button size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')}>{t('Coletar DDA', 'Pull DDA')}</Button>
+        <Button type="button" size="small" variant="outlined" onClick={() => navigate('/financeiro/inbox')} sx={finBtnOutlinedSx}>{t('Inbox', 'Inbox')}</Button>
+        <Button type="button" size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')} sx={finBtnOutlinedSx}>{t('Coletar DDA', 'Pull DDA')}</Button>
         <Button
+          type="button"
           size="small"
           variant="outlined"
           startIcon={<UploadFileOutlinedIcon sx={{ fontSize: 16 }} />}
           onClick={() => setImportarAberto(true)}
+          sx={finBtnOutlinedSx}
         >
           {t('Importar', 'Import')}
         </Button>
-        <Button size="small" variant="contained" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAberto(true)}>{t('Nova despesa', 'New expense')}</Button>
+        <Button type="button" size="small" variant="contained" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAberto(true)} sx={finBtnContainedSx}>{t('Nova despesa', 'New expense')}</Button>
       </Stack>
 
-      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-        <Resumo rotulo={t('A pagar', 'To pay')} valor={brl(soma(aberta))} detalhe={t(`${noPeriodo.filter(aberta).length} em aberto`, `${noPeriodo.filter(aberta).length} open`)} />
-        <Resumo rotulo={t('Pago', 'Paid')} valor={brl(soma((e) => e.status === 'paga' || e.status === 'conciliada'))} detalhe={t('já baixadas', 'already settled')} />
-        <Resumo rotulo={t('Para autorizar', 'To authorize')} valor={brl(soma((e) => e.status === 'pronta'))} detalhe={t('aguardando o Felipe', 'waiting for Felipe')} />
-        <Resumo rotulo={t('Vencida', 'Overdue')} valor={brl(vencida)} detalhe={t('sem pagar', 'unpaid')} alerta={vencida > 0} />
+      <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap' }}>
+        <Resumo cor="#F59E0B" rotulo={t('A pagar', 'To pay')} valor={brl(soma(aberta))} detalhe={t(`${noPeriodo.filter(aberta).length} em aberto`, `${noPeriodo.filter(aberta).length} open`)} />
+        <Resumo cor="#10B981" rotulo={t('Pago', 'Paid')} valor={brl(soma((e) => e.status === 'paga' || e.status === 'conciliada'))} detalhe={t('já baixadas', 'already settled')} />
+        <Resumo cor="#1B6EF3" rotulo={t('Para autorizar', 'To authorize')} valor={brl(soma((e) => e.status === 'pronta'))} detalhe={t('aguardando o Felipe', 'waiting for Felipe')} />
+        <Resumo cor="#EF4444" rotulo={t('Vencida', 'Overdue')} valor={brl(vencida)} detalhe={t('sem pagar', 'unpaid')} alerta={vencida > 0} />
       </Stack>
 
       <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
@@ -256,62 +306,89 @@ export function ContasPagarPage() {
             )}
             variant="outlined"
             onClick={() => { setFiltro(item); setPagina(0) }}
-            sx={{
-              height: 24,
-              fontSize: 11,
-              bgcolor: filtro === item ? (escuro ? 'rgba(27, 110, 243, 0.2)' : 'rgba(27, 110, 243, 0.1)') : 'background.paper',
-              borderColor: filtro === item ? 'primary.main' : 'divider',
-              color: filtro === item ? (escuro ? '#93C5FD' : '#0D4ECC') : 'text.secondary',
-              fontWeight: filtro === item ? 600 : 500,
-            }}
+            sx={finChipSx(filtro === item)}
           />
         ))}
       </Stack>
 
-      <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', ...finPaperSx }}>
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Table size="small" stickyHeader>
           <TableHead>
-            <TableRow>
+            <TableRow sx={{ '& .MuiTableCell-head': { verticalAlign: 'middle' } }}>
               {[
                 t('Status', 'Status'), t('Descrição', 'Description'), t('Origem', 'Source'), t('Nota fiscal', 'Invoice'),
                 t('Forma de pagamento', 'Payment method'), t('Código', 'Code'), t('Vencimento', 'Due date'), t('Valor', 'Amount'), '',
-              ].map((h, indice) => (
-                <TableCell key={h || 'acao'} align={indice === 7 ? 'right' : indice === 3 ? 'center' : 'left'} sx={indice === 3 ? { width: 88 } : undefined}>{h}</TableCell>
-              ))}
+              ].map((h, indice) => {
+                const centro = indice !== 1
+                return (
+                  <TableCell
+                    key={h || 'acao'}
+                    align={centro ? 'center' : 'left'}
+                    sx={{
+                      ...(indice === 3 ? { width: 88 } : null),
+                      ...(indice === 8 ? { width: 72, px: 0.5 } : null),
+                    }}
+                  >
+                    {h}
+                  </TableCell>
+                )
+              })}
             </TableRow>
           </TableHead>
           <TableBody>
             {linhas.length === 0 && (
-              <TableRow><TableCell colSpan={9} sx={{ color: 'text.secondary', py: 4 }}>{t('Nenhuma despesa nesse filtro.', 'No expenses in this filter.')}</TableCell></TableRow>
+              <TableRow>
+                <TableCell colSpan={9} sx={{ border: 0, py: 0 }}>
+                  <EstadoVazio
+                    icone={<PaymentsOutlinedIcon sx={{ fontSize: 40 }} />}
+                    titulo={
+                      noPeriodo.length
+                        ? t('Nenhuma despesa neste filtro', 'No expenses in this filter')
+                        : t('Nenhuma despesa na agenda', 'No expenses on the agenda')
+                    }
+                    texto={
+                      noPeriodo.length
+                        ? t(
+                          'Ajuste o período, a loja ou o filtro acima para ver outros lançamentos.',
+                          'Adjust the period, store or filter above to see other entries.',
+                        )
+                        : t(
+                          'Clique em “Nova despesa” ou “Importar” para lançar na agenda. Os boletos do Inbox entram depois da NF conferida.',
+                          'Click “New expense” or “Import” to add to the agenda. Inbox boletos appear after the invoice is checked.',
+                        )
+                    }
+                  />
+                </TableCell>
+              </TableRow>
             )}
             {visiveis.map((e) => {
               const tomChave = situacao(e)
-              const tom = (escuro ? TOM_ESCURO : TOM_CLARO)[tomChave] || (escuro ? TOM_ESCURO : TOM_CLARO).a_pagar
+              const tom = TOM_CLARO[tomChave] || TOM_CLARO.a_pagar
               const rotulo = ROTULO[tomChave] || ROTULO.a_pagar
               return (
               <TableRow key={e.id} hover>
-                <TableCell>
+                <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
                   <Chip size="small" label={idioma === 'en' ? rotulo[1] : rotulo[0]} variant="outlined" sx={{ height: 20, fontSize: 11, fontWeight: 500, color: tom.color, borderColor: tom.border, bgcolor: tom.bg }} />
                 </TableCell>
                 <TableCell>
-                  <Typography sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25 }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25, color: FIN_TEXT }}>
                     {rotuloDescricao(e) || t('Sem descrição', 'No description')}
                   </Typography>
                 </TableCell>
-                <TableCell>{e.origem}</TableCell>
+                <TableCell align="center" sx={{ verticalAlign: 'middle' }}>{e.origem}</TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle', width: 88, px: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 24 }}>
                     {e.nf_confirmada
-                      ? <Chip size="small" icon={<CheckIcon />} label={t('NF confirmada', 'Invoice confirmed')} sx={{ bgcolor: escuro ? 'rgba(52,211,153,0.14)' : 'rgba(16,185,129,0.12)', color: escuro ? '#6EE7B7' : '#047857', fontWeight: 600, '& .MuiChip-icon': { color: escuro ? '#6EE7B7' : '#047857' } }} />
+                      ? <Chip size="small" icon={<CheckIcon />} label={t('NF confirmada', 'Invoice confirmed')} sx={{ bgcolor: 'rgba(16,185,129,0.12)', color: '#047857', fontWeight: 600, '& .MuiChip-icon': { color: '#047857' } }} />
                       : (
                         <Tooltip title={t('NF pendente', 'Invoice pending')}>
-                          <AttachFileOutlinedIcon aria-label="NF pendente" sx={{ fontSize: 18, color: 'text.disabled', display: 'block' }} />
+                          <AttachFileOutlinedIcon aria-label="NF pendente" sx={{ fontSize: 18, color: FIN_MUTED, display: 'block', opacity: 0.5 }} />
                         </Tooltip>
                       )}
                   </Box>
                 </TableCell>
-                <TableCell>
+                <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
                   {e.fonte === 'dda' || e.fonte === 'nfe' ? (
                     <Chip
                       size="small"
@@ -321,30 +398,44 @@ export function ContasPagarPage() {
                         fontSize: 10.5,
                         fontWeight: 700,
                         letterSpacing: '0.04em',
-                        bgcolor: e.fonte === 'nfe'
-                          ? (escuro ? 'rgba(16,185,129,0.18)' : 'rgba(16,185,129,0.12)')
-                          : (escuro ? 'rgba(27,110,243,0.22)' : 'rgba(27,110,243,0.12)'),
-                        color: e.fonte === 'nfe'
-                          ? (escuro ? '#6EE7B7' : '#047857')
-                          : (escuro ? '#93C5FD' : '#0D4ECC'),
+                        bgcolor: e.fonte === 'nfe' ? 'rgba(16,185,129,0.18)' : 'rgba(27,110,243,0.22)',
+                        color: e.fonte === 'nfe' ? '#047857' : '#1D4ED8',
                         border: '1px solid',
-                        borderColor: e.fonte === 'nfe'
-                          ? (escuro ? 'rgba(110,231,183,0.35)' : 'rgba(4,120,87,0.28)')
-                          : (escuro ? 'rgba(147,197,253,0.35)' : 'rgba(13,78,204,0.28)'),
+                        borderColor: e.fonte === 'nfe' ? 'rgba(110,231,183,0.35)' : 'rgba(147,197,253,0.35)',
                       }}
                     />
                   ) : (
                     CODIGO[e.forma_pagamento || ''] || '—'
                   )}
                 </TableCell>
-                <TableCell><Codigo forma={e.forma_pagamento} pagamento={e.pagamento} /></TableCell>
-                <TableCell sx={{ color: aberta(e) && e.vencimento && e.vencimento < hoje ? 'error.main' : 'inherit' }}>
+                <TableCell align="center" sx={{ verticalAlign: 'middle' }}><Codigo forma={e.forma_pagamento} pagamento={e.pagamento} /></TableCell>
+                <TableCell align="center" sx={{ verticalAlign: 'middle', color: aberta(e) && e.vencimento && e.vencimento < hoje ? '#B91C1C' : FIN_TEXT }}>
                   {e.vencimento ? e.vencimento.split('-').reverse().join('/') : '—'}
                 </TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{brl(Number(e.valor))}</TableCell>
-                <TableCell align="right">
-                  <Button size="small" onClick={() => setEditando(e)} sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: 'transparent' } }}>{t('Abrir', 'Open')}</Button>
-                  <Button size="small" onClick={() => { setErroExcluir(''); setExcluir(e) }} sx={{ color: 'text.secondary', '&:hover': { color: 'error.main', bgcolor: 'transparent' } }}>{t('Excluir', 'Delete')}</Button>
+                <TableCell align="center" sx={{ verticalAlign: 'middle', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{brl(Number(e.valor))}</TableCell>
+                <TableCell align="center" sx={{ verticalAlign: 'middle', width: 72, px: 0.5 }}>
+                  <Stack direction="row" spacing={0.25} sx={{ justifyContent: 'center' }}>
+                    <Tooltip title={t('Abrir', 'Open')}>
+                      <IconButton
+                        size="small"
+                        onClick={() => setEditando(e)}
+                        aria-label={t('Abrir', 'Open')}
+                        sx={{ p: 0.35, color: FIN_MUTED, '&:hover': { color: '#1B6EF3', bgcolor: 'rgba(27,110,243,0.08)' } }}
+                      >
+                        <OpenInNewIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title={t('Excluir', 'Delete')}>
+                      <IconButton
+                        size="small"
+                        onClick={() => { setErroExcluir(''); setExcluir(e) }}
+                        aria-label={t('Excluir', 'Delete')}
+                        sx={{ p: 0.35, color: FIN_MUTED, '&:hover': { color: '#B91C1C', bgcolor: 'rgba(239,68,68,0.08)' } }}
+                      >
+                        <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
                 </TableCell>
               </TableRow>
               )
@@ -362,28 +453,34 @@ export function ContasPagarPage() {
           rowsPerPageOptions={[20, 50, 100]}
           labelRowsPerPage={t('Por página', 'Per page')}
           labelDisplayedRows={({ from, to, count }) => t(`${from}–${to} de ${count}`, `${from}–${to} of ${count}`)}
+          slotProps={{ select: finSelectMenu }}
           sx={{
             flexShrink: 0,
             borderTop: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
+            borderColor: FIN_BORDER,
+            bgcolor: FIN_SURFACE,
+            color: FIN_MUTED,
             '& .MuiTablePagination-toolbar': { minHeight: 32, height: 32, pl: 1.5, pr: 0.5 },
-            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 12, m: 0 },
-            '& .MuiTablePagination-select': { fontSize: 12 },
+            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 12, m: 0, color: FIN_MUTED },
+            '& .MuiTablePagination-select': { fontSize: 12, color: FIN_TEXT },
             '& .MuiTablePagination-actions': { ml: 0.5 },
             '& .MuiTablePagination-actions .MuiIconButton-root': { p: 0.25 },
           }}
         />
       </Paper>
 
-      <Dialog open={!!excluir} onClose={() => { if (!excluindo) setExcluir(null) }}>
-        <DialogTitle>{t('Deseja excluir?', 'Delete this expense?')}</DialogTitle>
+      <Dialog
+        open={!!excluir}
+        onClose={() => { if (!excluindo) setExcluir(null) }}
+        slotProps={{ paper: { sx: dialogEscuroPaper } }}
+      >
+        <DialogTitle sx={{ color: FIN_TEXT }}>{t('Deseja excluir?', 'Delete this expense?')}</DialogTitle>
         <DialogContent>
-          <Typography variant="body2">{excluir?.descricao}</Typography>
+          <Typography variant="body2" sx={{ color: FIN_MUTED }}>{excluir?.descricao}</Typography>
           {erroExcluir && <Typography color="error" variant="body2" sx={{ mt: 1 }}>{erroExcluir}</Typography>}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setExcluir(null)} disabled={excluindo}>{t('Cancelar', 'Cancel')}</Button>
+        <DialogActions sx={{ px: 2.5, pb: 2 }}>
+          <Button onClick={() => setExcluir(null)} disabled={excluindo} sx={{ color: FIN_MUTED }}>{t('Cancelar', 'Cancel')}</Button>
           <Button
             color="error"
             variant="contained"
@@ -633,9 +730,9 @@ function ImportarArquivosDialog({
       onClose={() => { if (!enviando && !lendo) onFechar() }}
       fullWidth
       maxWidth="sm"
-      slotProps={{ paper: { sx: { borderRadius: 2.5 } } }}
+      slotProps={{ paper: { sx: { ...dialogEscuroPaper, borderRadius: 2.5 } } }}
     >
-      <DialogTitle sx={{ pb: 0.5, fontWeight: 650, letterSpacing: '-0.02em' }}>
+      <DialogTitle sx={{ pb: 0.5, fontWeight: 650, letterSpacing: '-0.02em', color: FIN_TEXT }}>
         {t('Importar para a agenda', 'Import to bank agenda')}
       </DialogTitle>
       <DialogContent sx={{ pt: '12px !important' }}>
@@ -659,31 +756,31 @@ function ImportarArquivosDialog({
               }}
               sx={{
                 border: '1.5px dashed',
-                borderColor: 'divider',
+                borderColor: FIN_BORDER,
                 borderRadius: 2,
                 px: 2.5,
                 py: 4,
                 textAlign: 'center',
                 cursor: 'pointer',
-                bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(15,23,42,0.02)',
+                bgcolor: FIN_SURFACE_ALT,
                 transition: 'border-color .15s, background-color .15s',
                 '&:hover': {
-                  borderColor: 'primary.main',
-                  bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(27,110,243,0.08)' : 'rgba(27,110,243,0.04)',
+                  borderColor: '#1B6EF3',
+                  bgcolor: 'rgba(27,110,243,0.1)',
                 },
               }}
             >
-              <UploadFileOutlinedIcon sx={{ fontSize: 32, color: 'primary.main', mb: 1, opacity: 0.9 }} />
-              <Typography sx={{ fontSize: 14, fontWeight: 650, letterSpacing: '-0.01em' }}>
+              <UploadFileOutlinedIcon sx={{ fontSize: 32, color: '#1B6EF3', mb: 1, opacity: 0.9 }} />
+              <Typography sx={{ fontSize: 14, fontWeight: 650, letterSpacing: '-0.01em', color: FIN_TEXT }}>
                 {t('Solte os arquivos aqui', 'Drop files here')}
               </Typography>
-              <Typography sx={{ fontSize: 12.5, color: 'text.secondary', mt: 0.5, maxWidth: 320, mx: 'auto', lineHeight: 1.45 }}>
+              <Typography sx={{ fontSize: 12.5, color: FIN_MUTED, mt: 0.5, maxWidth: 320, mx: 'auto', lineHeight: 1.45 }}>
                 {t(
                   'PDF (GFD, DARF, TRCT, férias), DDA ou XML de NF-e. A prévia abre na hora.',
                   'PDF (GFD, DARF, TRCT, vacation), DDA or NF-e XML. Preview opens right away.',
                 )}
               </Typography>
-              <Button size="small" variant="outlined" sx={{ mt: 1.75 }} disabled={enviando}>
+              <Button size="small" variant="outlined" sx={{ mt: 1.75, ...finBtnOutlinedSx }} disabled={enviando}>
                 {t('Escolher arquivos', 'Choose files')}
               </Button>
             </Box>
@@ -695,14 +792,15 @@ function ImportarArquivosDialog({
                 startIcon={<UploadFileOutlinedIcon sx={{ fontSize: 16 }} />}
                 onClick={() => input.current?.click()}
                 disabled={lendo || enviando}
+                sx={finBtnOutlinedSx}
               >
                 {t('Adicionar', 'Add more')}
               </Button>
-              <Button size="small" disabled={lendo || enviando} onClick={() => reset()} sx={{ color: 'text.secondary' }}>
+              <Button size="small" disabled={lendo || enviando} onClick={() => reset()} sx={{ color: FIN_MUTED }}>
                 {t('Limpar', 'Clear')}
               </Button>
               {previa.length > 0 && (
-                <Typography sx={{ fontSize: 12, color: 'text.secondary', ml: 'auto' }}>
+                <Typography sx={{ fontSize: 12, color: FIN_MUTED, ml: 'auto' }}>
                   {prontos > 0 && t(`${prontos} novo${prontos === 1 ? '' : 's'}`, `${prontos} new`)}
                   {existentes > 0 && (prontos > 0 ? ' · ' : '') + t(`${existentes} já na agenda`, `${existentes} already on agenda`)}
                   {comErro > 0 && ((prontos + existentes) > 0 ? ' · ' : '') + t(`${comErro} com erro`, `${comErro} with error`)}
@@ -711,7 +809,15 @@ function ImportarArquivosDialog({
             </Stack>
           )}
 
-          {(lendo || enviando) && <LinearProgress sx={{ borderRadius: 1 }} />}
+          {(lendo || enviando) && (
+            <LinearProgress
+              sx={{
+                borderRadius: 1,
+                bgcolor: 'rgba(27,110,243,0.15)',
+                '& .MuiLinearProgress-bar': { bgcolor: '#1B6EF3' },
+              }}
+            />
+          )}
           {erro && <Alert severity="error" sx={{ py: 0.5 }}>{erro}</Alert>}
           {sucesso && <Alert severity="success" sx={{ py: 0.5 }}>{sucesso}</Alert>}
 
@@ -726,15 +832,15 @@ function ImportarArquivosDialog({
                   : !p.ok
                     ? 'rgba(239,68,68,0.4)'
                     : marcada
-                      ? 'primary.main'
-                      : 'divider'
+                      ? '#1B6EF3'
+                      : FIN_BORDER
                 const fundo = p.ja_existia
-                  ? 'rgba(245,158,11,0.05)'
+                  ? 'rgba(245,158,11,0.08)'
                   : !p.ok
-                    ? 'rgba(239,68,68,0.04)'
+                    ? 'rgba(239,68,68,0.08)'
                     : marcada
-                      ? 'rgba(27,110,243,0.06)'
-                      : 'background.paper'
+                      ? 'rgba(27,110,243,0.12)'
+                      : FIN_SURFACE_ALT
                 return (
                   <Box
                     key={p.nome}
@@ -763,8 +869,8 @@ function ImportarArquivosDialog({
                           display: 'grid',
                           placeItems: 'center',
                           flexShrink: 0,
-                          bgcolor: pdf ? 'rgba(220,38,38,0.1)' : 'rgba(27,110,243,0.1)',
-                          color: pdf ? '#DC2626' : 'primary.main',
+                          bgcolor: pdf ? 'rgba(220,38,38,0.18)' : 'rgba(27,110,243,0.18)',
+                          color: pdf ? '#B91C1C' : '#1B6EF3',
                         }}
                       >
                         {pdf
@@ -777,10 +883,18 @@ function ImportarArquivosDialog({
                           <Chip
                             size="small"
                             label={rotuloTipo(p.tipo)}
-                            sx={{ height: 20, fontSize: 10.5, fontWeight: 700, letterSpacing: '0.02em' }}
+                            sx={{
+                              height: 20,
+                              fontSize: 10.5,
+                              fontWeight: 700,
+                              letterSpacing: '0.02em',
+                              bgcolor: 'rgba(15,23,42,0.06)',
+                              color: FIN_TEXT,
+                              border: 'none',
+                            }}
                           />
                           {p.empresa && (
-                            <Typography sx={{ fontSize: 12, fontWeight: 650, color: 'text.primary' }}>
+                            <Typography sx={{ fontSize: 12, fontWeight: 650, color: FIN_TEXT }}>
                               {p.empresa}
                             </Typography>
                           )}
@@ -792,8 +906,8 @@ function ImportarArquivosDialog({
                                 height: 20,
                                 fontSize: 10.5,
                                 fontWeight: 600,
-                                bgcolor: 'rgba(245,158,11,0.12)',
-                                color: '#B45309',
+                                bgcolor: 'rgba(245,158,11,0.18)',
+                                color: '#FBBF24',
                                 border: 'none',
                               }}
                             />
@@ -821,7 +935,7 @@ function ImportarArquivosDialog({
                                 height: 20,
                                 fontSize: 10.5,
                                 fontWeight: 600,
-                                bgcolor: 'rgba(27,110,243,0.12)',
+                                bgcolor: 'rgba(27,110,243,0.1)',
                                 color: '#0D4ECC',
                                 border: 'none',
                                 '& .MuiChip-icon': { color: '#0D4ECC' },
@@ -830,11 +944,11 @@ function ImportarArquivosDialog({
                           )}
                         </Stack>
 
-                        <Typography sx={{ fontSize: 14.5, fontWeight: 650, letterSpacing: '-0.02em', lineHeight: 1.3 }}>
+                        <Typography sx={{ fontSize: 14.5, fontWeight: 650, letterSpacing: '-0.02em', lineHeight: 1.3, color: FIN_TEXT }}>
                           {p.descricao || t('Sem descrição', 'No description')}
                         </Typography>
 
-                        <Stack direction="row" spacing={1.5} sx={{ mt: 0.65, flexWrap: 'wrap', color: 'text.secondary' }}>
+                        <Stack direction="row" spacing={1.5} sx={{ mt: 0.65, flexWrap: 'wrap', color: FIN_MUTED }}>
                           <Typography sx={{ fontSize: 12 }}>
                             {t('Venc.', 'Due')} {dataBr(p.vencimento)}
                           </Typography>
@@ -853,7 +967,7 @@ function ImportarArquivosDialog({
                         <Typography
                           sx={{
                             fontSize: 11,
-                            color: 'text.disabled',
+                            color: 'rgba(148,163,184,0.7)',
                             mt: 0.55,
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
@@ -865,7 +979,7 @@ function ImportarArquivosDialog({
                         </Typography>
 
                         {!p.ok && !p.ja_existia && p.erro && (
-                          <Typography sx={{ fontSize: 12, color: 'error.main', mt: 0.6, lineHeight: 1.35 }}>
+                          <Typography sx={{ fontSize: 12, color: '#B91C1C', mt: 0.6, lineHeight: 1.35 }}>
                             {p.erro}
                           </Typography>
                         )}
@@ -884,7 +998,7 @@ function ImportarArquivosDialog({
                             letterSpacing: '-0.03em',
                             fontVariantNumeric: 'tabular-nums',
                             lineHeight: 1.15,
-                            color: p.ok || p.ja_existia ? 'text.primary' : 'text.disabled',
+                            color: p.ok || p.ja_existia ? FIN_TEXT : FIN_MUTED,
                           }}
                         >
                           {p.valor != null && Number.isFinite(Number(p.valor)) ? brl(Number(p.valor)) : '—'}
@@ -897,7 +1011,11 @@ function ImportarArquivosDialog({
                               disabled={lendo || enviando}
                               onClick={(ev) => ev.stopPropagation()}
                               onChange={(ev) => setMarcadas((m) => ({ ...m, [p.nome]: ev.target.checked }))}
-                              sx={{ p: 0.35 }}
+                              sx={{
+                                p: 0.35,
+                                color: FIN_MUTED,
+                                '&.Mui-checked': { color: '#1B6EF3' },
+                              }}
                             />
                           )}
                           <IconButton
@@ -905,7 +1023,7 @@ function ImportarArquivosDialog({
                             disabled={lendo || enviando}
                             aria-label={t('Remover', 'Remove')}
                             onClick={(ev) => { ev.stopPropagation(); remover(p.nome) }}
-                            sx={{ color: 'text.disabled', '&:hover': { color: 'text.secondary' } }}
+                            sx={{ color: FIN_MUTED, '&:hover': { color: FIN_TEXT } }}
                           >
                             <CloseIcon sx={{ fontSize: 16 }} />
                           </IconButton>
@@ -921,7 +1039,7 @@ function ImportarArquivosDialog({
           {resultado.length > 0 && (
             <Stack spacing={0.4} sx={{ pt: 0.25 }}>
               {resultado.map((d) => (
-                <Typography key={d.nome} sx={{ fontSize: 12.5, color: d.ok ? 'success.main' : 'error.main' }}>
+                <Typography key={d.nome} sx={{ fontSize: 12.5, color: d.ok ? '#047857' : '#B91C1C' }}>
                   {d.ok ? '✓' : '✗'} {d.texto || d.nome}
                 </Typography>
               ))}
@@ -930,7 +1048,7 @@ function ImportarArquivosDialog({
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2, pt: 1, gap: 1, justifyContent: 'space-between' }}>
-        <Typography sx={{ fontSize: 12.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+        <Typography sx={{ fontSize: 12.5, color: FIN_MUTED, fontVariantNumeric: 'tabular-nums' }}>
           {marcarQtd > 0
             ? t(`${marcarQtd} selecionada${marcarQtd === 1 ? '' : 's'} · ${brl(totalMarcado)}`, `${marcarQtd} selected · ${brl(totalMarcado)}`)
             : previa.length > 0
@@ -938,11 +1056,12 @@ function ImportarArquivosDialog({
               : ' '}
         </Typography>
         <Stack direction="row" spacing={1}>
-          <Button onClick={onFechar} disabled={enviando}>{t('Fechar', 'Close')}</Button>
+          <Button onClick={onFechar} disabled={enviando} sx={{ color: FIN_MUTED }}>{t('Fechar', 'Close')}</Button>
           <Button
             variant="contained"
             onClick={confirmar}
             disabled={enviando || lendo || marcarQtd === 0}
+            sx={finBtnContainedSx}
           >
             {enviando
               ? t('Gerando…', 'Creating…')
@@ -958,16 +1077,18 @@ function ImportarArquivosDialog({
 
 function Codigo({ forma, pagamento }: { forma: string | null; pagamento: string | null }) {
   const texto = (pagamento || '').trim()
-  if (forma === 'folha' || texto.toLowerCase() === 'folha') return <Typography sx={{ fontSize: 13 }}>—</Typography>
+  if (forma === 'folha' || texto.toLowerCase() === 'folha') {
+    return <Typography sx={{ fontSize: 13, textAlign: 'center' }}>—</Typography>
+  }
   if ((forma === 'chave_pix' || forma === 'boleto') && texto) return <Copia texto={texto} />
-  return <Typography sx={{ fontSize: 13 }}>—</Typography>
+  return <Typography sx={{ fontSize: 13, textAlign: 'center' }}>—</Typography>
 }
 
 function Copia({ texto }: { texto: string }) {
   const curto = texto.length > 22 ? `${texto.slice(0, 22)}…` : texto
   return (
-    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
-      <Typography variant="caption" sx={{ wordBreak: 'break-all' }}>{curto}</Typography>
+    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
+      <Typography variant="caption" sx={{ wordBreak: 'break-all', textAlign: 'center' }}>{curto}</Typography>
       <IconButton size="small" aria-label="Copiar para pagar" onClick={() => navigator.clipboard.writeText(texto)}>
         <ContentCopyIcon sx={{ fontSize: 16 }} />
       </IconButton>
@@ -975,18 +1096,35 @@ function Copia({ texto }: { texto: string }) {
   )
 }
 
-function Resumo({ rotulo, valor, detalhe, alerta = false }: { rotulo: string; valor: string; detalhe: string; alerta?: boolean }) {
+function Resumo({
+  rotulo,
+  valor,
+  detalhe,
+  alerta = false,
+  cor = '#1B6EF3',
+}: {
+  rotulo: string
+  valor: string
+  detalhe: string
+  alerta?: boolean
+  cor?: string
+}) {
+  const faixa = alerta ? '#EF4444' : cor
   return (
     <Paper
       variant="outlined"
       sx={{
-        px: 1.25,
-        py: 0.7,
+        position: 'relative',
+        px: 1.35,
+        py: 0.75,
+        pl: 1.6,
         minWidth: 120,
         flex: 1,
+        overflow: 'hidden',
+        bgcolor: FIN_SURFACE,
+        borderColor: FIN_BORDER,
         ...(alerta ? {
-          borderColor: '#EF4444',
-          bgcolor: 'rgba(239,68,68,0.06)',
+          bgcolor: 'rgba(239,68,68,0.12)',
           animation: 'vencida-pulso 2.6s ease-in-out infinite',
           '@keyframes vencida-pulso': {
             '0%, 100%': { boxShadow: '0 0 0 0 rgba(239,68,68,0)' },
@@ -994,16 +1132,30 @@ function Resumo({ rotulo, valor, detalhe, alerta = false }: { rotulo: string; va
           },
           '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
         } : {}),
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 3,
+          bgcolor: faixa,
+          borderRadius: '2px 0 0 2px',
+        },
       }}
     >
-      <Typography sx={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: alerta ? 'error.main' : 'text.secondary' }}>{rotulo}</Typography>
-      <Typography sx={{ fontSize: 15, fontWeight: 650, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15, color: alerta ? 'error.main' : 'inherit' }}>{valor}</Typography>
-      <Typography sx={{ fontSize: 11, fontWeight: 400, color: alerta ? 'error.main' : 'text.secondary' }}>{detalhe}</Typography>
+      <Typography sx={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: alerta ? '#B91C1C' : FIN_MUTED }}>{rotulo}</Typography>
+      <Typography sx={{ fontSize: 15, fontWeight: 650, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15, color: alerta ? '#B91C1C' : FIN_TEXT }}>{valor}</Typography>
+      <Typography sx={{ fontSize: 11, fontWeight: 400, color: alerta ? '#B91C1C' : FIN_MUTED }}>{detalhe}</Typography>
     </Paper>
   )
 }
 
-const lista = { listbox: { sx: { maxHeight: 240, fontSize: 14 } } }
+const lista = {
+  paper: { sx: { ...finMenuSx, zIndex: 1500 } },
+  listbox: { sx: { maxHeight: 280, fontSize: 13, bgcolor: FIN_SURFACE, color: FIN_TEXT } },
+  popper: { sx: { zIndex: 1500 } },
+}
 
 function aoDigitarValor(bruto: string) {
   const s = bruto.replace(/[^\d,]/g, '')
@@ -1041,7 +1193,7 @@ function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   const [buscaFor, setBuscaFor] = useState('')
   const [hits, setHits] = useState<Fornecedor[]>([])
   const [pagamento, setPagamento] = useState('')
-  const [erro, setErro] = useState('')
+  const [erroCampos, setErroCampos] = useState({ descricao: false, valor: false, origem: false })
   const [abrindoNota, setAbrindoNota] = useState(false)
   const [abrindoBoleto, setAbrindoBoleto] = useState(false)
 
@@ -1049,7 +1201,7 @@ function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
 
   useEffect(() => {
     if (!aberto) return
-    setErro('')
+    setErroCampos({ descricao: false, valor: false, origem: false })
     setHits([])
     if (!inicial) {
       setDescricao(''); setValor(''); setVencimento(''); setDocumento('')
@@ -1073,8 +1225,19 @@ function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
 
   const buscar = async (q: string) => {
     setBuscaFor(q)
-    if (q.trim().length < 2) { setHits([]); return }
-    setHits(await api.fornecedores(q.trim()))
+    try {
+      setHits(await api.fornecedores(q.trim()))
+    } catch {
+      setHits([])
+    }
+  }
+
+  const carregarFornecedores = async () => {
+    try {
+      setHits(await api.fornecedores(buscaFor.trim()))
+    } catch {
+      setHits([])
+    }
   }
 
   const escolherFornecedor = (item: Fornecedor | null) => {
@@ -1085,9 +1248,20 @@ function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   }
 
   const salvar = async () => {
+    const numero = parseMoeda(valor)
+    const faltaDesc = !descricao.trim()
+    const faltaValor = !Number.isFinite(numero) || numero <= 0
+    const faltaOrigem = !origem
+    if (faltaDesc || faltaValor || faltaOrigem) {
+      setErroCampos({ descricao: faltaDesc, valor: faltaValor, origem: faltaOrigem })
+      showToast(
+        t('Descrição, origem e valor são obrigatórios.', 'Description, store and amount are required.'),
+        'error',
+      )
+      return
+    }
+    setErroCampos({ descricao: false, valor: false, origem: false })
     try {
-      setErro('')
-      const numero = parseMoeda(valor)
       const corpo = {
         descricao: descricao.trim(),
         valor: numero,
@@ -1104,98 +1278,234 @@ function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
       else await api.criarDespesa(corpo)
       onSalvou(inicial ? t('Despesa atualizada.', 'Expense updated.') : t('Despesa cadastrada.', 'Expense created.'))
     } catch (err) {
-      setErro(err instanceof Error ? err.message : 'Não salvou')
+      const msg = err instanceof Error ? err.message : t('Não salvou', 'Could not save')
+      showToast(msg, 'error')
+      if (/descri|origem|valor|obrigat/i.test(msg)) {
+        setErroCampos({
+          descricao: /descri/i.test(msg) || /obrigat/i.test(msg),
+          valor: /valor/i.test(msg) || /obrigat/i.test(msg),
+          origem: /origem|loja|store/i.test(msg) || /obrigat/i.test(msg),
+        })
+      }
     }
   }
 
   return (
-    <Drawer anchor="right" open={aberto} onClose={onFechar} slotProps={{ paper: { sx: { width: 420 } } }}>
-      <Stack spacing={1.5} sx={{ p: 3, overflow: 'auto' }}>
-        <Typography variant="h6">{inicial ? t('Editar despesa', 'Edit expense') : t('Nova despesa', 'New expense')}</Typography>
-          <TextField label={t('Descrição', 'Description')} size="small" value={descricao} onChange={(ev) => setDescricao(ev.target.value)} />
-          <TextField
-            label={t('Valor', 'Amount')}
-            size="small"
-            value={valor}
-            placeholder="R$ 0,00"
-            onChange={(ev) => setValor(aoDigitarValor(ev.target.value))}
-            onBlur={() => setValor((atual) => atual && Number.isFinite(parseMoeda(atual)) ? brl(parseMoeda(atual)) : '')}
-          />
-          <TextField label={t('Vencimento', 'Due date')} size="small" type="date" value={vencimento} onChange={(ev) => setVencimento(ev.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-          <TextField label={t('Documento', 'Document')} size="small" value={documento} onChange={(ev) => setDocumento(ev.target.value)} />
-          <Autocomplete
-            size="small"
-            options={lojas}
-            getOptionLabel={(e) => e.apelido}
-            value={lojas.find((e) => e.id === origem) || null}
-            onChange={(_, item) => setOrigem(item?.id || '')}
-            slotProps={lista}
-            renderInput={(params) => <TextField {...params} label={t('Loja', 'Store')} />}
-          />
-          <Autocomplete
-            size="small"
-            options={hits}
-            getOptionLabel={(item) => item.nome}
-            filterOptions={(opcoes) => opcoes}
-            inputValue={buscaFor}
-            value={fornecedor}
-            onInputChange={(_, texto, motivo) => { if (motivo === 'input') buscar(texto) }}
-            onChange={(_, item) => escolherFornecedor(item)}
-            slotProps={lista}
-            renderInput={(params) => <TextField {...params} label={t('Fornecedor', 'Supplier')} placeholder={t('Buscar', 'Search')} />}
-            renderOption={(props, item) => (
-              <li {...props} key={item.id}>{item.nome}{item.plano ? ` · ${item.plano}` : ''}</li>
-            )}
-          />
-          {fornecedor?.plano && <Typography variant="body2" color="text.secondary">{t('Plano de contas', 'Account')}: {fornecedor.plano}</Typography>}
-          <TextField select label={t('Forma de pagamento', 'Payment method')} size="small" value={forma} onChange={(ev) => setForma(ev.target.value)}>
-            {Object.entries(CODIGO).map(([id, nome]) => <MenuItem key={id} value={id}>{nome}</MenuItem>)}
-          </TextField>
-          {pedeCodigo && (
+    <Drawer anchor="right" open={aberto} onClose={onFechar} slotProps={{ paper: { sx: drawerEscuroPaper } }}>
+      <Stack spacing={1.5} sx={{ p: 3, overflow: 'auto', bgcolor: FIN_SURFACE_ALT, color: FIN_TEXT, minHeight: '100%' }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+          <Box
+            sx={{
+              width: 36,
+              height: 36,
+              borderRadius: '10px',
+              display: 'grid',
+              placeItems: 'center',
+              bgcolor: 'rgba(27,110,243,0.18)',
+              color: '#1B6EF3',
+              flexShrink: 0,
+            }}
+          >
+            <AddIcon sx={{ fontSize: 22 }} />
+          </Box>
+          <Typography variant="h6" sx={{ color: FIN_TEXT, fontWeight: 650, letterSpacing: '-0.02em' }}>
+            {inicial ? t('Editar despesa', 'Edit expense') : t('Nova despesa', 'New expense')}
+          </Typography>
+        </Stack>
+        <TextField
+          label={t('Descrição', 'Description')}
+          size="small"
+          value={descricao}
+          error={erroCampos.descricao}
+          onChange={(ev) => {
+            setDescricao(ev.target.value)
+            if (erroCampos.descricao) setErroCampos((e) => ({ ...e, descricao: false }))
+          }}
+          sx={[finCampoSx, erroCampos.descricao ? finCampoErroSx : null]}
+        />
+        <TextField
+          label={t('Valor', 'Amount')}
+          size="small"
+          value={valor}
+          placeholder="R$ 0,00"
+          error={erroCampos.valor}
+          onChange={(ev) => {
+            setValor(aoDigitarValor(ev.target.value))
+            if (erroCampos.valor) setErroCampos((e) => ({ ...e, valor: false }))
+          }}
+          onBlur={() => setValor((atual) => atual && Number.isFinite(parseMoeda(atual)) ? brl(parseMoeda(atual)) : '')}
+          sx={[finCampoSx, erroCampos.valor ? finCampoErroSx : null]}
+        />
+        <CampoDataFinanceiro
+          label={t('Vencimento', 'Due date')}
+          value={vencimento}
+          onChange={setVencimento}
+        />
+        <TextField
+          label={t('Documento', 'Document')}
+          size="small"
+          value={documento}
+          onChange={(ev) => setDocumento(ev.target.value)}
+          sx={finCampoSx}
+        />
+        <Autocomplete
+          size="small"
+          options={lojas}
+          getOptionLabel={(e) => e.apelido}
+          value={lojas.find((e) => e.id === origem) || null}
+          onChange={(_, item) => {
+            setOrigem(item?.id || '')
+            if (erroCampos.origem) setErroCampos((e) => ({ ...e, origem: false }))
+          }}
+          slotProps={lista}
+          renderInput={(params) => (
             <TextField
-              label={forma === 'boleto' ? t('Código de barras do boleto', 'Boleto barcode') : t('Chave PIX', 'PIX key')}
-              size="small"
-              value={pagamento}
-              onChange={(ev) => setPagamento(ev.target.value)}
-              placeholder={t('Para copiar na hora de pagar', 'Copy this when paying')}
+              {...params}
+              label={t('Loja', 'Store')}
+              error={erroCampos.origem}
+              sx={[finCampoSx, erroCampos.origem ? finCampoErroSx : null]}
             />
           )}
-          <Stack direction="row" spacing={1}>
-            <Button
-              variant="outlined"
-              disabled={!inicial?.numero_nf || abrindoNota}
-              onClick={async () => {
-                if (!inicial) return
-                setAbrindoNota(true)
-                setErro('')
-                try { await api.abrirNota(inicial.id) }
-                catch (err) { setErro(err instanceof Error ? err.message : 'Não abriu a nota') }
-                finally { setAbrindoNota(false) }
-              }}
-            >
-              {abrindoNota ? t('Abrindo nota…', 'Opening invoice…') : t('Ver nota fiscal', 'View invoice')}
-            </Button>
-            <Button
-              variant="outlined"
-              disabled={!inicial?.numero_nf || abrindoBoleto}
-              onClick={async () => {
-                if (!inicial) return
-                setAbrindoBoleto(true)
-                setErro('')
-                try { await api.abrirBoleto(inicial.id) }
-                catch (err) { setErro(err instanceof Error ? err.message : 'Não abriu o boleto') }
-                finally { setAbrindoBoleto(false) }
-              }}
-            >
-              {abrindoBoleto ? t('Abrindo boleto…', 'Opening boleto…') : t('Ver boleto', 'View boleto')}
-            </Button>
-          </Stack>
-          {erro && <Typography color="error" variant="body2">{erro}</Typography>}
+        />
+        <Autocomplete
+          size="small"
+          options={hits}
+          getOptionLabel={(item) => item.nome || ''}
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          filterOptions={(opcoes) => opcoes}
+          inputValue={buscaFor}
+          value={fornecedor}
+          openOnFocus
+          onOpen={() => { void carregarFornecedores() }}
+          onInputChange={(_, texto, motivo) => { if (motivo === 'input') void buscar(texto) }}
+          onChange={(_, item) => escolherFornecedor(item)}
+          noOptionsText={t('Nenhum fornecedor', 'No suppliers')}
+          loadingText={t('Buscando…', 'Searching…')}
+          slotProps={lista}
+          renderInput={(params) => (
+            <TextField {...params} label={t('Fornecedor', 'Supplier')} placeholder={t('Buscar', 'Search')} sx={finCampoSx} />
+          )}
+          renderOption={(props, item) => (
+            <li {...props} key={item.id}>{item.nome}{item.plano ? ` · ${item.plano}` : ''}</li>
+          )}
+        />
+        {fornecedor?.plano && (
+          <Typography variant="body2" sx={{ color: FIN_MUTED }}>
+            {t('Plano de contas', 'Account')}: {fornecedor.plano}
+          </Typography>
+        )}
+        <TextField
+          select
+          label={t('Forma de pagamento', 'Payment method')}
+          size="small"
+          value={forma}
+          onChange={(ev) => setForma(ev.target.value)}
+          sx={finCampoSx}
+          slotProps={{ select: finSelectMenu }}
+        >
+          {Object.entries(CODIGO).map(([id, nome]) => <MenuItem key={id} value={id}>{nome}</MenuItem>)}
+        </TextField>
+        {pedeCodigo && (
+          <TextField
+            label={forma === 'boleto' ? t('Código de barras do boleto', 'Boleto barcode') : t('Chave PIX', 'PIX key')}
+            size="small"
+            value={pagamento}
+            onChange={(ev) => setPagamento(ev.target.value)}
+            placeholder={t('Para copiar na hora de pagar', 'Copy this when paying')}
+            sx={finCampoSx}
+          />
+        )}
+        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<DescriptionOutlinedIcon sx={{ fontSize: 16 }} />}
+            disabled={!inicial?.numero_nf || abrindoNota}
+            onClick={async () => {
+              if (!inicial) return
+              setAbrindoNota(true)
+              try { await api.abrirNota(inicial.id) }
+              catch (err) {
+                showToast(err instanceof Error ? err.message : t('Não abriu a nota', 'Could not open invoice'), 'error')
+              }
+              finally { setAbrindoNota(false) }
+            }}
+            sx={{
+              ...finBtnOutlinedSx,
+              minWidth: 0,
+              flex: 1,
+              color: inicial?.numero_nf ? FIN_TEXT : FIN_MUTED,
+              borderColor: inicial?.numero_nf ? 'rgba(27,110,243,0.45)' : FIN_BORDER,
+              bgcolor: FIN_SURFACE,
+            }}
+          >
+            {abrindoNota ? t('Abrindo nota…', 'Opening invoice…') : t('Ver nota fiscal', 'View invoice')}
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<PictureAsPdfOutlinedIcon sx={{ fontSize: 16 }} />}
+            disabled={!inicial?.numero_nf || abrindoBoleto}
+            onClick={async () => {
+              if (!inicial) return
+              setAbrindoBoleto(true)
+              try { await api.abrirBoleto(inicial.id) }
+              catch (err) {
+                showToast(err instanceof Error ? err.message : t('Não abriu o boleto', 'Could not open boleto'), 'error')
+              }
+              finally { setAbrindoBoleto(false) }
+            }}
+            sx={{
+              ...finBtnOutlinedSx,
+              minWidth: 0,
+              flex: 1,
+              color: inicial?.numero_nf ? FIN_TEXT : FIN_MUTED,
+              borderColor: inicial?.numero_nf ? 'rgba(27,110,243,0.45)' : FIN_BORDER,
+              bgcolor: FIN_SURFACE,
+            }}
+          >
+            {abrindoBoleto ? t('Abrindo boleto…', 'Opening boleto…') : t('Ver boleto', 'View boleto')}
+          </Button>
+        </Stack>
         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', pt: 1 }}>
-          <Button onClick={onFechar}>{t('Cancelar', 'Cancel')}</Button>
-          <Button variant="contained" onClick={salvar}>{inicial ? t('Salvar', 'Save') : t('Criar rascunho', 'Create draft')}</Button>
+          <Button onClick={onFechar} sx={{ color: FIN_MUTED }}>{t('Cancelar', 'Cancel')}</Button>
+          <Button variant="contained" onClick={salvar} sx={finBtnContainedSx}>
+            {inicial ? t('Salvar', 'Save') : t('Criar rascunho', 'Create draft')}
+          </Button>
         </Stack>
       </Stack>
     </Drawer>
+  )
+}
+
+function EstadoVazio({
+  icone,
+  titulo,
+  texto,
+}: {
+  icone: ReactNode
+  titulo: string
+  texto: string
+}) {
+  return (
+    <Box
+      sx={{
+        py: 5.5,
+        px: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        textAlign: 'center',
+        gap: 1,
+      }}
+    >
+      <Box sx={{ color: 'rgba(100,116,139,0.7)', display: 'flex', mb: 0.5 }}>{icone}</Box>
+      <Typography sx={{ fontSize: 15, fontWeight: 700, color: FIN_TEXT, letterSpacing: '-0.02em' }}>
+        {titulo}
+      </Typography>
+      <Typography sx={{ fontSize: 13, color: FIN_MUTED, maxWidth: 460, lineHeight: 1.55 }}>
+        {texto}
+      </Typography>
+    </Box>
   )
 }

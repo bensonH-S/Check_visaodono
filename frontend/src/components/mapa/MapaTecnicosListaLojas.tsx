@@ -87,7 +87,7 @@ export default function MapaTecnicosListaLojas() {
     <div className={`ck-mapa__life${consultaHistorico ? ' is-historico' : ''}${tipoMapa === 'satelite' ? ' is-satelite' : ''}${tipoMapa === 'escuro' ? ' is-escuro' : ''}`}>
       <div className="ck-mapa__life-top">
         <div className="ck-mapa__life-brand">
-          <img src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
+          <img src={assetUrl(LOGO_GA_LOCKUP)} alt="Meridian Gestão Operacional" />
         </div>
         <div className="ck-mapa__life-top-right">
           {podeFiltrarDataTrajeto ? (

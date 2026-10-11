@@ -19,7 +19,7 @@ import {
   type Loja,
 } from '../../api/client';
 import { getUsuario, lojaEstoqueTravadaMobile, logout } from '../../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
 import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
 import NotificacoesSino from '../../components/NotificacoesSino';
@@ -453,12 +453,12 @@ export default function EstoqueMobileListaPage() {
   return (
     <div
       className="ck-estoque-hub ck-estoque-hub--hero"
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
         <div className="ck-estoque-hub__brand-row">
-          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
+          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Meridian Gestão Operacional" />
           <div className="ck-estoque-hub__actions">
             <button type="button" className="ck-estoque-hub__icon-btn" aria-label="Buscar" onClick={abrirBusca}>
               <SearchIcon sx={{ fontSize: 22 }} />
@@ -547,7 +547,7 @@ export default function EstoqueMobileListaPage() {
               mb: 1.5,
               borderRadius: 1,
               bgcolor: '#222',
-              '& .MuiLinearProgress-bar': { bgcolor: '#ff9a5c' },
+              '& .MuiLinearProgress-bar': { bgcolor: '#0548d1' },
             }}
           />
         ) : null}

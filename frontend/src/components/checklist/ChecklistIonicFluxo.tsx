@@ -1,6 +1,6 @@
 import { useChecklistMobileUi } from '../../context/ChecklistMobileUiContext';
 import type { CategoriaChecklist, Loja, Pergunta } from '../../api/client';
-import { assetUrl, LOGO_ALVIM_ICONE } from '../../config/paths';
+import { assetUrl, ICONE_PWA } from '../../config/paths';
 import ChecklistIonicPerguntaCard from './ChecklistIonicPerguntaCard';
 import ChecklistIonicShell from './ChecklistIonicShell';
 import '../estoque/estoque-hub.css';
@@ -71,7 +71,7 @@ export default function ChecklistIonicFluxo({
     <ChecklistIonicShell scrollY={false}>
       <div
         className="ck-fluxo ck-start--fixed ck-estoque-hub--hero ck-checklist-hub"
-        style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+        style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
       >
         <div className="ck-estoque-hub__watermark" aria-hidden />
         <div className="ck-fluxo__chrome">
@@ -100,7 +100,7 @@ export default function ChecklistIonicFluxo({
                 className="ck-fluxo__bar-fill"
                 style={{
                   width: `${Math.min(100, Math.max(0, progressoGeral))}%`,
-                  background: '#fe6c22',
+                  background: '#0548d1',
                 }}
               />
             </div>

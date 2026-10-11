@@ -35,7 +35,7 @@ import '../../components/visitas/visitas-mobile.css';
 import '../../components/manutencao/chamados-mobile.css';
 
 const NAVY = '#1B2A6B';
-const ORANGE = '#E8520A';
+const ORANGE = '#0548d1';
 const ABERTOS = new Set(['aberto', 'em_atendimento', 'em_aprovacao', 'aprovado']);
 
 type AbaLista = 'abertos' | 'fechados';
@@ -279,7 +279,7 @@ export default function ChamadosMobileHistoricoPage() {
                 onClick={() => navigate('/chamados/mobile/novo')}
                 sx={{
                   fontWeight: 800,
-                  bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : '#1B2A6B'),
+                  bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#0548d1' : '#1B2A6B'),
                   color: '#fff',
                   '&:hover': {
                     bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#d04809' : '#152255'),

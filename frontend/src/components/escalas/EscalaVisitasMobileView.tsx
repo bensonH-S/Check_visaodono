@@ -37,7 +37,7 @@ import {
 import { showToast } from '../../utils/toast';
 import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
 import { useAppTheme } from '../../context/ThemeContext';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import MobileUsuarioMenu from '../MobileUsuarioMenu';
 import NotificacoesSino from '../NotificacoesSino';
 import AppHubDock from '../hub/AppHubDock';
@@ -280,7 +280,7 @@ export default function EscalaVisitasMobileView() {
   const navigate = useNavigate();
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = '#fe6c22';
+  const acento = '#0548d1';
   const user = getUsuario();
   const idEu = user?.id_usuario;
   const podeVerVisitas = podeVerEscalaVisitas(user);
@@ -1186,18 +1186,18 @@ export default function EscalaVisitasMobileView() {
       className="ck-estoque-hub ck-estoque-hub--hero ck-escala-hub"
       style={
         {
-          ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})`,
+          ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})`,
           ['--ck-accent' as string]: acento,
-          ['--ck-accent-soft' as string]: 'rgba(254, 108, 34, 0.16)',
-          ['--ck-accent-border' as string]: 'rgba(254, 108, 34, 0.45)',
-          ['--ck-accent-shadow' as string]: 'rgba(254, 108, 34, 0.22)',
+          ['--ck-accent-soft' as string]: 'rgba(5, 72, 209, 0.16)',
+          ['--ck-accent-border' as string]: 'rgba(5, 72, 209, 0.45)',
+          ['--ck-accent-shadow' as string]: 'rgba(5, 72, 209, 0.22)',
         } as CSSProperties
       }
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
         <div className="ck-estoque-hub__brand-row">
-          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
+          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Meridian Gest�o Operacional" />
           <div className="ck-estoque-hub__actions">
             <button
               type="button"
@@ -1462,7 +1462,7 @@ export default function EscalaVisitasMobileView() {
           )}
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-              <CircularProgress size={28} sx={{ color: '#fe6c22' }} />
+              <CircularProgress size={28} sx={{ color: '#0548d1' }} />
             </div>
           ) : modo === 'montar' && !ehDeliveryOnly ? (
             ehRegional ? (
@@ -2014,10 +2014,10 @@ export default function EscalaVisitasMobileView() {
                   className="ck-escala__cta-salvar"
                   sx={{
                     flex: 1,
-                    bgcolor: '#fe6c22 !important',
+                    bgcolor: '#0548d1 !important',
                     '&:hover': { bgcolor: '#e55f18 !important' },
                     '&.Mui-disabled': {
-                      bgcolor: 'rgba(254, 108, 34, 0.28) !important',
+                      bgcolor: 'rgba(5, 72, 209, 0.28) !important',
                       color: 'rgba(255, 255, 255, 0.55) !important',
                     },
                     color: '#fff',
@@ -2038,10 +2038,10 @@ export default function EscalaVisitasMobileView() {
                   className="ck-escala__cta-salvar"
                   sx={{
                     flex: 1,
-                    bgcolor: '#fe6c22 !important',
+                    bgcolor: '#0548d1 !important',
                     '&:hover': { bgcolor: '#e55f18 !important' },
                     '&.Mui-disabled': {
-                      bgcolor: 'rgba(254, 108, 34, 0.28) !important',
+                      bgcolor: 'rgba(5, 72, 209, 0.28) !important',
                       color: 'rgba(255, 255, 255, 0.55) !important',
                     },
                     color: '#fff',
@@ -2066,7 +2066,7 @@ export default function EscalaVisitasMobileView() {
                   onClick={() => void enviarAprovacao()}
                   sx={{
                     flex: 1,
-                    bgcolor: '#fe6c22 !important',
+                    bgcolor: '#0548d1 !important',
                     '&:hover': { bgcolor: '#e55f18 !important' },
                     color: '#fff',
                     textTransform: 'none',
@@ -2085,7 +2085,7 @@ export default function EscalaVisitasMobileView() {
                   onClick={() => void enviarDeliveryAprovacao()}
                   sx={{
                     flex: 1,
-                    bgcolor: '#fe6c22 !important',
+                    bgcolor: '#0548d1 !important',
                     '&:hover': { bgcolor: '#e55f18 !important' },
                     color: '#fff',
                     textTransform: 'none',
@@ -2189,7 +2189,7 @@ export default function EscalaVisitasMobileView() {
             variant="contained"
             onClick={confirmarEditor}
             sx={{
-              bgcolor: '#fe6c22 !important',
+              bgcolor: '#0548d1 !important',
               '&:hover': { bgcolor: '#e55f18 !important' },
               color: '#fff',
               textTransform: 'none',
@@ -2230,12 +2230,12 @@ export default function EscalaVisitasMobileView() {
                 setFiltroRegiaoAberto(false);
               }}
               sx={{
-                '&.Mui-selected': { bgcolor: 'rgba(254, 108, 34, 0.16)' },
-                '&.Mui-selected:hover': { bgcolor: 'rgba(254, 108, 34, 0.22)' },
+                '&.Mui-selected': { bgcolor: 'rgba(5, 72, 209, 0.16)' },
+                '&.Mui-selected:hover': { bgcolor: 'rgba(5, 72, 209, 0.22)' },
               }}
             >
               <ListItemIcon sx={{ minWidth: 36 }}>
-                <LocationOnOutlinedIcon sx={{ fontSize: 20, color: idRegiao === '' ? '#fe6c22' : '#8d8d8d' }} />
+                <LocationOnOutlinedIcon sx={{ fontSize: 20, color: idRegiao === '' ? '#0548d1' : '#8d8d8d' }} />
               </ListItemIcon>
               <ListItemText
                 primary="Todas as regiões"
@@ -2258,12 +2258,12 @@ export default function EscalaVisitasMobileView() {
                   setFiltroRegiaoAberto(false);
                 }}
                 sx={{
-                  '&.Mui-selected': { bgcolor: 'rgba(254, 108, 34, 0.16)' },
-                  '&.Mui-selected:hover': { bgcolor: 'rgba(254, 108, 34, 0.22)' },
+                  '&.Mui-selected': { bgcolor: 'rgba(5, 72, 209, 0.16)' },
+                  '&.Mui-selected:hover': { bgcolor: 'rgba(5, 72, 209, 0.22)' },
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 36 }}>
-                  <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ativa ? '#fe6c22' : '#8d8d8d' }} />
+                  <LocationOnOutlinedIcon sx={{ fontSize: 20, color: ativa ? '#0548d1' : '#8d8d8d' }} />
                 </ListItemIcon>
                 <ListItemText
                   primary={r.nome}

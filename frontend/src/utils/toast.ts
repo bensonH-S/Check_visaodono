@@ -1,5 +1,6 @@
 import { toast, cssTransition, type ToastOptions, type Id } from 'react-toastify';
 import type { AlertColor } from '@mui/material/Alert';
+import { lerIdioma } from '../financeiro/idiomaFinanceiro';
 
 export const TOAST_DURATION_MS = 3500;
 /** Visível ~0,7 s + saída ~0,08 s → menos de 1 s no total. */
@@ -23,7 +24,8 @@ const WELCOME_TOAST_OPTS: ToastOptions = {
 };
 
 export function showWelcomeToast(nome: string) {
-  const msg = `Bem-vindo, ${nome}!`;
+  const en = lerIdioma() === 'en';
+  const msg = en ? `Welcome, ${nome}!` : `Bem-vindo, ${nome}!`;
   const toastId = `welcome:${nome}`;
   if (toast.isActive(toastId)) toast.dismiss(toastId);
   return toast.success(msg, { ...WELCOME_TOAST_OPTS, toastId });

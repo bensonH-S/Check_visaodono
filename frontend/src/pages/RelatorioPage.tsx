@@ -28,10 +28,10 @@ import ImageLightbox from '../components/ImageLightbox';
 import { useAppTheme } from '../context/ThemeContext';
 import { colors } from '../theme/tokens';
 import { pageFillLayoutSx } from '../utils/pageFillLayout';
-import { assetUrl, LOGO_ALVIM_ICONE } from '../config/paths';
+import { assetUrl, ICONE_PWA } from '../config/paths';
 import '../components/visitas/visitas-mobile.css';
 
-const ORANGE = '#E8520A';
+const ORANGE = '#0548d1';
 
 function acentoTema(escuro: boolean) {
   return escuro ? ORANGE : colors.navy;
@@ -107,13 +107,13 @@ function CardMetrica({
         borderRadius: 1.5,
         bgcolor: destaque
           ? escuro
-            ? 'rgba(232, 82, 10, 0.14)'
+            ? 'rgba(5, 72, 209, 0.14)'
             : colors.navy
           : colors.surface,
         border: '1px solid',
         borderColor: destaque
           ? escuro
-            ? 'rgba(232, 82, 10, 0.45)'
+            ? 'rgba(5, 72, 209, 0.45)'
             : 'transparent'
           : colors.border,
         borderLeft: `3px solid ${bordaEsq}`,
@@ -262,7 +262,7 @@ export default function RelatorioPage() {
       return (
         <div
           className="ck-estoque-hub ck-estoque-hub--hero ck-visitas-hub"
-          style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+          style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
         >
           <div className="ck-estoque-hub__watermark" aria-hidden />
           <div className="ck-estoque-hub__scroll ck-visitas-hub__scroll">
@@ -419,7 +419,7 @@ export default function RelatorioPage() {
                 bgcolor: acento,
                 '&:hover': { bgcolor: acentoHover },
                 '&.Mui-disabled': {
-                  bgcolor: escuro ? 'rgba(232, 82, 10, 0.35)' : 'rgba(27, 42, 107, 0.35)',
+                  bgcolor: escuro ? 'rgba(5, 72, 209, 0.35)' : 'rgba(27, 42, 107, 0.35)',
                   color: '#fff',
                 },
               }}
@@ -544,7 +544,7 @@ export default function RelatorioPage() {
                     ? 'rgba(74, 222, 128, 0.16)'
                     : '#ECFDF5'
                   : escuro
-                    ? 'rgba(232, 82, 10, 0.18)'
+                    ? 'rgba(5, 72, 209, 0.18)'
                     : 'rgba(27, 42, 107, 0.08)',
               color: v.status === 'Finalizada' ? (escuro ? '#4ADE80' : '#15803D') : acento,
               border: '1px solid',
@@ -554,7 +554,7 @@ export default function RelatorioPage() {
                     ? 'rgba(74, 222, 128, 0.35)'
                     : 'rgba(22, 163, 74, 0.3)'
                   : escuro
-                    ? 'rgba(232, 82, 10, 0.4)'
+                    ? 'rgba(5, 72, 209, 0.4)'
                     : 'rgba(27, 42, 107, 0.3)',
             }}
           />

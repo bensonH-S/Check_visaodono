@@ -21,6 +21,7 @@
 
 .meridian-login {
   font-family: Manrope, system-ui, sans-serif;
+  color-scheme: dark;
 }
 
 .meridian-login__stack {
@@ -29,4 +30,27 @@
 
 .meridian-login__mark {
   animation: ml-float 7s ease-in-out infinite;
+  display: block;
+}
+
+/* Autofill Chrome: fundo escuro, sem caixa arredondada interna */
+.meridian-login .MuiOutlinedInput-root {
+  background-color: #0b1220 !important;
+}
+
+.meridian-login .MuiOutlinedInput-input {
+  background-color: transparent !important;
+  border-radius: 0 !important;
+}
+
+.meridian-login .MuiOutlinedInput-input:-webkit-autofill,
+.meridian-login .MuiOutlinedInput-input:-webkit-autofill:hover,
+.meridian-login .MuiOutlinedInput-input:-webkit-autofill:focus,
+.meridian-login .MuiOutlinedInput-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #f8fafc !important;
+  border-radius: 0 !important;
+  -webkit-box-shadow: 0 0 0 1000px #0b1220 inset !important;
+  box-shadow: 0 0 0 1000px #0b1220 inset !important;
+  transition: background-color 9999s ease-out 0s;
 }

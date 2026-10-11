@@ -2,7 +2,7 @@ type Props = {
   ativo?: boolean;
 };
 
-const ORANGE = '#E8520A';
+const ORANGE = '#0548d1';
 const INATIVO = '#1a1a1a';
 
 /** Três traços finos; o do meio começa à esquerda e termina curto à direita. */

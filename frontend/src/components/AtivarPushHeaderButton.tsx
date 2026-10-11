@@ -47,7 +47,7 @@ export default function AtivarPushHeaderButton() {
         onClick={ativar}
         disabled={ativando}
         sx={{
-          color: '#E8520A',
+          color: '#0548d1',
           animation: ativando ? 'none' : 'pulse-push 2s ease-in-out infinite',
           '@keyframes pulse-push': {
             '0%, 100%': { opacity: 1 },

@@ -13,11 +13,31 @@ import Typography from '@mui/material/Typography'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
 import { api, type AcessoItau } from '../api'
-import { Erro, PainelLateral, quando, Resumo, Resumos, Secao, Selo, TabelaConfig, Titulo, type Coluna } from '../components/ConfigUi'
+import { BotaoEditar, Erro, PainelLateral, quando, Resumo, Resumos, Secao, Selo, TabelaConfig, Titulo, type Coluna, type Traduzir } from '../components/ConfigUi'
 import { usePrefs } from '../prefs'
 
+function mensagemItau(texto: string | null | undefined, t: Traduzir) {
+  if (!texto) return ''
+  const m = texto.match(/^(\d+) arquivo\(s\) da VAN,\s*(\d+) boleto\(s\) novo\(s\)\.?$/)
+  if (m) {
+    return t(
+      `${m[1]} arquivo(s) da VAN, ${m[2]} boleto(s) novo(s).`,
+      `${m[1]} VAN file${m[1] === '1' ? '' : 's'}, ${m[2]} new boleto${m[2] === '1' ? '' : 's'}.`,
+    )
+  }
+  const fixas: Record<string, [string, string]> = {
+    'VAN consultada. Nenhum retorno novo.': ['VAN consultada. Nenhum retorno novo.', 'VAN checked. No new returns.'],
+    'Caixa postal do Itaú ainda não está neste servidor.': [
+      'Caixa postal do Itaú ainda não está neste servidor.',
+      'Itaú mailbox is not configured on this server yet.',
+    ],
+  }
+  const par = fixas[texto]
+  return par ? t(par[0], par[1]) : texto
+}
+
 export function AcessoItauPage() {
-  const { t } = usePrefs()
+  const { t, idioma } = usePrefs()
   const [cfg, setCfg] = useState<AcessoItau | null>(null)
   const [editando, setEditando] = useState(false)
   const [erro, setErro] = useState('')
@@ -46,22 +66,14 @@ export function AcessoItauPage() {
       largura: 280,
       render: (c) => (c.ultima_coleta ? (
         <>
-          <Typography sx={{ fontSize: 13 }}>{quando(c.ultima_coleta)}</Typography>
+          <Typography sx={{ fontSize: 13 }}>{quando(c.ultima_coleta, idioma)}</Typography>
           <Typography sx={{ fontSize: 12, color: c.ultimo_ok === false ? 'error.main' : 'text.secondary', maxWidth: 280 }} noWrap title={c.ultima_mensagem}>
-            {c.ultima_mensagem}
+            {mensagemItau(c.ultima_mensagem, t)}
           </Typography>
         </>
       ) : '—'),
     },
-    {
-      titulo: ' ',
-      align: 'right',
-      render: () => (
-        <Button size="small" onClick={(ev) => { ev.stopPropagation(); setEditando(true) }}>
-          {cfg?.pronta ? t('Editar', 'Edit') : t('Configurar', 'Set up')}
-        </Button>
-      ),
-    },
+    { titulo: ' ', align: 'right', largura: 48, render: () => <BotaoEditar onClick={() => setEditando(true)} configurar={!cfg?.pronta} /> },
   ]
 
   const coletar = async () => {
@@ -80,7 +92,11 @@ export function AcessoItauPage() {
     <Stack spacing={2}>
       <Resumos>
         <Resumo rotulo={t('Acesso', 'Access')} valor={cfg?.pronta ? t('Configurado', 'Configured') : t('Pendente', 'Pending')} detalhe={t('uma caixa postal para o grupo', 'one mailbox for the group')} />
-        <Resumo rotulo={t('Última consulta', 'Last pull')} valor={cfg?.ultima_coleta ? quando(cfg.ultima_coleta) : '—'} detalhe={cfg?.ultima_mensagem || t('nenhuma ainda', 'none yet')} />
+        <Resumo
+          rotulo={t('Última consulta', 'Last pull')}
+          valor={cfg?.ultima_coleta ? quando(cfg.ultima_coleta, idioma) : '—'}
+          detalhe={mensagemItau(cfg?.ultima_mensagem, t) || t('nenhuma ainda', 'none yet')}
+        />
         <Resumo rotulo={t('Frequência', 'Frequency')} valor="15 min" detalhe={t('coleta automática', 'automatic pull')} />
       </Resumos>
       <Stack direction="row" sx={{ justifyContent: 'flex-end' }}>

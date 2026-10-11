@@ -484,7 +484,7 @@ export default function PhotoCaptureMulti({
         <Box sx={{ py: 2, textAlign: 'center' }}>
           <CircularProgress
             size={28}
-            sx={{ color: '#fe6c22' }}
+            sx={{ color: '#E8520A' }}
           />
         </Box>
       ) : (

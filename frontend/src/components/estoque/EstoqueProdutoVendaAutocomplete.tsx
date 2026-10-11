@@ -95,7 +95,7 @@ export default function EstoqueProdutoVendaAutocomplete({
           style={{ display: 'flex', alignItems: 'center', gap: 10 }}
         >
           <LunchDiningOutlinedIcon
-            sx={{ fontSize: 20, color: '#ff9a5c', flexShrink: 0 }}
+            sx={{ fontSize: 20, color: '#0548d1', flexShrink: 0 }}
           />
           <span>{rotuloProduto(p)}</span>
         </li>
@@ -167,7 +167,7 @@ export default function EstoqueProdutoVendaAutocomplete({
                 borderColor: 'rgba(255, 154, 92, 0.45)',
               },
               '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                borderColor: 'rgba(254, 108, 34, 0.55)',
+                borderColor: 'rgba(5, 72, 209, 0.55)',
               },
               '& .MuiOutlinedInput-notchedOutline legend': {
                 display: 'none',

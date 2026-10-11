@@ -28,7 +28,7 @@
   color: inherit;
   background: #333840;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-left: 4px solid #fe6c22;
+  border-left: 4px solid #E8520A;
   border-radius: 16px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
 }
@@ -79,7 +79,7 @@
   font-style: normal;
   font-size: 0.78rem;
   font-weight: 700;
-  color: #ff9a5c;
+  color: #E8520A;
 }
 
 .ck-portais-hub__card-copy span {
@@ -93,8 +93,8 @@
   width: 38px;
   height: 38px;
   border-radius: 10px;
-  background: rgba(254, 108, 34, 0.15);
-  color: #fe6c22;
+  background: rgba(232, 82, 10, 0.15);
+  color: #E8520A;
   display: grid;
   place-items: center;
   flex-shrink: 0;

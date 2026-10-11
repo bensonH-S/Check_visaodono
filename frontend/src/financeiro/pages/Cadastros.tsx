@@ -12,8 +12,9 @@ import AddIcon from '@mui/icons-material/Add'
 import { api, type ContaCompleta, type EmpresaCompleta, type FornecedorCompleto, type PaginaFornecedores, type Plano, type TipoCadastro } from '../api'
 import {
   AcoesForm, Aviso, Barra, cnpjFormatado, Erro, FiltroSituacao, mensagem, PainelLateral, porSituacao, Resumo, Resumos,
-  Secao, Selo, TabelaConfig, textoRemocao, Titulo, useBusca, type Coluna, type Situacao,
+  BotaoEditar, Secao, Selo, TabelaConfig, textoRemocao, Titulo, useBusca, type Coluna, type Situacao, type Traduzir,
 } from '../components/ConfigUi'
+import { usePrefs } from '../prefs'
 
 export const POR_PAGINA = 30
 
@@ -28,7 +29,8 @@ function Uso({ n, singular, plural }: { n: number; singular: string; plural: str
 }
 
 function Ativo({ ativo }: { ativo: boolean }) {
-  return <Selo texto={ativo ? 'Ativo' : 'Inativo'} tom={ativo ? 'ok' : 'neutro'} />
+  const { t } = usePrefs()
+  return <Selo texto={ativo ? t('Ativo', 'Active') : t('Inativo', 'Inactive')} tom={ativo ? 'ok' : 'neutro'} />
 }
 
 function Chave({ ligado, onMudar, texto }: { ligado: boolean; onMudar: (v: boolean) => void; texto: string }) {
@@ -40,7 +42,14 @@ function Chave({ ligado, onMudar, texto }: { ligado: boolean; onMudar: (v: boole
   )
 }
 
-function useFormulario<T extends Record<string, unknown>>(tipo: TipoCadastro, id: string | null, inicial: T, nome: (f: T) => string, onSalvo: (texto: string) => void) {
+function useFormulario<T extends Record<string, unknown>>(
+  tipo: TipoCadastro,
+  id: string | null,
+  inicial: T,
+  nome: (f: T) => string,
+  onSalvo: (texto: string) => void,
+  t: Traduzir,
+) {
   const [form, setForm] = useState<T>(inicial)
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
@@ -51,9 +60,10 @@ function useFormulario<T extends Record<string, unknown>>(tipo: TipoCadastro, id
     setErro('')
     try {
       await api.salvarCadastro(tipo, id, form)
-      onSalvo(id ? `“${nome(form)}” atualizado.` : `“${nome(form)}” cadastrado.`)
+      const n = nome(form)
+      onSalvo(id ? t(`“${n}” atualizado.`, `“${n}” updated.`) : t(`“${n}” cadastrado.`, `“${n}” created.`))
     } catch (err) {
-      setErro(mensagem(err, 'Não salvou'))
+      setErro(mensagem(err, t('Não salvou', 'Could not save')))
     } finally {
       setSalvando(false)
     }
@@ -63,9 +73,9 @@ function useFormulario<T extends Record<string, unknown>>(tipo: TipoCadastro, id
     if (!id) return
     setSalvando(true)
     try {
-      onSalvo(textoRemocao(nome(form), await api.removerCadastro(tipo, id)))
+      onSalvo(textoRemocao(nome(form), await api.removerCadastro(tipo, id), t))
     } catch (err) {
-      setErro(mensagem(err, 'Não excluiu'))
+      setErro(mensagem(err, t('Não excluiu', 'Could not delete')))
       setSalvando(false)
     }
   }
@@ -76,6 +86,7 @@ function useFormulario<T extends Record<string, unknown>>(tipo: TipoCadastro, id
 const textoEmpresa = (e: EmpresaCompleta) => `${e.apelido || ''} ${e.razao_social} ${e.cnpj || ''} ${e.bk_number || ''}`
 
 export function Empresas() {
+  const { t } = usePrefs()
   const [empresas, setEmpresas] = useState<EmpresaCompleta[]>([])
   const [situacao, setSituacao] = useState<Situacao>('ativos')
   const [pagina, setPagina] = useState(0)
@@ -83,7 +94,7 @@ export function Empresas() {
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useState('')
 
-  const carregar = () => api.empresasTodas().then(setEmpresas).catch((err) => setErro(mensagem(err)))
+  const carregar = () => api.empresasTodas().then(setEmpresas).catch((err) => setErro(mensagem(err, t('Não carregou', 'Could not load'))))
   useEffect(() => { carregar() }, [])
 
   const naSituacao = useMemo(() => porSituacao(empresas, situacao, (e) => e.ativo), [empresas, situacao])
@@ -94,31 +105,31 @@ export function Empresas() {
   const lojas = ativas.filter((e) => e.tipo === 'loja').length
 
   const colunas: Coluna<EmpresaCompleta>[] = [
-    { titulo: 'Empresa', render: (e) => <Titulo texto={e.apelido || e.razao_social} sub={e.razao_social} /> },
+    { titulo: t('Empresa', 'Company'), render: (e) => <Titulo texto={e.apelido || e.razao_social} sub={e.razao_social} /> },
     { titulo: 'CNPJ', render: (e) => <Documento valor={e.cnpj} /> },
     { titulo: 'BK', render: (e) => e.bk_number || '—' },
-    { titulo: 'Tipo', render: (e) => <Selo texto={e.tipo === 'loja' ? 'Loja' : 'Holding'} tom={e.tipo === 'loja' ? 'neutro' : 'info'} /> },
-    { titulo: 'Situação', render: (e) => <Ativo ativo={e.ativo} /> },
-    { titulo: ' ', align: 'right', render: (e) => <Button size="small" onClick={(ev) => { ev.stopPropagation(); setEditando(e) }}>Editar</Button> },
+    { titulo: t('Tipo', 'Type'), render: (e) => <Selo texto={e.tipo === 'loja' ? t('Loja', 'Store') : 'Holding'} tom={e.tipo === 'loja' ? 'neutro' : 'info'} /> },
+    { titulo: t('Situação', 'Status'), render: (e) => <Ativo ativo={e.ativo} /> },
+    { titulo: ' ', align: 'right', largura: 48, render: (e) => <BotaoEditar onClick={() => setEditando(e)} /> },
   ]
 
   return (
     <Stack spacing={2}>
       <Resumos>
-        <Resumo rotulo="Empresas ativas" valor={String(ativas.length)} detalhe="no cadastro do Finance" />
-        <Resumo rotulo="Lojas" valor={String(lojas)} detalhe="operação BK" />
-        <Resumo rotulo="Holdings" valor={String(ativas.length - lojas)} detalhe="administrativo" />
+        <Resumo rotulo={t('Empresas ativas', 'Active companies')} valor={String(ativas.length)} detalhe={t('no cadastro do Finance', 'in the Finance registry')} />
+        <Resumo rotulo={t('Lojas', 'Stores')} valor={String(lojas)} detalhe={t('operação BK', 'BK operations')} />
+        <Resumo rotulo="Holdings" valor={String(ativas.length - lojas)} detalhe={t('administrativo', 'administrative')} />
       </Resumos>
-      <Barra busca={busca} onBusca={setBusca} placeholder="Buscar empresa, CNPJ ou BK">
+      <Barra busca={busca} onBusca={setBusca} placeholder={t('Buscar empresa, CNPJ ou BK', 'Search company, CNPJ or BK')}>
         <FiltroSituacao valor={situacao} onMudar={setSituacao} />
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditando('nova')}>Nova empresa</Button>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditando('nova')}>{t('Nova empresa', 'New company')}</Button>
       </Barra>
       <Erro erro={erro} />
       <TabelaConfig
         colunas={colunas}
         linhas={filtradas.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA)}
         chave={(e) => e.id}
-        vazio="Nenhuma empresa encontrada."
+        vazio={t('Nenhuma empresa encontrada.', 'No company found.')}
         onLinha={setEditando}
         paginacao={{ total: filtradas.length, pagina, por: POR_PAGINA, onPagina: setPagina }}
       />
@@ -136,6 +147,7 @@ export function Empresas() {
 }
 
 function FormEmpresa({ empresa, onFechar, onSalvo }: { empresa: EmpresaCompleta | null; onFechar: () => void; onSalvo: (texto: string) => void }) {
+  const { t } = usePrefs()
   const { form, campo, erro, salvando, salvar, excluir } = useFormulario(
     'empresas',
     empresa?.id || null,
@@ -153,35 +165,38 @@ function FormEmpresa({ empresa, onFechar, onSalvo }: { empresa: EmpresaCompleta 
     },
     (f) => f.apelido || f.razao_social,
     onSalvo,
+    t,
   )
 
   return (
     <PainelLateral
       aberto
-      titulo={empresa ? empresa.apelido || empresa.razao_social : 'Nova empresa'}
-      subtitulo={empresa ? `${empresa.uso} registros ligados a esta empresa` : 'Loja ou holding do grupo'}
+      titulo={empresa ? empresa.apelido || empresa.razao_social : t('Nova empresa', 'New company')}
+      subtitulo={empresa
+        ? t(`${empresa.uso} registros ligados a esta empresa`, `${empresa.uso} records linked to this company`)
+        : t('Loja ou holding do grupo', 'Group store or holding')}
       onFechar={onFechar}
       rodape={<AcoesForm existe={!!empresa} emUso={!!empresa?.uso} salvando={salvando} podeSalvar={!!form.razao_social.trim()} onSalvar={salvar} onExcluir={excluir} onFechar={onFechar} />}
     >
-      <Secao titulo="Identificação">
-        <TextField label="Apelido" size="small" value={form.apelido} onChange={(ev) => campo('apelido')(ev.target.value)} helperText="Nome curto usado nas telas." autoFocus={!empresa} />
-        <TextField label="Razão social" size="small" required value={form.razao_social} onChange={(ev) => campo('razao_social')(ev.target.value)} />
+      <Secao titulo={t('Identificação', 'Identification')}>
+        <TextField label={t('Apelido', 'Nickname')} size="small" value={form.apelido} onChange={(ev) => campo('apelido')(ev.target.value)} helperText={t('Nome curto usado nas telas.', 'Short name used on screens.')} autoFocus={!empresa} />
+        <TextField label={t('Razão social', 'Legal name')} size="small" required value={form.razao_social} onChange={(ev) => campo('razao_social')(ev.target.value)} />
         <TextField label="CNPJ" size="small" value={form.cnpj} onChange={(ev) => campo('cnpj')(ev.target.value)} />
-        <TextField select label="Tipo" size="small" value={form.tipo} onChange={(ev) => campo('tipo')(ev.target.value as EmpresaCompleta['tipo'])}>
-          <MenuItem value="loja">Loja</MenuItem>
+        <TextField select label={t('Tipo', 'Type')} size="small" value={form.tipo} onChange={(ev) => campo('tipo')(ev.target.value as EmpresaCompleta['tipo'])}>
+          <MenuItem value="loja">{t('Loja', 'Store')}</MenuItem>
           <MenuItem value="holding">Holding</MenuItem>
         </TextField>
-        <TextField label="Número BK" size="small" value={form.bk_number} onChange={(ev) => campo('bk_number')(ev.target.value)} helperText="Liga a loja às vendas do BK Office." />
-        <TextField label="Inscrição estadual" size="small" value={form.inscricao_estadual} onChange={(ev) => campo('inscricao_estadual')(ev.target.value)} />
+        <TextField label={t('Número BK', 'BK number')} size="small" value={form.bk_number} onChange={(ev) => campo('bk_number')(ev.target.value)} helperText={t('Liga a loja às vendas do BK Office.', 'Links the store to BK Office sales.')} />
+        <TextField label={t('Inscrição estadual', 'State tax ID')} size="small" value={form.inscricao_estadual} onChange={(ev) => campo('inscricao_estadual')(ev.target.value)} />
       </Secao>
-      <Secao titulo="Endereço">
-        <TextField label="Endereço" size="small" value={form.endereco} onChange={(ev) => campo('endereco')(ev.target.value)} />
+      <Secao titulo={t('Endereço', 'Address')}>
+        <TextField label={t('Endereço', 'Address')} size="small" value={form.endereco} onChange={(ev) => campo('endereco')(ev.target.value)} />
         <Stack direction="row" spacing={1.5}>
-          <TextField label="Cidade" size="small" value={form.cidade} onChange={(ev) => campo('cidade')(ev.target.value)} sx={{ flex: 2 }} />
+          <TextField label={t('Cidade', 'City')} size="small" value={form.cidade} onChange={(ev) => campo('cidade')(ev.target.value)} sx={{ flex: 2 }} />
           <TextField label="CEP" size="small" value={form.cep} onChange={(ev) => campo('cep')(ev.target.value)} sx={{ flex: 1 }} />
         </Stack>
       </Secao>
-      <Chave ligado={form.ativo} onMudar={campo('ativo')} texto="Empresa ativa" />
+      <Chave ligado={form.ativo} onMudar={campo('ativo')} texto={t('Empresa ativa', 'Company active')} />
       {erro ? <Alert severity="error">{erro}</Alert> : null}
     </PainelLateral>
   )
@@ -189,12 +204,13 @@ function FormEmpresa({ empresa, onFechar, onSalvo }: { empresa: EmpresaCompleta 
 
 const textoConta = (c: ContaCompleta) => `${c.nome || ''} ${c.apelido} ${c.agencia || ''} ${c.numero || ''} ${c.banco ? BANCOS[c.banco] : ''}`
 
-function dadosConta(c: ContaCompleta) {
+function dadosConta(c: ContaCompleta, t: Traduzir) {
   if (c.tipo === 'dinheiro') return '—'
-  return `Ag. ${c.agencia || '—'} · C/C ${c.numero || '—'}${c.digito ? `-${c.digito}` : ''}`
+  return `${t('Ag.', 'Br.')} ${c.agencia || '—'} · ${t('C/C', 'Acct')} ${c.numero || '—'}${c.digito ? `-${c.digito}` : ''}`
 }
 
 export function Contas() {
+  const { t } = usePrefs()
   const [contas, setContas] = useState<ContaCompleta[]>([])
   const [empresas, setEmpresas] = useState<EmpresaCompleta[]>([])
   const [situacao, setSituacao] = useState<Situacao>('ativos')
@@ -203,7 +219,7 @@ export function Contas() {
   const [erro, setErro] = useState('')
   const [aviso, setAviso] = useState('')
 
-  const carregar = () => api.contasTodas().then(setContas).catch((err) => setErro(mensagem(err)))
+  const carregar = () => api.contasTodas().then(setContas).catch((err) => setErro(mensagem(err, t('Não carregou', 'Could not load'))))
   useEffect(() => {
     carregar()
     api.empresasTodas().then(setEmpresas).catch(() => undefined)
@@ -217,31 +233,37 @@ export function Contas() {
   const dinheiro = ativas.filter((c) => c.tipo === 'dinheiro').length
 
   const colunas: Coluna<ContaCompleta>[] = [
-    { titulo: 'Conta', render: (c) => <Titulo texto={c.nome || '—'} sub={c.apelido} /> },
-    { titulo: 'Tipo', render: (c) => <Selo texto={c.tipo === 'dinheiro' ? 'Conta dinheiro' : 'Conta corrente'} tom={c.tipo === 'dinheiro' ? 'neutro' : 'info'} /> },
-    { titulo: 'Banco', render: (c) => (c.banco ? BANCOS[c.banco] : '—') },
-    { titulo: 'Agência e conta', render: (c) => <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{dadosConta(c)}</Box> },
-    { titulo: 'Situação', render: (c) => <Ativo ativo={c.ativa} /> },
-    { titulo: ' ', align: 'right', render: (c) => <Button size="small" onClick={(ev) => { ev.stopPropagation(); setEditando(c) }}>Editar</Button> },
+    { titulo: t('Conta', 'Account'), render: (c) => <Titulo texto={c.nome || '—'} sub={c.apelido} /> },
+    {
+      titulo: t('Tipo', 'Type'),
+      render: (c) => <Selo texto={c.tipo === 'dinheiro' ? t('Conta dinheiro', 'Cash account') : t('Conta corrente', 'Checking account')} tom={c.tipo === 'dinheiro' ? 'neutro' : 'info'} />,
+    },
+    { titulo: t('Banco', 'Bank'), render: (c) => (c.banco ? BANCOS[c.banco] : '—') },
+    {
+      titulo: t('Agência e conta', 'Branch and account'),
+      render: (c) => <Box component="span" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{dadosConta(c, t)}</Box>,
+    },
+    { titulo: t('Situação', 'Status'), render: (c) => <Ativo ativo={c.ativa} /> },
+    { titulo: ' ', align: 'right', largura: 48, render: (c) => <BotaoEditar onClick={() => setEditando(c)} /> },
   ]
 
   return (
     <Stack spacing={2}>
       <Resumos>
-        <Resumo rotulo="Contas ativas" valor={String(ativas.length)} detalhe="em todas as empresas" />
-        <Resumo rotulo="Contas correntes" valor={String(ativas.length - dinheiro)} detalhe="Banco do Brasil e Itaú" />
-        <Resumo rotulo="Contas dinheiro" valor={String(dinheiro)} detalhe="caixa das lojas" />
+        <Resumo rotulo={t('Contas ativas', 'Active accounts')} valor={String(ativas.length)} detalhe={t('em todas as empresas', 'across all companies')} />
+        <Resumo rotulo={t('Contas correntes', 'Checking accounts')} valor={String(ativas.length - dinheiro)} detalhe="Banco do Brasil e Itaú" />
+        <Resumo rotulo={t('Contas dinheiro', 'Cash accounts')} valor={String(dinheiro)} detalhe={t('caixa das lojas', 'store cash')} />
       </Resumos>
-      <Barra busca={busca} onBusca={setBusca} placeholder="Buscar conta, empresa ou agência">
+      <Barra busca={busca} onBusca={setBusca} placeholder={t('Buscar conta, empresa ou agência', 'Search account, company or branch')}>
         <FiltroSituacao valor={situacao} onMudar={setSituacao} />
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditando('nova')}>Nova conta</Button>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditando('nova')}>{t('Nova conta', 'New account')}</Button>
       </Barra>
       <Erro erro={erro} />
       <TabelaConfig
         colunas={colunas}
         linhas={filtradas.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA)}
         chave={(c) => c.id}
-        vazio="Nenhuma conta encontrada."
+        vazio={t('Nenhuma conta encontrada.', 'No account found.')}
         onLinha={setEditando}
         paginacao={{ total: filtradas.length, pagina, por: POR_PAGINA, onPagina: setPagina }}
       />
@@ -260,6 +282,7 @@ export function Contas() {
 }
 
 function FormConta({ conta, empresas, onFechar, onSalvo }: { conta: ContaCompleta | null; empresas: EmpresaCompleta[]; onFechar: () => void; onSalvo: (texto: string) => void }) {
+  const { t } = usePrefs()
   const { form, campo, erro, salvando, salvar, excluir } = useFormulario(
     'contas',
     conta?.id || null,
@@ -275,6 +298,7 @@ function FormConta({ conta, empresas, onFechar, onSalvo }: { conta: ContaComplet
     },
     (f) => f.nome,
     onSalvo,
+    t,
   )
   const corrente = form.tipo === 'corrente'
   const completo = !!form.empresa_id && !!form.nome.trim() && (!corrente || (!!form.agencia.trim() && !!form.numero.trim()))
@@ -282,41 +306,44 @@ function FormConta({ conta, empresas, onFechar, onSalvo }: { conta: ContaComplet
   return (
     <PainelLateral
       aberto
-      titulo={conta ? conta.nome || 'Conta' : 'Nova conta'}
-      subtitulo={conta ? `${conta.apelido} · ${conta.uso} despesas saem desta conta` : 'Conta de onde o dinheiro sai'}
+      titulo={conta ? conta.nome || t('Conta', 'Account') : t('Nova conta', 'New account')}
+      subtitulo={conta
+        ? t(`${conta.apelido} · ${conta.uso} despesas saem desta conta`, `${conta.apelido} · ${conta.uso} expenses leave this account`)
+        : t('Conta de onde o dinheiro sai', 'Account money leaves from')}
       onFechar={onFechar}
       rodape={<AcoesForm existe={!!conta} emUso={!!conta?.uso} salvando={salvando} podeSalvar={completo} onSalvar={salvar} onExcluir={excluir} onFechar={onFechar} />}
     >
-      <Secao titulo="Conta">
-        <TextField select label="Empresa" size="small" required value={form.empresa_id} onChange={(ev) => campo('empresa_id')(ev.target.value)}>
+      <Secao titulo={t('Conta', 'Account')}>
+        <TextField select label={t('Empresa', 'Company')} size="small" required value={form.empresa_id} onChange={(ev) => campo('empresa_id')(ev.target.value)}>
           {empresas.map((e) => <MenuItem key={e.id} value={e.id}>{e.apelido || e.razao_social}</MenuItem>)}
         </TextField>
-        <TextField label="Nome" size="small" required value={form.nome} onChange={(ev) => campo('nome')(ev.target.value)} helperText="Como aparece no lançamento." />
-        <TextField select label="Tipo" size="small" value={form.tipo} onChange={(ev) => campo('tipo')(ev.target.value as ContaCompleta['tipo'])}>
-          <MenuItem value="corrente">Conta corrente</MenuItem>
-          <MenuItem value="dinheiro">Conta dinheiro</MenuItem>
+        <TextField label={t('Nome', 'Name')} size="small" required value={form.nome} onChange={(ev) => campo('nome')(ev.target.value)} helperText={t('Como aparece no lançamento.', 'How it appears on the entry.')} />
+        <TextField select label={t('Tipo', 'Type')} size="small" value={form.tipo} onChange={(ev) => campo('tipo')(ev.target.value as ContaCompleta['tipo'])}>
+          <MenuItem value="corrente">{t('Conta corrente', 'Checking account')}</MenuItem>
+          <MenuItem value="dinheiro">{t('Conta dinheiro', 'Cash account')}</MenuItem>
         </TextField>
       </Secao>
       {corrente ? (
-        <Secao titulo="Dados bancários">
-          <TextField select label="Banco" size="small" value={form.banco} onChange={(ev) => campo('banco')(ev.target.value as 'itau' | 'banco_do_brasil')}>
+        <Secao titulo={t('Dados bancários', 'Bank details')}>
+          <TextField select label={t('Banco', 'Bank')} size="small" value={form.banco} onChange={(ev) => campo('banco')(ev.target.value as 'itau' | 'banco_do_brasil')}>
             <MenuItem value="itau">Itaú</MenuItem>
             <MenuItem value="banco_do_brasil">Banco do Brasil</MenuItem>
           </TextField>
           <Stack direction="row" spacing={1.5}>
-            <TextField label="Agência" size="small" required value={form.agencia} onChange={(ev) => campo('agencia')(ev.target.value)} sx={{ flex: 1 }} />
-            <TextField label="Conta" size="small" required value={form.numero} onChange={(ev) => campo('numero')(ev.target.value)} sx={{ flex: 1.4 }} />
-            <TextField label="Dígito" size="small" value={form.digito} onChange={(ev) => campo('digito')(ev.target.value)} sx={{ width: 80 }} />
+            <TextField label={t('Agência', 'Branch')} size="small" required value={form.agencia} onChange={(ev) => campo('agencia')(ev.target.value)} sx={{ flex: 1 }} />
+            <TextField label={t('Conta', 'Account')} size="small" required value={form.numero} onChange={(ev) => campo('numero')(ev.target.value)} sx={{ flex: 1.4 }} />
+            <TextField label={t('Dígito', 'Digit')} size="small" value={form.digito} onChange={(ev) => campo('digito')(ev.target.value)} sx={{ width: 80 }} />
           </Stack>
         </Secao>
       ) : null}
-      <Chave ligado={form.ativa} onMudar={campo('ativa')} texto="Conta ativa" />
+      <Chave ligado={form.ativa} onMudar={campo('ativa')} texto={t('Conta ativa', 'Account active')} />
       {erro ? <Alert severity="error">{erro}</Alert> : null}
     </PainelLateral>
   )
 }
 
 export function Fornecedores() {
+  const { t, idioma } = usePrefs()
   const [busca, setBusca] = useState('')
   const [situacao, setSituacao] = useState<Situacao>('ativos')
   const [pagina, setPagina] = useState(0)
@@ -331,38 +358,61 @@ export function Fornecedores() {
   useEffect(() => { setPagina(0) }, [busca, situacao])
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      api.listaFornecedores(busca.trim(), pagina, POR_PAGINA, situacao).then(setDados).catch((err) => setErro(mensagem(err)))
+    const timer = setTimeout(() => {
+      api.listaFornecedores(busca.trim(), pagina, POR_PAGINA, situacao).then(setDados).catch((err) => setErro(mensagem(err, t('Não carregou', 'Could not load'))))
     }, busca ? 250 : 0)
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [busca, pagina, situacao, versao])
 
   const colunas: Coluna<FornecedorCompleto>[] = [
-    { titulo: 'Fornecedor', render: (f) => <Titulo texto={f.nome} sub={f.razao_social && f.razao_social !== f.nome ? f.razao_social : undefined} /> },
+    { titulo: t('Fornecedor', 'Supplier'), render: (f) => <Titulo texto={f.nome} sub={f.razao_social && f.razao_social !== f.nome ? f.razao_social : undefined} /> },
     { titulo: 'CPF/CNPJ', render: (f) => <Documento valor={f.cpf_cnpj} /> },
-    { titulo: 'Plano padrão', render: (f) => (f.plano ? f.plano : <Selo texto="Sem plano" tom="alerta" />) },
-    { titulo: 'Uso', render: (f) => <Uso n={f.uso} singular="lançamento" plural="lançamentos" /> },
-    { titulo: 'Situação', render: (f) => <Ativo ativo={f.ativo} /> },
-    { titulo: ' ', align: 'right', render: (f) => <Button size="small" onClick={(ev) => { ev.stopPropagation(); setEditando(f) }}>Editar</Button> },
+    { titulo: t('Plano padrão', 'Default account'), render: (f) => (f.plano ? f.plano : <Selo texto={t('Sem plano', 'No account')} tom="alerta" />) },
+    {
+      titulo: t('Uso', 'Usage'),
+      render: (f) => <Uso n={f.uso} singular={t('lançamento', 'entry')} plural={t('lançamentos', 'entries')} />,
+    },
+    { titulo: t('Situação', 'Status'), render: (f) => <Ativo ativo={f.ativo} /> },
+    { titulo: ' ', align: 'right', largura: 48, render: (f) => <BotaoEditar onClick={() => setEditando(f)} /> },
   ]
+
+  const detalheTotal = busca.trim()
+    ? t('na busca atual', 'in the current search')
+    : situacao === 'ativos'
+      ? t('ativos no cadastro', 'active in the registry')
+      : situacao === 'inativos'
+        ? t('inativos', 'inactive')
+        : t('no cadastro', 'in the registry')
 
   return (
     <Stack spacing={2}>
       <Resumos>
-        <Resumo rotulo={busca.trim() ? 'Encontrados' : 'Fornecedores'} valor={dados.total.toLocaleString('pt-BR')} detalhe={busca.trim() ? 'na busca atual' : situacao === 'ativos' ? 'ativos no cadastro' : situacao === 'inativos' ? 'inativos' : 'no cadastro'} />
-        <Resumo rotulo="Com plano padrão" valor={dados.com_plano.toLocaleString('pt-BR')} detalhe="classificam sozinhos" />
-        <Resumo rotulo="Sem plano padrão" valor={(dados.total - dados.com_plano).toLocaleString('pt-BR')} detalhe="pedem classificação manual" />
+        <Resumo
+          rotulo={busca.trim() ? t('Encontrados', 'Found') : t('Fornecedores', 'Suppliers')}
+          valor={dados.total.toLocaleString(idioma === 'en' ? 'en-US' : 'pt-BR')}
+          detalhe={detalheTotal}
+        />
+        <Resumo
+          rotulo={t('Com plano padrão', 'With default account')}
+          valor={dados.com_plano.toLocaleString(idioma === 'en' ? 'en-US' : 'pt-BR')}
+          detalhe={t('classificam sozinhos', 'classify automatically')}
+        />
+        <Resumo
+          rotulo={t('Sem plano padrão', 'Without default account')}
+          valor={(dados.total - dados.com_plano).toLocaleString(idioma === 'en' ? 'en-US' : 'pt-BR')}
+          detalhe={t('pedem classificação manual', 'need manual classification')}
+        />
       </Resumos>
-      <Barra busca={busca} onBusca={setBusca} placeholder="Buscar fornecedor ou CNPJ">
+      <Barra busca={busca} onBusca={setBusca} placeholder={t('Buscar fornecedor ou CNPJ', 'Search supplier or CNPJ')}>
         <FiltroSituacao valor={situacao} onMudar={setSituacao} />
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditando('novo')}>Novo fornecedor</Button>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setEditando('novo')}>{t('Novo fornecedor', 'New supplier')}</Button>
       </Barra>
       <Erro erro={erro} />
       <TabelaConfig
         colunas={colunas}
         linhas={dados.linhas}
         chave={(f) => f.id}
-        vazio="Nenhum fornecedor encontrado."
+        vazio={t('Nenhum fornecedor encontrado.', 'No supplier found.')}
         onLinha={setEditando}
         paginacao={{ total: dados.total, pagina, por: POR_PAGINA, onPagina: setPagina }}
       />
@@ -381,6 +431,7 @@ export function Fornecedores() {
 }
 
 function FormFornecedor({ fornecedor, planos, onFechar, onSalvo }: { fornecedor: FornecedorCompleto | null; planos: Plano[]; onFechar: () => void; onSalvo: (texto: string) => void }) {
+  const { t } = usePrefs()
   const { form, campo, erro, salvando, salvar, excluir } = useFormulario(
     'fornecedores',
     fornecedor?.id || null,
@@ -399,43 +450,46 @@ function FormFornecedor({ fornecedor, planos, onFechar, onSalvo }: { fornecedor:
     },
     (f) => f.nome,
     onSalvo,
+    t,
   )
   const planoAtual = fornecedor?.plano_conta_id && !planos.some((p) => p.id === fornecedor.plano_conta_id)
-    ? [{ id: fornecedor.plano_conta_id, nome: `${fornecedor.plano} (inativo)` }]
+    ? [{ id: fornecedor.plano_conta_id, nome: t(`${fornecedor.plano} (inativo)`, `${fornecedor.plano} (inactive)`) }]
     : []
 
   return (
     <PainelLateral
       aberto
-      titulo={fornecedor ? fornecedor.nome : 'Novo fornecedor'}
-      subtitulo={fornecedor ? `${fornecedor.uso} lançamentos ligados a este fornecedor` : 'Cadastro financeiro'}
+      titulo={fornecedor ? fornecedor.nome : t('Novo fornecedor', 'New supplier')}
+      subtitulo={fornecedor
+        ? t(`${fornecedor.uso} lançamentos ligados a este fornecedor`, `${fornecedor.uso} entries linked to this supplier`)
+        : t('Cadastro financeiro', 'Financial registry')}
       onFechar={onFechar}
       rodape={<AcoesForm existe={!!fornecedor} emUso={!!fornecedor?.uso} salvando={salvando} podeSalvar={!!form.nome.trim()} onSalvar={salvar} onExcluir={excluir} onFechar={onFechar} />}
     >
-      <Secao titulo="Identificação">
-        <TextField label="Nome" size="small" required value={form.nome} onChange={(ev) => campo('nome')(ev.target.value)} autoFocus={!fornecedor} />
-        <TextField label="Razão social" size="small" value={form.razao_social} onChange={(ev) => campo('razao_social')(ev.target.value)} />
-        <TextField label="CPF ou CNPJ" size="small" value={form.cpf_cnpj} onChange={(ev) => campo('cpf_cnpj')(ev.target.value)} helperText="Usado para ligar o boleto do DDA ao fornecedor." />
+      <Secao titulo={t('Identificação', 'Identification')}>
+        <TextField label={t('Nome', 'Name')} size="small" required value={form.nome} onChange={(ev) => campo('nome')(ev.target.value)} autoFocus={!fornecedor} />
+        <TextField label={t('Razão social', 'Legal name')} size="small" value={form.razao_social} onChange={(ev) => campo('razao_social')(ev.target.value)} />
+        <TextField label={t('CPF ou CNPJ', 'CPF or CNPJ')} size="small" value={form.cpf_cnpj} onChange={(ev) => campo('cpf_cnpj')(ev.target.value)} helperText={t('Usado para ligar o boleto do DDA ao fornecedor.', 'Used to match the DDA boleto to the supplier.')} />
       </Secao>
-      <Secao titulo="Classificação">
-        <TextField select label="Plano padrão" size="small" value={form.plano_conta_id} onChange={(ev) => campo('plano_conta_id')(ev.target.value)} helperText="Aplicado sozinho quando chega um boleto deste fornecedor.">
-          <MenuItem value="">Sem plano padrão</MenuItem>
+      <Secao titulo={t('Classificação', 'Classification')}>
+        <TextField select label={t('Plano padrão', 'Default account')} size="small" value={form.plano_conta_id} onChange={(ev) => campo('plano_conta_id')(ev.target.value)} helperText={t('Aplicado sozinho quando chega um boleto deste fornecedor.', 'Applied automatically when a boleto from this supplier arrives.')}>
+          <MenuItem value="">{t('Sem plano padrão', 'No default account')}</MenuItem>
           {[...planoAtual, ...planos].map((p) => <MenuItem key={p.id} value={p.id}>{p.nome}</MenuItem>)}
         </TextField>
       </Secao>
-      <Secao titulo="Endereço">
+      <Secao titulo={t('Endereço', 'Address')}>
         <Stack direction="row" spacing={1.5}>
-          <TextField label="Logradouro" size="small" value={form.logradouro} onChange={(ev) => campo('logradouro')(ev.target.value)} sx={{ flex: 3 }} />
-          <TextField label="Número" size="small" value={form.numero} onChange={(ev) => campo('numero')(ev.target.value)} sx={{ flex: 1 }} />
+          <TextField label={t('Logradouro', 'Street')} size="small" value={form.logradouro} onChange={(ev) => campo('logradouro')(ev.target.value)} sx={{ flex: 3 }} />
+          <TextField label={t('Número', 'Number')} size="small" value={form.numero} onChange={(ev) => campo('numero')(ev.target.value)} sx={{ flex: 1 }} />
         </Stack>
-        <TextField label="Bairro" size="small" value={form.bairro} onChange={(ev) => campo('bairro')(ev.target.value)} />
+        <TextField label={t('Bairro', 'District')} size="small" value={form.bairro} onChange={(ev) => campo('bairro')(ev.target.value)} />
         <Stack direction="row" spacing={1.5}>
-          <TextField label="Cidade" size="small" value={form.cidade} onChange={(ev) => campo('cidade')(ev.target.value)} sx={{ flex: 2 }} />
+          <TextField label={t('Cidade', 'City')} size="small" value={form.cidade} onChange={(ev) => campo('cidade')(ev.target.value)} sx={{ flex: 2 }} />
           <TextField label="UF" size="small" value={form.estado} onChange={(ev) => campo('estado')(ev.target.value.toUpperCase().slice(0, 2))} sx={{ width: 72 }} />
           <TextField label="CEP" size="small" value={form.cep} onChange={(ev) => campo('cep')(ev.target.value)} sx={{ flex: 1 }} />
         </Stack>
       </Secao>
-      <Chave ligado={form.ativo} onMudar={campo('ativo')} texto="Fornecedor ativo" />
+      <Chave ligado={form.ativo} onMudar={campo('ativo')} texto={t('Fornecedor ativo', 'Supplier active')} />
       {erro ? <Alert severity="error">{erro}</Alert> : null}
     </PainelLateral>
   )

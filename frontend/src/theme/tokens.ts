@@ -21,7 +21,8 @@ export const colors = {
 
 /** Largura fixa da sidebar desktop — igual em todas as rotas (incl. Command Center). */
 export const layout = {
-  sidebarWidth: 220,
+  /** Largura da sidebar — igual Azimut financas (232px). */
+  sidebarWidth: 232,
   /** Sidebar marca + topbar desktop — mesmo eixo (padrão Azimut). */
   brandBarHeight: 64,
 } as const;

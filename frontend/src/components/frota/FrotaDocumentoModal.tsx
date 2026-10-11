@@ -81,7 +81,7 @@ function nomeArquivoDocumento(d: FrotaDocumento) {
 
 export function FrotaDocumentoModal({ documento, open, onClose }: ModalProps) {
   const { mode } = useAppTheme();
-  const acento = mode === 'dark' ? '#E8520A' : colors.navy;
+  const acento = mode === 'dark' ? '#0548d1' : colors.navy;
   const tipo = tipoMidia(documento?.tipo_mime);
   const { src, erro } = useMidiaUrl(open ? documento?.media_url : null);
 

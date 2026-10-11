@@ -9,7 +9,7 @@ export const APP_LOGIN_SUBTITLE = 'Gestão financeira e operacional das unidades
 
 /** Descrição do produto no diálogo Sobre */
 export const APP_ABOUT =
-  'Meridian — gestão financeira e operacional do Grupo Alvim: checklist, visitas, chamados, energia, frota, estoque, NCs, freelancers, metas e financeiro em um só lugar.';
+  'Meridian: gestão financeira e operacional do Grupo Alvim: checklist, visitas, chamados, energia, frota, estoque, NCs, freelancers, metas e financeiro em um só lugar.';
 
 export const APP_MODULES = [
   'Checklist e visitas',

@@ -9,7 +9,6 @@ import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
-import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Snackbar from '@mui/material/Snackbar'
 import Stack from '@mui/material/Stack'
@@ -41,6 +40,18 @@ import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutl
 import { api, brl, type Empresa, type FechamentoDia, type Fornecedor, type LancamentoCaixa, type MesFechamento } from '../api'
 import { ordenarEmpresas } from '../ordemEmpresas'
 import { usePrefs } from '../prefs'
+import FiltroMesFinanceiro from '../FiltroMesFinanceiro'
+import SeletorLojaFinanceiro from '../SeletorLojaFinanceiro'
+import {
+  FIN_BORDER,
+  FIN_MUTED,
+  FIN_SURFACE,
+  FIN_SURFACE_ALT,
+  FIN_TEXT,
+  finCampoSx,
+  finPageSx,
+  finPaperSx,
+} from '../temaFinanceiroEscuro'
 
 function mesAtual() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -60,17 +71,10 @@ function hojeIso() {
 }
 
 const TOM_CLARO: Record<string, { color: string; border: string; bg: string }> = {
-  rascunho: { color: '#DC2626', border: 'rgba(220,38,38,0.55)', bg: 'rgba(220,38,38,0.06)' },
-  conferido: { color: '#1D4ED8', border: 'rgba(59,130,246,0.45)', bg: 'rgba(59,130,246,0.08)' },
-  fechado: { color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'rgba(16,185,129,0.08)' },
-  aguardando: { color: '#CA8A04', border: 'rgba(234,179,8,0.5)', bg: 'rgba(234,179,8,0.1)' },
-}
-
-const TOM_ESCURO: Record<string, { color: string; border: string; bg: string }> = {
-  rascunho: { color: '#FCA5A5', border: 'rgba(248,113,113,0.55)', bg: 'rgba(248,113,113,0.12)' },
-  conferido: { color: '#93C5FD', border: 'rgba(96,165,250,0.5)', bg: 'rgba(96,165,250,0.14)' },
-  fechado: { color: '#6EE7B7', border: 'rgba(52,211,153,0.45)', bg: 'rgba(52,211,153,0.14)' },
-  aguardando: { color: '#FDE68A', border: 'rgba(250,204,21,0.5)', bg: 'rgba(250,204,21,0.12)' },
+  rascunho: { color: '#B91C1C', border: 'rgba(239,68,68,0.45)', bg: 'rgba(239,68,68,0.08)' },
+  conferido: { color: '#1D4ED8', border: 'rgba(59,130,246,0.45)', bg: 'rgba(59,130,246,0.1)' },
+  fechado: { color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'rgba(16,185,129,0.12)' },
+  aguardando: { color: '#B45309', border: 'rgba(245,158,11,0.5)', bg: 'rgba(245,158,11,0.12)' },
 }
 
 const ROTULO: Record<string, [string, string]> = {
@@ -203,12 +207,12 @@ function LinhaPagamento({
           <IconePagamento tipo={tipo} />
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, minWidth: 0 }}>
-          <Typography sx={{ fontSize: denso ? 12 : 13, color: 'text.secondary', lineHeight: 1.25 }}>{rotulo}</Typography>
+          <Typography sx={{ fontSize: denso ? 12 : 13, color: FIN_MUTED, lineHeight: 1.25 }}>{rotulo}</Typography>
           {abrir ? (
-            <KeyboardArrowDownIcon sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0, transform: aberto ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
+            <KeyboardArrowDownIcon sx={{ fontSize: 18, color: FIN_MUTED, flexShrink: 0, transform: aberto ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }} />
           ) : null}
         </Box>
-        <Typography sx={{ fontSize: denso ? 12 : 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', textAlign: 'right', whiteSpace: 'nowrap' }}>{valor}</Typography>
+        <Typography sx={{ fontSize: denso ? 12 : 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', textAlign: 'right', whiteSpace: 'nowrap', color: FIN_TEXT }}>{valor}</Typography>
       </Box>
       {abrir ? <Collapse in={!!aberto}>{filhos}</Collapse> : null}
     </Box>
@@ -252,7 +256,7 @@ function LinhaDebitoCredito({
               denso
             />
           )) : (
-            <Typography sx={{ fontSize: 12, color: 'text.secondary', pl: '30px', py: 0.35 }}>
+            <Typography sx={{ fontSize: 12, color: FIN_MUTED, pl: '30px', py: 0.35 }}>
               {t('A loja ainda não enviou as bandeiras.', 'The store has not sent card brands yet.')}
             </Typography>
           )}
@@ -265,8 +269,8 @@ function LinhaDebitoCredito({
 function Metrica({ rotulo, valor, alerta }: { rotulo: string; valor: string; alerta?: boolean }) {
   return (
     <Box>
-      <Typography sx={{ fontSize: 12, color: alerta ? 'error.main' : 'text.secondary' }}>{rotulo}</Typography>
-      <Typography sx={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: alerta ? 'error.main' : 'text.primary', lineHeight: 1.25 }}>
+      <Typography sx={{ fontSize: 12, color: alerta ? '#B91C1C' : FIN_MUTED }}>{rotulo}</Typography>
+      <Typography sx={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: alerta ? '#B91C1C' : FIN_TEXT, lineHeight: 1.25 }}>
         {valor}
       </Typography>
     </Box>
@@ -274,8 +278,7 @@ function Metrica({ rotulo, valor, alerta }: { rotulo: string; valor: string; ale
 }
 
 export function FechamentoCaixaPage() {
-  const { t, modo, idioma } = usePrefs()
-  const escuro = modo === 'escuro'
+  const { t, idioma } = usePrefs()
   const [empresas, setEmpresas] = useState<Empresa[]>([])
   const [empresaId, setEmpresaId] = useState('')
   const [mes, setMes] = useState(mesAtual)
@@ -326,7 +329,7 @@ export function FechamentoCaixaPage() {
     () => gradeMes(mes, dias, empresaId, lojaAtual?.apelido || lojaAtual?.razao_social || '', mesDados?.empresa.bk_number ?? null),
     [mes, dias, empresaId, lojaAtual, mesDados],
   )
-  const tomMap = escuro ? TOM_ESCURO : TOM_CLARO
+  const tomMap = TOM_CLARO
   const diasSemana = idioma === 'en'
     ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
     : ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
@@ -347,19 +350,28 @@ export function FechamentoCaixaPage() {
   }
 
   return (
-    <Stack spacing={2} sx={{ height: '100%', minHeight: 0 }}>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ alignItems: { md: 'center' } }}>
-        <TextField
-          select
-          size="small"
-          label={t('Loja', 'Store')}
+    <Stack spacing={2} sx={finPageSx}>
+      <Stack
+        component="form"
+        direction={{ xs: 'column', md: 'row' }}
+        spacing={1.5}
+        sx={{ alignItems: { md: 'center' } }}
+        onSubmit={(ev) => ev.preventDefault()}
+      >
+        <SeletorLojaFinanceiro
+          lojas={lojas}
           value={empresaId}
-          onChange={(ev) => setEmpresaId(ev.target.value)}
-          sx={{ minWidth: 220, bgcolor: 'background.paper' }}
-        >
-          {lojas.map((e) => <MenuItem key={e.id} value={e.id}>{e.apelido || e.razao_social}</MenuItem>)}
-        </TextField>
-        <TextField size="small" label={t('Mês', 'Month')} type="month" value={mes} onChange={(ev) => setMes(ev.target.value)} slotProps={{ inputLabel: { shrink: true } }} sx={{ width: 170, bgcolor: 'background.paper' }} />
+          label={t('Loja', 'Store')}
+          width={{ xs: '100%', md: 240 }}
+          onChange={setEmpresaId}
+        />
+        <FiltroMesFinanceiro
+          value={mes}
+          onChange={setMes}
+          label={t('Mês', 'Month')}
+          idioma={idioma}
+          width={200}
+        />
         <Tooltip
           title={mesDados?.pdv?.ultimo_ok
             ? `${t('Último heartbeat', 'Last heartbeat')} ${new Date(mesDados.pdv.ultimo_ok).toLocaleString(idioma === 'en' ? 'en-US' : 'pt-BR')}`
@@ -367,12 +379,18 @@ export function FechamentoCaixaPage() {
         >
           <Chip
             size="small"
-            color={mesDados?.pdv?.ok ? 'success' : 'warning'}
             variant="outlined"
             label={mesDados?.pdv?.ok
               ? t('PDV online', 'POS online')
               : t('PDV offline', 'POS offline')}
-            sx={{ height: 32, fontWeight: 600 }}
+            sx={{
+              height: 28,
+              fontSize: 11,
+              fontWeight: 600,
+              bgcolor: FIN_SURFACE,
+              borderColor: mesDados?.pdv?.ok ? 'rgba(16,185,129,0.45)' : 'rgba(245,158,11,0.5)',
+              color: mesDados?.pdv?.ok ? '#047857' : '#B45309',
+            }}
           />
         </Tooltip>
       </Stack>
@@ -380,17 +398,17 @@ export function FechamentoCaixaPage() {
       {erro ? <Alert severity="error" onClose={() => setErro('')}>{erro}</Alert> : null}
 
       <Box sx={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 360px' }, gap: 2 }}>
-        <Paper variant="outlined" sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Paper variant="outlined" sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', ...finPaperSx }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid', borderColor: FIN_BORDER, bgcolor: FIN_SURFACE_ALT }}>
             {diasSemana.map((nome) => (
-              <Box key={nome} sx={{ px: 1.25, py: 1, borderRight: '1px solid', borderColor: 'divider', '&:last-child': { borderRight: 0 } }}>
-                <Typography sx={{ fontSize: 12, fontWeight: 500, color: 'text.secondary' }}>{nome}</Typography>
+              <Box key={nome} sx={{ px: 1.25, py: 1, borderRight: '1px solid', borderColor: FIN_BORDER, '&:last-child': { borderRight: 0 } }}>
+                <Typography sx={{ fontSize: 12, fontWeight: 500, color: FIN_MUTED }}>{nome}</Typography>
               </Box>
             ))}
           </Box>
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'grid', gridTemplateRows: `repeat(${Math.max(semanas.length, 1)}, minmax(92px, 1fr))` }}>
             {semanas.map((semana, si) => (
-              <Box key={si} sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid', borderColor: 'divider', '&:last-child': { borderBottom: 0 }, minHeight: 92 }}>
+              <Box key={si} sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid', borderColor: FIN_BORDER, '&:last-child': { borderBottom: 0 }, minHeight: 92 }}>
                 {semana.map((dia, di) => {
                   if (!dia) {
                     return (
@@ -398,8 +416,8 @@ export function FechamentoCaixaPage() {
                         key={`vazio-${si}-${di}`}
                         sx={{
                           borderRight: '1px solid',
-                          borderColor: 'divider',
-                          bgcolor: escuro ? 'rgba(255,255,255,0.015)' : '#FAFBFC',
+                          borderColor: FIN_BORDER,
+                          bgcolor: FIN_SURFACE_ALT,
                           '&:last-child': { borderRight: 0 },
                         }}
                       />
@@ -422,41 +440,72 @@ export function FechamentoCaixaPage() {
                       }}
                       sx={{
                         borderRight: '1px solid',
-                        borderColor: 'divider',
+                        borderColor: FIN_BORDER,
                         px: 1.25,
                         py: 1,
                         cursor: 'pointer',
                         bgcolor: ativo
-                          ? (escuro ? 'rgba(27,110,243,0.18)' : 'rgba(219,234,254,0.9)')
+                          ? 'rgba(27,110,243,0.1)'
                           : ehHoje
-                            ? (escuro ? 'rgba(250,204,21,0.12)' : 'rgba(254,249,195,0.85)')
+                            ? 'rgba(245,158,11,0.1)'
                             : 'transparent',
                         transition: 'background-color 120ms',
                         '&:hover': {
                           bgcolor: ativo
-                            ? (escuro ? 'rgba(27,110,243,0.22)' : 'rgba(191,219,254,0.95)')
-                            : (escuro ? 'rgba(255,255,255,0.04)' : 'rgba(248,250,252,1)'),
+                            ? 'rgba(27,110,243,0.14)'
+                            : 'rgba(15,23,42,0.04)',
                         },
                         '&:last-child': { borderRight: 0 },
                         display: 'flex',
                         flexDirection: 'column',
                         minHeight: 92,
+                        position: 'relative',
                       }}
                     >
-                      <Typography sx={{ alignSelf: 'flex-end', fontSize: 13, fontWeight: 500, color: 'text.secondary', lineHeight: 1 }}>
+                      <Typography sx={{ alignSelf: 'flex-end', fontSize: 13, fontWeight: 500, color: FIN_MUTED, lineHeight: 1, zIndex: 1 }}>
                         {Number(dia.data.slice(8, 10))}
                       </Typography>
-                      {temPdv || chave ? (
+                      {chave === 'aguardando' && rotulo ? (
+                        <Box
+                          sx={{
+                            flex: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            minHeight: 0,
+                            px: 0.25,
+                          }}
+                        >
+                          <Chip
+                            size="small"
+                            label={idioma === 'en' ? rotulo[1] : rotulo[0]}
+                            variant="outlined"
+                            sx={{
+                              height: 22,
+                              fontSize: 11,
+                              fontWeight: 600,
+                              color: tom.color,
+                              borderColor: tom.border,
+                              bgcolor: tom.bg,
+                              animation: 'fin-aguardando-pisca 1.4s ease-in-out infinite',
+                              '@keyframes fin-aguardando-pisca': {
+                                '0%, 100%': { opacity: 1 },
+                                '50%': { opacity: 0.35 },
+                              },
+                            }}
+                          />
+                        </Box>
+                      ) : temPdv || chave ? (
                         <Box sx={{ mt: 0.75 }}>
                           {temPdv ? (
                             <>
-                              <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.2 }}>
+                              <Typography sx={{ fontSize: 12, color: FIN_MUTED, lineHeight: 1.2 }}>
                                 {t('Total', 'Total')}
                               </Typography>
-                              <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', lineHeight: 1.25 }}>
+                              <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', lineHeight: 1.25, color: FIN_TEXT }}>
                                 {brl(valor)}
                               </Typography>
-                              <Typography sx={{ fontSize: 11, color: 'text.secondary', mt: 0.35 }}>
+                              <Typography sx={{ fontSize: 11, color: FIN_MUTED, mt: 0.35 }}>
                                 {t('Caixa', 'Cash')} {brl(caixaGaveta(dia))}
                               </Typography>
                             </>
@@ -487,12 +536,12 @@ export function FechamentoCaixaPage() {
           </Box>
         </Paper>
 
-        <Paper variant="outlined" sx={{ minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <Box sx={{ p: 2.5, pb: 1.5, flexShrink: 0 }}>
-            <Typography sx={{ fontSize: 15, fontWeight: 600 }}>
+        <Paper variant="outlined" sx={{ minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', ...finPaperSx }}>
+          <Box sx={{ p: 2.5, pb: 1.5, flexShrink: 0, borderBottom: '1px solid', borderColor: FIN_BORDER }}>
+            <Typography sx={{ fontSize: 15, fontWeight: 600, color: FIN_TEXT }}>
               {t('Resumo do dia', 'Day summary')}
             </Typography>
-            <Typography sx={{ fontSize: 13, color: 'text.secondary', mt: 0.25 }}>
+            <Typography sx={{ fontSize: 13, color: FIN_MUTED, mt: 0.25 }}>
               {lojaAtual?.apelido || lojaAtual?.razao_social || '—'}
               {dataPainel ? ` · ${dataPainel}` : ''}
             </Typography>
@@ -508,7 +557,7 @@ export function FechamentoCaixaPage() {
           </Box>
 
           <Box>
-            <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'text.secondary', mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 600, color: FIN_MUTED, mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {t('Por modalidade', 'By method')}
             </Typography>
             <LinhaPagamento tipo="dinheiro" cor="#3B82F6" rotulo={t('Dinheiro', 'Cash')} valor={brl(diaPainel?.dinheiro ?? 0)} />
@@ -534,8 +583,8 @@ export function FechamentoCaixaPage() {
             ) : null}
             <LinhaPagamento tipo="ifood" cor="#F59E0B" rotulo="iFood" valor={brl(diaPainel?.ifood ?? 0)} />
             <LinhaPagamento tipo="food99" cor="#FB7185" rotulo="99Food" valor={brl(diaPainel?.food99 ?? 0)} />
-            <Box sx={{ borderTop: '1px solid', borderColor: 'divider', mt: 1, pt: 1.25 }}>
-              <Typography sx={{ fontSize: 12, fontWeight: 600, color: 'text.secondary', mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            <Box sx={{ borderTop: '1px solid', borderColor: FIN_BORDER, mt: 1, pt: 1.25 }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 600, color: FIN_MUTED, mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 {t('Caixa', 'Cash drawer')}
               </Typography>
               <LinhaPagamento tipo="despesa" cor="#94A3B8" rotulo={t('Despesas', 'Expenses')} valor={brl(diaPainel?.despesas_caixa ?? 0)} />
@@ -545,24 +594,29 @@ export function FechamentoCaixaPage() {
           </Box>
           </Box>
 
-          <Box sx={{ flexShrink: 0, px: 2.5, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ flexShrink: 0, px: 2.5, py: 1.5, borderTop: '1px solid', borderColor: FIN_BORDER }}>
             {diaPainel && chegouDoPdv(diaPainel) && diaPainel.status === 'fechado' ? (
               <>
                 <Chip size="small" label={t('Caixa fechado', 'Cash closed')} variant="outlined" sx={{ mb: 1, color: tomMap.fechado.color, borderColor: tomMap.fechado.border, bgcolor: tomMap.fechado.bg }} />
-                <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+                <Typography sx={{ fontSize: 13, color: FIN_MUTED }}>
                   {t('PDV travado. Despesas lançadas. Só consulta.', 'POS locked. Expenses posted. View only.')}
                 </Typography>
               </>
             ) : diaPainel && chegouDoPdv(diaPainel) ? (
-              <Button fullWidth variant="contained" onClick={() => setEditando(diaPainel)}>
+              <Button
+                fullWidth
+                variant="contained"
+                onClick={() => setEditando(diaPainel)}
+                sx={{ bgcolor: '#1B6EF3', color: '#fff', boxShadow: 'none', '&:hover': { bgcolor: '#0D4ECC', boxShadow: 'none' } }}
+              >
                 {t('Lançar despesa e fechar', 'Post expense and close')}
               </Button>
             ) : diaPainel && diaPainel.data < hoje ? (
-              <Typography sx={{ fontSize: 13, color: 'error.main' }}>
+              <Typography sx={{ fontSize: 13, color: '#B91C1C' }}>
                 {t('O servidor não enviou as vendas deste dia.', 'The store did not send this day’s sales.')}
               </Typography>
             ) : (
-              <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+              <Typography sx={{ fontSize: 13, color: FIN_MUTED }}>
                 {t('Aguardando o envio do servidor da loja.', 'Waiting for the store server.')}
               </Typography>
             )}
@@ -666,15 +720,14 @@ function Kpi({
       <Box sx={{ color: alerta ? 'error.main' : paleta.cor, display: 'flex' }}>{icone}</Box>
       <Box>
         <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: alerta ? 'error.main' : paleta.cor }}>{rotulo}</Typography>
-        <Typography sx={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2, color: alerta ? 'error.main' : 'text.primary' }}>{valor}</Typography>
+        <Typography sx={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2, color: alerta ? '#B91C1C' : FIN_TEXT }}>{valor}</Typography>
       </Box>
     </Stack>
   )
 }
 
 function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar: () => void; onSalvo: (mensagem: string) => void }) {
-  const { t, idioma, modo } = usePrefs()
-  const escuro = modo === 'escuro'
+  const { t, idioma } = usePrefs()
   const [linhas, setLinhas] = useState<LancamentoCaixa[]>(
     (dia.lancamentos?.length ? dia.lancamentos : []).map((item) => ({
       ...item,
@@ -695,17 +748,20 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
   const gaveta = Math.round((dia.dinheiro - saidas) * 100) / 100
   const campo = {
     width: '100%',
-    '& .MuiInputBase-root': { height: 36 },
-    '& .MuiInputBase-input': { fontSize: 13, py: 0.75, overflow: 'hidden', textOverflow: 'ellipsis' },
+    ...finCampoSx,
+    '& .MuiInputBase-root': { height: 36, color: FIN_TEXT, bgcolor: FIN_SURFACE },
+    '& .MuiInputBase-input': { fontSize: 13, py: 0.75, overflow: 'hidden', textOverflow: 'ellipsis', color: FIN_TEXT },
+    '& .MuiInputBase-input::placeholder': { color: FIN_MUTED, opacity: 1 },
   }
   const campoValor = {
     width: '100%',
-    '& .MuiInputBase-root': { height: 36 },
-    '& .MuiInputBase-input': { fontSize: 13, py: 0.75, fontVariantNumeric: 'tabular-nums', textAlign: 'right' },
+    ...finCampoSx,
+    '& .MuiInputBase-root': { height: 36, color: FIN_TEXT, bgcolor: FIN_SURFACE },
+    '& .MuiInputBase-input': { fontSize: 13, py: 0.75, fontVariantNumeric: 'tabular-nums', textAlign: 'right' as const, color: FIN_TEXT },
   }
 
   const buscar = (texto: string) => {
-    api.fornecedores(texto).then(setHits).catch(() => setHits([]))
+    api.fornecedores(texto.trim()).then(setHits).catch(() => setHits([]))
   }
 
   const mudar = (indice: number, patch: Partial<LancamentoCaixa>) => {
@@ -781,7 +837,7 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
     const total = tipo === 'despesa' ? totalDespesas : totalDepositos
     const recolhido = tipo === 'deposito' && !depositoAberto
     return (
-      <Paper variant="outlined" sx={{ overflow: 'visible', display: 'flex', flexDirection: 'column' }}>
+      <Paper variant="outlined" sx={{ ...finPaperSx, overflow: 'visible', display: 'flex', flexDirection: 'column', bgcolor: FIN_SURFACE, borderColor: FIN_BORDER, color: FIN_TEXT }}>
         <Stack
           direction="row"
           sx={{
@@ -789,8 +845,9 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
             py: 1.1,
             alignItems: 'center',
             borderBottom: recolhido ? 'none' : '1px solid',
-            borderColor: 'divider',
-            bgcolor: escuro ? 'rgba(255,255,255,0.03)' : '#FAFBFC',
+            borderColor: FIN_BORDER,
+            bgcolor: FIN_SURFACE_ALT,
+            color: FIN_TEXT,
           }}
         >
           {tipo === 'deposito' && !fechado ? (
@@ -798,23 +855,24 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
               size="small"
               onClick={() => (depositoAberto ? setDepositoAberto(false) : abrirDeposito())}
               aria-label={t('Preencher depósito', 'Fill deposit')}
-              sx={{ mr: 0.5, transform: depositoAberto ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}
+              sx={{ mr: 0.5, color: FIN_MUTED, transform: depositoAberto ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}
             >
               <KeyboardArrowDownIcon fontSize="small" />
             </IconButton>
           ) : (
-            <DescriptionOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary', mr: 1 }} />
+            <DescriptionOutlinedIcon sx={{ fontSize: 18, color: FIN_MUTED, mr: 1 }} />
           )}
-          <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{titulo}</Typography>
-          <Chip size="small" label={String(itens.length)} sx={{ ml: 1, height: 20, fontSize: 11 }} />
+          <Typography sx={{ fontSize: 13, fontWeight: 600, color: FIN_TEXT }}>{titulo}</Typography>
+          <Chip size="small" label={String(itens.length)} sx={{ ml: 1, height: 20, fontSize: 11, color: FIN_TEXT, bgcolor: 'rgba(15,23,42,0.04)', borderColor: FIN_BORDER }} />
           <Box sx={{ flex: 1 }} />
-          <Typography sx={{ fontSize: 12, color: 'text.secondary', mr: 1 }}>{t('Total', 'Total')}</Typography>
-          <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', mr: 1 }}>{brl(total)}</Typography>
+          <Typography sx={{ fontSize: 12, color: FIN_MUTED, mr: 1 }}>{t('Total', 'Total')}</Typography>
+          <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', mr: 1, color: FIN_TEXT }}>{brl(total)}</Typography>
           {!fechado ? (
             <Button
               size="small"
               startIcon={<AddIcon />}
               onClick={() => adicionar(tipo)}
+              sx={{ color: '#1B6EF3' }}
             >
               {t('Adicionar', 'Add')}
             </Button>
@@ -833,7 +891,7 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
                   <TableCell>{t('Descrição', 'Description')}</TableCell>
                 )}
                 <TableCell align="right" sx={{ width: 112 }}>{t('Valor', 'Amount')}</TableCell>
-                {tipo === 'despesa' ? <TableCell align="center" sx={{ width: 44, px: 0 }}><AttachFileOutlinedIcon sx={{ fontSize: 14, color: 'text.secondary' }} /></TableCell> : null}
+                {tipo === 'despesa' ? <TableCell align="center" sx={{ width: 44, px: 0 }}><AttachFileOutlinedIcon sx={{ fontSize: 14, color: FIN_MUTED }} /></TableCell> : null}
                 <TableCell sx={{ width: 40, px: 0 }} />
               </TableRow>
             </TableHead>
@@ -841,7 +899,7 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
               {!itens.length ? (
                 <TableRow>
                   <TableCell colSpan={tipo === 'despesa' ? 5 : 3} sx={{ py: 4 }}>
-                    <Stack spacing={0.75} sx={{ alignItems: 'center', color: 'text.secondary' }}>
+                    <Stack spacing={0.75} sx={{ alignItems: 'center', color: FIN_MUTED }}>
                       <InsertDriveFileOutlinedIcon sx={{ fontSize: 32, opacity: 0.45 }} />
                       <Typography sx={{ fontSize: 13, fontWeight: 600 }}>
                         {tipo === 'despesa'
@@ -866,10 +924,12 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
                           freeSolo
                           forcePopupIcon={false}
                           options={hits}
-                          getOptionLabel={(opt) => typeof opt === 'string' ? opt : opt.nome}
+                          getOptionLabel={(opt) => typeof opt === 'string' ? opt : (opt.nome || '')}
                           filterOptions={(opcoes) => opcoes}
                           value={item.fornecedor || ''}
                           inputValue={item.fornecedor || ''}
+                          openOnFocus
+                          onOpen={() => buscar(item.fornecedor || '')}
                           onInputChange={(_, texto, motivo) => {
                             if (motivo === 'input') {
                               mudar(indice, { fornecedor: texto, fornecedor_id: null })
@@ -881,6 +941,7 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
                             else mudar(indice, { fornecedor: forn?.nome || '', fornecedor_id: forn?.id || null })
                           }}
                           disabled={fechado}
+                          noOptionsText={t('Nenhum fornecedor', 'No suppliers')}
                           renderInput={(params) => <TextField {...params} placeholder={t('Nome', 'Name')} sx={campo} />}
                         />
                       </TableCell>
@@ -955,7 +1016,7 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
                             </IconButton>
                           </Tooltip>
                         ) : (
-                          <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>—</Typography>
+                          <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>—</Typography>
                         )}
                       </Stack>
                     </TableCell>
@@ -977,26 +1038,43 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
   }
 
   return (
-    <Dialog open onClose={onFechar} maxWidth="xl" fullWidth slotProps={{ paper: { sx: { maxHeight: '92vh', maxWidth: 1280 } } }}>
-      <DialogTitle sx={{ py: 1.75, px: 2.5, display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'primary.main', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+    <Dialog
+      open
+      onClose={onFechar}
+      maxWidth="xl"
+      fullWidth
+      slotProps={{
+        paper: {
+          sx: {
+            maxHeight: '92vh',
+            maxWidth: 1280,
+            bgcolor: FIN_SURFACE,
+            color: FIN_TEXT,
+            backgroundImage: 'none',
+            border: `1px solid ${FIN_BORDER}`,
+          },
+        },
+      }}
+    >
+      <DialogTitle sx={{ py: 1.75, px: 2.5, display: 'flex', alignItems: 'center', gap: 2, color: FIN_TEXT }}>
+        <Box sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: '#1B6EF3', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
           <PointOfSaleOutlinedIcon fontSize="small" />
         </Box>
         <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography sx={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.03em' }}>{t('Fechar caixa', 'Close cash')}</Typography>
-          <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{dia.empresa} · {dataBr}</Typography>
+          <Typography sx={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.03em', color: FIN_TEXT }}>{t('Fechar caixa', 'Close cash')}</Typography>
+          <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>{dia.empresa} · {dataBr}</Typography>
         </Box>
         <Stack direction="row" spacing={1} sx={{ display: { xs: 'none', md: 'flex' } }}>
           <Kpi rotulo={t('Dinheiro PDV', 'POS cash')} valor={brl(dia.dinheiro)} tom="verde" icone={<CheckCircleOutlinedIcon fontSize="small" />} />
           <Kpi rotulo={t('Saídas', 'Outflows')} valor={brl(saidas)} tom="teal" icone={<TrendingUpIcon fontSize="small" />} />
           <Kpi rotulo={t('Dinheiro em caixa', 'Cash in drawer')} valor={brl(gaveta)} tom="ambar" alerta={gaveta < 0} icone={<AccountBalanceWalletOutlinedIcon fontSize="small" />} />
         </Stack>
-        <IconButton onClick={onFechar}><CloseIcon /></IconButton>
+        <IconButton onClick={onFechar} sx={{ color: FIN_MUTED }}><CloseIcon /></IconButton>
       </DialogTitle>
-      <DialogContent dividers sx={{ px: 2.5, py: 2, bgcolor: escuro ? 'background.default' : '#F4F6F8' }}>
+      <DialogContent dividers sx={{ px: 2.5, py: 2, bgcolor: FIN_SURFACE_ALT, borderColor: FIN_BORDER, color: FIN_TEXT }}>
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '340px minmax(0, 1fr)' }, gap: 1.5, alignItems: 'start' }}>
-          <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-            <Stack direction="row" sx={{ px: 1.75, py: 1.15, alignItems: 'center', bgcolor: escuro ? 'primary.dark' : '#1B2A6B', color: '#fff' }}>
+          <Paper variant="outlined" sx={{ overflow: 'hidden', bgcolor: FIN_SURFACE, borderColor: FIN_BORDER, color: FIN_TEXT }}>
+            <Stack direction="row" sx={{ px: 1.75, py: 1.15, alignItems: 'center', bgcolor: '#0D4ECC', color: '#fff' }}>
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography sx={{ fontSize: 13, fontWeight: 700 }}>{t('Vendas do PDV', 'POS sales')}</Typography>
               </Box>
@@ -1028,10 +1106,10 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
               {modalidades.slice(2).map(([tipo, nome, valor, cor]) => (
                 <LinhaPagamento key={tipo} tipo={tipo} cor={cor} rotulo={nome} valor={brl(valor)} />
               ))}
-              <Box sx={{ display: 'grid', gridTemplateColumns: '22px minmax(0, 1fr) max-content', columnGap: 1, alignItems: 'center', pt: 0.75, mt: 0.25, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '22px minmax(0, 1fr) max-content', columnGap: 1, alignItems: 'center', pt: 0.75, mt: 0.25, borderTop: '1px solid', borderColor: FIN_BORDER }}>
                 <Box />
-                <Typography sx={{ fontSize: 13, fontWeight: 700 }}>{t('Total', 'Total')}</Typography>
-                <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right', whiteSpace: 'nowrap' }}>{brl(totalPdv)}</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, color: FIN_TEXT }}>{t('Total', 'Total')}</Typography>
+                <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', textAlign: 'right', whiteSpace: 'nowrap', color: FIN_TEXT }}>{brl(totalPdv)}</Typography>
               </Box>
             </Box>
           </Paper>
@@ -1047,13 +1125,13 @@ function FormDespesa({ dia, onFechar, onSalvo }: { dia: FechamentoDia; onFechar:
           </Stack>
         </Box>
       </DialogContent>
-      <DialogActions sx={{ px: 2.5, py: 1.5 }}>
-        <Button onClick={onFechar}>{t('Cancelar', 'Cancel')}</Button>
+      <DialogActions sx={{ px: 2.5, py: 1.5, bgcolor: FIN_SURFACE, borderTop: `1px solid ${FIN_BORDER}` }}>
+        <Button onClick={onFechar} sx={{ color: FIN_MUTED }}>{t('Cancelar', 'Cancel')}</Button>
         <Box sx={{ flex: 1 }} />
         {!fechado ? (
           <>
-            <Button disabled={salvando} onClick={() => salvar('rascunho')}>{t('Salvar', 'Save')}</Button>
-            <Button variant="contained" disabled={salvando} onClick={() => salvar('fechado')}>{t('Fechar caixa', 'Close cash')}</Button>
+            <Button disabled={salvando} onClick={() => salvar('rascunho')} sx={{ color: FIN_TEXT }}>{t('Salvar', 'Save')}</Button>
+            <Button variant="contained" disabled={salvando} onClick={() => salvar('fechado')} sx={{ bgcolor: '#1B6EF3', '&:hover': { bgcolor: '#0D4ECC' } }}>{t('Fechar caixa', 'Close cash')}</Button>
           </>
         ) : null}
       </DialogActions>

@@ -29,7 +29,7 @@ export default function FrotaVeiculoAbasEdicao({
 }: Props) {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : colors.navy;
+  const acento = escuro ? '#0548d1' : colors.navy;
 
   return (
     <Box

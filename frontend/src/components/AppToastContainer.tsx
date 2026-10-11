@@ -25,7 +25,7 @@ export default function AppToastContainer() {
         padding: '12px 16px',
       }}
       style={{
-        zIndex: 10000,
+        zIndex: 20000,
         top: 'max(20px, env(safe-area-inset-top, 0px))',
         right: 'max(20px, env(safe-area-inset-right, 0px))',
       }}

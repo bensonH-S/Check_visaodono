@@ -51,7 +51,7 @@ export default function VeiculoFocoPainel({
               width: 48,
               height: 48,
               borderRadius: 2,
-              bgcolor: 'rgba(232, 82, 10, 0.12)',
+              bgcolor: 'rgba(5, 72, 209, 0.12)',
               color: colors.orange,
               display: 'flex',
               alignItems: 'center',

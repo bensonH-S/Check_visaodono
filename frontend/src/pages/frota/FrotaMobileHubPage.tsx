@@ -4,7 +4,7 @@ import LinearProgress from '@mui/material/LinearProgress';
 import { api, fmtData } from '../../api/client';
 import type { FrotaResumoMobile } from '../../api/client';
 import { getUsuario, logout, modoAppTecnicoFrotaRestrito } from '../../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import { showToast } from '../../utils/toast';
 import FrotaVeiculoControleCard from '../../components/frota/FrotaVeiculoControleCard';
 import FrotaPlusSheet from '../../components/frota/FrotaPlusSheet';
@@ -63,7 +63,7 @@ export default function FrotaMobileHubPage() {
   return (
     <div
       className="ck-estoque-hub ck-estoque-hub--hero ck-frota-hub"
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
@@ -71,7 +71,7 @@ export default function FrotaMobileHubPage() {
           <img
             className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
             src={assetUrl(LOGO_GA_LOCKUP)}
-            alt="Grupo Alvim"
+            alt="Meridian Gestão Operacional"
           />
           <div className="ck-estoque-hub__actions">
             <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
@@ -126,7 +126,7 @@ export default function FrotaMobileHubPage() {
               my: 1.5,
               borderRadius: 1,
               backgroundColor: 'rgba(255,154,92,0.18)',
-              '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+              '& .MuiLinearProgress-bar': { backgroundColor: '#0548d1' },
             }}
           />
         ) : (

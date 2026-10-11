@@ -96,7 +96,7 @@
 }
 
 .marker-tech-pin.is-destaque .marker-tech-ring {
-  border-color: rgba(232, 82, 10, 0.55);
+  border-color: rgba(5, 72, 209, 0.55);
 }
 
 .marker-tech-pointer {
@@ -111,7 +111,7 @@
 }
 
 .marker-tech-pin.is-destaque .marker-tech-pointer {
-  border-top-color: #e8520a;
+  border-top-color: #0548d1;
 }
 
 .marker-tech-label {
@@ -195,7 +195,7 @@
 }
 
 .marcador-loja-marca.is-destaque .marker-loja-nome-mobile {
-  box-shadow: 0 0 0 2px rgba(232, 82, 10, 0.25), 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 0 2px rgba(5, 72, 209, 0.25), 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .marker-veiculo-wrap {
@@ -353,7 +353,7 @@
 }
 
 .marker-veiculo-cor-wrap.is-destaque .marker-veiculo-cor-corpo {
-  box-shadow: 0 0 0 2px rgba(232, 82, 10, 0.45), 0 4px 12px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 2px rgba(5, 72, 209, 0.45), 0 4px 12px rgba(0, 0, 0, 0.55);
 }
 
 .leaflet-popup.popup-veiculo-mapa,
@@ -626,7 +626,7 @@
   margin-top: 2px;
   font-size: 0.68rem;
   font-weight: 700;
-  color: #e8520a;
+  color: #0548d1;
 }
 
 .marker-loja-passagens-badge {

@@ -15,13 +15,15 @@ import Divider from '@mui/material/Divider';
 import LogoutIcon from '@mui/icons-material/Logout';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { Activity } from 'lucide-react';
-import MeridianMarca from '../brand/MeridianMarca';
 import SobreSistemaDialog from '../components/SobreSistemaDialog';
 import IntegrationsStatusDialog from '../components/IntegrationsStatusDialog';
 import { nomeExibicaoUsuario } from '../lib/auth';
 import type { UsuarioSessao } from '../lib/auth';
-import { toAppPath } from '../config/paths';
+import { assetUrl, LOGO_MERIDIAN_GESTAO, LOGO_MERIDIAN_MARK_M, toAppPath } from '../config/paths';
 import { colors, layout, radius } from '../theme/tokens';
+
+const MARK_M = `${assetUrl(LOGO_MERIDIAN_MARK_M)}?v=2`;
+const LOGO_GESTAO = `${assetUrl(LOGO_MERIDIAN_GESTAO)}?v=1`;
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useAppTheme } from '../context/ThemeContext';
 import { api, type IntegrationStatusGroup } from '../api/client';
@@ -97,7 +99,7 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
               py: 0.55,
               mb: 0.2,
               borderRadius: '8px',
-              fontFamily: 'Manrope, system-ui, sans-serif',
+              fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
               fontSize: 12.5,
               fontWeight: isActive ? 700 : 600,
               letterSpacing: '-0.01em',
@@ -152,21 +154,48 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
         flexDirection: 'column',
         bgcolor: colors.sidebarBg,
         height: '100%',
-        fontFamily: 'Manrope, system-ui, sans-serif',
+        fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        borderRight: '1px solid var(--ga-sidebar-border)',
       }}
     >
       <Box
         sx={{
-          px: 1.5,
-          height: layout.brandBarHeight,
+          px: 1.25,
+          py: 1.15,
+          minHeight: layout.brandBarHeight,
           boxSizing: 'border-box',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
+          gap: 0.45,
           flexShrink: 0,
         }}
       >
-        <MeridianMarca sx={{ width: '92%', maxWidth: 200 }} />
+        <Box
+          component="img"
+          src={MARK_M}
+          alt=""
+          sx={{
+            width: 52,
+            height: 'auto',
+            display: 'block',
+            filter: 'drop-shadow(0 0 14px rgba(37, 218, 251, 0.35))',
+          }}
+        />
+        <Box
+          component="img"
+          src={LOGO_GESTAO}
+          alt="Meridian Gestão Operacional"
+          sx={{
+            width: '78%',
+            maxWidth: 148,
+            height: 'auto',
+            display: 'block',
+            objectFit: 'contain',
+            mixBlendMode: 'screen',
+          }}
+        />
       </Box>
 
       <Box
@@ -190,7 +219,7 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
               sx={{
                 px: 1.15,
                 mb: 0.55,
-                fontFamily: 'Manrope, system-ui, sans-serif',
+                fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
                 fontSize: '0.625rem',
                 fontWeight: 700,
                 letterSpacing: '0.08em',

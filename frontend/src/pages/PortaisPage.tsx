@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP, toAppPath } from '../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP, toAppPath } from '../config/paths';
 import { colors, radius, shadows } from '../theme/tokens';
 import { getUsuario, logout } from '../lib/auth';
 import MobileUsuarioMenu from '../components/MobileUsuarioMenu';
@@ -96,14 +96,14 @@ function PortalCardDesktop({ portal }: { portal: PortalItem }) {
         borderColor: (theme) =>
           theme.palette.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : colors.border,
         borderLeft: (theme) =>
-          theme.palette.mode === 'dark' ? '5px solid #FF7A3D' : '5px solid #1B2A6B',
+          theme.palette.mode === 'dark' ? '5px solid #0548d1' : '5px solid #1B2A6B',
         borderRadius: `${radius.xl}px`,
         boxShadow: shadows.card,
         transition: 'transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
         '&:hover': {
-          borderColor: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : colors.navyBorder),
+          borderColor: (theme) => (theme.palette.mode === 'dark' ? '#0548d1' : colors.navyBorder),
           borderLeft: (theme) =>
-            theme.palette.mode === 'dark' ? '5px solid #FF7A3D' : '5px solid #1B2A6B',
+            theme.palette.mode === 'dark' ? '5px solid #0548d1' : '5px solid #1B2A6B',
           boxShadow: shadows.cardHover,
         },
         '&:active': {
@@ -185,7 +185,7 @@ export default function PortaisPage() {
     return (
       <div
         className="ck-estoque-hub ck-estoque-hub--hero ck-portais-hub"
-        style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+        style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
       >
         <div className="ck-estoque-hub__watermark" aria-hidden />
         <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
@@ -193,7 +193,7 @@ export default function PortaisPage() {
             <img
               className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
               src={assetUrl(LOGO_GA_LOCKUP)}
-              alt="Grupo Alvim"
+              alt="Meridian Gest�o Operacional"
             />
             <div className="ck-estoque-hub__actions">
               <NotificacoesSino variante="mobile" contexto="chamados-mobile" />

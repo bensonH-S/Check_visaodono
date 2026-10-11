@@ -16,7 +16,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CloseIcon from '@mui/icons-material/Close';
 import { api, type EstoqueNfeDetalhe, type EstoqueNfeItem } from '../../api/client';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import { thumbInsumo } from '../../components/estoque/estoqueHub';
 import { showToast } from '../../utils/toast';
 import '../../components/estoque/estoque-hub.css';
@@ -392,12 +392,12 @@ export default function EstoqueMobileNfePage() {
   return (
     <div
       className="ck-estoque-hub ck-estoque-hub--nfe ck-estoque-hub--hero"
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
         <div className="ck-estoque-hub__brand-row">
-          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Grupo Alvim" />
+          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Meridian Gestão Operacional" />
         </div>
         <div className="ck-estoque-hub__hero-copy">
           <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
@@ -420,7 +420,7 @@ export default function EstoqueMobileNfePage() {
                 my: 1,
                 borderRadius: 1,
                 bgcolor: '#333840',
-                '& .MuiLinearProgress-bar': { bgcolor: '#ff9a5c' },
+                '& .MuiLinearProgress-bar': { bgcolor: '#0548d1' },
               }}
             />
             <p className="ck-estoque-hub__empty">Abrindo a notaâ€¦</p>

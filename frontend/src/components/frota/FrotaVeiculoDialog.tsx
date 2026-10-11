@@ -33,7 +33,7 @@ type Props = {
 export default function FrotaVeiculoDialog({ open, veiculo, onClose, onSalvo, onExcluido }: Props) {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : colors.navy;
+  const acento = escuro ? '#0548d1' : colors.navy;
   const acentoHover = escuro ? '#c94508' : colors.navyDark;
   const editando = veiculo != null;
   const [aba, setAba] = useState(0);

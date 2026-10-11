@@ -23,8 +23,8 @@ interface Props {
 export default function PhotoCapture({ value, onChange, disabled, obrigatoria }: Props) {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const btnFotoBg = escuro ? 'rgba(232, 82, 10, 0.72)' : 'rgba(27, 42, 107, 0.88)';
-  const btnFotoHover = escuro ? 'rgba(232, 82, 10, 0.88)' : 'rgba(21, 32, 86, 0.95)';
+  const btnFotoBg = escuro ? 'rgba(5, 72, 209, 0.72)' : 'rgba(27, 42, 107, 0.88)';
+  const btnFotoHover = escuro ? 'rgba(5, 72, 209, 0.88)' : 'rgba(21, 32, 86, 0.95)';
   const cameraFallbackRef = useRef<HTMLInputElement>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);

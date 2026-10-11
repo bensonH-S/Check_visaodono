@@ -13,9 +13,9 @@
     <meta name="description" content="Meridian — gestão financeira e operacional Grupo Alvim" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Meridian" />
-    <link rel="apple-touch-icon" href="meridian-icon-192.png?v=meridian1" sizes="192x192" />
+    <link rel="apple-touch-icon" href="Icone_pwa.png?v=pwa2" sizes="192x192" />
     <!-- manifest.webmanifest: injetado pelo Vite PWA só no build de produção -->
     <title>Meridian</title>
     <!-- Desktop: aplica o tema salvo. App (telefone): sempre claro, sem apagar a preferência do PC. -->
@@ -46,7 +46,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        background: #ffffff;
+        background: #051017;
         transition: opacity 0.28s ease, visibility 0.28s;
       }
       #pwa-splash.pwa-splash--hide {
@@ -64,7 +64,7 @@
   </head>
   <body>
     <div id="pwa-splash" aria-hidden="true">
-      <img src="Logo_Alvim_Icone.png" alt="" decoding="sync" fetchpriority="high" />
+      <img src="Icone_pwa.png?v=pwa2" alt="" decoding="sync" fetchpriority="high" />
     </div>
     <div id="root"></div>
     <script>

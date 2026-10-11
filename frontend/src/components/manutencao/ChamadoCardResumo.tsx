@@ -169,7 +169,7 @@ function ChamadoCardMobile({
               px: 0.75,
               py: 0.35,
               borderRadius: 1.25,
-              bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : '#1B2A6B'),
+              bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#0548d1' : '#1B2A6B'),
               color: '#fff',
               fontWeight: 800,
               fontSize: '0.72rem',
@@ -238,7 +238,7 @@ function ChamadoCardMobile({
             {showLoja && chamado.loja && (
               <>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.35, minWidth: 0, flexShrink: 1 }}>
-                  <LocationOnOutlinedIcon sx={{ fontSize: 14, color: '#E8520A', flexShrink: 0 }} />
+                  <LocationOnOutlinedIcon sx={{ fontSize: 14, color: '#0548d1', flexShrink: 0 }} />
                   <Typography
                     variant="caption"
                     sx={{
@@ -383,7 +383,7 @@ function ChamadoCardMobile({
                     fontWeight: 700,
                     textTransform: 'none',
                     borderRadius: 1.5,
-                    bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : '#1B2A6B'),
+                    bgcolor: (theme) => (theme.palette.mode === 'dark' ? '#0548d1' : '#1B2A6B'),
                     boxShadow: 'none',
                     whiteSpace: 'nowrap',
                     color: '#fff',
@@ -661,7 +661,7 @@ export default function ChamadoCardResumo({
 
         {showLoja && (
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, mt: 0.75 }}>
-            <LocationOnOutlinedIcon sx={{ fontSize: 15, color: '#E8520A', flexShrink: 0, mt: 0.15 }} />
+            <LocationOnOutlinedIcon sx={{ fontSize: 15, color: '#0548d1', flexShrink: 0, mt: 0.15 }} />
             <Typography
               variant="caption"
               sx={{

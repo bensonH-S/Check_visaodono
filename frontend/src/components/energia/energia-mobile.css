@@ -62,8 +62,8 @@
 }
 
 .ck-energia-hub__kpi.is-on {
-  border-color: rgba(254, 108, 34, 0.35);
-  background: rgba(254, 108, 34, 0.12);
+  border-color: rgba(232, 82, 10, 0.35);
+  background: rgba(232, 82, 10, 0.12);
 }
 
 .ck-energia-hub__kpi strong {
@@ -75,7 +75,7 @@
 }
 
 .ck-energia-hub__kpi.is-on strong {
-  color: #fe6c22;
+  color: #ffffff;
 }
 
 .ck-energia-hub__kpi span {
@@ -156,7 +156,7 @@
 }
 
 .ck-energia-hub__loja-ico-fallback {
-  color: #fe6c22 !important;
+  color: #E8520A !important;
   flex-shrink: 0;
 }
 
@@ -168,7 +168,7 @@
 
 .ck-energia-hub__loja-chev.is-open {
   transform: rotate(180deg);
-  color: #fe6c22 !important;
+  color: #E8520A !important;
 }
 
 .ck-energia-hub__loja-fix {
@@ -196,7 +196,7 @@
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.08);
-  color: #fe6c22;
+  color: #E8520A;
   font-size: 1.4rem;
   font-weight: 700;
   line-height: 1;
@@ -240,8 +240,8 @@
 }
 
 .ck-energia-hub__loja-item.is-on {
-  color: #fe6c22;
-  background: rgba(254, 108, 34, 0.12);
+  color: #E8520A;
+  background: rgba(232, 82, 10, 0.12);
 }
 
 .ck-energia-hub__empty {
@@ -263,7 +263,7 @@
   padding: 14px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-left: 4px solid #fe6c22;
+  border-left: 4px solid #E8520A;
   background: rgba(51, 56, 64, 0.82);
   color: inherit;
   text-align: left;
@@ -312,9 +312,9 @@
 }
 
 .ck-energia-hub__status.is-aberta {
-  border-color: rgba(254, 108, 34, 0.4);
-  color: #ff9a5c;
-  background: rgba(254, 108, 34, 0.14);
+  border-color: rgba(232, 82, 10, 0.4);
+  color: #E8520A;
+  background: rgba(232, 82, 10, 0.14);
 }
 
 .ck-energia-hub__status.is-andamento {
@@ -343,7 +343,7 @@
 .ck-energia-hub__card-mid strong {
   font-size: 1rem;
   font-weight: 800;
-  color: #fe6c22;
+  color: #E8520A;
 }
 
 .ck-energia-hub__card-mid span {
@@ -386,9 +386,9 @@
 }
 
 .ck-energia-hub__badge.is-pend {
-  color: #ff9a5c;
-  background: rgba(254, 108, 34, 0.12);
-  border: 1px solid rgba(254, 108, 34, 0.3);
+  color: #E8520A;
+  background: rgba(232, 82, 10, 0.12);
+  border: 1px solid rgba(232, 82, 10, 0.3);
 }
 
 /* Formulário / detalhe — cards e campos no hub */
@@ -409,7 +409,7 @@
   padding: 14px;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-left: 4px solid #fe6c22;
+  border-left: 4px solid #E8520A;
   background: rgba(51, 56, 64, 0.82);
   color: #f5f5f5;
 }
@@ -439,7 +439,7 @@
 }
 
 .ck-energia-hub .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
-  border-color: rgba(254, 108, 34, 0.55) !important;
+  border-color: rgba(232, 82, 10, 0.55) !important;
 }
 
 .ck-energia-hub .MuiInputBase-input,
@@ -451,7 +451,7 @@
 }
 
 .ck-energia-hub .MuiInputLabel-root.Mui-focused {
-  color: #ff9a5c !important;
+  color: #E8520A !important;
 }
 
 .ck-energia-hub .MuiFormLabel-asterisk,
@@ -503,12 +503,12 @@
 
 .ck-energia-hub__menu .MuiMenuItem-root:hover,
 .ck-energia-hub__menu .MuiMenuItem-root.Mui-focused {
-  background: rgba(254, 108, 34, 0.16) !important;
+  background: rgba(232, 82, 10, 0.16) !important;
 }
 
 .ck-energia-hub__menu .MuiMenuItem-root.Mui-selected {
-  background: rgba(254, 108, 34, 0.16) !important;
-  color: #ff9a5c !important;
+  background: rgba(232, 82, 10, 0.16) !important;
+  color: #E8520A !important;
 }
 
 .ck-energia-hub__fotos .MuiButton-contained {
@@ -542,17 +542,17 @@
   padding: 12px 16px;
   border: 0;
   border-radius: 14px;
-  background: #fe6c22;
+  background: #E8520A;
   color: #fff;
   font: inherit;
   font-size: 0.95rem;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 8px 22px rgba(254, 108, 34, 0.35);
+  box-shadow: 0 8px 22px rgba(232, 82, 10, 0.35);
 }
 
 .ck-energia-hub__cta:disabled {
-  background: rgba(254, 108, 34, 0.28);
+  background: rgba(232, 82, 10, 0.28);
   color: rgba(255, 255, 255, 0.55);
   box-shadow: none;
   cursor: default;
@@ -561,10 +561,10 @@
 .ck-energia-hub .ck-estoque__btn--primary,
 .ck-energia-hub .ck-energia__registrar-btn,
 .ck-energia-hub .ck-estoque__btn--ok {
-  background: #fe6c22 !important;
+  background: #E8520A !important;
   color: #fff !important;
   border: 0 !important;
-  box-shadow: 0 8px 22px rgba(254, 108, 34, 0.35) !important;
+  box-shadow: 0 8px 22px rgba(232, 82, 10, 0.35) !important;
 }
 
 .ck-energia-hub .ck-estoque__btn--ghost {

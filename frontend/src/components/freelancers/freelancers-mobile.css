@@ -1,5 +1,9 @@
 ﻿/* Freelas mobile — estende o modelo ck-visitas */
 
+.ck-freela {
+  --ck-orange: #0548d1;
+}
+
 .ck-freela--page {
   padding-bottom: 0;
 }
@@ -140,8 +144,8 @@
 .ck-freela .ck-freela__date input:focus,
 .ck-freela .ck-freela__date select:focus {
   outline: none;
-  border-color: rgba(232, 82, 10, 0.55);
-  box-shadow: 0 0 0 3px rgba(232, 82, 10, 0.12);
+  border-color: rgba(5, 72, 209, 0.55);
+  box-shadow: 0 0 0 3px rgba(5, 72, 209, 0.12);
 }
 
 .ck-freela .ck-freela__registrar {
@@ -182,7 +186,7 @@
 .ck-freela .ck-freela__check input {
   width: 18px;
   height: 18px;
-  accent-color: var(--ck-orange, #e8520a);
+  accent-color: var(--ck-orange, #0548d1);
 }
 
 /* Wizard fullscreen — portal do Dialog; visual alinhado ao Freelas/Visitas */
@@ -212,7 +216,7 @@
   right: -40px;
   border-radius: 50%;
   pointer-events: none;
-  background: radial-gradient(circle, rgba(232, 82, 10, 0.5) 0%, transparent 68%);
+  background: radial-gradient(circle, rgba(5, 72, 209, 0.5) 0%, transparent 68%);
   filter: blur(6px);
 }
 
@@ -288,7 +292,7 @@
 }
 
 .ck-freela__wizard .ck-freela__passo.is-on {
-  background: #e8520a;
+  background: #0548d1;
 }
 
 .ck-freela__wizard-sheet {
@@ -312,13 +316,13 @@
   min-height: 52px;
   border: 0;
   border-radius: 14px;
-  background: #e8520a;
+  background: #0548d1;
   color: #fff;
   font-family: inherit;
   font-size: 1rem;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 8px 20px rgba(232, 82, 10, 0.3);
+  box-shadow: 0 8px 20px rgba(5, 72, 209, 0.3);
 }
 
 .ck-freela__wizard-confirm:disabled {
@@ -350,8 +354,8 @@
 
 .ck-freela__busca-bar input:focus {
   outline: none;
-  border-color: rgba(232, 82, 10, 0.55);
-  box-shadow: 0 0 0 3px rgba(232, 82, 10, 0.12);
+  border-color: rgba(5, 72, 209, 0.55);
+  box-shadow: 0 0 0 3px rgba(5, 72, 209, 0.12);
 }
 
 .ck-freela__busca-bar button {
@@ -419,8 +423,8 @@
 }
 
 .ck-freela__pessoa-sel .ck-freela__pessoa-avatar {
-  background: rgba(232, 82, 10, 0.12);
-  color: #e8520a;
+  background: rgba(5, 72, 209, 0.12);
+  color: #0548d1;
 }
 
 .ck-freela__field-btn > span {
@@ -557,9 +561,9 @@
 
 .ck-freela__wiz-field input:focus {
   outline: none;
-  border-color: rgba(232, 82, 10, 0.55);
+  border-color: rgba(5, 72, 209, 0.55);
   background: #fff;
-  box-shadow: 0 0 0 3px rgba(232, 82, 10, 0.12);
+  box-shadow: 0 0 0 3px rgba(5, 72, 209, 0.12);
 }
 
 .ck-freela__wizard .ck-freela__saida-toggle {
@@ -622,8 +626,8 @@
 }
 
 .ck-freela .ck-freela__filtro-btn.is-on {
-  border-color: rgba(232, 82, 10, 0.45);
-  color: var(--ck-orange);
+  border-color: rgba(5, 72, 209, 0.45);
+  color: #ffffff;
 }
 
 .ck-freela .ck-freela__loja-tag {
@@ -930,9 +934,9 @@
    FREELANCERS DARK MODE
    ================================================================ */
 html.dark .ck-freela .ck-freela__registrar {
-  background: var(--ga-orange) !important;
+  background: #0548d1 !important;
   color: #fff !important;
-  box-shadow: 0 6px 16px rgba(255, 122, 61, 0.35) !important;
+  box-shadow: 0 6px 16px rgba(5, 72, 209, 0.35) !important;
 }
 
 html.dark .ck-freela .ck-freela__buscar {
@@ -942,10 +946,10 @@ html.dark .ck-freela .ck-freela__buscar {
 }
 
 html.dark .ck-freela .ck-freela__buscar.is-on {
-  background: var(--ga-orange) !important;
-  border-color: var(--ga-orange) !important;
+  background: #0548d1 !important;
+  border-color: #0548d1 !important;
   color: #fff !important;
-  box-shadow: 0 4px 12px rgba(255, 122, 61, 0.35) !important;
+  box-shadow: 0 4px 12px rgba(5, 72, 209, 0.35) !important;
 }
 
 html.dark .ck-freela .ck-freela__filtro-btn {
@@ -955,9 +959,9 @@ html.dark .ck-freela .ck-freela__filtro-btn {
 }
 
 html.dark .ck-freela .ck-freela__filtro-btn.is-on {
-  border-color: var(--ga-orange) !important;
-  color: var(--ga-orange) !important;
-  background: rgba(255, 122, 61, 0.12) !important;
+  border-color: #0548d1 !important;
+  color: #ffffff !important;
+  background: rgba(5, 72, 209, 0.12) !important;
 }
 
 html.dark .ck-freela .ck-freela__loja-tag {
@@ -1120,8 +1124,8 @@ html.dark .ck-freela .ck-freela__empty strong {
 }
 
 .ck-freela-hub__kpi.is-on {
-  border-color: rgba(254, 108, 34, 0.35);
-  background: rgba(254, 108, 34, 0.12);
+  border-color: rgba(5, 72, 209, 0.35);
+  background: rgba(5, 72, 209, 0.12);
 }
 
 .ck-freela-hub__kpi strong {
@@ -1134,7 +1138,7 @@ html.dark .ck-freela .ck-freela__empty strong {
 }
 
 .ck-freela-hub__kpi.is-on strong {
-  color: #fe6c22;
+  color: #0548d1;
 }
 
 .ck-freela-hub__kpi span {
@@ -1175,9 +1179,9 @@ html.dark .ck-freela .ck-freela__empty strong {
 }
 
 .ck-freela-hub .ck-freela__buscar.is-on {
-  background: rgba(254, 108, 34, 0.18) !important;
-  border-color: rgba(254, 108, 34, 0.4) !important;
-  color: #ff9a5c !important;
+  background: rgba(5, 72, 209, 0.18) !important;
+  border-color: rgba(5, 72, 209, 0.4) !important;
+  color: #0548d1 !important;
 }
 
 .ck-freela-hub .ck-freela__filtro-btn {
@@ -1210,8 +1214,13 @@ html.dark .ck-freela .ck-freela__empty strong {
 }
 
 .ck-freela-hub .ck-freela__filtro-btn.is-on {
-  border-color: rgba(254, 108, 34, 0.45);
-  color: #ff9a5c;
+  border-color: rgba(5, 72, 209, 0.45);
+  color: #ffffff;
+}
+
+.ck-freela-hub .ck-freela__filtro-btn.is-on span,
+.ck-freela-hub .ck-freela__filtro-btn.is-on .MuiSvgIcon-root {
+  color: #ffffff !important;
 }
 
 .ck-freela-hub .ck-freela__loja-tag {
@@ -1295,7 +1304,7 @@ html.dark .ck-freela .ck-freela__empty strong {
 }
 
 .ck-freela-hub .ck-freela__grupo-pend {
-  color: #ff9a5c !important;
+  color: #0548d1 !important;
 }
 
 .ck-freela-hub .ck-freela__grupo-meta {
@@ -1314,8 +1323,8 @@ html.dark .ck-freela .ck-freela__empty strong {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: rgba(254, 108, 34, 0.18) !important;
-  color: #ff9a5c !important;
+  background: rgba(5, 72, 209, 0.18) !important;
+  color: #0548d1 !important;
   font-size: 0.78rem;
   font-weight: 800;
 }
@@ -1358,9 +1367,9 @@ html.dark .ck-freela .ck-freela__empty strong {
 }
 
 .ck-freela-hub .ck-freela__chip--pending {
-  background: rgba(254, 108, 34, 0.14) !important;
-  border-color: rgba(254, 108, 34, 0.35) !important;
-  color: #ff9a5c !important;
+  background: rgba(5, 72, 209, 0.14) !important;
+  border-color: rgba(5, 72, 209, 0.35) !important;
+  color: #0548d1 !important;
 }
 
 .ck-freela-hub .ck-freela__chip--approved {
@@ -1409,9 +1418,9 @@ html.dark .ck-freela .ck-freela__empty strong {
 
 .ck-freela-hub .ck-freela__btn--saida,
 .ck-freela-hub .ck-freela__btn--ajuste {
-  background: rgba(254, 108, 34, 0.14) !important;
-  border-color: rgba(254, 108, 34, 0.35) !important;
-  color: #ff9a5c !important;
+  background: rgba(5, 72, 209, 0.14) !important;
+  border-color: rgba(5, 72, 209, 0.35) !important;
+  color: #0548d1 !important;
 }
 
 .ck-freela-hub .ck-freela__empty {
@@ -1440,7 +1449,16 @@ html.dark .ck-freela .ck-freela__empty strong {
 }
 
 .ck-freela-hub__dlg .MuiListItemButton-root.Mui-selected {
-  background: rgba(254, 108, 34, 0.16) !important;
+  background: rgba(5, 72, 209, 0.22) !important;
+}
+
+.ck-freela-hub__dlg .MuiListItemButton-root.Mui-selected .MuiListItemText-primary,
+.ck-freela-hub__dlg .MuiListItemButton-root.Mui-selected .MuiTypography-root {
+  color: #ffffff !important;
+}
+
+.ck-freela-hub__dlg .MuiListItemButton-root.Mui-selected .MuiSvgIcon-root {
+  color: #ffffff !important;
 }
 
 .ck-freela-hub .MuiOutlinedInput-root,

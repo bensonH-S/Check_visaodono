@@ -67,7 +67,7 @@ export default function AtivarGpsHeaderButton({ gpsAtivo = true }: Props) {
         onClick={ativar}
         disabled={ativando}
         sx={{
-          color: '#E8520A',
+          color: '#0548d1',
           animation: ativando ? 'none' : 'pulse-gps 2s ease-in-out infinite',
           '@keyframes pulse-gps': {
             '0%, 100%': { opacity: 1 },

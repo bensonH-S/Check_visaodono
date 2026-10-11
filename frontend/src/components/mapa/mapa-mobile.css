@@ -1,10 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@500;600;700;800&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@500;600;700;800&display=swap');
 
 /* Mapa mobile — stage compacto + mapa full-bleed */
 .ck-mapa {
   --ck-navy: #1b2a6b;
   --ck-navy-deep: #0f1a45;
-  --ck-orange: #e8520a;
+  --ck-orange: #0548d1;
   --ck-ink: #142048;
   --ck-pad-x: clamp(12px, 3.5vw, 16px);
   box-sizing: border-box;
@@ -43,7 +43,7 @@
   right: -40px;
   border-radius: 50%;
   pointer-events: none;
-  background: radial-gradient(circle, rgba(232, 82, 10, 0.45) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(5, 72, 209, 0.45) 0%, transparent 70%);
   filter: blur(6px);
 }
 
@@ -208,7 +208,7 @@
 .ck-mapa__chip.is-on {
   background: var(--ck-orange);
   color: #fff;
-  box-shadow: 0 4px 12px rgba(232, 82, 10, 0.35);
+  box-shadow: 0 4px 12px rgba(5, 72, 209, 0.35);
 }
 
 .ck-mapa__chip-static {
@@ -334,7 +334,7 @@
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(232, 82, 10, 0.35);
+  box-shadow: 0 4px 12px rgba(5, 72, 209, 0.35);
 }
 
 .ck-mapa__consulta-btn:disabled {
@@ -556,7 +556,7 @@
   font-size: 0.74rem;
   font-weight: 700;
   line-height: 1.2;
-  color: #ff9a5c;
+  color: #0548d1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -590,8 +590,8 @@
   justify-content: center;
   flex-shrink: 0;
   margin-top: 0;
-  color: #ff9a5c;
-  background: rgba(254, 108, 34, 0.16);
+  color: #0548d1;
+  background: rgba(5, 72, 209, 0.16);
   box-shadow: none;
 }
 
@@ -647,7 +647,7 @@
 }
 
 .ck-mapa__ficha-acao.is-on .ck-mapa__ficha-acao-ico {
-  background: #e8520a;
+  background: #0548d1;
   color: #fff;
 }
 
@@ -969,7 +969,7 @@
 }
 
 .ck-mapa--life .ck-mapa__ficha-ocupante {
-  color: #ff9a5c !important;
+  color: #0548d1 !important;
 }
 
 .ck-mapa--life .ck-mapa__ficha-sub,
@@ -979,13 +979,13 @@
 }
 
 .ck-mapa--life .ck-mapa__ficha-avatar {
-  background: rgba(254, 108, 34, 0.16) !important;
-  color: #ff9a5c !important;
+  background: rgba(5, 72, 209, 0.16) !important;
+  color: #0548d1 !important;
   box-shadow: none !important;
 }
 
 .ck-mapa--life .ck-mapa__ficha-avatar .MuiSvgIcon-root {
-  color: #ff9a5c !important;
+  color: #0548d1 !important;
 }
 
 .ck-mapa--life .ck-mapa__ficha-head strong,
@@ -1010,20 +1010,20 @@
 
 .ck-mapa--life .ck-mapa__ficha-acao-ico {
   background: rgba(255, 255, 255, 0.08) !important;
-  color: #ff9a5c !important;
+  color: #0548d1 !important;
 }
 
 .ck-mapa--life .ck-mapa__ficha-acao-ico .MuiSvgIcon-root {
-  color: #ff9a5c !important;
+  color: #0548d1 !important;
 }
 
 .ck-mapa--life .ck-mapa__ficha-acao.is-on {
-  background: rgba(254, 108, 34, 0.18) !important;
-  color: #ff9a5c !important;
+  background: rgba(5, 72, 209, 0.18) !important;
+  color: #0548d1 !important;
 }
 
 .ck-mapa--life .ck-mapa__ficha-acao.is-on .ck-mapa__ficha-acao-ico {
-  background: rgba(254, 108, 34, 0.22) !important;
+  background: rgba(5, 72, 209, 0.22) !important;
   color: #fff !important;
 }
 
@@ -1148,7 +1148,7 @@
 }
 
 .ck-mapa__life-icon.is-on {
-  background: #fe6c22;
+  background: #0548d1;
   color: #fff;
   border-color: transparent;
 }
@@ -1263,7 +1263,7 @@
 }
 
 .ck-mapa__life-person.is-on .ck-mapa__life-avatar {
-  box-shadow: 0 0 0 3px #fe6c22, 0 8px 18px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 0 0 3px #0548d1, 0 8px 18px rgba(0, 0, 0, 0.35);
   outline: none;
 }
 
@@ -1406,7 +1406,7 @@
 
 .ck-mapa__life-hist .ck-mapa__consulta-value .MuiSvgIcon-root {
   font-size: 16px !important;
-  color: #ff9a5c !important;
+  color: #0548d1 !important;
 }
 
 .ck-mapa__life-hist .ck-mapa__consulta-row {
@@ -1453,7 +1453,7 @@
   border-radius: 10px !important;
   font-size: 0.76rem !important;
   gap: 4px !important;
-  background: #fe6c22 !important;
+  background: #0548d1 !important;
   color: #fff !important;
   border: 0 !important;
   box-shadow: none !important;
@@ -1466,7 +1466,7 @@
 .ck-mapa__life-hist .ck-mapa__life-hoje {
   margin-top: 2px !important;
   font-size: 0.72rem !important;
-  color: #ff9a5c !important;
+  color: #0548d1 !important;
   align-self: flex-start;
   padding: 0;
 }
@@ -1482,7 +1482,7 @@
   margin-top: 8px;
   border: 0;
   background: transparent;
-  color: #e8520a;
+  color: #0548d1;
   font: inherit;
   font-size: 0.78rem;
   font-weight: 800;
@@ -1521,8 +1521,8 @@
 }
 
 .ck-mapa__life-drawer-item.is-on {
-  background: rgba(254, 108, 34, 0.16);
-  color: #ff9a5c;
+  background: rgba(5, 72, 209, 0.16);
+  color: #0548d1;
 }
 
 .ck-mapa__life-drawer-item--row {
@@ -1588,7 +1588,7 @@
 
 .ck-mapa__historico-bar-stats span.is-alerta {
   color: var(--ck-orange);
-  background: rgba(232, 82, 10, 0.12);
+  background: rgba(5, 72, 209, 0.12);
 }
 
 .ck-mapa__historico-lojas {
@@ -1615,7 +1615,7 @@
   color: #1b2a6b;
   padding: 4px 8px;
   border-radius: 999px;
-  background: rgba(232, 82, 10, 0.1);
+  background: rgba(5, 72, 209, 0.1);
 }
 
 /* ================================================================
@@ -1661,7 +1661,7 @@ html.dark .ck-mapa__ficha-acao-ico {
 }
 
 html.dark .ck-mapa__ficha-acao.is-on {
-  background: var(--ga-orange);
+  background: #0548d1;
   color: #fff;
 }
 
@@ -1724,13 +1724,13 @@ html.dark .ck-mapa__historico-bar-stats span {
 }
 
 html.dark .ck-mapa__historico-bar-stats span.is-alerta {
-  color: var(--ga-orange);
-  background: rgba(255, 122, 61, 0.15);
+  color: #0548d1;
+  background: rgba(5, 72, 209, 0.15);
 }
 
 html.dark .ck-mapa__historico-lojas span {
-  color: var(--ga-orange);
-  background: rgba(255, 122, 61, 0.12);
+  color: #0548d1;
+  background: rgba(5, 72, 209, 0.12);
 }
 
 html.dark .ck-mapa__resumo-sec-title {
@@ -1772,16 +1772,16 @@ html.dark .ck-mapa__chip {
 }
 
 html.dark .ck-mapa__chip.is-on {
-  background: #FF7A3D !important;
-  border-color: #FF7A3D !important;
+  background: #0548d1 !important;
+  border-color: #0548d1 !important;
   color: #FFFFFF !important;
-  box-shadow: 0 4px 12px rgba(255, 122, 61, 0.35) !important;
+  box-shadow: 0 4px 12px rgba(5, 72, 209, 0.35) !important;
 }
 
 html.dark .ck-mapa__chip-static {
   background: rgba(255, 255, 255, 0.08) !important;
   color: #F8FAFC !important;
-  border-left: 3px solid #FF7A3D !important;
+  border-left: 3px solid #0548d1 !important;
 }
 
 /* Consulta fields (ao vivo e histórico) */
@@ -1800,13 +1800,13 @@ html.dark .ck-mapa__consulta-value {
 }
 
 html.dark .ck-mapa__consulta-value svg {
-  color: #FF7A3D !important;
+  color: #0548d1 !important;
 }
 
 html.dark .ck-mapa__modos .ck-mapa__chip.is-on {
-  background: #FF7A3D !important;
+  background: #0548d1 !important;
   color: #fff !important;
-  box-shadow: 0 4px 12px rgba(255, 122, 61, 0.35) !important;
+  box-shadow: 0 4px 12px rgba(5, 72, 209, 0.35) !important;
 }
 
 html.dark .ck-mapa__consulta-time input {
@@ -1814,7 +1814,7 @@ html.dark .ck-mapa__consulta-time input {
 }
 
 html.dark .ck-mapa__ficha-acao.is-on {
-  background: #FF7A3D !important;
+  background: #0548d1 !important;
   color: #fff !important;
 }
 
@@ -1830,7 +1830,7 @@ html.dark .ck-mapa__life-regiao {
 }
 
 html.dark .ck-mapa__life-icon.is-on {
-  background: #e8520a;
+  background: #0548d1;
   color: #fff;
 }
 
@@ -1870,7 +1870,7 @@ html.dark .ck-mapa__life-drawer-item {
 }
 
 .ck-mapa__veiculo-drawer.is-dark .MuiListItemButton-root.Mui-selected {
-  background: rgba(254, 108, 34, 0.16) !important;
+  background: rgba(5, 72, 209, 0.16) !important;
 }
 
 .ck-mapa__veiculo-drawer.is-dark {
@@ -1893,7 +1893,7 @@ html.dark .ck-mapa__life-drawer-item {
 }
 
 .ck-mapa__veiculo-drawer.is-dark .MuiListItemButton-root.Mui-selected {
-  background: rgba(254, 108, 34, 0.16) !important;
+  background: rgba(5, 72, 209, 0.16) !important;
 }
 
 .ck-mapa__life-empty {
@@ -1918,7 +1918,7 @@ html.dark .ck-mapa__life-drawer-item {
 }
 
 .ck-mapa__cal-pop.is-dark .MuiPickersDay-root.Mui-selected {
-  background: #fe6c22 !important;
+  background: #0548d1 !important;
   color: #fff !important;
 }
 
@@ -1973,7 +1973,7 @@ html.dark .ck-mapa__life-drawer-item {
 }
 
 .ck-mapa__veiculo-drawer.is-dark .MuiListItemButton-root.Mui-selected {
-  background: rgba(254, 108, 34, 0.18) !important;
+  background: rgba(5, 72, 209, 0.18) !important;
 }
 
 .ck-mapa__life-hist,

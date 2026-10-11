@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { gravarIdioma, MF_IDIOMA_EVENTO, type Idioma } from './idiomaFinanceiro'
 
-export type Idioma = 'pt' | 'en'
+export type { Idioma }
 export type Modo = 'claro' | 'escuro'
 
 type Prefs = {
@@ -15,14 +16,24 @@ const PrefsContext = createContext<Prefs | null>(null)
 
 /** Idioma local do módulo Financeiro. Tema visual vem do portal Meridian. */
 export function PrefsProvider({ children }: { children: ReactNode }) {
-  const [idioma, setIdioma] = useState<Idioma>(() => (localStorage.getItem('mf-idioma') === 'en' ? 'en' : 'pt'))
+  const [idioma, setIdiomaState] = useState<Idioma>(() => (localStorage.getItem('mf-idioma') === 'en' ? 'en' : 'pt'))
   const [modo, setModo] = useState<Modo>(() =>
     document.documentElement.classList.contains('dark') ? 'escuro' : 'claro',
   )
 
+  const setIdioma = (v: Idioma) => {
+    setIdiomaState(v)
+    gravarIdioma(v)
+  }
+
   useEffect(() => {
-    localStorage.setItem('mf-idioma', idioma)
-  }, [idioma])
+    const sync = (ev: Event) => {
+      const v = (ev as CustomEvent<Idioma>).detail
+      if (v === 'pt' || v === 'en') setIdiomaState(v)
+    }
+    window.addEventListener(MF_IDIOMA_EVENTO, sync)
+    return () => window.removeEventListener(MF_IDIOMA_EVENTO, sync)
+  }, [])
 
   useEffect(() => {
     const sync = () => {

@@ -37,7 +37,7 @@ const COR_TIPO: Record<RegistroKmFrota['tipo'], 'primary' | 'success' | 'warning
 
 function ResumoKm({ label, valor }: { label: string; valor: string }) {
   const { mode } = useAppTheme();
-  const acento = mode === 'dark' ? '#E8520A' : colors.navy;
+  const acento = mode === 'dark' ? '#0548d1' : colors.navy;
   return (
     <Paper
       elevation={0}

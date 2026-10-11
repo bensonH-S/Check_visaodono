@@ -179,7 +179,7 @@ export default function EnergiaMobileListaPage() {
               my: 1.5,
               borderRadius: 1,
               backgroundColor: 'rgba(255,154,92,0.18)',
-              '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+              '& .MuiLinearProgress-bar': { backgroundColor: '#0548d1' },
             }}
           />
         ) : null}

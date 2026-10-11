@@ -1691,7 +1691,7 @@ export default function FrotaLocalizacaoMap({
             boxShadow: `0 0 0 4px rgba(27, 42, 107, 0.2), 0 8px 22px rgba(0,0,0,.4)`,
           },
           '& .marker-tech-pin.is-destaque .marker-tech-ring': {
-            borderColor: 'rgba(232, 82, 10, 0.55)',
+            borderColor: 'rgba(5, 72, 209, 0.55)',
           },
           '& .marker-tech-pointer': {
             width: 0,

@@ -23,7 +23,7 @@ import { useState } from 'react';
 import { colors } from '../../theme/tokens';
 
 const NAVY = colors.textPrimary;
-const ORANGE = '#E8520A';
+const ORANGE = '#0548d1';
 const TAMANHO_MINIATURA_DESKTOP = 52;
 const TAMANHO_MINIATURA_MOBILE = 64;
 

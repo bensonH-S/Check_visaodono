@@ -30,7 +30,7 @@ const NAVY = colors.textPrimary;
 
 function brandAcento() {
   return typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-    ? '#E8520A'
+    ? '#0548d1'
     : colors.navy;
 }
 
@@ -316,7 +316,7 @@ export default function ChamadoDetalheHeader({
   const itensMetadadosMobile: ItemMetadado[] = [
     {
       chave: 'loja',
-      icone: <LocationOnOutlinedIcon sx={{ fontSize: iconSize, color: '#E8520A' }} />,
+      icone: <LocationOnOutlinedIcon sx={{ fontSize: iconSize, color: '#0548d1' }} />,
       rotulo: 'Loja',
       valor: detalhe.loja?.trim() || '—',
     },
@@ -412,7 +412,7 @@ export default function ChamadoDetalheHeader({
       }}
     >
       <InfoCelula
-        icone={<LocationOnOutlinedIcon sx={{ fontSize: iconSize, color: '#E8520A' }} />}
+        icone={<LocationOnOutlinedIcon sx={{ fontSize: iconSize, color: '#0548d1' }} />}
         rotulo="Loja"
         valor={detalhe.loja}
       />

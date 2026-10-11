@@ -213,7 +213,12 @@ export default function FrotaManutencaoMobilePage() {
   if (loading) {
     return (
       <FrotaMobileShell {...shellProps} sub="Carregando…">
-        <LinearProgress />
+        <LinearProgress
+          sx={{
+            bgcolor: 'rgba(5, 72, 209, 0.18)',
+            '& .MuiLinearProgress-bar': { backgroundColor: '#0548d1' },
+          }}
+        />
       </FrotaMobileShell>
     );
   }

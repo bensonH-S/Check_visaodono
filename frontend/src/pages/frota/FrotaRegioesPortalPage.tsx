@@ -107,7 +107,7 @@ function ChipContagem({
         height: compacto ? 22 : 24,
         fontSize: compacto ? '0.65rem' : '0.72rem',
         borderColor: colors.border,
-        bgcolor: 'rgba(232, 82, 10, 0.08)',
+        bgcolor: 'rgba(5, 72, 209, 0.08)',
         maxWidth: compacto ? '100%' : undefined,
         '& .MuiChip-label': compacto ? { px: 0.75 } : undefined,
         '& .MuiChip-icon': { fontSize: compacto ? '0.8rem' : '0.9rem', ml: compacto ? 0.35 : 0.5 },
@@ -141,7 +141,7 @@ function LojaLinhaMenu({ loja, compacto = false }: { loja: FrotaRegiaoLoja; comp
           px: compacto ? 0.75 : 1,
           py: compacto ? 0.5 : 0.75,
           borderRadius: 1,
-          bgcolor: 'rgba(232, 82, 10, 0.08)',
+          bgcolor: 'rgba(5, 72, 209, 0.08)',
           textAlign: 'center',
           flexShrink: 0,
         }}
@@ -499,7 +499,7 @@ function VeiculoLinhaMenu({
           px: mini ? 0.75 : 1,
           py: mini ? 0.5 : 0.75,
           borderRadius: 1,
-          bgcolor: 'rgba(232, 82, 10, 0.08)',
+          bgcolor: 'rgba(5, 72, 209, 0.08)',
           textAlign: 'center',
           flexShrink: 0,
           display: 'flex',
@@ -731,7 +731,7 @@ function SelecaoTecnicosRegiao({
                     width: 28,
                     height: 28,
                     borderRadius: '50%',
-                    bgcolor: 'rgba(232, 82, 10, 0.08)',
+                    bgcolor: 'rgba(5, 72, 209, 0.08)',
                     color: colors.textPrimary,
                     display: 'flex',
                     alignItems: 'center',
@@ -826,7 +826,7 @@ function SelecaoRegionaisRegiao({
                   width: 28,
                   height: 28,
                   borderRadius: '50%',
-                  bgcolor: 'rgba(232, 82, 10, 0.08)',
+                  bgcolor: 'rgba(5, 72, 209, 0.08)',
                   color: colors.textPrimary,
                   display: 'flex',
                   alignItems: 'center',
@@ -1453,12 +1453,12 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
                     borderBottom: '1px solid',
                     borderColor: 'divider',
                     '&.Mui-selected': {
-                      bgcolor: 'rgba(232, 82, 10, 0.1)',
-                      borderLeft: `3px solid #E8520A`,
+                      bgcolor: 'rgba(5, 72, 209, 0.1)',
+                      borderLeft: `3px solid #0548d1`,
                       pl: '13px',
                     },
                     '&.Mui-selected:hover': {
-                      bgcolor: 'rgba(232, 82, 10, 0.16)',
+                      bgcolor: 'rgba(5, 72, 209, 0.16)',
                     },
                   }}
                 >
@@ -1555,7 +1555,7 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
             sx={{
               border: '1px solid',
               borderColor: colors.border,
-              borderLeft: { md: `4px solid #E8520A` },
+              borderLeft: { md: `4px solid #0548d1` },
               borderRadius: 2,
               minHeight: { xs: 400, md: 0 },
               maxHeight: { md: '100%' },
@@ -1670,8 +1670,8 @@ export default function FrotaRegioesPortalPage({ embedded = false }: { embedded?
                       textTransform: 'none',
                       color: colors.textSecondary,
                     },
-                    '& .Mui-selected': { color: '#E8520A !important' },
-                    '& .MuiTabs-indicator': { bgcolor: '#E8520A', height: 2.5 },
+                    '& .Mui-selected': { color: '#0548d1 !important' },
+                    '& .MuiTabs-indicator': { bgcolor: '#0548d1', height: 2.5 },
                   }}
                   variant="scrollable"
                   scrollButtons="auto"

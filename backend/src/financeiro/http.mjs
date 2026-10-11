@@ -46,14 +46,18 @@ function lerEnvArquivo(file) {
   return env
 }
 
-/** Banco do schema finance. Em dev o portal troca DB_NAME para vision_check_dev; o financeiro não segue isso. */
+/**
+ * Banco do schema finance.
+ * Em dev o portal usa vision_check_dev (DB_NAME); o financeiro fica em produção
+ * (FINANCE_DB_NAME / DB_NAME_PROD / vision_check), onde existem empresas/despesas.
+ */
 function nomeBancoFinanceiro() {
   if (process.env.FINANCE_DB_NAME) return process.env.FINANCE_DB_NAME
   const arquivo = {
     ...lerEnvArquivo(path.join(portalRoot, '.env')),
     ...lerEnvArquivo(path.join(portalRoot, 'backend', '.env')),
   }
-  return arquivo.DB_NAME || 'vision_check'
+  return arquivo.FINANCE_DB_NAME || arquivo.DB_NAME_PROD || 'vision_check'
 }
 
 async function garantirSchemaFonte(db) {
@@ -106,13 +110,18 @@ let coletaSefaz = null
 let estadoBb = {
   ok: false,
   mensagem: 'A coleta do Banco do Brasil ainda não rodou.',
+  codigo: 'bb_nao_rodou',
   criadas: 0,
+  empresas: 0,
+  falhas: 0,
   em: null,
 }
 let estadoSfg = {
   ok: false,
   mensagem: 'A coleta da VAN do Itaú ainda não rodou.',
+  codigo: 'itau_nao_rodou',
   criadas: 0,
+  arquivos: 0,
   em: null,
 }
 let estadoSefaz = {
@@ -836,15 +845,32 @@ export async function handleFinance(req, res) {
     }
     if (req.method === 'GET' && url.pathname === '/api/fornecedores') {
       const q = (url.searchParams.get('q') || '').trim()
-      if (q.length < 2) return send(res, 200, '[]')
-      const { rows } = await pool.query(`
-        select f.id, f.nome, f.cpf_cnpj, f.plano_conta_id, p.nome as plano
-        from fornecedores f
-        left join plano_contas p on p.id = f.plano_conta_id
-        where f.nome ilike $1 or regexp_replace(coalesce(f.cpf_cnpj, ''), '\\D', '', 'g') like $2
-        order by nome
-        limit $3
-      `, [`%${q}%`, `%${q.replace(/\D/g, '') || '-'}%`, Math.min(Number(url.searchParams.get('limite')) || 12, 200)])
+      const limite = Math.min(Number(url.searchParams.get('limite')) || 40, 200)
+      const digitos = q.replace(/\D/g, '')
+      // Sem busca: lista os primeiros ativos (para abrir o autocomplete).
+      // Com 1+ caracteres: filtra por nome, razão social ou CNPJ.
+      const { rows } = q
+        ? await pool.query(`
+            select f.id, f.nome, f.cpf_cnpj, f.plano_conta_id, p.nome as plano
+            from fornecedores f
+            left join plano_contas p on p.id = f.plano_conta_id
+            where f.ativo
+              and (
+                f.nome ilike $1
+                or coalesce(f.razao_social, '') ilike $1
+                or regexp_replace(coalesce(f.cpf_cnpj, ''), '\\D', '', 'g') like $2
+              )
+            order by f.nome
+            limit $3
+          `, [`%${q}%`, `%${digitos || '-'}%`, limite])
+        : await pool.query(`
+            select f.id, f.nome, f.cpf_cnpj, f.plano_conta_id, p.nome as plano
+            from fornecedores f
+            left join plano_contas p on p.id = f.plano_conta_id
+            where f.ativo
+            order by f.nome
+            limit $1
+          `, [limite])
       return send(res, 200, JSON.stringify(rows))
     }
     if (req.method === 'POST' && url.pathname === '/api/despesas') {
@@ -1291,7 +1317,9 @@ async function cicloSfg() {
     estadoSfg = {
       ok: false,
       mensagem: 'Caixa postal do Itaú ainda não está neste servidor.',
+      codigo: 'itau_sem_servidor',
       criadas: 0,
+      arquivos: 0,
       em: new Date().toISOString(),
     }
     if (!avisouSfg) {
@@ -1328,12 +1356,26 @@ async function cicloSfg() {
     const mensagem = baixados.length
       ? `${baixados.length} arquivo(s) da VAN, ${criadas} boleto(s) novo(s).`
       : 'VAN consultada. Nenhum retorno novo.'
-    estadoSfg = { ok: true, mensagem, criadas, em: new Date().toISOString() }
+    estadoSfg = {
+      ok: true,
+      mensagem,
+      codigo: baixados.length ? 'itau_resumo' : 'itau_vazio',
+      criadas,
+      arquivos: baixados.length,
+      em: new Date().toISOString(),
+    }
     await registrarItau(pool, true, mensagem).catch(() => {})
     console.log(`[sfg] ${mensagem}`)
   } catch (err) {
     const mensagem = err.message || 'Falha ao puxar a VAN do Itaú'
-    estadoSfg = { ok: false, mensagem, criadas: 0, em: new Date().toISOString() }
+    estadoSfg = {
+      ok: false,
+      mensagem,
+      codigo: /ainda não está neste servidor|caixa postal/i.test(mensagem) ? 'itau_sem_servidor' : 'itau_erro',
+      criadas: 0,
+      arquivos: 0,
+      em: new Date().toISOString(),
+    }
     await registrarItau(pool, false, mensagem).catch(() => {})
     console.error(`[sfg] ${mensagem}`)
   } finally {
@@ -1347,7 +1389,10 @@ async function coletarEmpresasBb() {
     estadoBb = {
       ok: false,
       mensagem: 'Nenhuma empresa com acesso do Banco do Brasil em Configuração.',
+      codigo: 'bb_sem_acesso',
       criadas: 0,
+      empresas: 0,
+      falhas: 0,
       em: new Date().toISOString(),
     }
     if (!avisouBb) {
@@ -1378,7 +1423,10 @@ async function coletarEmpresasBb() {
   estadoBb = {
     ok: falhas === 0,
     mensagem: `${credenciais.length} empresa(s) consultada(s), ${criadas} boleto(s) novo(s)${falhas ? `, ${falhas} com erro` : ''}.`,
+    codigo: 'bb_resumo',
     criadas,
+    empresas: credenciais.length,
+    falhas,
     em: new Date().toISOString(),
   }
 }
@@ -1389,7 +1437,15 @@ async function cicloBb() {
   try {
     await coletaBb
   } catch (err) {
-    estadoBb = { ok: false, mensagem: err.message || 'Falha na coleta do Banco do Brasil', criadas: 0, em: new Date().toISOString() }
+    estadoBb = {
+      ok: false,
+      mensagem: err.message || 'Falha na coleta do Banco do Brasil',
+      codigo: 'bb_erro',
+      criadas: 0,
+      empresas: 0,
+      falhas: 0,
+      em: new Date().toISOString(),
+    }
     console.error(`[bb] ${estadoBb.mensagem}`)
   } finally {
     coletaBb = null

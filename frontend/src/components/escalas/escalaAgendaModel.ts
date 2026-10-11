@@ -151,7 +151,7 @@ export function montarAgendaPorPessoa({
 
 const CORES_TECNICOS = [
   '#1B2A6B',
-  '#E8520A',
+  '#0548d1',
   '#0F766E',
   '#6D28D9',
   '#BE185D',

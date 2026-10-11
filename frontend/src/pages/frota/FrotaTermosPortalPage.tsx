@@ -25,8 +25,8 @@ import PageLoading from '../../components/PageLoading';
 export default function FrotaTermosPortalPage() {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : colors.navy;
-  const acentoMuted = escuro ? 'rgba(232, 82, 10, 0.14)' : 'rgba(27, 42, 107, 0.08)';
+  const acento = escuro ? '#0548d1' : colors.navy;
+  const acentoMuted = escuro ? 'rgba(5, 72, 209, 0.14)' : 'rgba(27, 42, 107, 0.08)';
   const [termos, setTermos] = useState<FrotaTermoPortalResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');

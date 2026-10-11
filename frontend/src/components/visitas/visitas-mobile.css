@@ -1,10 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@500;600;700;800&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@500;600;700;800&display=swap');
 
 /* Visitas mobile — mesmo modelo visual do checklist (.ck-start) */
 .ck-visitas {
   --ck-navy: #1b2a6b;
   --ck-navy-deep: #0f1a45;
-  --ck-orange: #e8520a;
+  --ck-orange: #E8520A;
   --ck-paper: #f3f1ec;
   --ck-ink: #142048;
   --ck-pad-x: clamp(14px, 4.2vw, 20px);
@@ -27,8 +27,8 @@ html.dark .ck-visitas {
   --ck-paper: #0B0F19;
   --ck-ink: #F8FAFC;
   --ck-navy: #3b82f6;
-  --ck-orange: #FF7A3D;
-  --ck-accent: #FF7A3D;
+  --ck-orange: #E8520A;
+  --ck-accent: #E8520A;
 }
 
 .ck-visitas *,
@@ -67,7 +67,7 @@ html.dark .ck-visitas {
   height: 220px;
   top: -70px;
   right: -50px;
-  background: radial-gradient(circle, rgba(232, 82, 10, 0.55) 0%, transparent 68%);
+  background: radial-gradient(circle, rgba(5, 72, 209, 0.55) 0%, transparent 68%);
 }
 
 .ck-visitas__glow--b {
@@ -376,8 +376,8 @@ html.dark .ck-visitas {
 }
 
 .ck-visitas__metric--accent {
-  background: rgba(232, 82, 10, 0.28);
-  border-color: rgba(232, 82, 10, 0.45);
+  background: rgba(5, 72, 209, 0.28);
+  border-color: rgba(5, 72, 209, 0.45);
 }
 
 .ck-visitas__auditor-line {
@@ -566,7 +566,7 @@ html.dark .ck-visitas {
   text-decoration: none;
   text-align: center;
   line-height: 48px;
-  box-shadow: 0 8px 22px rgba(232, 82, 10, 0.35);
+  box-shadow: 0 8px 22px rgba(5, 72, 209, 0.35);
 }
 
 .ck-visitas__cta:active {
@@ -679,7 +679,7 @@ html.dark .ck-visitas {
 }
 
 .ck-visitas__chip--warn {
-  background: rgba(255, 122, 61, 0.15);
+  background: rgba(5, 72, 209, 0.15);
   color: #EA580C;
 }
 
@@ -770,21 +770,21 @@ html.dark .ck-visitas--history .ck-visitas__seg-btn {
 }
 
 html.dark .ck-visitas--history .ck-visitas__seg-btn.is-on {
-  background: #FF7A3D !important;
+  background: #0548d1 !important;
   color: #FFFFFF !important;
-  box-shadow: 0 3px 10px rgba(255, 122, 61, 0.35) !important;
+  box-shadow: 0 3px 10px rgba(5, 72, 209, 0.35) !important;
 }
 
 html.dark .ck-visitas__card,
 html.dark .ck-visitas__card.is-done,
 html.dark .ck-visitas__card.is-draft {
-  border-left: 4px solid #FF7A3D !important;
+  border-left: 4px solid #0548d1 !important;
 }
 
 html.dark .ck-visitas__mono {
-  background: rgba(255, 122, 61, 0.18) !important; /* Laranja no tema escuro */
-  color: #FF7A3D !important;
-  border: 1px solid rgba(255, 122, 61, 0.35) !important;
+  background: rgba(5, 72, 209, 0.18) !important; /* Laranja no tema escuro */
+  color: #E8520A !important;
+  border: 1px solid rgba(5, 72, 209, 0.35) !important;
 }
 
 html.dark .ck-visitas__copy strong {
@@ -812,9 +812,9 @@ html.dark .ck-visitas__chip--ok {
 }
 
 html.dark .ck-visitas__chip--warn {
-  color: var(--ck-orange, #FF7A3D);
-  background: rgba(255, 122, 61, 0.15);
-  border-color: rgba(255, 122, 61, 0.35);
+  color: var(--ck-orange, #E8520A);
+  background: rgba(5, 72, 209, 0.15);
+  border-color: rgba(5, 72, 209, 0.35);
 }
 
 html.dark .ck-visitas__chip--navy {
@@ -838,9 +838,9 @@ html.dark .ck-visitas__del {
 }
 
 html.dark .ck-visitas__action-btn--email {
-  background: rgba(255, 122, 61, 0.18) !important;
-  color: #FF7A3D !important;
-  border-left: 1px solid rgba(255, 122, 61, 0.3) !important;
+  background: rgba(5, 72, 209, 0.18) !important;
+  color: #E8520A !important;
+  border-left: 1px solid rgba(5, 72, 209, 0.3) !important;
 }
 
 html.dark .ck-visitas__bar {
@@ -884,6 +884,11 @@ html.dark .ck-visitas__nc p {
   background: transparent !important;
 }
 
+.ck-visitas-hub__bk {
+  color: #E8520A;
+  font-weight: 800;
+}
+
 .ck-visitas-hub__sub {
   margin: 8px 0 0;
   font-size: 0.84rem;
@@ -905,7 +910,7 @@ html.dark .ck-visitas__nc p {
 }
 
 .ck-visitas-hub__icon-btn.is-pri {
-  background: #fe6c22 !important;
+  background: #0548d1 !important;
   color: #fff !important;
 }
 
@@ -964,7 +969,7 @@ html.dark .ck-visitas__nc p {
 }
 
 .ck-visitas-hub__kpi.is-nota strong {
-  color: #ff9a5c;
+  color: #E8520A;
 }
 
 .ck-visitas-hub__kpi.is-alerta strong {
@@ -1092,8 +1097,8 @@ html.dark .ck-visitas__nc p {
   place-items: center;
   font-size: 0.68rem;
   font-weight: 800;
-  color: #ff9a5c;
-  background: rgba(254, 108, 34, 0.14);
+  color: #E8520A;
+  background: rgba(5, 72, 209, 0.14);
 }
 
 .ck-visitas-hub__copy {
@@ -1278,12 +1283,12 @@ html.dark .ck-visitas__nc p {
 }
 
 .ck-visitas-hub__seg-btn.is-on {
-  background: rgba(254, 108, 34, 0.18);
-  color: #ff9a5c;
+  background: #0548d1;
+  color: #ffffff;
 }
 
 .ck-visitas-hub__seg-btn.is-on em {
-  color: #ff9a5c;
+  color: #ffffff;
 }
 
 .ck-visitas-hub--lista .ck-visitas-hub__sec-title {
@@ -1382,7 +1387,7 @@ html.dark .ck-visitas__nc p {
 }
 
 .ck-visitas-hub__action.is-email {
-  color: #ff9a5c;
+  color: #E8520A;
 }
 
 .ck-visitas-hub__action.is-unlock {
@@ -1398,7 +1403,7 @@ html.dark .ck-visitas__nc p {
   margin-top: 12px;
   padding: 10px 16px;
   border-radius: 12px;
-  background: #fe6c22;
+  background: #0548d1;
   color: #fff !important;
   font-weight: 800;
   font-size: 0.84rem;

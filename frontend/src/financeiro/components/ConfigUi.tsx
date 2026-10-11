@@ -18,6 +18,8 @@ import TableRow from '@mui/material/TableRow'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
 import CloseIcon from '@mui/icons-material/Close'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import { usePrefs } from '../prefs'
 
 export function cnpjFormatado(valor: string | null | undefined) {
@@ -27,9 +29,14 @@ export function cnpjFormatado(valor: string | null | undefined) {
   return valor || '—'
 }
 
-export function quando(iso: string | null | undefined) {
+export function quando(iso: string | null | undefined, idioma: 'pt' | 'en' = 'pt') {
   if (!iso) return ''
-  return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleString(idioma === 'en' ? 'en-US' : 'pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 
 const TONS = {
@@ -91,6 +98,31 @@ export function Titulo({ texto, sub }: { texto: ReactNode; sub?: ReactNode }) {
       <Typography sx={{ fontSize: 13, fontWeight: 500 }}>{texto}</Typography>
       {sub ? <Typography sx={{ fontSize: 12, color: 'text.secondary' }} noWrap>{sub}</Typography> : null}
     </>
+  )
+}
+
+/** Lápis (ou engrenagem) na última coluna para editar. */
+export function BotaoEditar({
+  onClick,
+  configurar = false,
+}: {
+  onClick: () => void
+  configurar?: boolean
+}) {
+  const { t } = usePrefs()
+  return (
+    <IconButton
+      size="small"
+      aria-label={configurar ? t('Configurar', 'Set up') : t('Editar', 'Edit')}
+      title={configurar ? t('Configurar', 'Set up') : t('Editar', 'Edit')}
+      onClick={(ev) => {
+        ev.stopPropagation()
+        onClick()
+      }}
+      sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+    >
+      {configurar ? <SettingsOutlinedIcon sx={{ fontSize: 18 }} /> : <EditOutlinedIcon sx={{ fontSize: 18 }} />}
+    </IconButton>
   )
 }
 
@@ -211,6 +243,8 @@ export function mensagem(err: unknown, padrao = 'Não carregou') {
   return err instanceof Error ? err.message : padrao
 }
 
+export type Traduzir = (pt: string, en: string) => string
+
 export function Erro({ erro }: { erro: string }) {
   return erro ? <Alert severity="error">{erro}</Alert> : null
 }
@@ -274,6 +308,11 @@ export function AcoesForm({ existe, emUso, salvando, podeSalvar, onSalvar, onExc
   )
 }
 
-export function textoRemocao(nome: string, r: { inativado?: boolean }) {
-  return r.inativado ? `“${nome}” inativado. Está em uso e fica no histórico.` : `“${nome}” excluído.`
+export function textoRemocao(nome: string, r: { inativado?: boolean }, t?: Traduzir) {
+  if (!t) {
+    return r.inativado ? `“${nome}” inativado. Está em uso e fica no histórico.` : `“${nome}” excluído.`
+  }
+  return r.inativado
+    ? t(`“${nome}” inativado. Está em uso e fica no histórico.`, `“${nome}” deactivated. It is in use and stays in history.`)
+    : t(`“${nome}” excluído.`, `“${nome}” deleted.`)
 }

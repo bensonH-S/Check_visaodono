@@ -206,7 +206,7 @@
   border: 0;
   border-radius: 999px;
   padding: 6px 10px;
-  background: rgba(232, 82, 10, 0.9);
+  background: rgba(5, 72, 209, 0.9);
   color: #fff;
   font-family: inherit;
   font-size: 0.68rem;
@@ -270,7 +270,7 @@
 }
 
 .ck-escala .ck-escala__filtro-btn.is-on {
-  border-color: var(--ck-accent-border, rgba(232, 82, 10, 0.45));
+  border-color: var(--ck-accent-border, rgba(5, 72, 209, 0.45));
   color: var(--ck-accent, var(--ck-orange));
 }
 
@@ -329,7 +329,7 @@
 }
 
 .ck-escala .ck-escala__pessoa.is-on {
-  box-shadow: 0 0 0 2px rgba(232, 82, 10, 0.35);
+  box-shadow: 0 0 0 2px rgba(5, 72, 209, 0.35);
   font-weight: 800;
 }
 
@@ -454,13 +454,13 @@
 }
 
 .ck-escala .ck-escala__dia.is-today {
-  border-color: var(--ck-accent-border, rgba(232, 82, 10, 0.45));
+  border-color: var(--ck-accent-border, rgba(5, 72, 209, 0.45));
 }
 
 .ck-escala .ck-escala__dia.is-on {
   border-color: var(--ck-accent, var(--ck-orange));
-  background: var(--ck-accent-soft, rgba(232, 82, 10, 0.08));
-  box-shadow: 0 4px 14px var(--ck-accent-shadow, rgba(232, 82, 10, 0.18));
+  background: var(--ck-accent-soft, rgba(5, 72, 209, 0.08));
+  box-shadow: 0 4px 14px var(--ck-accent-shadow, rgba(5, 72, 209, 0.18));
 }
 
 .ck-escala .ck-escala__dia strong {
@@ -513,7 +513,7 @@
 }
 
 .ck-escala .ck-escala__loja-semana.is-delivery {
-  border-color: var(--ck-accent-border, rgba(232, 82, 10, 0.22));
+  border-color: var(--ck-accent-border, rgba(5, 72, 209, 0.22));
 }
 
 .ck-escala .ck-escala__loja-semana > strong {
@@ -567,8 +567,8 @@
 }
 
 .ck-escala .ck-escala__card.is-delivery-on {
-  border-color: var(--ck-accent-border, rgba(232, 82, 10, 0.35));
-  background: var(--ck-accent-soft, rgba(232, 82, 10, 0.05));
+  border-color: var(--ck-accent-border, rgba(5, 72, 209, 0.35));
+  background: var(--ck-accent-soft, rgba(5, 72, 209, 0.05));
 }
 
 .ck-escala .ck-escala__card.is-edit {
@@ -608,7 +608,7 @@
 }
 
 .ck-escala .ck-escala__status--pendente_aprovacao {
-  background: rgba(232, 82, 10, 0.9);
+  background: rgba(5, 72, 209, 0.9);
 }
 
 .ck-escala .ck-escala__status--aprovado {
@@ -663,8 +663,8 @@
   border-radius: 12px;
   border: 1.5px solid #fed7aa !important;
   background: #fff0e8 !important;
-  border-left: 4px solid #FF7A3D !important;
-  box-shadow: 0 2px 8px rgba(255, 122, 61, 0.12) !important;
+  border-left: 4px solid #0548d1 !important;
+  box-shadow: 0 2px 8px rgba(5, 72, 209, 0.12) !important;
 }
 
 .ck-escala .ck-escala__alerta--aprovado {
@@ -683,7 +683,7 @@
 .ck-escala .ck-escala__alerta--pendente {
   border-color: #fed7aa !important;
   background: #fff0e8 !important;
-  border-left: 4px solid #FF7A3D !important;
+  border-left: 4px solid #0548d1 !important;
 }
 
 .ck-escala .ck-escala__alerta strong {
@@ -779,9 +779,9 @@
 }
 
 .ck-escala .ck-escala__status-chip.is-on {
-  border-color: rgba(232, 82, 10, 0.55);
-  background: rgba(232, 82, 10, 0.1);
-  box-shadow: 0 0 0 1px rgba(232, 82, 10, 0.2);
+  border-color: rgba(5, 72, 209, 0.55);
+  background: rgba(5, 72, 209, 0.1);
+  box-shadow: 0 0 0 1px rgba(5, 72, 209, 0.2);
 }
 
 .ck-escala .ck-escala__status-chip--clear {
@@ -798,8 +798,8 @@
   border-radius: 14px;
   border: 1.5px solid #fed7aa !important;
   background: #fff0e8 !important;
-  border-left: 4px solid #FF7A3D !important;
-  box-shadow: 0 2px 8px rgba(255, 122, 61, 0.12) !important;
+  border-left: 4px solid #0548d1 !important;
+  box-shadow: 0 2px 8px rgba(5, 72, 209, 0.12) !important;
 }
 
 .ck-escala .ck-escala__aprovacao-card--aprovado {
@@ -883,7 +883,7 @@
 .ck-escala .ck-escala__btn-recusar {
   background: #fff;
   color: #c2410c;
-  border: 1.5px solid rgba(232, 82, 10, 0.45);
+  border: 1.5px solid rgba(5, 72, 209, 0.45);
 }
 
 .ck-escala .ck-escala__btn-aprovar:disabled,
@@ -897,8 +897,8 @@
 }
 
 .ck-escala-gestor.is-me {
-  outline: 2px solid var(--ck-accent, #e8520a);
-  box-shadow: 0 0 0 4px rgba(232, 82, 10, 0.12);
+  outline: 2px solid var(--ck-accent, #0548d1);
+  box-shadow: 0 0 0 4px rgba(5, 72, 209, 0.12);
 }
 
 .ck-escala-gestor__head {
@@ -972,7 +972,7 @@ button.ck-escala-gestor__row {
 }
 
 .ck-escala-gestor__row.is-on {
-  box-shadow: inset 3px 0 0 #fe6c22;
+  box-shadow: inset 3px 0 0 #0548d1;
 }
 
 .ck-escala-tec__lojas {
@@ -994,9 +994,9 @@ button.ck-escala-gestor__row {
 }
 
 .ck-escala-tec__loja.is-on {
-  background: #fe6c22;
+  background: #0548d1;
   color: #fff;
-  border-color: #fe6c22;
+  border-color: #0548d1;
 }
 
 .ck-escala-tec__loja:disabled {
@@ -1005,12 +1005,12 @@ button.ck-escala-gestor__row {
 }
 
 .ck-escala-gestor__row.is-today {
-  box-shadow: inset 0 0 0 1px rgba(254, 108, 34, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(5, 72, 209, 0.55);
 }
 
 .ck-escala-gestor__row.is-folga,
 .ck-escala-gestor__row.is-off {
-  background: rgba(254, 108, 34, 0.08);
+  background: rgba(5, 72, 209, 0.08);
 }
 
 .ck-escala-gestor__row.is-ferias {
@@ -1136,11 +1136,11 @@ html.dark .ck-escala {
   --ck-paper: #0b1721;
   --ck-ink: #f5f5f5;
   --ck-navy: #0b1721;
-  --ck-orange: #fe6c22;
-  --ck-accent: #fe6c22;
-  --ck-accent-soft: rgba(255, 122, 61, 0.12);
-  --ck-accent-border: rgba(255, 122, 61, 0.45);
-  --ck-accent-shadow: rgba(255, 122, 61, 0.22);
+  --ck-orange: #0548d1;
+  --ck-accent: #0548d1;
+  --ck-accent-soft: rgba(5, 72, 209, 0.12);
+  --ck-accent-border: rgba(5, 72, 209, 0.45);
+  --ck-accent-shadow: rgba(5, 72, 209, 0.22);
 }
 
 html.dark .ck-escala-gestor__row {
@@ -1155,10 +1155,10 @@ html.dark .ck-escala-gestor__folga select {
 }
 
 html.dark .ck-escala .ck-escala__filtro-row .ck-visitas__seg-btn.is-on {
-  background: #FF7A3D !important;
-  border-color: #FF7A3D !important;
+  background: #0548d1 !important;
+  border-color: #0548d1 !important;
   color: #fff !important;
-  box-shadow: 0 4px 14px rgba(255, 122, 61, 0.35) !important;
+  box-shadow: 0 4px 14px rgba(5, 72, 209, 0.35) !important;
 }
 
 html.dark .ck-escala .ck-escala__filtro-btn {
@@ -1168,15 +1168,15 @@ html.dark .ck-escala .ck-escala__filtro-btn {
 }
 
 html.dark .ck-escala .ck-escala__filtro-btn.is-on {
-  border-color: #FF7A3D !important;
-  color: #FF7A3D !important;
-  background: rgba(255, 122, 61, 0.12) !important;
+  border-color: #0548d1 !important;
+  color: #0548d1 !important;
+  background: rgba(5, 72, 209, 0.12) !important;
 }
 
 html.dark .ck-escala .ck-escala__hoje {
-  background: #FF7A3D !important;
+  background: #0548d1 !important;
   color: #fff !important;
-  box-shadow: 0 2px 8px rgba(255, 122, 61, 0.35);
+  box-shadow: 0 2px 8px rgba(5, 72, 209, 0.35);
 }
 
 html.dark .ck-escala .ck-escala__week-btn {
@@ -1215,22 +1215,22 @@ html.dark .ck-escala .ck-escala__dia-n {
 }
 
 html.dark .ck-escala .ck-escala__dia.is-today {
-  border-color: rgba(255, 122, 61, 0.5);
+  border-color: rgba(5, 72, 209, 0.5);
 }
 
 html.dark .ck-escala .ck-escala__dia.is-on {
-  border-color: #FF7A3D !important;
-  background: rgba(255, 122, 61, 0.12) !important;
-  box-shadow: 0 4px 14px rgba(255, 122, 61, 0.25) !important;
+  border-color: #0548d1 !important;
+  background: rgba(5, 72, 209, 0.12) !important;
+  box-shadow: 0 4px 14px rgba(5, 72, 209, 0.25) !important;
 }
 
 html.dark .ck-escala .ck-escala__dia.is-on .ck-escala__dia-n {
-  background: #FF7A3D !important;
+  background: #0548d1 !important;
   color: #fff !important;
 }
 
 html.dark .ck-escala .ck-escala__dia.is-on strong {
-  color: #FF7A3D !important;
+  color: #0548d1 !important;
 }
 
 html.dark .ck-escala .ck-escala__loja-semana {
@@ -1244,11 +1244,11 @@ html.dark .ck-escala .ck-escala__loja-semana > strong {
 }
 
 html.dark .ck-escala .ck-escala__loja-semana.is-delivery > strong {
-  color: #FF7A3D;
+  color: #0548d1;
 }
 
 html.dark .ck-escala .ck-escala__loja-semana.is-delivery {
-  border-color: rgba(255, 122, 61, 0.35);
+  border-color: rgba(5, 72, 209, 0.35);
 }
 
 html.dark .ck-escala .ck-escala__faixa-cell > span {
@@ -1262,18 +1262,18 @@ html.dark .ck-escala .ck-escala__faixa-pill {
 }
 
 html.dark .ck-escala .ck-escala__faixa-pill.is-on {
-  background: #fe6c22 !important;
-  border-color: #fe6c22 !important;
+  background: #0548d1 !important;
+  border-color: #0548d1 !important;
   color: #fff !important;
 }
 
 html.dark .ck-escala .ck-escala__card.is-delivery-on {
-  border-color: rgba(255, 122, 61, 0.45);
-  background: rgba(255, 122, 61, 0.08);
+  border-color: rgba(5, 72, 209, 0.45);
+  background: rgba(5, 72, 209, 0.08);
 }
 
 html.dark .ck-escala .ck-escala__card-meta.is-on {
-  color: #FF7A3D;
+  color: #0548d1;
 }
 
 html.dark .ck-escala .ck-escala__card-meta.is-off {
@@ -1321,9 +1321,9 @@ html.dark .ck-escala .ck-escala__status-chip span {
 }
 
 html.dark .ck-escala .ck-escala__status-chip.is-on {
-  border-color: #FF7A3D !important;
-  background: rgba(255, 122, 61, 0.15) !important;
-  box-shadow: 0 0 0 1px rgba(255, 122, 61, 0.3) !important;
+  border-color: #0548d1 !important;
+  background: rgba(5, 72, 209, 0.15) !important;
+  box-shadow: 0 0 0 1px rgba(5, 72, 209, 0.3) !important;
 }
 
 html.dark .ck-escala .ck-escala__aprovacao-card {
@@ -1347,7 +1347,7 @@ html.dark .ck-escala .ck-escala__aprovacao-card--pendente_aprovacao {
   /* Mantém o mesmo laranja-claro usado no tema claro. */
   border-color: #fed7aa !important;
   background: #fff0e8 !important;
-  border-left: 3px solid #FF7A3D !important;
+  border-left: 3px solid #0548d1 !important;
 }
 
 html.dark .ck-escala .ck-escala__aprovacao-card--pendente_aprovacao strong em {
@@ -1364,13 +1364,13 @@ html.dark .ck-escala .ck-escala__aprovacao-card--pendente_aprovacao .ck-escala__
 }
 
 html.dark .ck-escala .ck-escala__aprovacao-ver {
-  color: #FF7A3D !important;
+  color: #0548d1 !important;
 }
 
 html.dark .ck-escala .ck-escala__btn-recusar {
-  background: rgba(255, 122, 61, 0.1);
-  color: #FF7A3D;
-  border: 1.5px solid rgba(255, 122, 61, 0.45);
+  background: rgba(5, 72, 209, 0.1);
+  color: #0548d1;
+  border: 1.5px solid rgba(5, 72, 209, 0.45);
 }
 
 html.dark .ck-escala .ck-escala__alerta,
@@ -1378,7 +1378,7 @@ html.dark .ck-escala .ck-escala__alerta--pendente,
 html.dark .ck-escala .ck-escala__alerta--pendente_aprovacao {
   background: #fff0e8 !important;
   border: 1.5px solid #fed7aa !important;
-  border-left: 4px solid #FF7A3D !important;
+  border-left: 4px solid #0548d1 !important;
 }
 
 html.dark .ck-escala .ck-escala__alerta strong {
@@ -1411,7 +1411,7 @@ html.dark .ck-escala .ck-escala__empty p {
 .ck-escala-hub.ck-estoque-hub {
   --ck-navy: #0b1721;
   --ck-navy-deep: #0b1721;
-  --ck-orange: #fe6c22;
+  --ck-orange: #0548d1;
   --ck-paper: #0b1721;
   --ck-ink: #f5f5f5;
   background: #0b1721 !important;
@@ -1424,7 +1424,7 @@ html.dark .ck-escala .ck-escala__empty p {
 .ck-escala--hub {
   --ck-navy: #0b1721;
   --ck-navy-deep: #0b1721;
-  --ck-orange: #fe6c22;
+  --ck-orange: #0548d1;
   --ck-paper: transparent;
   --ck-ink: #f5f5f5;
   background: transparent !important;
@@ -1484,7 +1484,7 @@ html.dark .ck-escala .ck-escala__empty p {
 }
 
 .ck-escala-hub__share.is-on {
-  color: #fe6c22;
+  color: #0548d1;
 }
 
 .ck-escala-hub__share:disabled {
@@ -1520,7 +1520,7 @@ html.dark .ck-escala .ck-escala__empty p {
 .ck-escala-hub__hoje {
   font-size: 0.72rem !important;
   font-weight: 800 !important;
-  color: #fe6c22 !important;
+  color: #0548d1 !important;
 }
 
 .ck-escala-hub__chips {
@@ -1558,7 +1558,7 @@ html.dark .ck-escala .ck-escala__empty p {
 
 .ck-escala--hub .ck-visitas__seg-btn.is-on,
 .ck-escala--hub .ck-escala__filtro-row .ck-visitas__seg-btn.is-on {
-  background: #fe6c22 !important;
+  background: #0548d1 !important;
   color: #fff !important;
   border-color: transparent;
   box-shadow: none !important;
@@ -1571,7 +1571,7 @@ html.dark .ck-escala .ck-escala__empty p {
 }
 
 .ck-escala--hub .ck-escala__filtro-btn.is-on {
-  color: #fe6c22;
+  color: #0548d1;
 }
 
 .ck-escala--hub .ck-escala__voltar {
@@ -1599,8 +1599,8 @@ html.dark .ck-escala .ck-escala__empty p {
 }
 
 .ck-escala--hub .ck-escala__card.is-delivery-on {
-  background: rgba(254, 108, 34, 0.14) !important;
-  border-color: rgba(254, 108, 34, 0.45) !important;
+  background: rgba(5, 72, 209, 0.14) !important;
+  border-color: rgba(5, 72, 209, 0.45) !important;
 }
 
 .ck-escala--hub .ck-escala__card-title,
@@ -1637,19 +1637,19 @@ html.dark .ck-escala .ck-escala__empty p {
 }
 
 .ck-escala--hub .ck-escala__dia.is-on {
-  background: rgba(254, 108, 34, 0.18);
+  background: rgba(5, 72, 209, 0.18);
   border-color: transparent;
-  color: #fe6c22;
+  color: #0548d1;
   box-shadow: none;
 }
 
 .ck-escala--hub .ck-escala__dia.is-on strong,
 .ck-escala--hub .ck-escala__dia.is-on small {
-  color: #fe6c22;
+  color: #0548d1;
 }
 
 .ck-escala--hub .ck-escala__dia-n {
-  background: #fe6c22;
+  background: #0548d1;
   color: #fff;
 }
 
@@ -1662,8 +1662,8 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill {
 
 .ck-escala--hub .ck-escala__faixa-pill.is-on,
 html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
-  background: #fe6c22 !important;
-  border: 1px solid #fe6c22 !important;
+  background: #0548d1 !important;
+  border: 1px solid #0548d1 !important;
   color: #fff !important;
 }
 
@@ -1707,12 +1707,12 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
 }
 
 .ck-escala--hub .ck-escala__card-meta.is-on {
-  color: #fe6c22 !important;
+  color: #0548d1 !important;
 }
 
 .ck-escala--hub .ck-escala__cta-salvar.MuiButton-root,
 .ck-escala--hub .ck-escala__cta-salvar.MuiButton-contained {
-  background-color: #fe6c22 !important;
+  background-color: #0548d1 !important;
   color: #fff !important;
 }
 
@@ -1722,7 +1722,7 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
 }
 
 .ck-escala--hub .ck-escala__cta-salvar.Mui-disabled {
-  background-color: rgba(254, 108, 34, 0.28) !important;
+  background-color: rgba(5, 72, 209, 0.28) !important;
   color: rgba(255, 255, 255, 0.55) !important;
 }
 
@@ -1731,7 +1731,7 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
   --cal-muted: #8d8d8d;
   --cal-ink: #f5f5f5;
   --cal-paper: #0b1721;
-  --cal-today: rgba(254, 108, 34, 0.12);
+  --cal-today: rgba(5, 72, 209, 0.12);
 }
 
 .ck-escala--hub .ck-escala-cal__dia {
@@ -1740,7 +1740,7 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
 }
 
 .ck-escala--hub .ck-escala-cal__dia.is-on {
-  background: rgba(254, 108, 34, 0.18);
+  background: rgba(5, 72, 209, 0.18);
   border-color: transparent;
 }
 
@@ -1750,7 +1750,7 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
 }
 
 .ck-escala--hub .ck-escala-cal__dia.is-on em {
-  background: #fe6c22;
+  background: #0548d1;
   color: #fff;
 }
 
@@ -1791,11 +1791,11 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
 
 .ck-escala--hub .ck-escala-gestor__row.is-folga,
 .ck-escala--hub .ck-escala-gestor__row.is-off {
-  background: rgba(254, 108, 34, 0.16);
+  background: rgba(5, 72, 209, 0.16);
 }
 
 .ck-escala--hub .ck-escala-gestor__row.is-on {
-  background: rgba(254, 108, 34, 0.22);
+  background: rgba(5, 72, 209, 0.22);
 }
 
 .ck-escala--hub .ck-escala-tec__loja {
@@ -1805,7 +1805,7 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
 }
 
 .ck-escala--hub .ck-escala-tec__loja.is-on {
-  background: #fe6c22;
+  background: #0548d1;
   color: #fff;
 }
 
@@ -1857,8 +1857,8 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on,
 .ck-escala--hub .ck-escala__faixa-pill.is-on,
 :root:not(.dark) .ck-escala--hub .ck-escala__faixa-pill.is-on,
 :root:not(.dark) .ck-escala-hub .ck-escala__faixa-pill.is-on {
-  background: #fe6c22 !important;
-  border: 1px solid #fe6c22 !important;
+  background: #0548d1 !important;
+  border: 1px solid #0548d1 !important;
   color: #fff !important;
 }
 
@@ -1871,14 +1871,14 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on,
 
 :root:not(.dark) .ck-escala--hub .ck-escala__dia.is-on,
 :root:not(.dark) .ck-escala-hub .ck-escala__dia.is-on {
-  border-color: #fe6c22 !important;
-  background: rgba(254, 108, 34, 0.16) !important;
+  border-color: #0548d1 !important;
+  background: rgba(5, 72, 209, 0.16) !important;
 }
 
 :root:not(.dark) .ck-escala--hub .ck-escala__dia.is-on strong,
 :root:not(.dark) .ck-escala--hub .ck-escala__dia.is-on .ck-escala__dia-n,
 :root:not(.dark) .ck-escala-hub .ck-escala__hoje {
-  background: #fe6c22 !important;
-  border-color: #fe6c22 !important;
+  background: #0548d1 !important;
+  border-color: #0548d1 !important;
   color: #fff !important;
 }

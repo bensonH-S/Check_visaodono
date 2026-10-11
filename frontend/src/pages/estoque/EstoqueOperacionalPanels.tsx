@@ -276,7 +276,7 @@ function PendenciaChip({
         py: 0.5,
         border: 'none',
         borderRadius: '8px',
-        bgcolor: bloqueio ? 'rgba(180, 35, 24, 0.08)' : 'rgba(232, 82, 10, 0.08)',
+        bgcolor: bloqueio ? 'rgba(180, 35, 24, 0.08)' : 'rgba(5, 72, 209, 0.08)',
         whiteSpace: 'nowrap',
         cursor: onClick ? 'pointer' : 'default',
         font: 'inherit',

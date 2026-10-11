@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+﻿import { Link, useNavigate } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
@@ -6,7 +6,7 @@ import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import { fmtData, fmtNota } from '../../api/client';
 import type { VisitaResumo } from '../../api/client';
 import { getUsuario, logout } from '../../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import MobileUsuarioMenu from '../MobileUsuarioMenu';
 import NotificacoesSino from '../NotificacoesSino';
 import AppHubDock from '../hub/AppHubDock';
@@ -37,9 +37,9 @@ function codigoTipo(v: VisitaResumo): string {
 function monoTipo(nome?: string | null) {
   if (!nome) return 'CK';
   if (/time/i.test(nome)) return 'TC';
-  if (/vis[aã]o|dono/i.test(nome)) return 'VD';
+  if (/vis[a?]o|dono/i.test(nome)) return 'VD';
   if (/oper/i.test(nome)) return 'OP';
-  const letras = nome.replace(/[^A-Za-zÀ-ÿ]/g, '');
+  const letras = nome.replace(/[^A-Za-z?-?]/g, '');
   return (letras.slice(0, 2) || 'CK').toUpperCase();
 }
 
@@ -66,7 +66,7 @@ export default function VisitasMobileScreen({
   return (
     <div
       className="ck-estoque-hub ck-estoque-hub--hero ck-visitas-hub ck-visitas-hub--lista"
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
@@ -74,7 +74,7 @@ export default function VisitasMobileScreen({
           <img
             className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
             src={assetUrl(LOGO_GA_LOCKUP)}
-            alt="Grupo Alvim"
+            alt="Meridian Gest?o Operacional"
           />
           <div className="ck-estoque-hub__actions ck-visitas-hub__actions">
             <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
@@ -151,12 +151,12 @@ export default function VisitasMobileScreen({
               mb: 1.5,
               borderRadius: 1,
               backgroundColor: 'rgba(255,154,92,0.18)',
-              '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+              '& .MuiLinearProgress-bar': { backgroundColor: '#0548d1' },
             }}
           />
         ) : null}
 
-        <h2 className="ck-visitas-hub__sec-title">Histórico</h2>
+        <h2 className="ck-visitas-hub__sec-title">Hist��rico</h2>
 
         {loading && !visitas.length ? null : !visitas.length ? (
           <div className="ck-visitas-hub__empty">
@@ -188,8 +188,13 @@ export default function VisitasMobileScreen({
                       <strong>{v.name}</strong>
                       <small>
                         {fmtData(v.data_visita)}
-                        {v.bk_number ? ` · ${v.bk_number}` : ''}
-                        {' · '}
+                        {v.bk_number ? (
+                          <>
+                            {'\u00b7 '}
+                            <span className="ck-visitas-hub__bk">BKN {v.bk_number}</span>
+                          </>
+                        ) : null}
+                        {'\u00b7 '}
                         {v.tipo_checklist_nome ?? 'Checklist'}
                       </small>
                     </span>
@@ -206,7 +211,7 @@ export default function VisitasMobileScreen({
                     <button
                       type="button"
                       className="ck-visitas-hub__action is-email"
-                      aria-label="Enviar relatório por e-mail"
+                      aria-label="Enviar relat��rio por e-mail"
                       title="Enviar e-mail"
                       disabled={enviandoEmailId === v.id_visita}
                       onClick={() => onEnviarEmail(v)}
@@ -229,7 +234,7 @@ export default function VisitasMobileScreen({
                     <button
                       type="button"
                       className="ck-visitas-hub__action is-delete"
-                      aria-label="Apagar relatório"
+                      aria-label="Apagar relat��rio"
                       onClick={() => onApagar(v)}
                     >
                       <DeleteOutlinedIcon fontSize="small" />
@@ -242,7 +247,7 @@ export default function VisitasMobileScreen({
         )}
       </div>
 
-      <AppHubDock ativo={null} plusLabel="Sem ação nesta tela" plusDisabled onPlus={() => {}} />
+      <AppHubDock ativo={null} plusLabel="Sem a??o nesta tela" plusDisabled onPlus={() => {}} />
     </div>
   );
 }

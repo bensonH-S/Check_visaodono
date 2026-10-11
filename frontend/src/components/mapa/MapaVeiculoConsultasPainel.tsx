@@ -47,7 +47,7 @@ function podeConsultarOperacaoFrota() {
 function corStatusMulta(status: FrotaMultaDetran['status']) {
   if (status === 'Paga') return { bg: 'rgba(22, 163, 74, 0.12)', fg: '#15803d' };
   if (status === 'Vencida') return { bg: 'rgba(220, 38, 38, 0.12)', fg: '#b91c1c' };
-  return { bg: 'rgba(232, 82, 10, 0.12)', fg: colors.orange };
+  return { bg: 'rgba(5, 72, 209, 0.12)', fg: colors.orange };
 }
 
 type Props = {
@@ -212,7 +212,7 @@ export default function MapaVeiculoConsultasPainel({
               size="small"
               onClick={onAbrirHistorico}
               aria-label="Ver histórico do veículo"
-              sx={{ color: '#ff9a5c' }}
+              sx={{ color: '#0548d1' }}
             >
               <HistoryIcon fontSize="small" />
             </IconButton>
@@ -241,7 +241,7 @@ export default function MapaVeiculoConsultasPainel({
         <div className="ck-mapa__ficha-body">
           {carregando && (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
-              <CircularProgress size={26} sx={{ color: '#fe6c22' }} />
+              <CircularProgress size={26} sx={{ color: '#0548d1' }} />
             </Box>
           )}
           {!carregando && erro && (
@@ -405,7 +405,7 @@ function ListaAbastecimentos({ itens }: { itens: FrotaAbastecimentoPortal[] }) {
         <Cartao key={a.id_abastecimento}>
           <div className="ck-mapa__ficha-card-top">
             <strong>{fmtData(a.data_abastecimento)}</strong>
-            <span className="ck-mapa__ficha-badge" style={{ background: 'rgba(254, 108, 34, 0.16)', color: '#ff9a5c' }}>
+            <span className="ck-mapa__ficha-badge" style={{ background: 'rgba(5, 72, 209, 0.16)', color: '#0548d1' }}>
               {a.km_atual.toLocaleString('pt-BR')} km
             </span>
           </div>
@@ -426,7 +426,7 @@ function ListaManutencoes({ itens }: { itens: FrotaManutencaoPortal[] }) {
           <div className="ck-mapa__ficha-card-top">
             <strong>{fmtData(m.data_manutencao)}</strong>
             {m.km != null && (
-              <span className="ck-mapa__ficha-badge" style={{ background: 'rgba(254, 108, 34, 0.16)', color: '#ff9a5c' }}>
+              <span className="ck-mapa__ficha-badge" style={{ background: 'rgba(5, 72, 209, 0.16)', color: '#0548d1' }}>
                 {m.km.toLocaleString('pt-BR')} km
               </span>
             )}

@@ -8,7 +8,7 @@ import { STATUS_CHAMADO } from '../../utils/manutencaoUi';
 import '../../components/visitas/visitas-mobile.css';
 import '../../components/manutencao/chamados-mobile.css';
 
-const ORANGE = '#E8520A';
+const ORANGE = '#0548d1';
 const ROTA_LISTA = '/chamados/mobile';
 
 type ResumoChamado = Pick<

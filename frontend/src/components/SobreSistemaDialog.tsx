@@ -25,7 +25,7 @@ import { colors } from '../theme/tokens';
 import { deveForcarTemaClaroMobile } from '../utils/device';
 
 const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos S/A';
-const ORANGE = '#E8520A';
+const BLUE = '#0548d1';
 const DARK_SURFACE = '#333840';
 const DARK_CHIP = '#2a3038';
 const DARK_BORDER = 'rgba(255, 255, 255, 0.1)';
@@ -52,8 +52,10 @@ type Props = {
 export default function SobreSistemaDialog({ open, onClose }: Props) {
   const { version, support, environment } = useAppConfig();
   const { mode } = useAppTheme();
-  const escuro = mode === 'dark' || deveForcarTemaClaroMobile();
-  const acento = ORANGE;
+  const mobile = deveForcarTemaClaroMobile();
+  const escuro = mode === 'dark' || mobile;
+  /** Desktop claro: azul da marca; mobile/escuro: azul Meridian (sem laranja). */
+  const acento = escuro ? BLUE : '#1B6EF3';
   const surface = escuro ? DARK_SURFACE : colors.surface;
   const chipBg = escuro ? DARK_CHIP : colors.canvasAlt;
   const chipBorder = escuro ? DARK_BORDER : colors.border;
@@ -95,12 +97,12 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
         Sobre o sistema
       </DialogTitle>
       <DialogContent dividers sx={{ pt: 2, bgcolor: surface, borderColor: border }}>
-        <Typography sx={{ fontWeight: 800, fontSize: '1.2rem', mb: 0.25, lineHeight: 1.15, color: escuro ? DARK_TEXT : ORANGE }}>
+        <Typography sx={{ fontWeight: 800, fontSize: '1.2rem', mb: 0.35, lineHeight: 1.15, color: escuro ? DARK_TEXT : acento }}>
           {APP_NAME}
         </Typography>
         <Typography
           variant="body2"
-          sx={{ mb: 1.25, color: textSecondary, fontWeight: 500, fontSize: '0.78rem', lineHeight: 1.35 }}
+          sx={{ mb: 1.25, color: textSecondary, fontWeight: 600, fontSize: '0.82rem', lineHeight: 1.4 }}
         >
           {APP_TAGLINE}
         </Typography>
@@ -142,7 +144,7 @@ export default function SobreSistemaDialog({ open, onClose }: Props) {
             fontSize: '0.8rem',
             color: textSecondary,
             fontWeight: 400,
-            lineHeight: 1.45,
+            lineHeight: 1.5,
             mb: 1.5,
           }}
         >

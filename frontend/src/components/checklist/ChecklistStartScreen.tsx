@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, fmtData, fmtNota, scoreColorTema, type Loja, type TipoChecklist, type VisitaResumo } from '../../api/client';
 import { getUsuario, logout } from '../../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_MERIDIAN_GESTAO } from '../../config/paths';
 import { nomeLojaCurta } from '../estoque/estoqueHub';
 import { iconeMarcaLojaPorNome } from '../../utils/marcaLojaMapa';
 import MobileUsuarioMenu from '../MobileUsuarioMenu';
@@ -106,15 +106,15 @@ export default function ChecklistStartScreen({
     <>
       <div
         className="ck-estoque-hub ck-estoque-hub--hero ck-checklist-hub ck-checklist-hub--hero"
-        style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+        style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
       >
         <div className="ck-estoque-hub__watermark" aria-hidden />
         <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed ck-checklist-hub__top">
           <div className="ck-estoque-hub__brand-row">
             <img
               className="ck-estoque-hub__mark ck-estoque-hub__mark--hero ck-checklist-hub__mark"
-              src={assetUrl(LOGO_GA_LOCKUP)}
-              alt="Grupo Alvim"
+              src={assetUrl(LOGO_MERIDIAN_GESTAO)}
+              alt="Meridian Gestão Operacional"
             />
             <div className="ck-estoque-hub__actions">
               <NotificacoesSino variante="mobile" contexto="chamados-mobile" />

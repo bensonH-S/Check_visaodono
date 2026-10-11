@@ -365,8 +365,25 @@ export const api = {
     if (!res.ok) throw new Error(data.erro || 'Não excluiu')
     return data as { id: string }
   },
-  sfgDda: () => get<{ ok: boolean; mensagem: string; criadas: number; em: string | null }>(`${apiRoot}/dda/sfg`),
-  bbDda: () => get<{ ok: boolean; mensagem: string; criadas: number; em: string | null }>(`${apiRoot}/dda/bb`),
+  sfgDda: () =>
+    get<{
+      ok: boolean
+      mensagem: string
+      criadas: number
+      em: string | null
+      codigo?: string
+      arquivos?: number
+    }>(`${apiRoot}/dda/sfg`),
+  bbDda: () =>
+    get<{
+      ok: boolean
+      mensagem: string
+      criadas: number
+      em: string | null
+      codigo?: string
+      empresas?: number
+      falhas?: number
+    }>(`${apiRoot}/dda/bb`),
   notasReceita: (empresa?: string) => {
     const q = empresa ? `?empresa=${encodeURIComponent(empresa)}` : ''
     return get<{ notas: NotaReceita[]; coleta: ColetaReceita }>(`${apiRoot}/nfe/recebidas${q}`)

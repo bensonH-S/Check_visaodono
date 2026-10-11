@@ -20,7 +20,7 @@ import CampoDataFrota, { dataHojeIso } from '../../components/frota/CampoDataFro
 import EstoqueProdutoVendaAutocomplete from '../../components/estoque/EstoqueProdutoVendaAutocomplete';
 import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
 import { getUsuario, logout, lojaEstoqueTravadaMobile } from '../../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
 import NotificacoesSino from '../../components/NotificacoesSino';
 import AppHubDock from '../../components/hub/AppHubDock';
@@ -766,7 +766,7 @@ export default function EstoqueMobileBreakPage() {
     return (
       <div
         className="ck-estoque-hub ck-estoque-hub--hero ck-break-hub ck-estoque ck-estoque--contagem ck-estoque--break ck-break-hub--form"
-        style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+        style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
       >
         <div className="ck-estoque-hub__watermark" aria-hidden />
 
@@ -775,7 +775,7 @@ export default function EstoqueMobileBreakPage() {
             <img
               className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
               src={assetUrl(LOGO_GA_LOCKUP)}
-              alt="Grupo Alvim"
+              alt="Meridian Gest�o Operacional"
             />
             <div className="ck-estoque-hub__actions">
               <button
@@ -1009,8 +1009,8 @@ export default function EstoqueMobileBreakPage() {
                         minHeight: 40,
                       },
                       '& .MuiAutocomplete-option[aria-selected="true"]': {
-                        bgcolor: 'rgba(254,108,34,0.16)',
-                        color: '#ff9a5c',
+                        bgcolor: 'rgba(5, 72, 209,0.16)',
+                        color: '#E8520A',
                       },
                     },
                   },
@@ -1377,7 +1377,7 @@ export default function EstoqueMobileBreakPage() {
   return (
     <div
       className={`ck-estoque-hub ck-estoque-hub--hero ck-break-hub${dlgLoja ? ' is-loja-open' : ''}`}
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
@@ -1385,7 +1385,7 @@ export default function EstoqueMobileBreakPage() {
           <img
             className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
             src={assetUrl(LOGO_GA_LOCKUP)}
-            alt="Grupo Alvim"
+            alt="Meridian Gest�o Operacional"
           />
           <div className="ck-estoque-hub__actions">
             <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
@@ -1552,7 +1552,7 @@ export default function EstoqueMobileBreakPage() {
               my: 1.5,
               borderRadius: 1,
               backgroundColor: 'rgba(255,154,92,0.18)',
-              '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+              '& .MuiLinearProgress-bar': { backgroundColor: '#0548d1' },
             }}
           />
         ) : null}

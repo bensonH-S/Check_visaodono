@@ -29,13 +29,13 @@ export const frotaCardSx = {
 export const frotaCtaSx = {
   minHeight: 52,
   borderRadius: 2.5,
-  bgcolor: '#fe6c22',
+  bgcolor: '#E8520A',
   color: '#fff',
   fontWeight: 800,
   fontSize: '1rem',
   textTransform: 'none' as const,
-  boxShadow: '0 8px 20px rgba(254, 108, 34, 0.35)',
-  '&:hover': { bgcolor: '#e55f18' },
+  boxShadow: '0 8px 20px rgba(232, 82, 10, 0.35)',
+  '&:hover': { bgcolor: '#CF4909' },
   '&.Mui-disabled': {
     bgcolor: 'rgba(255, 255, 255, 0.08)',
     color: 'rgba(245, 245, 245, 0.35)',
@@ -78,8 +78,8 @@ export function FrotaSegControl<T extends string>({
               fontWeight: 700,
               fontSize: '0.85rem',
               color: ativa ? '#fff' : '#8d8d8d',
-              bgcolor: ativa ? '#fe6c22' : 'transparent',
-              boxShadow: ativa ? '0 4px 12px rgba(254, 108, 34, 0.3)' : 'none',
+              bgcolor: ativa ? '#0548d1' : 'transparent',
+              boxShadow: ativa ? '0 4px 12px rgba(5, 72, 209, 0.3)' : 'none',
               '&:hover': {
                 bgcolor: ativa ? '#e55f18' : 'rgba(255, 255, 255, 0.06)',
               },
@@ -221,10 +221,10 @@ export function FrotaVeiculoFaixa({
                 size="small"
                 sx={{
                   height: 22,
-                  fontWeight: 600,
+                  fontWeight: 700,
                   fontSize: '0.7rem',
-                  bgcolor: 'rgba(255, 255, 255, 0.08)',
-                  color: '#8d8d8d',
+                  bgcolor: 'rgba(232, 82, 10, 0.16)',
+                  color: '#E8520A',
                 }}
               />
             )}
@@ -234,10 +234,10 @@ export function FrotaVeiculoFaixa({
                 size="small"
                 sx={{
                   height: 22,
-                  fontWeight: 600,
+                  fontWeight: 700,
                   fontSize: '0.7rem',
-                  bgcolor: 'rgba(254, 108, 34, 0.16)',
-                  color: '#ff9a5c',
+                  bgcolor: 'rgba(232, 82, 10, 0.16)',
+                  color: '#E8520A',
                 }}
               />
             )}
@@ -270,8 +270,8 @@ export function FrotaEmptyVeiculo({
           width: 64,
           height: 64,
           borderRadius: '50%',
-          bgcolor: 'rgba(254, 108, 34, 0.16)',
-          color: '#fe6c22',
+          bgcolor: 'rgba(232, 82, 10, 0.16)',
+          color: '#E8520A',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -294,7 +294,7 @@ export function FrotaEmptyVeiculo({
           variant="outlined"
           onClick={onVerHistorico}
           startIcon={<HistoryIcon />}
-          sx={{ textTransform: 'none', fontWeight: 700, borderColor: '#fe6c22', color: '#ff9a5c' }}
+          sx={{ textTransform: 'none', fontWeight: 700, borderColor: '#E8520A', color: '#E8520A' }}
         >
           Ver histórico
         </Button>
@@ -356,8 +356,8 @@ export function FrotaSecaoFoto({
       sx={{
         p: 1.5,
         borderRadius: 2,
-        border: `1px dashed ${ok ? 'rgba(46, 125, 50, 0.4)' : 'rgba(232, 82, 10, 0.35)'}`,
-        bgcolor: ok ? 'rgba(46, 125, 50, 0.04)' : 'rgba(232, 82, 10, 0.03)',
+        border: `1px dashed ${ok ? 'rgba(46, 125, 50, 0.4)' : 'rgba(5, 72, 209, 0.35)'}`,
+        bgcolor: ok ? 'rgba(46, 125, 50, 0.04)' : 'rgba(5, 72, 209, 0.03)',
         mb: 2,
       }}
     >
@@ -418,7 +418,7 @@ export function FrotaResumoHistorico({
         <Typography variant="caption" sx={{ fontWeight: 600, color: '#8d8d8d !important' }}>
           {totalLabel}
         </Typography>
-        <Typography sx={{ fontWeight: 800, color: '#ff9a5c !important', fontSize: '1.05rem' }}>
+        <Typography sx={{ fontWeight: 800, color: '#E8520A !important', fontSize: '1.05rem' }}>
           {totalValor}
         </Typography>
       </Box>
@@ -460,7 +460,7 @@ export function FrotaEmptyHistorico({
         sx={{
           textTransform: 'none',
           fontWeight: 700,
-          bgcolor: '#fe6c22',
+          bgcolor: '#E8520A',
           '&:hover': { bgcolor: '#e55f18' },
         }}
       >
@@ -493,7 +493,7 @@ export function FrotaHistoricoItem({
         mb: 1.25,
         borderRadius: 2.5,
         border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderLeft: '4px solid #fe6c22',
+        borderLeft: '4px solid #E8520A',
         bgcolor: 'rgba(51, 56, 64, 0.92)',
         boxShadow: '0 4px 14px rgba(0, 0, 0, 0.35)',
         color: '#f5f5f5',
@@ -523,8 +523,8 @@ export function FrotaHistoricoItem({
                 variant="caption"
                 sx={{
                   fontWeight: c.destaque ? 800 : 700,
-                  color: c.destaque ? '#ff9a5c !important' : '#cfcfcf !important',
-                  bgcolor: c.destaque ? 'rgba(254, 108, 34, 0.16)' : 'rgba(255, 255, 255, 0.08)',
+                  color: c.destaque ? '#E8520A !important' : '#cfcfcf !important',
+                  bgcolor: c.destaque ? 'rgba(5, 72, 209, 0.16)' : 'rgba(255, 255, 255, 0.08)',
                   px: 1,
                   py: 0.35,
                   borderRadius: 1,
@@ -543,9 +543,9 @@ export function FrotaHistoricoItem({
             disabled={abrindo}
             onClick={onAbrirAnexo}
             sx={{
-              color: '#fe6c22',
-              bgcolor: 'rgba(254, 108, 34, 0.12)',
-              '&:hover': { bgcolor: 'rgba(254, 108, 34, 0.2)' },
+              color: '#E8520A',
+              bgcolor: 'rgba(232, 82, 10, 0.12)',
+              '&:hover': { bgcolor: 'rgba(232, 82, 10, 0.2)' },
             }}
           >
             <ImageOutlinedIcon fontSize="small" />

@@ -1,7 +1,7 @@
 import Box from '@mui/material/Box';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
-import { assetUrl, LOGO_ALVIM_ICONE } from '../config/paths';
+import { assetUrl, ICONE_PWA } from '../config/paths';
 import { colors } from '../theme/tokens';
 import './estoque/estoque-hub.css';
 
@@ -17,7 +17,13 @@ export default function PageLoading({
   if (!comLogo) {
     return (
       <Box sx={{ p: 2, width: '100%' }}>
-        <LinearProgress sx={{ borderRadius: 1 }} />
+        <LinearProgress
+          sx={{
+            borderRadius: 1,
+            backgroundColor: 'rgba(5, 72, 209, 0.16)',
+            '& .MuiLinearProgress-bar': { backgroundColor: '#0548d1' },
+          }}
+        />
         <Typography
           variant="body2"
           sx={{ mt: 1.5, textAlign: 'center', color: colors.textSecondary }}
@@ -32,7 +38,7 @@ export default function PageLoading({
     <div
       className="ck-estoque-hub ck-estoque-hub--hero ck-page-loading"
       style={{
-        ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})`,
+        ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})`,
         position: 'absolute',
         inset: 0,
         width: '100%',
@@ -55,8 +61,8 @@ export default function PageLoading({
           sx={{
             height: 6,
             borderRadius: 999,
-            backgroundColor: 'rgba(254, 108, 34, 0.18)',
-            '& .MuiLinearProgress-bar': { backgroundColor: '#fe6c22' },
+            backgroundColor: 'rgba(5, 72, 209, 0.18)',
+            '& .MuiLinearProgress-bar': { backgroundColor: '#0548d1' },
           }}
         />
         <Typography

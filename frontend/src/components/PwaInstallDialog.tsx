@@ -11,7 +11,7 @@ import { useLocation } from 'react-router-dom';
 import { isIosChrome, usePwaInstallPrompt } from '../hooks/usePwaInstallPrompt';
 import { APP_NAME } from '../config/brand';
 
-const ORANGE = '#fe6c22';
+const ORANGE = '#0548d1';
 
 function Passo({
   numero,

@@ -9,7 +9,7 @@ import { fmtData, fmtNota, fetchMediaAutenticada } from '../../api/client';
 import type { VisitaDetalhe } from '../../api/client';
 import { formatarHoraVisita } from '../../utils/visitaFormat';
 import { getUsuario, logout } from '../../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import ImageLightbox from '../ImageLightbox';
 import MobileUsuarioMenu from '../MobileUsuarioMenu';
 import AppHubDock from '../hub/AppHubDock';
@@ -56,7 +56,7 @@ function chipClass(
 
 function barColor(pct: number): string {
   if (pct >= 80) return '#4ade80';
-  if (pct >= 60) return '#ff9a5c';
+  if (pct >= 60) return '#0548d1';
   return '#94a3b8';
 }
 
@@ -171,7 +171,7 @@ export default function RelatorioMobileScreen({
   return (
     <div
       className="ck-estoque-hub ck-estoque-hub--hero ck-visitas-hub"
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
@@ -179,7 +179,7 @@ export default function RelatorioMobileScreen({
           <img
             className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
             src={assetUrl(LOGO_GA_LOCKUP)}
-            alt="Grupo Alvim"
+            alt="Meridian Gest�o Operacional"
           />
           <div className="ck-estoque-hub__actions ck-visitas-hub__actions">
             <button
@@ -234,7 +234,12 @@ export default function RelatorioMobileScreen({
           </div>
           <p className="ck-visitas-hub__sub">
             {titulo} · {v.name}
-            {v.bk_number ? ` · BKN ${v.bk_number}` : ''}
+            {v.bk_number ? (
+              <>
+                {' · '}
+                <span className="ck-visitas-hub__bk">BKN {v.bk_number}</span>
+              </>
+            ) : null}
           </p>
         </div>
       </header>
@@ -275,7 +280,7 @@ export default function RelatorioMobileScreen({
               mb: 1.5,
               borderRadius: 1,
               backgroundColor: 'rgba(255,154,92,0.18)',
-              '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+              '& .MuiLinearProgress-bar': { backgroundColor: '#0548d1' },
             }}
           />
         ) : null}

@@ -110,8 +110,8 @@
 }
 
 .ck-break-hub__kpi.is-on {
-  border-color: rgba(254, 108, 34, 0.35);
-  background: rgba(254, 108, 34, 0.12);
+  border-color: rgba(232, 82, 10, 0.35);
+  background: rgba(232, 82, 10, 0.12);
 }
 
 .ck-break-hub__kpi strong {
@@ -123,7 +123,7 @@
 }
 
 .ck-break-hub__kpi.is-on strong {
-  color: #fe6c22;
+  color: #E8520A;
 }
 
 .ck-break-hub__kpi span {
@@ -165,9 +165,9 @@
 }
 
 .ck-break-hub__filtro.is-on {
-  color: #ff9a5c;
-  border-color: rgba(254, 108, 34, 0.45);
-  background: rgba(254, 108, 34, 0.16);
+  color: #E8520A;
+  border-color: rgba(232, 82, 10, 0.45);
+  background: rgba(232, 82, 10, 0.16);
 }
 
 .ck-break-hub__err {
@@ -233,7 +233,7 @@
 }
 
 .ck-break-hub__loja-ico-fallback {
-  color: #fe6c22 !important;
+  color: #E8520A !important;
   flex-shrink: 0;
 }
 
@@ -245,7 +245,7 @@
 
 .ck-break-hub__loja-chev.is-open {
   transform: rotate(180deg);
-  color: #fe6c22 !important;
+  color: #E8520A !important;
 }
 
 .ck-break-hub__loja-fix {
@@ -313,14 +313,14 @@
 }
 
 .ck-break-hub__loja-item.is-on {
-  color: #fe6c22;
-  background: rgba(254, 108, 34, 0.12);
+  color: #E8520A;
+  background: rgba(232, 82, 10, 0.12);
 }
 
 .ck-break-hub__busca {
   margin-bottom: 14px;
   padding-bottom: 12px;
-  border-bottom: 2px solid #fe6c22;
+  border-bottom: 2px solid #E8520A;
 }
 
 .ck-break-hub__busca input {
@@ -362,14 +362,14 @@
   padding: 12px 12px 12px 12px;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  border-left: 2px solid #fe6c22;
+  border-left: 2px solid #E8520A;
   background: #333840;
   margin-bottom: 10px;
   box-shadow: none;
 }
 
 .ck-break-hub__card.is-alerta {
-  border-left-color: #fe6c22;
+  border-left-color: #E8520A;
   border-color: rgba(255, 255, 255, 0.12);
 }
 
@@ -421,7 +421,7 @@
 }
 
 .ck-break-hub__meta-nome {
-  color: #fe6c22;
+  color: #E8520A;
   font-weight: 600;
   font-size: inherit;
 }
@@ -470,8 +470,8 @@
   height: 20px;
   padding: 0 5px;
   border-radius: 6px;
-  background: rgba(254, 108, 34, 0.18);
-  color: #fe6c22;
+  background: rgba(232, 82, 10, 0.18);
+  color: #E8520A;
   font-size: 0.7rem;
   font-weight: 800;
   line-height: 1;
@@ -535,12 +535,13 @@
   padding: 5px 12px;
   border: 0;
   border-radius: 8px;
-  background: #fe6c22;
+  background: #0548d1;
   color: #fff;
   font: inherit;
   font-size: 0.75rem;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(5, 72, 209, 0.35);
 }
 
 .ck-break-hub__cta.is-ghost {
@@ -568,7 +569,7 @@
 
 .ck-break-hub .ck-estoque__btn--primary,
 .ck-estoque.ck-break-hub .ck-estoque__btn--primary {
-  background: #ff9a5c !important;
+  background: #E8520A !important;
   color: #1a222c !important;
   border: 1px solid rgba(255, 154, 92, 0.55) !important;
 }
@@ -679,8 +680,8 @@
 }
 
 .ck-break-hub__menu .MuiMenuItem-root.Mui-selected {
-  background: rgba(254, 108, 34, 0.16) !important;
-  color: #ff9a5c !important;
+  background: rgba(232, 82, 10, 0.16) !important;
+  color: #E8520A !important;
 }
 
 .ck-break-hub__item {
@@ -692,7 +693,7 @@
   padding: 10px 34px 10px 12px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.14);
-  border-left: 2px solid #fe6c22;
+  border-left: 2px solid #E8520A;
   background: #333840;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
 }
@@ -712,7 +713,7 @@
 .ck-break-hub__item-cod {
   font-size: 0.7rem;
   font-weight: 800;
-  color: #ff9a5c !important;
+  color: #E8520A !important;
   line-height: 1.2;
 }
 
@@ -877,15 +878,15 @@
   min-width: 48px;
   padding: 6px 8px;
   border-radius: 10px;
-  background: rgba(254, 108, 34, 0.14);
-  border: 1px solid rgba(254, 108, 34, 0.35);
+  background: rgba(232, 82, 10, 0.14);
+  border: 1px solid rgba(232, 82, 10, 0.35);
   flex-shrink: 0;
 }
 
 .ck-break-hub__form-count strong {
   font-size: 1rem;
   font-weight: 800;
-  color: #fe6c22;
+  color: #E8520A;
   line-height: 1;
 }
 
@@ -893,7 +894,7 @@
   margin-top: 2px;
   font-size: 0.6rem;
   font-weight: 700;
-  color: #ff9a5c;
+  color: #E8520A;
   text-transform: uppercase;
 }
 
@@ -933,8 +934,8 @@
 }
 
 .ck-break-hub__form-tab.is-on {
-  color: #fe6c22;
-  box-shadow: inset 0 -2px 0 #fe6c22;
+  color: #ffffff;
+  box-shadow: inset 0 -2px 0 #E8520A;
 }
 
 .ck-break-hub__form-fields {
@@ -1026,17 +1027,17 @@
   margin-top: 16px;
   border: 0;
   border-radius: 14px;
-  background: #fe6c22;
+  background: #E8520A;
   color: #fff;
   font: inherit;
   font-size: 0.95rem;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 8px 22px rgba(254, 108, 34, 0.32);
+  box-shadow: 0 8px 22px rgba(232, 82, 10, 0.32);
 }
 
 .ck-break-hub__cta-confirm:disabled {
-  background: rgba(254, 108, 34, 0.28);
+  background: rgba(232, 82, 10, 0.28);
   color: rgba(255, 255, 255, 0.55);
   box-shadow: none;
   cursor: default;
@@ -1058,9 +1059,9 @@
 }
 
 .ck-break-hub.ck-estoque--break .ck-estoque__turno-btn.is-on {
-  background: rgba(254, 108, 34, 0.18) !important;
-  color: #ff9a5c !important;
-  border-color: rgba(254, 108, 34, 0.4) !important;
+  background: rgba(232, 82, 10, 0.18) !important;
+  color: #E8520A !important;
+  border-color: rgba(232, 82, 10, 0.4) !important;
 }
 
 .ck-break-hub.ck-estoque--break .ck-estoque__field > span,
@@ -1102,7 +1103,7 @@
 .ck-break-hub.ck-estoque--break.ck-estoque--contagem .ck-estoque__item--planilha.is-ok {
   background: #2a3038 !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-left: 2px solid #fe6c22 !important;
+  border-left: 2px solid #E8520A !important;
   color: #f5f5f5 !important;
   border-radius: 14px !important;
   padding: 12px !important;
@@ -1121,7 +1122,7 @@
 }
 
 .ck-break-hub.ck-estoque--break .ck-estoque__cod {
-  color: #ff9a5c !important;
+  color: #E8520A !important;
 }
 
 .ck-break-hub.ck-estoque--break .ck-estoque__break-remove {

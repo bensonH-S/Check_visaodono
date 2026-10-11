@@ -1,12 +1,32 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap');
+
+@keyframes ml-mobile-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ml-mobile-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
 
 .ck-login {
-  --ck-navy: #1b2a6b;
-  --ck-navy-deep: #0f1a45;
-  --ck-orange: #e8520a;
-  --ck-paper: #f3f1ec;
-  --ck-ink: #142048;
-  --ck-pad-x: clamp(18px, 5.5vw, 28px);
+  --ck-navy: #0548d1;
+  --ck-field: #0b1220;
+  --ck-ink: #f8fafc;
+  --ck-muted: rgba(148, 163, 184, 0.95);
+  --ck-pad-x: clamp(16px, 5vw, 24px);
   box-sizing: border-box;
   width: 100%;
   height: 100%;
@@ -14,8 +34,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--ck-paper);
+  background: #051017;
   color: var(--ck-ink);
+  color-scheme: dark;
   font-family: Manrope, system-ui, sans-serif;
 }
 
@@ -33,186 +54,207 @@
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-}
-
-/* Hero com ilustração do sistema (Fundo_Principal) */
-.ck-login__stage {
   position: relative;
-  overflow: hidden;
-  flex: 0 0 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-  padding:
-    calc(104px + env(safe-area-inset-top, 0px))
-    var(--ck-pad-x)
-    48px;
-  background-color: #f3f1f8;
-  /* Cresce na horizontal; altura acompanha a proporção (não estica para cima/baixo) */
-  background-size: 100% auto;
-  background-position: center center;
-  background-repeat: no-repeat;
-  color: var(--ck-navy);
 }
 
-.ck-login__stage-veil {
+.ck-login__bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.18;
+  filter: saturate(0.6) contrast(1.08);
+  pointer-events: none;
+}
+
+.ck-login__veil {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    rgba(243, 241, 248, 0.25) 0%,
-    rgba(243, 241, 248, 0.55) 55%,
-    rgba(243, 241, 248, 0.82) 100%
-  );
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 18%, rgba(27, 110, 243, 0.34), transparent 62%),
+    linear-gradient(180deg, #020617 0%, #051017 45%, #020617 100%);
 }
 
-.ck-login__logo {
-  position: absolute;
-  z-index: 2;
-  top: calc(16px + env(safe-area-inset-top, 0px));
-  right: var(--ck-pad-x);
-  width: clamp(92px, 26vw, 112px);
-  height: clamp(92px, 26vw, 112px);
-  object-fit: contain;
-  filter: drop-shadow(0 6px 16px rgba(27, 42, 107, 0.18));
-}
-
-.ck-login__stage-inner {
+.ck-login__content {
   position: relative;
   z-index: 1;
+  flex: 1 1 auto;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding:
+    calc(20px + env(safe-area-inset-top, 0px))
+    var(--ck-pad-x)
+    calc(56px + env(safe-area-inset-bottom, 0px));
+  animation: ml-mobile-in 0.55s ease-out both;
+}
+
+.ck-login__card {
+  position: relative;
   width: 100%;
-  max-width: 400px;
-  margin: 0 auto;
-  padding-right: clamp(88px, 28vw, 120px);
+  max-width: 360px;
+  padding: 22px 20px 18px;
+  border-radius: 16px;
+  background: rgba(11, 18, 32, 0.82);
+  border: 1px solid rgba(27, 110, 243, 0.22);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  text-align: center;
+  overflow: hidden;
+}
+
+.ck-login__card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #0548d1 0%, #0439b0 45%, #02061f 100%);
 }
 
 .ck-login__mark {
-  margin: 0;
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(27, 42, 107, 0.65);
+  display: block;
+  width: 64px;
+  height: auto;
+  margin: 0 auto 10px;
+  filter: drop-shadow(0 4px 12px rgba(2, 6, 31, 0.45));
+  animation: ml-mobile-float 7s ease-in-out infinite;
 }
 
-.ck-login__title {
-  margin: 4px 0 0;
-  font-family: Fraunces, Georgia, serif;
-  font-size: clamp(2.35rem, 9vw, 2.85rem);
-  font-weight: 700;
-  line-height: 1.02;
-  letter-spacing: -0.03em;
-  color: var(--ck-navy);
-}
-
-.ck-login__sub {
-  margin: 14px 0 0;
-  font-size: 0.88rem;
-  font-weight: 500;
-  line-height: 1.45;
-  color: rgba(27, 42, 107, 0.78);
-  max-width: 22em;
-}
-
-.ck-login__sheet {
-  position: relative;
-  z-index: 2;
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  margin-top: -18px;
-  padding: 26px var(--ck-pad-x) 8px;
-  background: var(--ck-paper);
-  border-radius: 24px 24px 0 0;
-  box-shadow: 0 -10px 32px rgba(15, 26, 69, 0.14);
-}
-
-.ck-login__sheet-inner {
+.ck-login__brand-logo {
+  display: block;
   width: 100%;
-  max-width: 400px;
-  margin: 0 auto;
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  max-width: 188px;
+  height: auto;
+  margin: 0 auto 14px;
+  object-fit: contain;
 }
 
-.ck-login__sheet-label {
-  margin: 0 0 16px;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(20, 32, 72, 0.45);
+.ck-login__subtitle {
+  margin: 0 0 18px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--ck-muted);
 }
 
 .ck-login__form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
+  text-align: left;
 }
 
 .ck-login__cta {
-  min-height: 52px !important;
-  margin-top: 4px !important;
-  border-radius: 14px !important;
-  background: var(--ck-orange) !important;
-  font-weight: 800 !important;
+  min-height: 40px !important;
+  margin-top: 2px !important;
+  border-radius: 10px !important;
+  color: #fff !important;
+  text-shadow: 0 1px 2px rgba(4, 12, 59, 0.45) !important;
+  background: linear-gradient(90deg, #0548d1 0%, #0439b0 42%, #02061f 100%) !important;
+  font-weight: 700 !important;
   text-transform: none !important;
-  font-size: 1rem !important;
-  box-shadow: 0 8px 22px rgba(232, 82, 10, 0.35) !important;
+  font-size: 0.875rem !important;
+  box-shadow: 0 8px 18px rgba(2, 6, 31, 0.45) !important;
   font-family: Manrope, system-ui, sans-serif !important;
 }
 
 .ck-login__cta:hover {
-  background: #d14a09 !important;
+  background: linear-gradient(90deg, #0d4ecc 0%, #0548d1 42%, #040c3b 100%) !important;
+  box-shadow: 0 10px 22px rgba(5, 72, 209, 0.35) !important;
 }
 
 .ck-login__cta.Mui-disabled {
-  background: rgba(27, 42, 107, 0.12) !important;
-  color: rgba(27, 42, 107, 0.4) !important;
-  box-shadow: none !important;
-}
-
-/* Empurra suporte + rodapé para baixo — o vazio fica entre o form e o suporte */
-.ck-login__bottom {
-  margin-top: auto;
-  padding-top: 20px;
+  color: #fff !important;
+  opacity: 0.88 !important;
+  background: linear-gradient(90deg, #0548d1 0%, #0439b0 42%, #02061f 100%) !important;
 }
 
 .ck-login__support {
-  margin: 0 0 10px;
+  margin-top: 14px;
+}
+
+.ck-login__support .MuiTypography-caption:not(button) {
+  color: rgba(148, 163, 184, 0.7) !important;
+}
+
+.ck-login__support button {
+  color: #f8fafc !important;
+  text-decoration-color: rgba(248, 250, 252, 0.45) !important;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.ck-login__support button:hover {
+  color: #0548d1 !important;
+  text-decoration-color: rgba(5, 72, 209, 0.9) !important;
 }
 
 .ck-login__footer {
-  flex-shrink: 0;
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 10px var(--ck-pad-x) calc(10px + env(safe-area-inset-bottom, 0px));
   text-align: center;
-  margin-top: 8px;
-  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   font-weight: 500;
   line-height: 1.35;
   letter-spacing: 0.02em;
-  color: rgba(27, 42, 107, 0.4);
+  color: rgba(148, 163, 184, 0.5);
+  pointer-events: none;
 }
 
-@media (max-height: 700px) {
-  .ck-login__stage {
-    padding-top: calc(64px + env(safe-area-inset-top, 0px));
-    padding-bottom: 28px;
+/* Campos escuros como no desktop */
+.ck-login .MuiOutlinedInput-root {
+  background-color: #0b1220 !important;
+}
+
+.ck-login .MuiOutlinedInput-input {
+  background-color: transparent !important;
+  border-radius: 0 !important;
+}
+
+.ck-login .MuiOutlinedInput-input:-webkit-autofill,
+.ck-login .MuiOutlinedInput-input:-webkit-autofill:hover,
+.ck-login .MuiOutlinedInput-input:-webkit-autofill:focus,
+.ck-login .MuiOutlinedInput-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #f8fafc !important;
+  border-radius: 0 !important;
+  -webkit-box-shadow: 0 0 0 1000px #0b1220 inset !important;
+  box-shadow: 0 0 0 1000px #0b1220 inset !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+@media (max-height: 640px) {
+  .ck-login__content {
+    justify-content: flex-start;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
   }
 
-  .ck-login__title {
-    font-size: clamp(2rem, 8vw, 2.4rem);
+  .ck-login__mark {
+    width: 52px;
+    margin-bottom: 6px;
   }
 
-  .ck-login__sheet {
-    padding-top: 22px;
+  .ck-login__brand-logo {
+    max-width: 160px;
+    margin-bottom: 10px;
+  }
+
+  .ck-login__subtitle {
+    margin-bottom: 12px;
+    font-size: 0.8rem;
+  }
+
+  .ck-login__card {
+    padding: 16px 16px 14px;
   }
 }

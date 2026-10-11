@@ -123,8 +123,8 @@ export default function MapaFiltroTrajetoCalendario({
               sx={{
                 fontSize: 18,
                 color: tomEscuro
-                  ? '#ff9a5c'
-                  : (theme) => (theme.palette.mode === 'dark' ? '#FF7A3D' : colors.navy),
+                  ? '#0548d1'
+                  : (theme) => (theme.palette.mode === 'dark' ? '#0548d1' : colors.navy),
                 flexShrink: 0,
               }}
             />
@@ -183,7 +183,7 @@ export default function MapaFiltroTrajetoCalendario({
           </Typography>
           <Typography
             variant="caption"
-            sx={{ fontWeight: 600, color: tomEscuro ? '#ff9a5c' : colors.navy }}
+            sx={{ fontWeight: 600, color: tomEscuro ? '#0548d1' : colors.navy }}
           >
             {rotulo}
           </Typography>
@@ -224,18 +224,18 @@ export default function MapaFiltroTrajetoCalendario({
                     color: 'rgba(255,255,255,0.28)',
                   },
                   '& .MuiPickersDay-root.Mui-selected': {
-                    bgcolor: '#fe6c22 !important',
+                    bgcolor: '#0548d1 !important',
                     color: '#fff !important',
                   },
                   '& .MuiPickersDay-root:not(.Mui-selected):hover': {
-                    bgcolor: 'rgba(254,108,34,0.18)',
+                    bgcolor: 'rgba(5, 72, 209,0.18)',
                   },
                   '& .MuiDayCalendar-weekDayLabel': { color: '#8d8d8d' },
                   '& .MuiPickersCalendarHeader-root': { color: '#f5f5f5' },
                   '& .MuiPickersCalendarHeader-label': { color: '#f5f5f5' },
                   '& .MuiPickersArrowSwitcher-button': { color: '#f5f5f5' },
                   '& .MuiPickersDay-today:not(.Mui-selected)': {
-                    borderColor: '#fe6c22',
+                    borderColor: '#0548d1',
                   },
                   '& .MuiYearCalendar-root, & .MuiMonthCalendar-button': {
                     color: '#f5f5f5',
@@ -245,7 +245,7 @@ export default function MapaFiltroTrajetoCalendario({
                   },
                   '& .MuiPickersYear-yearButton.Mui-selected, & .MuiPickersMonth-monthButton.Mui-selected':
                     {
-                      bgcolor: '#fe6c22 !important',
+                      bgcolor: '#0548d1 !important',
                       color: '#fff !important',
                     },
                 }

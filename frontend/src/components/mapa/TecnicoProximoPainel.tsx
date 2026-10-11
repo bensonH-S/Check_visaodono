@@ -56,7 +56,7 @@ export default function TecnicoProximoPainel({
     >
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, mb: 1.25 }}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', minWidth: 0 }}>
-          <StorefrontOutlinedIcon sx={{ color: '#ff9a5c', fontSize: 20, mt: 0.25, flexShrink: 0 }} />
+          <StorefrontOutlinedIcon sx={{ color: '#0548d1', fontSize: 20, mt: 0.25, flexShrink: 0 }} />
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#f5f5f5', lineHeight: 1.25 }}>
               {loja.name}
@@ -91,8 +91,8 @@ export default function TecnicoProximoPainel({
               height: 44,
               fontWeight: 800,
               fontSize: '0.8rem',
-              bgcolor: '#fe6c22',
-              boxShadow: '0 4px 12px rgba(254,108,34,.28)',
+              bgcolor: '#0548d1',
+              boxShadow: '0 4px 12px rgba(5, 72, 209,.28)',
             }}
           >
             {iniciaisNomeMapa(tecnico.nome)}

@@ -137,8 +137,8 @@ export default function EscalaMinhaSemanaCard({ linkGrade = '/escalas/visitas/mo
                     px: 1.25,
                     py: 0.5,
                     borderRadius: 99,
-                    bgcolor: 'rgba(232, 82, 10, 0.08)',
-                    border: '1px solid rgba(232, 82, 10, 0.25)',
+                    bgcolor: 'rgba(5, 72, 209, 0.08)',
+                    border: '1px solid rgba(5, 72, 209, 0.25)',
                   }}
                 >
                   <Typography variant="caption" sx={{ fontWeight: 700, color: colors.orange }}>

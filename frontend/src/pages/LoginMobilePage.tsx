@@ -18,12 +18,52 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { iniciarServiceWorkerPwa } from '../pwa/registerServiceWorker';
 import { formatMobileVersionNumber } from '../components/MobileVersionBadge';
-import MeridianMarca from '../brand/MeridianMarca';
-import { assetUrl } from '../config/paths';
+import { assetUrl, LOGO_MERIDIAN_GESTAO, LOGO_MERIDIAN_MARK_M } from '../config/paths';
 import { MOBILE_VIEWPORT } from '../theme/safeArea';
+import { textosLogin } from '../financeiro/loginI18n';
 import './login-mobile.css';
 
-const COPYRIGHT = '©2026 Grupo Alvim — Alvim Participações e Investimentos S/A';
+const COPYRIGHT = '©2026 Grupo Alvim · Alvim Participações e Investimentos S/A';
+const FUNDO_LOGIN = `${assetUrl('Fundo_Principal.png')}?v=fill-ok`;
+const MARK_M = `${assetUrl(LOGO_MERIDIAN_MARK_M)}?v=2`;
+const LOGO_GESTAO = `${assetUrl(LOGO_MERIDIAN_GESTAO)}?v=1`;
+const FIELD_BG = '#0b1220';
+
+const fieldSx = {
+  '& .MuiOutlinedInput-root': {
+    minHeight: 42,
+    bgcolor: `${FIELD_BG} !important`,
+    borderRadius: '10px',
+    fontFamily: 'Manrope, system-ui, sans-serif',
+    overflow: 'hidden',
+    '& fieldset': { borderColor: 'rgba(5, 72, 209, 0.45)' },
+    '&:hover fieldset': { borderColor: 'rgba(5, 72, 209, 0.75)' },
+    '&.Mui-focused fieldset': { borderColor: '#0548d1', borderWidth: 1.5 },
+  },
+  '& .MuiOutlinedInput-input': {
+    py: '10px',
+    color: '#F8FAFC !important',
+    WebkitTextFillColor: '#F8FAFC',
+    caretColor: '#F8FAFC',
+    bgcolor: 'transparent !important',
+    borderRadius: 0,
+    fontSize: '0.875rem',
+    fontFamily: 'Manrope, system-ui, sans-serif',
+    '&::placeholder': {
+      color: 'rgba(148, 163, 184, 0.55) !important',
+      WebkitTextFillColor: 'rgba(148, 163, 184, 0.55) !important',
+      opacity: 1,
+    },
+  },
+  '& .MuiInputLabel-root': {
+    color: 'rgba(148, 163, 184, 0.9)',
+    fontFamily: 'Manrope, system-ui, sans-serif',
+    fontWeight: 600,
+    fontSize: '0.875rem',
+    '&.Mui-focused': { color: '#3B82F6' },
+  },
+  '& .MuiSvgIcon-root': { color: 'rgba(148, 163, 184, 0.85)', fontSize: 17 },
+};
 
 const ERROS_CONHECIDOS = [
   'incorretos',
@@ -39,6 +79,7 @@ export default function LoginMobilePage() {
   const { version } = useAppConfig();
   const versao = formatMobileVersionNumber(version);
 
+  const tx = textosLogin('pt');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
@@ -46,7 +87,7 @@ export default function LoginMobilePage() {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
 
-  usePageTitle('Login Mobile');
+  usePageTitle(tx.titulo);
 
   useEffect(() => {
     iniciarServiceWorkerPwa();
@@ -72,8 +113,8 @@ export default function LoginMobilePage() {
     };
   }, [navigate]);
 
-  function avisar(campo: string) {
-    setToast(`Preencha o campo ${campo}.`);
+  function avisar(campo: 'email' | 'senha' | 'ambos') {
+    setToast(tx.preencha(campo));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -82,11 +123,11 @@ export default function LoginMobilePage() {
 
     const emailTrim = email.trim();
     if (!emailTrim && !senha) {
-      avisar('e-mail e senha');
+      avisar('ambos');
       return;
     }
     if (!emailTrim) {
-      avisar('e-mail');
+      avisar('email');
       return;
     }
     if (!senha) {
@@ -107,7 +148,7 @@ export default function LoginMobilePage() {
       setErro(
         msg && ERROS_CONHECIDOS.some((t) => msg.includes(t))
           ? msg
-          : 'E-mail ou senha incorretos',
+          : tx.credenciaisInvalidas,
       );
     } finally {
       setLoading(false);
@@ -117,25 +158,18 @@ export default function LoginMobilePage() {
   return (
     <Box className="ck-login" sx={{ ...MOBILE_VIEWPORT, height: '100%' }}>
       <div className="ck-login__scroll">
-        <div
-          className="ck-login__stage"
-          style={{
-            backgroundImage: `url(${assetUrl('Fundo_Principal.png')}?v=grow-x)`,
-            backgroundSize: '100% auto',
-            backgroundPosition: 'center center',
-            backgroundRepeat: 'no-repeat',
-          }}
-        >
-          <div className="ck-login__stage-veil" aria-hidden />
+        <img className="ck-login__bg" src={FUNDO_LOGIN} alt="" aria-hidden />
+        <div className="ck-login__veil" aria-hidden />
 
-          <div className="ck-login__stage-inner" style={{ width: '100%', maxWidth: 280, margin: '0 auto', padding: '8px 12px 4px' }}>
-            <MeridianMarca variant="lockup" sx={{ width: '100%' }} />
-          </div>
-        </div>
-
-        <div className="ck-login__sheet">
-          <div className="ck-login__sheet-inner">
-            <p className="ck-login__sheet-label">Acesso</p>
+        <div className="ck-login__content">
+          <div className="ck-login__card">
+            <img className="ck-login__mark" src={MARK_M} alt="" />
+            <img
+              className="ck-login__brand-logo"
+              src={LOGO_GESTAO}
+              alt="Meridian Gestão Operacional"
+            />
+            <p className="ck-login__subtitle">{tx.subtitulo}</p>
 
             <Box
               component="form"
@@ -144,65 +178,56 @@ export default function LoginMobilePage() {
               className="ck-login__form"
             >
               <TextField
-                label="E-mail"
+                label={tx.email}
                 type="email"
                 fullWidth
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nome@grupoalvim.com.br"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '12px',
-                    bgcolor: '#fff',
-                    fontFamily: 'Manrope, system-ui, sans-serif',
-                  },
-                }}
+                size="small"
+                sx={fieldSx}
                 slotProps={{
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <EmailOutlinedIcon fontSize="small" sx={{ color: '#E8520A' }} />
+                        <EmailOutlinedIcon sx={{ fontSize: 18 }} />
                       </InputAdornment>
                     ),
                   },
                 }}
               />
               <TextField
-                label="Senha"
+                label={tx.senha}
                 type={mostrarSenha ? 'text' : 'password'}
                 fullWidth
                 autoComplete="current-password"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
                 placeholder={senha ? undefined : '••••••••'}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: '12px',
-                    bgcolor: '#fff',
-                    fontFamily: 'Manrope, system-ui, sans-serif',
-                  },
-                }}
+                size="small"
+                sx={fieldSx}
                 slotProps={{
                   input: {
                     startAdornment: (
                       <InputAdornment position="start">
-                        <LockOutlinedIcon fontSize="small" sx={{ color: '#E8520A' }} />
+                        <LockOutlinedIcon sx={{ fontSize: 18 }} />
                       </InputAdornment>
                     ),
                     endAdornment: (
                       <InputAdornment position="end">
                         <IconButton
                           type="button"
-                          aria-label={mostrarSenha ? 'Ocultar senha' : 'Mostrar senha'}
+                          aria-label={mostrarSenha ? tx.ocultarSenha : tx.mostrarSenha}
                           onClick={() => setMostrarSenha((v) => !v)}
                           edge="end"
                           size="small"
+                          sx={{ color: 'rgba(148,163,184,0.85)' }}
                         >
                           {mostrarSenha ? (
-                            <VisibilityOffOutlinedIcon fontSize="small" />
+                            <VisibilityOffOutlinedIcon sx={{ fontSize: 18 }} />
                           ) : (
-                            <VisibilityOutlinedIcon fontSize="small" />
+                            <VisibilityOutlinedIcon sx={{ fontSize: 18 }} />
                           )}
                         </IconButton>
                       </InputAdornment>
@@ -211,7 +236,7 @@ export default function LoginMobilePage() {
                 }}
               />
               {erro && (
-                <Alert severity="error" variant="filled" sx={{ py: 0.25, borderRadius: 2 }}>
+                <Alert severity="error" variant="filled" sx={{ py: 0.3, fontSize: '0.8rem', borderRadius: 2 }}>
                   {erro}
                 </Alert>
               )}
@@ -222,21 +247,20 @@ export default function LoginMobilePage() {
                 disabled={loading}
                 className="ck-login__cta"
               >
-                {loading ? 'Entrando…' : 'Acessar'}
+                {loading ? tx.entrando : tx.entrar}
               </Button>
             </Box>
 
-            <div className="ck-login__bottom">
-              <div className="ck-login__support">
-                <SupportContact compact />
-              </div>
-              <footer className="ck-login__footer">
-                {COPYRIGHT}
-                {versao ? ` · ${versao}` : ''}
-              </footer>
+            <div className="ck-login__support">
+              <SupportContact compact />
             </div>
           </div>
         </div>
+
+        <footer className="ck-login__footer">
+          {COPYRIGHT}
+          {versao ? ` · ${versao}` : ''}
+        </footer>
       </div>
 
       <Snackbar
@@ -244,8 +268,14 @@ export default function LoginMobilePage() {
         autoHideDuration={2000}
         onClose={() => setToast('')}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        sx={{ zIndex: 20000 }}
       >
-        <Alert severity="warning" variant="filled" onClose={() => setToast('')} sx={{ minWidth: 280 }}>
+        <Alert
+          severity="warning"
+          variant="filled"
+          onClose={() => setToast('')}
+          sx={{ minWidth: 280, boxShadow: '0 12px 32px rgba(0,0,0,0.35)' }}
+        >
           {toast}
         </Alert>
       </Snackbar>

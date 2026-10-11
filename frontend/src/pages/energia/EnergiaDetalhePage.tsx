@@ -39,7 +39,7 @@ export default function EnergiaDetalhePage() {
   const navigate = useNavigate();
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : colors.navy;
+  const acento = escuro ? '#0548d1' : colors.navy;
   const acentoHover = escuro ? '#c94508' : colors.navyDark;
   const podeAbrir = podeAbrirEnergia(getUsuario());
   const [item, setItem] = useState<EnergiaChamadoDetalhe | null>(null);
@@ -233,7 +233,7 @@ export default function EnergiaDetalhePage() {
           sx={{
             textTransform: 'none',
             fontWeight: 700,
-            bgcolor: '#E8520A',
+            bgcolor: '#0548d1',
             alignSelf: 'flex-start',
             '&:hover': { bgcolor: '#c94508' },
           }}
@@ -263,7 +263,7 @@ export default function EnergiaDetalhePage() {
                   color: acento,
                   '&:hover': {
                     borderColor: acentoHover,
-                    bgcolor: escuro ? 'rgba(232, 82, 10, 0.1)' : colors.navyMuted,
+                    bgcolor: escuro ? 'rgba(5, 72, 209, 0.1)' : colors.navyMuted,
                   },
                 }}
                 variant="outlined"

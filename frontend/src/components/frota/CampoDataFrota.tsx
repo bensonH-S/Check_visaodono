@@ -12,8 +12,8 @@ import { dataHojeBrasilia, parseIsoDateLocal } from '../../utils/dateBr';
 
 dayjs.locale('pt-br');
 
-const ACENTO = '#fe6c22';
-const ACENTO_HOVER = 'rgba(254, 108, 34, 0.22)';
+const ACENTO = '#0548d1';
+const ACENTO_HOVER = 'rgba(5, 72, 209, 0.22)';
 const PAPER_BG = '#333840';
 const PAPER_BORDER = 'rgba(255, 255, 255, 0.14)';
 const TEXTO = '#f5f5f5';
@@ -162,7 +162,7 @@ export default function CampoDataFrota({ label, value, onChange, disabled, max, 
     },
     '& .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-root.Mui-focused .MuiPickersOutlinedInput-notchedOutline':
       {
-        borderColor: '#ff9a5c !important',
+        borderColor: '#0548d1 !important',
         borderWidth: '2px !important',
       },
     '& .MuiOutlinedInput-input, & .MuiPickersInputBase-input, & .MuiPickersSectionList-root, & .MuiPickersSectionList-section, & .MuiPickersSectionList-sectionContent, & .MuiPickersInputBase-sectionsContainer, & input':
@@ -177,7 +177,7 @@ export default function CampoDataFrota({ label, value, onChange, disabled, max, 
       color: `${TEXTO_SEC} !important`,
     },
     '& .MuiInputLabel-root.Mui-focused': {
-      color: `#ff9a5c !important`,
+      color: `#0548d1 !important`,
     },
     ...sx,
   };

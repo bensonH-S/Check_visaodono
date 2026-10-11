@@ -36,12 +36,12 @@ export default function FrotaVeiculoAutocomplete({
 }: Props) {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  const acento = escuro ? '#E8520A' : colors.navy;
-  const acentoMuted = escuro ? 'rgba(232, 82, 10, 0.12)' : 'rgba(27, 42, 107, 0.07)';
-  const acentoBorder = escuro ? 'rgba(232, 82, 10, 0.28)' : 'rgba(27, 42, 107, 0.12)';
-  const acentoSelectedBg = escuro ? 'rgba(232, 82, 10, 0.1)' : 'rgba(27, 42, 107, 0.08)';
-  const acentoSelectedBorder = escuro ? 'rgba(232, 82, 10, 0.35)' : 'rgba(27, 42, 107, 0.28)';
-  const hoverBg = escuro ? 'rgba(232, 82, 10, 0.08)' : 'rgba(27, 42, 107, 0.04)';
+  const acento = escuro ? '#0548d1' : colors.navy;
+  const acentoMuted = escuro ? 'rgba(5, 72, 209, 0.12)' : 'rgba(27, 42, 107, 0.07)';
+  const acentoBorder = escuro ? 'rgba(5, 72, 209, 0.28)' : 'rgba(27, 42, 107, 0.12)';
+  const acentoSelectedBg = escuro ? 'rgba(5, 72, 209, 0.1)' : 'rgba(27, 42, 107, 0.08)';
+  const acentoSelectedBorder = escuro ? 'rgba(5, 72, 209, 0.35)' : 'rgba(27, 42, 107, 0.28)';
+  const hoverBg = escuro ? 'rgba(5, 72, 209, 0.08)' : 'rgba(27, 42, 107, 0.04)';
 
   return (
     <Autocomplete
@@ -122,7 +122,7 @@ export default function FrotaVeiculoAutocomplete({
                 bgcolor: acentoSelectedBg,
               },
               '&:hover': {
-                bgcolor: selecionado ? (escuro ? 'rgba(232, 82, 10, 0.14)' : 'rgba(27, 42, 107, 0.12)') : hoverBg,
+                bgcolor: selecionado ? (escuro ? 'rgba(5, 72, 209, 0.14)' : 'rgba(27, 42, 107, 0.12)') : hoverBg,
               },
             }}
           >

@@ -169,17 +169,17 @@ export default function FrotaVeiculoControleCard({
                 size="small"
                 sx={{
                   bgcolor: escuro
-                    ? 'rgba(255, 255, 255, 0.08)'
+                    ? 'rgba(232, 82, 10, 0.16)'
                     : (theme) =>
                         theme.palette.mode === 'dark'
                           ? 'rgba(255, 255, 255, 0.08)'
                           : 'rgba(27, 42, 107, 0.06)',
                   color: escuro
-                    ? '#8d8d8d'
+                    ? ORANGE
                     : (theme) => (theme.palette.mode === 'dark' ? '#94A3B8' : NAVY),
-                  fontWeight: 600,
+                  fontWeight: escuro ? 700 : 600,
                   border: escuro
-                    ? '1px solid rgba(255, 255, 255, 0.12)'
+                    ? '1px solid rgba(232, 82, 10, 0.35)'
                     : (theme) =>
                         theme.palette.mode === 'dark'
                           ? '1px solid rgba(255, 255, 255, 0.12)'

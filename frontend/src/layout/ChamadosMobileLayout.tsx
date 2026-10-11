@@ -22,7 +22,7 @@ import MobilePaginaTitulo from '../components/MobilePaginaTitulo';
 import PwaInstallBanner from '../components/PwaInstallBanner';
 import PwaUpdateBanner from '../components/PwaUpdateBanner';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
-import { assetUrl, FAVICON_ICON, toAppPath } from '../config/paths';
+import { assetUrl, ICONE_PWA, toAppPath } from '../config/paths';
 import { mobilePaginaCabecalhoFixo } from '../config/mobileRoutes';
 import MapaTecnicosListaLojas from '../components/mapa/MapaTecnicosListaLojas';
 import { MapaTecnicosMobileProvider } from '../pages/mapa/MapaTecnicosMobileContext';
@@ -59,7 +59,7 @@ function canalMobile(modulos: ModulosCanalMapa | undefined, codigo: ModuloCanalC
   return moduloNoCanal(modulos, codigo, 'mobile');
 }
 
-const ORANGE = '#E8520A';
+const BLUE = '#0548d1';
 const TAB_NAV_H = 56;
 const ABAS_COM_SUBPAGINA = [
   '/checklist/mobile',
@@ -182,7 +182,7 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
             px: 0.5,
           }}
         >
-          <LocationOnOutlinedIcon sx={{ fontSize: { xs: 18, sm: 16 }, color: '#E8520A', flexShrink: 0 }} />
+          <LocationOnOutlinedIcon sx={{ fontSize: { xs: 18, sm: 16 }, color: '#0548d1', flexShrink: 0 }} />
           <Typography
             variant="body2"
             component="span"
@@ -253,16 +253,16 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
                   py: { xs: 1.25, sm: 1 },
                   minHeight: { xs: 48, sm: 44 },
                   cursor: 'pointer',
-                  bgcolor: ativa ? 'rgba(232, 82, 10, 0.08)' : 'transparent',
+                  bgcolor: ativa ? 'rgba(5, 72, 209, 0.08)' : 'transparent',
                   borderBottom: `1px solid ${colors.border}`,
                   '&:last-child': { borderBottom: 'none' },
-                  '&:hover': { bgcolor: ativa ? 'rgba(232, 82, 10, 0.12)' : colors.navyMuted },
+                  '&:hover': { bgcolor: ativa ? 'rgba(5, 72, 209, 0.12)' : colors.navyMuted },
                 }}
               >
                 <LocationOnOutlinedIcon
                   sx={{
                     fontSize: { xs: 20, sm: 18 },
-                    color: ativa ? '#E8520A' : 'text.secondary',
+                    color: ativa ? '#0548d1' : 'text.secondary',
                     flexShrink: 0,
                     mt: 0.15,
                   }}
@@ -295,8 +295,8 @@ function SeletorLocalizacao({ user }: { user: UsuarioSessao | null }) {
 function ChamadosMobileLayoutInner() {
   const { mode } = useAppTheme();
   const escuro = mode === 'dark';
-  /** Shell mobile é sempre escuro (#0b1721) — acento laranja, nunca azul do tema claro. */
-  const acento = ORANGE;
+  /** Shell mobile: acento azul Meridian (login / marca). */
+  const acento = BLUE;
   const navigate = useNavigate();
   const location = useLocation();
   const appConfig = useAppConfig();
@@ -832,7 +832,7 @@ function ChamadosMobileLayoutInner() {
               px: 1,
               py: 0.5,
               borderRadius: 1.5,
-              bgcolor: escuro ? 'rgba(232, 82, 10, 0.08)' : 'rgba(27, 42, 107, 0.04)',
+              bgcolor: escuro ? 'rgba(5, 72, 209, 0.08)' : 'rgba(27, 42, 107, 0.04)',
               border: `1px solid ${colors.navyBorder}`,
             }}
           >
@@ -875,7 +875,7 @@ function ChamadosMobileLayoutInner() {
                   top: '50%',
                   transform: 'translate(-50%, -50%)',
                   ...MOBILE_WATERMARK_LOGO,
-                  backgroundImage: `url(${assetUrl(FAVICON_ICON)})`,
+                  backgroundImage: `url(${assetUrl(ICONE_PWA)})`,
                   backgroundSize: 'contain',
                   backgroundRepeat: 'no-repeat',
                   backgroundPosition: 'center',
@@ -981,10 +981,10 @@ function ChamadosMobileLayoutInner() {
             right: safeAreaRightCalc(20),
             bottom: safeAreaBottomCalc(rodapeTotalH + 16),
             zIndex: 40,
-            bgcolor: escuro ? '#FF7A3D' : '#1B2A6B',
+            bgcolor: escuro ? BLUE : '#1B2A6B',
             color: '#fff',
-            boxShadow: escuro ? '0 6px 20px rgba(255, 122, 61, 0.42)' : '0 6px 20px rgba(27, 42, 107, 0.35)',
-            '&:hover': { bgcolor: escuro ? '#d14a09' : '#152255' },
+            boxShadow: escuro ? '0 6px 20px rgba(5, 72, 209, 0.42)' : '0 6px 20px rgba(27, 42, 107, 0.35)',
+            '&:hover': { bgcolor: escuro ? '#0439b0' : '#152255' },
           }}
         >
           <AddIcon />

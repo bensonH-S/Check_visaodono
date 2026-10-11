@@ -7,7 +7,7 @@ import { api, fmtData, fmtNota, scoreColorTema } from '../../api/client';
 import type { NcItem } from '../../api/client';
 import { agruparNcsPorVisita, parseNcDescricao } from '../../components/nc/ncPageUtils';
 import { getUsuario, logout } from '../../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP } from '../../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
 import NotificacoesSino from '../../components/NotificacoesSino';
 import AppHubDock from '../../components/hub/AppHubDock';
@@ -70,7 +70,7 @@ export default function NcMobileListaPage() {
   return (
     <div
       className="ck-estoque-hub ck-estoque-hub--hero ck-nc-hub"
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
@@ -78,7 +78,7 @@ export default function NcMobileListaPage() {
           <img
             className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
             src={assetUrl(LOGO_GA_LOCKUP)}
-            alt="Grupo Alvim"
+            alt="Meridian Gest�o Operacional"
           />
           <div className="ck-estoque-hub__actions">
             <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
@@ -145,7 +145,7 @@ export default function NcMobileListaPage() {
               my: 1.5,
               borderRadius: 1,
               backgroundColor: 'rgba(255,154,92,0.18)',
-              '& .MuiLinearProgress-bar': { backgroundColor: '#ff9a5c' },
+              '& .MuiLinearProgress-bar': { backgroundColor: '#0548d1' },
             }}
           />
         ) : visitas.length === 0 ? (
@@ -224,7 +224,7 @@ export default function NcMobileListaPage() {
                           <span className="ck-nc-hub__item-icon" aria-hidden>
                             <WarningAmberIcon
                               fontSize="small"
-                              sx={{ color: tone === 'crit' ? '#ff6b6b' : '#fe6c22' }}
+                              sx={{ color: tone === 'crit' ? '#ff6b6b' : '#0548d1' }}
                             />
                           </span>
                           <span className="ck-nc-hub__item-copy">

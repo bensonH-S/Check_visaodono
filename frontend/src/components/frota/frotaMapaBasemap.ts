@@ -306,8 +306,8 @@ export function criarCamadaBasemapOsm(opcoes?: BasemapOpts) {
 }
 
 /** Trajeto no mapa escuro: família da marca, não azul SaaS. */
-export const CORES_TRAJETO_FROTA_ESCURO = ['#FF5C00', '#FFB703', '#E8520A', '#FF8C38'] as const;
-export const COR_TRAJETO_ESCURO = '#E8520A';
+export const CORES_TRAJETO_FROTA_ESCURO = ['#FF5C00', '#FFB703', '#0548d1', '#FF8C38'] as const;
+export const COR_TRAJETO_ESCURO = '#0548d1';
 export const COR_EXCESSO_FROTA_ESCURO = '#C4452D';
 export const COR_PARADO_FROTA_ESCURO = '#8A8580';
 
@@ -315,7 +315,7 @@ export const COR_PARADO_FROTA_ESCURO = '#8A8580';
 export const CORES_TRAJETO_FROTA = ['#1B2A6B', '#3D52A8', '#152056', '#5B6DB0'] as const;
 
 export const COR_TRAJETO = '#1B2A6B';
-export const COR_EXCESSO_FROTA = '#E8520A';
+export const COR_EXCESSO_FROTA = '#0548d1';
 export const COR_PARADO_FROTA = '#64748B';
 export const COR_INICIO_TRAJETO = '#1B2A6B';
 export const COR_FIM_TRAJETO = '#64748B';

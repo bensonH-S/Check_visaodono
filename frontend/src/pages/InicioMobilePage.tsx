@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { getUsuario, logout } from '../lib/auth';
-import { assetUrl, LOGO_ALVIM_ICONE, LOGO_GA_LOCKUP, toAppPath } from '../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_MERIDIAN_GESTAO, toAppPath } from '../config/paths';
 import { APP_NAME } from '../config/brand';
 import { dataHojeBrasilia } from '../utils/dateBr';
 import MobileUsuarioMenu from '../components/MobileUsuarioMenu';
@@ -57,15 +57,15 @@ export default function InicioMobilePage() {
   return (
     <div
       className="ck-estoque-hub ck-estoque-hub--hero ck-checklist-hub ck-inicio-hub"
-      style={{ ['--ck-hero' as string]: `url(${assetUrl(LOGO_ALVIM_ICONE)})` }}
+      style={{ ['--ck-hero' as string]: `url(${assetUrl(ICONE_PWA)})` }}
     >
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
         <div className="ck-estoque-hub__brand-row">
           <img
             className="ck-estoque-hub__mark ck-estoque-hub__mark--hero"
-            src={assetUrl(LOGO_GA_LOCKUP)}
-            alt="Grupo Alvim"
+            src={assetUrl(LOGO_MERIDIAN_GESTAO)}
+            alt="Meridian Gestão Operacional"
           />
           <div className="ck-estoque-hub__actions">
             <NotificacoesSino variante="mobile" contexto="chamados-mobile" />
