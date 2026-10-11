@@ -106,7 +106,7 @@ function carregarPngPublico(...relPaths) {
 }
 
 function carregarIconeMarca() {
-  return carregarPngPublico('Logo_Alvim_Icone.png', 'Logo_Icon-clear.png', 'Logo_GA.png');
+  return carregarPngPublico('Simbolo_Meridian_Oficial.png', 'Logo_Alvim_Icone.png', 'Logo_GA.png');
 }
 
 function carregarLogoCiga() {

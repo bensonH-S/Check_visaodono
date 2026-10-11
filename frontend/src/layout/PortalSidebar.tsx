@@ -22,7 +22,7 @@ import type { UsuarioSessao } from '../lib/auth';
 import { assetUrl, LOGO_MERIDIAN_GESTAO, LOGO_MERIDIAN_MARK_M, toAppPath } from '../config/paths';
 import { colors, layout, radius } from '../theme/tokens';
 
-const MARK_M = `${assetUrl(LOGO_MERIDIAN_MARK_M)}?v=2`;
+const MARK_M = `${assetUrl(LOGO_MERIDIAN_MARK_M)}?v=oficial3`;
 const LOGO_GESTAO = `${assetUrl(LOGO_MERIDIAN_GESTAO)}?v=1`;
 import { useAppConfig } from '../hooks/useAppConfig';
 import { useAppTheme } from '../context/ThemeContext';

@@ -39,8 +39,8 @@
 }
 
 .ck-checklist-hub__mark {
-  height: 38px;
-  max-width: min(220px, 62vw);
+  height: 58px;
+  max-width: min(320px, 78vw);
 }
 
 .ck-checklist-hub__back {

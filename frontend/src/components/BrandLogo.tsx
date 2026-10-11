@@ -1,11 +1,11 @@
 import Box from '@mui/material/Box';
 import type { SxProps, Theme } from '@mui/material/styles';
-import { assetUrl, LOGO_MERIDIAN_LOCKUP } from '../config/paths';
+import { assetUrl, LOGO_MERIDIAN_GESTAO, LOGO_MERIDIAN_MARK_M } from '../config/paths';
 
 type BrandLogoProps = {
   maxWidth?: number | { xs?: number; sm?: number; md?: number };
   sx?: SxProps<Theme>;
-  /** Mantido por compatibilidade — as duas variantes usam o lockup Meridian. */
+  /** icone = símbolo oficial | full = wordmark Gestão Operacional */
   variante?: 'full' | 'icone';
   /** Desliga o scale no hover (ex.: sidebar com crop). */
   disableHover?: boolean;
@@ -14,12 +14,18 @@ type BrandLogoProps = {
 export default function BrandLogo({
   maxWidth = 200,
   sx,
+  variante = 'full',
   disableHover = false,
 }: BrandLogoProps) {
+  const src =
+    variante === 'icone'
+      ? `${assetUrl(LOGO_MERIDIAN_MARK_M)}?v=oficial3`
+      : `${assetUrl(LOGO_MERIDIAN_GESTAO)}?v=oficial3`;
+
   return (
     <Box
       component="img"
-      src={`${assetUrl(LOGO_MERIDIAN_LOCKUP)}?v=oficial1`}
+      src={src}
       alt="Meridian"
       sx={[
         {

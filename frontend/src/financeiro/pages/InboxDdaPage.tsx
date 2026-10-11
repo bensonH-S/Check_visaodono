@@ -1142,7 +1142,18 @@ function SimbolosDda({
       </Tooltip>
       {vencida ? (
         <Tooltip title={t('Boleto vencido', 'Overdue boleto')}>
-          <WarningAmberOutlinedIcon sx={{ fontSize: 18, color: '#DC2626' }} />
+          <WarningAmberOutlinedIcon
+            sx={{
+              fontSize: 18,
+              color: '#DC2626',
+              animation: 'inbox-vencido-pisca 1.4s ease-in-out infinite',
+              '@keyframes inbox-vencido-pisca': {
+                '0%, 100%': { opacity: 1 },
+                '50%': { opacity: 0.28 },
+              },
+              '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+            }}
+          />
         </Tooltip>
       ) : (
         <Box sx={{ width: 18, flexShrink: 0 }} />

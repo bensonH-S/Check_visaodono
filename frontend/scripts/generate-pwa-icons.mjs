@@ -1,6 +1,6 @@
 /**
- * Gera ícones PWA a partir de Logo_Icon.png, trocando o fundo preto por branco.
- * Uso: node scripts/generate-pwa-icons.mjs  (requer: npm i -D sharp)
+ * Gera favicons e ícones PWA a partir de Simbolo_Meridian_Oficial.png.
+ * Uso: npm run icons:pwa
  */
 import fs from 'fs';
 import path from 'path';
@@ -9,40 +9,14 @@ import sharp from 'sharp';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PUBLIC = path.join(ROOT, 'public');
-const SRC = path.join(PUBLIC, 'Logo_Icon.png');
-const BG = { r: 255, g: 255, b: 255, alpha: 1 };
+const SRC = path.join(PUBLIC, 'Simbolo_Meridian_Oficial.png');
 
-function substituirFundoEscuro(px, corOuTransparente) {
-  for (let i = 0; i < px.length; i += 4) {
-    const r = px[i];
-    const g = px[i + 1];
-    const b = px[i + 2];
-    if (r < 48 && g < 48 && b < 48) {
-      if (corOuTransparente === 'transparent') {
-        px[i + 3] = 0;
-      } else {
-        px[i] = 255;
-        px[i + 1] = 255;
-        px[i + 2] = 255;
-        px[i + 3] = 255;
-      }
-    }
-  }
-}
-
-async function logoProcessado(modoFundo) {
-  const { data, info } = await sharp(SRC).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-  const px = new Uint8Array(data);
-  substituirFundoEscuro(px, modoFundo);
-  return sharp(px, { raw: { width: info.width, height: info.height, channels: 4 } }).png();
-}
-
-async function logoComFundoClaro() {
-  return logoProcessado('white');
-}
-
-async function logoComFundoTransparente() {
-  return logoProcessado('transparent');
+async function resizeContain(size, outName, background = { r: 0, g: 0, b: 0, alpha: 0 }) {
+  await sharp(SRC)
+    .resize(size, size, { fit: 'contain', background })
+    .png()
+    .toFile(path.join(PUBLIC, outName));
+  console.log('ok', outName, `${size}x${size}`);
 }
 
 async function main() {
@@ -51,38 +25,23 @@ async function main() {
     process.exit(1);
   }
 
-  const logo = await logoComFundoClaro();
-  const logoBuf = await logo.toBuffer();
+  await resizeContain(32, 'favicon-32x32.png');
+  await resizeContain(64, 'favicon.png');
+  await resizeContain(192, 'meridian-icon-192.png');
+  await resizeContain(512, 'meridian-icon-512.png');
 
-  await logo.toFile(path.join(PUBLIC, 'Logo_Icon-light.png'));
-
-  const favicon = await logoComFundoTransparente();
-  await favicon
-    .resize(32, 32, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-    .png()
-    .toFile(path.join(PUBLIC, 'Logo_Icon-favicon.png'));
-
-  await sharp(logoBuf)
-    .resize(512, 512, { fit: 'contain', background: BG })
-    .png()
-    .toFile(path.join(PUBLIC, 'Logo_Icon-512.png'));
-
-  await sharp(logoBuf)
-    .resize(192, 192, { fit: 'contain', background: BG })
-    .png()
-    .toFile(path.join(PUBLIC, 'Logo_Icon-192.png'));
-
-  const maskInner = await sharp(logoBuf)
-    .resize(307, 307, { fit: 'contain', background: BG })
+  // maskable: símbolo com margem segura em fundo escuro da marca
+  const inner = await sharp(SRC)
+    .resize(360, 360, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
-
-  await sharp(maskInner)
-    .resize(512, 512, { fit: 'contain', background: BG })
+  await sharp({
+    create: { width: 512, height: 512, channels: 4, background: { r: 5, g: 16, b: 23, alpha: 1 } },
+  })
+    .composite([{ input: inner, gravity: 'centre' }])
     .png()
-    .toFile(path.join(PUBLIC, 'Logo_Icon-maskable.png'));
-
-  console.log('Ícones PWA gerados (favicon transparente + PWA com fundo branco).');
+    .toFile(path.join(PUBLIC, 'meridian-icon-maskable-512.png'));
+  console.log('ok meridian-icon-maskable-512.png 512x512');
 }
 
 main().catch((err) => {

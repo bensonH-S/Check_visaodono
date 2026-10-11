@@ -106,7 +106,7 @@ function attachmentFromNames(names, cid) {
 /** Ícone GA nítido (sem wordmark embutido) — legível em header navy; texto no HTML. */
 export function getLogoAttachment() {
   return attachmentFromNames(
-    ['Logo_Alvim_Icone.png', 'Logo_Icon-clear.png', 'Logo_GA.png', 'logo-grupo-alvim.png'],
+    ['Logo_Alvim_Icone.png', 'Simbolo_Meridian_Oficial.png', 'Logo_GA.png', 'logo-grupo-alvim.png'],
     'grupo-alvim-logo',
   );
 }

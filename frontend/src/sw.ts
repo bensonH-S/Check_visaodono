@@ -81,7 +81,7 @@ self.addEventListener('push', (event) => {
     : 'vision-check';
   const options = {
     body: data.body || 'Nova atualização nos chamados',
-    icon: `${self.registration.scope}Icone_pwa-v3.png`,
+    icon: `${self.registration.scope}Simbolo_Meridian_Oficial.png`,
     badge: `${self.registration.scope}favicon-32x32.png`,
     tag,
     renotify: false,

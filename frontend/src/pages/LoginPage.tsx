@@ -25,7 +25,7 @@ import { textosLogin } from '../financeiro/loginI18n';
 import './login-desktop.css';
 
 const FUNDO_LOGIN = `${assetUrl('Fundo_Principal.png')}?v=fill-ok`;
-const MARK_M = `${assetUrl(LOGO_MERIDIAN_MARK_M)}?v=2`;
+const MARK_M = `${assetUrl(LOGO_MERIDIAN_MARK_M)}?v=oficial3`;
 const LOGO_GESTAO = `${assetUrl(LOGO_MERIDIAN_GESTAO)}?v=1`;
 const COPYRIGHT = '©2026 Grupo Alvim · Alvim Participações e Investimentos S/A';
 /** Azul normal → azul bem escuro (sem ciano, para não “brilhar” no card). */
