@@ -180,7 +180,6 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
             width: 52,
             height: 'auto',
             display: 'block',
-            filter: 'drop-shadow(0 0 14px rgba(37, 218, 251, 0.35))',
           }}
         />
         <Box
@@ -193,7 +192,6 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
             height: 'auto',
             display: 'block',
             objectFit: 'contain',
-            mixBlendMode: 'screen',
           }}
         />
       </Box>
