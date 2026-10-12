@@ -123,8 +123,8 @@ const PORT = isProd ? Number(process.env.PORT) || PROD_PORT : DEV_PORT;
 const API_PREFIX = `${APP_BASE_PATH}/api`;
 const STATIC_BASE = `${APP_BASE_PATH}/`;
 
-// Local → vision_check_dev; DB_USE_PROD=1 ou --production → vision_check
-const useProdDb = isProd || process.env.DB_USE_PROD === '1';
+// Local → vision_check_dev. Produção: --production, --db-prod ou DB_USE_PROD=1.
+const useProdDb = isProd || process.argv.includes('--db-prod') || process.env.DB_USE_PROD === '1';
 process.env.DB_NAME = useProdDb
   ? String(process.env.DB_NAME || '').trim() || 'vision_check'
   : 'vision_check_dev';

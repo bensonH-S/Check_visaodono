@@ -47,7 +47,7 @@ import NotificacoesSino from '../components/NotificacoesSino';
 import SobreSistemaButton from '../components/SobreSistemaButton';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
-import { colors, layout } from '../theme/tokens';
+import { colors } from '../theme/tokens';
 import { CC_BG } from '../components/dashboard/commandCenter/ccTheme';
 import '../components/dashboard/commandCenter/commandCenter.css';
 import { isPaginaScrollInterno } from '../utils/pageFillLayout';
@@ -451,7 +451,7 @@ function PortalLayoutInner() {
               alignItems: 'center',
               justifyContent: 'space-between',
               px: 2.5,
-              height: isDashboard ? 44 : layout.brandBarHeight,
+              height: 44,
               flexShrink: 0,
               borderBottom: isDashboard ? 'none' : '1px solid',
               borderColor: colors.border,

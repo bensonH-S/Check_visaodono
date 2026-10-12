@@ -232,7 +232,7 @@ export function ContasPagarPage() {
   const vencida = soma((e) => aberta(e) && !!e.vencimento && e.vencimento < hoje)
 
   return (
-    <Stack spacing={1.75} sx={finPageSx}>
+    <Stack spacing={1} sx={finPageSx}>
       {erroBanco && <Alert severity="warning" sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: 12 } }}>{erroBanco}</Alert>}
       <Stack
         component="form"

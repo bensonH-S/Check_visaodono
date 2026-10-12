@@ -549,12 +549,13 @@ export function InboxDdaPage() {
 
   return (
     <Stack
-      spacing={1.75}
+      spacing={1}
       sx={{
         height: '100%',
         minHeight: 0,
         m: { xs: -1.5, md: -2 },
-        p: { xs: 1.5, md: 2 },
+        px: { xs: 1.5, md: 2 },
+        py: { xs: 1, md: 1 },
         bgcolor: INBOX_BG,
         color: INBOX_TEXT,
         boxSizing: 'border-box',
@@ -582,7 +583,7 @@ export function InboxDdaPage() {
         component="form"
         direction={{ xs: 'column', md: 'row' }}
         spacing={1}
-        sx={{ alignItems: { md: 'flex-end' }, mb: 0.5 }}
+        sx={{ alignItems: { md: 'flex-end' } }}
         onSubmit={(ev) => ev.preventDefault()}
       >
         <TextField
@@ -728,7 +729,7 @@ export function InboxDdaPage() {
         )}
       </Stack>
 
-      <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap', mt: 0.75 }}>
+      <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
         {aba === 0 ? (
           <>
             <Resumo cor="#1B6EF3" rotulo={t('No inbox', 'In inbox')} valor={String(noPeriodo.length)} detalhe={t('boletos DDA', 'DDA boletos')} />
@@ -746,7 +747,7 @@ export function InboxDdaPage() {
         )}
       </Stack>
 
-      <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', mt: 0.25 }}>
+      <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
         {(aba === 0 ? FILTROS : FILTROS_NF).map((item) => (
           <Chip
             key={item}
@@ -770,10 +771,10 @@ export function InboxDdaPage() {
         value={aba}
         onChange={(_, v) => { setAba(v); setPagina(0) }}
         sx={{
-          minHeight: 40,
+          minHeight: 32,
           '& .MuiTabs-indicator': { bgcolor: '#1B6EF3' },
           '& .MuiTab-root': {
-            minHeight: 40,
+            minHeight: 32,
             py: 0,
             px: 1.5,
             fontSize: 12,
@@ -1281,8 +1282,8 @@ function Resumo({
       variant="outlined"
       sx={{
         position: 'relative',
-        px: 1.35,
-        py: 0.75,
+        px: 1.25,
+        py: 0.4,
         pl: 1.6,
         minWidth: 120,
         flex: 1,

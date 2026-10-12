@@ -49,12 +49,22 @@ export default function PageHeaderTitle({ title, subtitle, icon, variant = 'mobi
           {icon}
         </Box>
       ) : null}
-      <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
         <Typography component="h1" sx={typographySx}>
           {title}
         </Typography>
         {subtitle && variant === 'desktop' && (
-          <Typography sx={{ fontSize: 11, fontWeight: 400, color: subCor, mt: 0.15, lineHeight: 1.3 }}>
+          <Typography
+            sx={{
+              fontSize: 12,
+              fontWeight: 400,
+              color: subCor,
+              lineHeight: 1.2,
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
             {subtitle}
           </Typography>
         )}
