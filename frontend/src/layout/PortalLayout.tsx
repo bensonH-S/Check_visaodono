@@ -32,6 +32,9 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import FinanceIdiomaToggle from '../financeiro/FinanceIdiomaToggle';
 import { useIdiomaFinanceiro } from '../financeiro/useIdiomaFinanceiro';
+import { api as financeApi, leituraPedida, urlDespesas } from '../financeiro/api';
+import { aquecerContagemCc } from '../components/dashboard/commandCenter/useCcData';
+import MeridianRouteCurtain from '../brand/MeridianRouteCurtain';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
@@ -136,6 +139,18 @@ function PortalLayoutInner() {
   const painelDiretor = podeReceberPainelDiretorChamados(user);
   const administraChamados = usuarioAdministraChamados(user);
   const veSinoChamados = podeChamados || painelDiretor;
+
+  /** Aquece contagem já; despesas um pouco depois (não compete com auth/me). */
+  useEffect(() => {
+    if (!user) return;
+    aquecerContagemCc(dataHojeBrasilia()).catch(() => undefined);
+    const t = window.setTimeout(() => {
+      if (podeVerFinanceiro(user) && !leituraPedida(urlDespesas())) {
+        financeApi.despesas().catch(() => undefined);
+      }
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [user]);
 
   useEffect(() => {
     if (!user || !administraChamados) return;
@@ -584,6 +599,7 @@ function PortalLayoutInner() {
           />
         )}
       </Box>
+      <MeridianRouteCurtain />
     </Box>
   );
 }

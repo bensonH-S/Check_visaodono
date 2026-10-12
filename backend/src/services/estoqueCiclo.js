@@ -520,14 +520,20 @@ function hojeSpISO() {
   }).format(new Date());
 }
 
+const CONTAGEM_REDE_TTL_MS = 45_000;
+/** @type {Map<string, { em: number, valor: { hoje: string, tipo: string, lojas: object[] } }>} */
+const contagemRedeCache = new Map();
+
 /**
  * Painel da rede: diária do dia (quem contou, quem está em andamento, quem falta).
  * Casa em data_contagem (dia operacional), não no horário de fechamento.
+ * `leve: true` — só o dia (Command Center); sem “última contagem de sempre”.
  */
 export async function listarStatusContagemRede({
   idsPermitidos = null,
   tipo = 'diaria',
   data = null,
+  leve = false,
 } = {}) {
   const hoje = data && /^\d{4}-\d{2}-\d{2}$/.test(String(data)) ? String(data).slice(0, 10) : hojeSpISO();
   const tipoNorm = String(tipo || 'diaria');
@@ -535,9 +541,48 @@ export async function listarStatusContagemRede({
     Array.isArray(idsPermitidos) && idsPermitidos.length
       ? idsPermitidos.map(Number).filter((n) => n > 0)
       : null;
+  const idsKey = ids ? ids.slice().sort((a, b) => a - b).join(',') : '*';
+  const cacheKey = `${hoje}|${tipoNorm}|${leve ? 'leve' : 'full'}|${idsKey}`;
+  const hit = contagemRedeCache.get(cacheKey);
+  if (hit && Date.now() - hit.em < CONTAGEM_REDE_TTL_MS) {
+    return hit.valor;
+  }
 
-  const { rows } = await pool.query(
-    `
+  const sqlLeve = `
+    SELECT
+      l.id_loja,
+      l.bk_number,
+      l.name,
+      c.id_contagem,
+      c.status,
+      c.titulo,
+      COALESCE(c.tipo, 'completa') AS tipo,
+      c.data_contagem::text AS data_contagem,
+      c.criado_em,
+      c.finalizado_em,
+      COALESCE(c.contado_em, c.finalizado_em) AS contado_em,
+      u.nome AS criado_por_nome,
+      NULL::text AS ultima_data,
+      NULL::timestamptz AS ultima_finalizado_em,
+      NULL::int AS ultima_id_contagem,
+      NULL::text AS ultima_por_nome
+    FROM lojas l
+    LEFT JOIN (
+      SELECT DISTINCT ON (x.id_loja)
+        x.id_loja, x.id_contagem, x.status, x.titulo, x.tipo, x.data_contagem,
+        x.criado_em, x.finalizado_em, x.contado_em, x.criado_por
+      FROM estoque_contagens x
+      WHERE COALESCE(x.tipo, 'completa') = $2
+        AND x.data_contagem = $1::date
+      ORDER BY x.id_loja, x.criado_em DESC, x.id_contagem DESC
+    ) c ON c.id_loja = l.id_loja
+    LEFT JOIN usuarios u ON u.id_usuario = c.criado_por
+    WHERE l.bk_number IS NOT NULL AND BTRIM(l.bk_number::text) <> ''
+      AND ($3::int[] IS NULL OR l.id_loja = ANY($3::int[]))
+    ORDER BY l.name
+  `;
+
+  const sqlFull = `
     SELECT
       l.id_loja,
       l.bk_number,
@@ -557,7 +602,8 @@ export async function listarStatusContagemRede({
       uult.nome AS ultima_por_nome
     FROM lojas l
     LEFT JOIN LATERAL (
-      SELECT *
+      SELECT x.id_contagem, x.status, x.titulo, x.tipo, x.data_contagem,
+             x.criado_em, x.finalizado_em, x.contado_em, x.criado_por
       FROM estoque_contagens x
       WHERE x.id_loja = l.id_loja
         AND COALESCE(x.tipo, 'completa') = $2
@@ -572,17 +618,16 @@ export async function listarStatusContagemRede({
       WHERE y.id_loja = l.id_loja
         AND COALESCE(y.tipo, 'completa') = $2
         AND y.status = 'finalizada'
-      ORDER BY COALESCE(y.contado_em, y.finalizado_em, y.data_contagem::timestamptz) DESC NULLS LAST,
-               y.id_contagem DESC
+      ORDER BY y.data_contagem DESC NULLS LAST, y.id_contagem DESC
       LIMIT 1
     ) ult ON TRUE
     LEFT JOIN usuarios uult ON uult.id_usuario = ult.criado_por
     WHERE l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''
       AND ($3::int[] IS NULL OR l.id_loja = ANY($3::int[]))
     ORDER BY l.name
-    `,
-    [hoje, tipoNorm, ids],
-  );
+  `;
+
+  const { rows } = await pool.query(leve ? sqlLeve : sqlFull, [hoje, tipoNorm, ids]);
 
   const lojas = rows.map((r) => {
     let status = 'faltou';
@@ -615,7 +660,13 @@ export async function listarStatusContagemRede({
     };
   });
 
-  return { hoje, tipo: tipoNorm, lojas };
+  const valor = { hoje, tipo: tipoNorm, lojas };
+  contagemRedeCache.set(cacheKey, { em: Date.now(), valor });
+  if (contagemRedeCache.size > 40) {
+    const antigo = [...contagemRedeCache.entries()].sort((a, b) => a[1].em - b[1].em)[0];
+    if (antigo) contagemRedeCache.delete(antigo[0]);
+  }
+  return valor;
 }
 
 export async function buscarDiffsContagemRede(idContagem) {

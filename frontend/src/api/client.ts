@@ -1394,10 +1394,16 @@ export const api = {
       `/estoque/break/rede${qs ? `?${qs}` : ''}`,
     );
   },
-  estoqueContagensRede: (opts?: { tipo?: 'diaria' | 'critica_semanal' | 'completa'; data?: string }) => {
+  estoqueContagensRede: (opts?: {
+    tipo?: 'diaria' | 'critica_semanal' | 'completa';
+    data?: string;
+    /** Painel leve (CC): só contagem do dia, sem “última de sempre”. */
+    leve?: boolean;
+  }) => {
     const q = new URLSearchParams();
     if (opts?.tipo) q.set('tipo', opts.tipo);
     if (opts?.data) q.set('data', opts.data);
+    if (opts?.leve) q.set('leve', '1');
     const qs = q.toString();
     return request<{ hoje: string; tipo: string; lojas: EstoqueContagemRedeItem[] }>(
       `/estoque/contagens/rede${qs ? `?${qs}` : ''}`,

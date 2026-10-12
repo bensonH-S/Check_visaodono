@@ -1,19 +1,35 @@
 import Box from '@mui/material/Box';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
-import { assetUrl, ICONE_PWA } from '../config/paths';
+import { assetUrl, ICONE_PWA, LOGO_MERIDIAN_MARK_M } from '../config/paths';
 import { colors } from '../theme/tokens';
 import './estoque/estoque-hub.css';
+import '../brand/meridian-page-loading.css';
 
-/** Barra + texto de carregamento (padrão auditoria / checklist). */
+const MARK = `${assetUrl(LOGO_MERIDIAN_MARK_M)}?v=oficial3`;
+
+/** Carregamento com o símbolo M (desktop) ou barra (+ logo no hub mobile). */
 export default function PageLoading({
   label = 'Carregando…',
   /** Só nos hubs mobile; no desktop fica a barra simples. */
   comLogo = false,
+  /** Centraliza o M — auth, bootstrap e esperas longas. */
+  marca = false,
 }: {
   label?: string;
   comLogo?: boolean;
+  marca?: boolean;
 }) {
+  if (marca) {
+    return (
+      <div className="meridian-page-loading" role="status" aria-live="polite" aria-label={label}>
+        <div className="meridian-page-loading__glow" aria-hidden />
+        <img className="meridian-page-loading__mark" src={MARK} alt="" draggable={false} />
+        <p className="meridian-page-loading__label">{label}</p>
+      </div>
+    );
+  }
+
   if (!comLogo) {
     return (
       <Box sx={{ p: 2, width: '100%' }}>

@@ -59,6 +59,14 @@
         width: clamp(5.5rem, 32vmin, 10.5rem);
         height: clamp(5.5rem, 32vmin, 10.5rem);
         object-fit: contain;
+        animation: meridian-splash-mark 1.5s ease-in-out infinite;
+      }
+      @keyframes meridian-splash-mark {
+        0%, 100% { transform: scale(0.96); opacity: 0.9; }
+        50% { transform: scale(1.04); opacity: 1; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #pwa-splash img { animation: none; }
       }
     </style>
   </head>

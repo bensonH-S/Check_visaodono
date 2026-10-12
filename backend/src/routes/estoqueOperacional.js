@@ -1128,10 +1128,12 @@ router.get('/contagens/rede', permOp, async (req, res, next) => {
         : null;
     const tipo = String(req.query.tipo || 'diaria').toLowerCase();
     const data = String(req.query.data || '').slice(0, 10) || null;
+    const leve = ['1', 'true', 'yes'].includes(String(req.query.leve || '').toLowerCase());
     const result = await listarStatusContagemRede({
       idsPermitidos: ids,
       tipo: ['diaria', 'critica_semanal', 'completa'].includes(tipo) ? tipo : 'diaria',
       data,
+      leve,
     });
     res.json(result);
   } catch (e) {

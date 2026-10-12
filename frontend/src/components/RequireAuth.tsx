@@ -75,7 +75,7 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
           alignItems: 'center',
         }}
       >
-        <PageLoading />
+        <PageLoading marca label="Entrando…" />
       </Box>
     );
   }

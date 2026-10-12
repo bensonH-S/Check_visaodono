@@ -1,0 +1,108 @@
+.meridian-route-curtain {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: rgba(5, 16, 23, 0.42);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  animation: meridian-curtain-in 0.22s ease-out both;
+}
+
+.meridian-route-curtain--out {
+  animation: meridian-curtain-out 0.28s ease-in both;
+}
+
+.meridian-route-curtain__glow {
+  position: absolute;
+  width: min(42vmin, 280px);
+  height: min(42vmin, 280px);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(5, 72, 209, 0.22) 0%, transparent 68%);
+  animation: meridian-glow-pulse 0.48s ease-in-out both;
+}
+
+.meridian-route-curtain__mark {
+  position: relative;
+  width: clamp(4.25rem, 14vmin, 6.5rem);
+  height: clamp(4.25rem, 14vmin, 6.5rem);
+  object-fit: contain;
+  filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.35));
+  animation: meridian-mark-in 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.meridian-route-curtain--out .meridian-route-curtain__mark {
+  animation: meridian-mark-out 0.26s ease-in both;
+}
+
+@keyframes meridian-curtain-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes meridian-curtain-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes meridian-mark-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.82) translateY(6px);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.04) translateY(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes meridian-mark-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes meridian-glow-pulse {
+  0% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.55;
+    transform: scale(1.05);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .meridian-route-curtain,
+  .meridian-route-curtain__mark,
+  .meridian-route-curtain__glow,
+  .meridian-route-curtain--out,
+  .meridian-route-curtain--out .meridian-route-curtain__mark {
+    animation-duration: 0.01ms !important;
+  }
+}

@@ -14,7 +14,7 @@ export default function DashboardPage() {
   const { data: dataFiltro } = useCommandCenterFilters();
   const user = getUsuario();
   const podeFinanceiro = podeVerFinanceiro(user);
-  const { despesas, contagem, loading, erroFin, erroContagem } = useCcData({
+  const { despesas, contagem, loading, loadingContagem, erroFin, erroContagem } = useCcData({
     podeFinanceiro,
     data: dataFiltro,
   });
@@ -67,7 +67,7 @@ export default function DashboardPage() {
           <CcFilaPagamento despesas={despesas} loading={loading} erro={erroFin} />
         </Box>
         <Box sx={{ minWidth: 0, minHeight: { xs: 380, lg: 0 }, height: { lg: '100%' } }}>
-          <CcContagem lojas={contagem} loading={loading} erro={erroContagem} />
+          <CcContagem lojas={contagem} loading={loadingContagem} erro={erroContagem} />
         </Box>
       </Box>
     </Box>
