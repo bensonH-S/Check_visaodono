@@ -45,7 +45,7 @@ export type PageTitleConfig = {
 };
 
 export const PAGE_TITLES: Record<string, PageTitleConfig> = {
-  '/dashboard': { title: 'Command Center', subtitle: 'Finanças, contagem e estoque da rede', icon: <DashboardIcon sx={iconSx} /> },
+  '/dashboard': { title: 'Command Center', subtitle: 'Caixa da semana, canais e contagem da rede', icon: <DashboardIcon sx={iconSx} /> },
   '/': { title: 'Command Center', subtitle: 'Finanças, contagem e estoque da rede', icon: <DashboardIcon sx={iconSx} /> },
   '/ranking': { title: 'Ranking de Lojas', icon: <EmojiEventsIcon sx={iconSx} /> },
   '/inicio/mobile': { title: 'Início', icon: <DashboardIcon sx={iconSx} /> },

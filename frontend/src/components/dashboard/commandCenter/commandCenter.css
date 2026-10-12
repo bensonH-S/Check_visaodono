@@ -6,6 +6,27 @@
   min-height: 0;
 }
 
+.cc-page .MuiTableCell-head {
+  font-size: 11px !important;
+  font-weight: 650 !important;
+  letter-spacing: 0.02em;
+  line-height: 1.35 !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+.cc-page .MuiTableCell-body {
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+  overflow: visible !important;
+}
+
+.cc-page .MuiTableRow-root {
+  height: auto !important;
+}
+
 /* Tooltips Recharts: texto segue o tema (evita letra preta no escuro). */
 .cc-page .recharts-default-tooltip,
 .cc-page .recharts-default-tooltip .recharts-tooltip-label,

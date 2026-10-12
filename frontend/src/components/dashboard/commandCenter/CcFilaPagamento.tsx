@@ -7,6 +7,7 @@ import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import type { Despesa } from '../../../financeiro/api';
@@ -21,94 +22,140 @@ function hojeIso() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function diasAte(venc: string, hoje: string) {
-  const a = new Date(`${venc.slice(0, 10)}T00:00:00`);
-  const b = new Date(`${hoje}T00:00:00`);
-  return Math.round((a.getTime() - b.getTime()) / 86_400_000);
-}
+type LojaFila = {
+  loja: string;
+  total: number;
+  qtd: number;
+  vencidas: number;
+  autorizar: number;
+  maiorTitulo: number;
+};
 
-function ddmm(d: string | null) {
-  if (!d) return '—';
-  const [, m, dia] = d.slice(0, 10).split('-');
-  return `${dia}/${m}`;
-}
+const celulaSx = {
+  py: '10px !important',
+  verticalAlign: 'middle',
+  borderColor: 'divider',
+} as const;
 
-/** Fila de pagamento: vencidas, depois para autorizar, depois por vencimento. */
+/** Fila por loja: maior saldo em aberto primeiro. Linha única — não corta em zoom 100%. */
 export default function CcFilaPagamento({ despesas, loading, erro }: { despesas: Despesa[]; loading: boolean; erro: string }) {
   const escuro = useTheme().palette.mode === 'dark';
   const hoje = hojeIso();
 
-  const { fila, vencidas, prontas, semana } = useMemo(() => {
+  const { filas, totalRede, lojasComSaldo } = useMemo(() => {
     const abertas = despesas.filter((d) => !FECHADAS.includes(d.status));
-    const dias = (d: Despesa) => (d.vencimento ? diasAte(d.vencimento, hoje) : null);
-    const peso = (d: Despesa) => {
-      const n = dias(d);
-      if (n != null && n < 0) return 0;
-      if (d.status === 'pronta') return 1;
-      return 2;
-    };
-    const ordenadas = [...abertas].sort((a, b) => {
-      const pa = peso(a);
-      const pb = peso(b);
-      if (pa !== pb) return pa - pb;
-      return (a.vencimento || '9999').localeCompare(b.vencimento || '9999') || Number(b.valor) - Number(a.valor);
-    });
+    const mapa = new Map<string, LojaFila>();
+    for (const d of abertas) {
+      const loja = (d.origem || 'Sem loja').trim() || 'Sem loja';
+      const cur = mapa.get(loja) || { loja, total: 0, qtd: 0, vencidas: 0, autorizar: 0, maiorTitulo: 0 };
+      const valor = Number(d.valor || 0);
+      cur.total += valor;
+      cur.qtd += 1;
+      cur.maiorTitulo = Math.max(cur.maiorTitulo, valor);
+      if (d.vencimento && d.vencimento < hoje) cur.vencidas += 1;
+      if (d.status === 'pronta') cur.autorizar += 1;
+      mapa.set(loja, cur);
+    }
+    const filas = [...mapa.values()].sort((a, b) => b.total - a.total || a.loja.localeCompare(b.loja, 'pt-BR'));
     return {
-      fila: ordenadas.slice(0, 30),
-      vencidas: abertas.filter((d) => peso(d) === 0).length,
-      prontas: abertas.filter((d) => d.status === 'pronta').length,
-      semana: abertas.filter((d) => {
-        const n = dias(d);
-        return n != null && n >= 0 && n <= 7;
-      }).reduce((s, d) => s + Number(d.valor), 0),
+      filas,
+      totalRede: filas.reduce((s, l) => s + l.total, 0),
+      lojasComSaldo: filas.length,
     };
   }, [despesas, hoje]);
 
-  const meta = !loading && !erro && fila.length ? `${fmtInt(vencidas)} vencidas · ${fmtInt(prontas)} para autorizar · ${fmtBrl(semana)} em 7 dias` : undefined;
+  const meta =
+    !loading && !erro && filas.length
+      ? `${fmtInt(lojasComSaldo)} lojas · ${fmtBrl(totalRede)} em aberto`
+      : undefined;
 
   return (
-    <CcCard title="Fila de pagamento" meta={meta} action="Ver contas a pagar" actionTo="/financeiro">
+    <CcCard title="A pagar por loja" meta={meta} action="Ver agenda" actionTo="/financeiro">
       {loading ? (
         <Box sx={{ p: 1.5 }}>
           <Skeleton variant="rounded" height={200} />
         </Box>
       ) : erro ? (
         <CcVazio>{erro}</CcVazio>
-      ) : !fila.length ? (
+      ) : !filas.length ? (
         <CcVazio>Nenhuma despesa em aberto.</CcVazio>
       ) : (
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
-          <Table size="small" stickyHeader>
+          <Table
+            size="medium"
+            stickyHeader
+            sx={{
+              width: '100%',
+              minWidth: 480,
+              tableLayout: 'fixed',
+              '& .MuiTableCell-head': {
+                bgcolor: '#F8FAFC',
+                color: '#64748B',
+                fontWeight: 650,
+                fontSize: 11,
+              },
+              '& .MuiTableCell-root': {
+                overflow: 'visible',
+                lineHeight: 1.35,
+              },
+            }}
+          >
             <TableHead>
               <TableRow>
-                <TableCell sx={{ width: 108 }}>Status</TableCell>
-                <TableCell>Fornecedor</TableCell>
-                <TableCell sx={{ width: 96 }}>Origem</TableCell>
-                <TableCell sx={{ width: 64 }}>Venc.</TableCell>
-                <TableCell align="right" sx={{ width: 104 }}>Valor</TableCell>
+                <TableCell sx={{ ...celulaSx, width: 40 }}>#</TableCell>
+                <TableCell sx={{ ...celulaSx, width: '30%' }}>Loja</TableCell>
+                <TableCell align="center" sx={{ ...celulaSx, width: 70 }}>Títulos</TableCell>
+                <TableCell align="center" sx={{ ...celulaSx, width: 84 }}>Vencidas</TableCell>
+                <TableCell align="center" sx={{ ...celulaSx, width: 88 }}>Autorizar</TableCell>
+                <TableCell align="right" sx={{ ...celulaSx, width: '24%', pr: 2 }}>Total</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {fila.map((d) => {
-                const n = d.vencimento ? diasAte(d.vencimento, hoje) : null;
-                const vencida = n != null && n < 0;
-                const pronta = d.status === 'pronta';
-                const t = vencida ? tom('vermelho', escuro) : pronta ? tom('azul', escuro) : tom('ambar', escuro);
-                const rotulo = vencida ? `Vencida ${Math.abs(n!)}d` : pronta ? 'Para autorizar' : n === 0 ? 'Vence hoje' : 'A pagar';
+              {filas.map((l, i) => {
+                const critico = l.vencidas > 0;
+                const t = critico ? tom('vermelho', escuro) : l.autorizar > 0 ? tom('azul', escuro) : tom('ambar', escuro);
                 return (
-                  <TableRow key={d.id} hover>
-                    <TableCell>
-                      <Chip size="small" variant="outlined" label={rotulo} sx={chipSx(t)} />
+                  <TableRow key={l.loja} hover>
+                    <TableCell sx={{ ...celulaSx, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                      {i + 1}
                     </TableCell>
-                    <TableCell sx={{ maxWidth: 0 }}>
-                      <Typography sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {(d.fornecedor || d.descricao || 'Sem descrição').trim()}
-                      </Typography>
+                    <TableCell sx={celulaSx}>
+                      <Tooltip title={`Maior título: ${fmtBrl(l.maiorTitulo)}`} enterDelay={400}>
+                        <Typography
+                          noWrap
+                          sx={{ fontSize: 13, fontWeight: 650, lineHeight: 1.3 }}
+                        >
+                          {l.loja}
+                        </Typography>
+                      </Tooltip>
                     </TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 96 }}>{d.origem}</TableCell>
-                    <TableCell sx={{ color: vencida ? 'error.main' : 'inherit', fontVariantNumeric: 'tabular-nums' }}>{ddmm(d.vencimento)}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
-                      {fmtBrl(Number(d.valor))}
+                    <TableCell align="center" sx={{ ...celulaSx, fontVariantNumeric: 'tabular-nums', fontSize: 13 }}>
+                      {fmtInt(l.qtd)}
+                    </TableCell>
+                    <TableCell align="center" sx={celulaSx}>
+                      {l.vencidas > 0 ? (
+                        <Chip size="small" variant="outlined" label={fmtInt(l.vencidas)} sx={{ ...chipSx(t), height: 22 }} />
+                      ) : (
+                        <Typography sx={{ fontSize: 13, color: 'text.disabled', lineHeight: 1.3 }}>0</Typography>
+                      )}
+                    </TableCell>
+                    <TableCell align="center" sx={{ ...celulaSx, fontVariantNumeric: 'tabular-nums', fontSize: 13 }}>
+                      {fmtInt(l.autorizar)}
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        ...celulaSx,
+                        pr: 2,
+                        fontWeight: 700,
+                        fontSize: 13,
+                        letterSpacing: '-0.02em',
+                        fontVariantNumeric: 'tabular-nums',
+                        color: critico ? 'error.main' : 'inherit',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {fmtBrl(l.total)}
                     </TableCell>
                   </TableRow>
                 );

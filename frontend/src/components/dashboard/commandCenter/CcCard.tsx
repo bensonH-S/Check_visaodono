@@ -8,15 +8,24 @@ type Props = {
   meta?: React.ReactNode;
   action?: string;
   actionTo?: string;
+  /** Se true, a altura acompanha o conteúdo (não estica nem corta). */
+  autoHeight?: boolean;
   children: React.ReactNode;
 };
 
 /** Bloco padrão do Command Center: mesmo Paper/borda das telas do financeiro. */
-export default function CcCard({ title, meta, action, actionTo, children }: Props) {
+export default function CcCard({ title, meta, action, actionTo, autoHeight, children }: Props) {
   return (
     <Paper
       variant="outlined"
-      sx={{ height: '100%', minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}
+      sx={{
+        height: autoHeight ? 'auto' : '100%',
+        minHeight: 0,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: autoHeight ? 'visible' : 'hidden',
+      }}
     >
       <Box
         sx={{
@@ -33,11 +42,11 @@ export default function CcCard({ title, meta, action, actionTo, children }: Prop
       >
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, minWidth: 0 }}>
           <Typography sx={{ fontSize: 13, fontWeight: 600, letterSpacing: '-0.01em', whiteSpace: 'nowrap' }}>{title}</Typography>
-          {meta && (
-            <Typography component="div" sx={{ fontSize: 11, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {meta ? (
+            <Typography component="div" sx={{ fontSize: 11, color: 'text.secondary', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center' }}>
               {meta}
             </Typography>
-          )}
+          ) : null}
         </Box>
         {action && actionTo && (
           <Typography
