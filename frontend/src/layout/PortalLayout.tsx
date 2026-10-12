@@ -26,7 +26,6 @@ import Inventory2Icon from '@mui/icons-material/Inventory2';
 import BoltIcon from '@mui/icons-material/Bolt';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import PointOfSaleOutlinedIcon from '@mui/icons-material/PointOfSaleOutlined';
-import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -121,13 +120,11 @@ function PortalLayoutInner() {
   const isChamadoNovo = path === '/chamados/novo';
   const emAprovacoes = path.startsWith('/chamados/aprovacoes');
   const isDashboard = path === '/dashboard';
-  /** Agenda + Inbox + Caixa + Integrações + Config. financeiro: PT/EN no header. */
+  /** Agenda + Inbox + Caixa: PT/EN no header. */
   const isFinanceiroRota =
     path === '/financeiro' ||
     path.startsWith('/financeiro/inbox') ||
-    path.startsWith('/financeiro/caixa') ||
-    path.startsWith('/financeiro/integracoes') ||
-    path.startsWith('/financeiro/configuracoes');
+    path.startsWith('/financeiro/caixa');
   const mostraIdiomaFinanceiro = isFinanceiroRota;
   const idiomaFinanceiro = useIdiomaFinanceiro();
   const finEn = idiomaFinanceiro === 'en';
@@ -379,15 +376,6 @@ function PortalLayoutInner() {
       show: podeVerFinanceiro(user),
       section: secFin,
     },
-    {
-      to: '/financeiro/integracoes',
-      label: finEn ? 'Integrations' : 'Integrações',
-      icon: <HubOutlinedIcon fontSize="small" />,
-      show: podeVerFinanceiro(user),
-      section: secFin,
-      isActive: (pathname: string) =>
-        pathname.startsWith('/financeiro/integracoes') || pathname.startsWith('/financeiro/configuracoes'),
-    },
 
     // OPERAÇÃO
     { to: '/checklist', label: 'AutoREV', icon: <AssignmentIcon fontSize="small" />, show: podeUsarChecklist(user), section: 'OPERAÇÃO' },
@@ -457,8 +445,8 @@ function PortalLayoutInner() {
         className="flex-1 flex flex-col min-w-0 min-h-0"
         sx={{ bgcolor: isDashboard ? CC_BG : colors.canvas }}
       >
-        {/* Topbar desktop */}
-        {!hideSidebar && (
+        {/* Topbar desktop — some em Configuração (já tem trilho próprio). */}
+        {!hideSidebar && !emConfiguracoes && (
           <Box
             component="header"
             sx={{
@@ -487,7 +475,7 @@ function PortalLayoutInner() {
                     aria-label={mostraIdiomaFinanceiro && finEn ? 'Settings' : 'Configurações'}
                     onClick={() => navigate('/configuracoes')}
                     sx={{
-                      color: emConfiguracoes ? colors.navy : colors.textSecondary,
+                      color: colors.textSecondary,
                       '&:hover': {
                         color: colors.navy,
                         bgcolor: colors.navyMuted,
@@ -525,20 +513,20 @@ function PortalLayoutInner() {
             <Box component="img" src={assetUrl(LOGO_GRUPO_ALVIM)} alt="" sx={{ height: 28, objectFit: 'contain' }} />
           )}
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <PageHeaderTitle {...pageTitle} variant="mobile" tone="default" />
+            {emConfiguracoes ? null : <PageHeaderTitle {...pageTitle} variant="mobile" tone="default" />}
           </Box>
           <SobreSistemaButton variante="portal" />
           <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
           {/* Tema escuro oculto no mobile por enquanto — só claro. */}
-          {mostraIdiomaFinanceiro ? <FinanceIdiomaToggle size="tiny" /> : null}
-          {podeConfig ? (
+          {mostraIdiomaFinanceiro || path.startsWith('/configuracoes/financeiro') ? (
+            <FinanceIdiomaToggle size="tiny" />
+          ) : null}
+          {podeConfig && !emConfiguracoes ? (
             <IconButton
               size="small"
               aria-label="Configurações"
               onClick={() => navigate('/configuracoes')}
-              sx={{
-                color: emConfiguracoes ? colors.navy : colors.textSecondary,
-              }}
+              sx={{ color: colors.textSecondary }}
             >
               <SettingsIcon sx={{ fontSize: 18 }} />
             </IconButton>
@@ -556,8 +544,13 @@ function PortalLayoutInner() {
 
         <Box
           component="main"
-          className={`flex-1 min-h-0 flex flex-col ${scrollInterno ? 'overflow-hidden' : 'overflow-y-auto'}`}
-          sx={{
+          className={`flex-1 min-h-0 flex flex-col ${scrollInterno || emConfiguracoes ? 'overflow-hidden' : 'overflow-y-auto'}`}
+          sx={emConfiguracoes ? {
+            p: 0,
+            pb: mobileTabsRodape.length > 0 ? { xs: safeAreaBottomCalc(64), md: 0 } : 0,
+            width: '100%',
+            bgcolor: colors.canvas,
+          } : {
             pl: { xs: 'max(14px, env(safe-area-inset-left, 0px))', md: paginaEscalaVisitas ? 1.25 : 2.25, xl: paginaEscalaVisitas ? 1.25 : 2.25 },
             pr: { xs: 'max(14px, env(safe-area-inset-right, 0px))', md: paginaEscalaVisitas ? 1.25 : 2.25, xl: paginaEscalaVisitas ? 1.25 : 2.25 },
             pt: paginaEscalaVisitas || isFinanceiroRota

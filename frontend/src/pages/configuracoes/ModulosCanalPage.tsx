@@ -20,8 +20,8 @@ import {
   type ModuloCanalCodigo,
   type ModulosCanalMapa,
 } from '../../config/modulosCanal';
-import { colors, portalPanelSx } from '../../theme/tokens';
 import { showToast } from '../../utils/toast';
+import { configPageSx, configPaperSx, FIN_BORDER, FIN_MUTED, FIN_SURFACE_ALT, FIN_TEXT } from './configPageSx';
 
 const SECOES = [...new Set(CATALOGO_MODULOS.map((m) => m.secao))];
 
@@ -80,33 +80,23 @@ export default function ModulosCanalPage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 880 }}>
-      <Box>
-        <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-          Canais do app
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-          Liga ou desliga cada função no portal e no celular. Vale para todos, independente do cargo.
-          A permissão do usuário continua valendo: se o canal estiver ligado e a pessoa não tiver
-          acesso, o item não aparece.
-        </Typography>
-      </Box>
-
+    <Box sx={{ ...configPageSx, maxWidth: 920, overflowY: 'auto' }}>
       {loading ? <LinearProgress /> : null}
       {erro ? <Alert severity="error">{erro}</Alert> : null}
 
       {porSecao.map(({ secao, itens }) => (
-        <Paper key={secao} sx={{ ...portalPanelSx, p: 0, overflow: 'hidden' }}>
+        <Paper key={secao} elevation={0} sx={{ ...configPaperSx, flex: 'none', minHeight: 0 }}>
           <Typography
             sx={{
               px: 2,
               py: 1.25,
-              fontWeight: 800,
-              fontSize: '0.75rem',
+              bgcolor: FIN_SURFACE_ALT,
+              color: FIN_MUTED,
+              borderBottom: `1px solid ${FIN_BORDER}`,
+              fontSize: 11,
+              fontWeight: 700,
               letterSpacing: '0.06em',
               textTransform: 'uppercase',
-              color: colors.textMuted,
-              borderBottom: `1px solid ${colors.border}`,
             }}
           >
             {secao}
@@ -114,11 +104,11 @@ export default function ModulosCanalPage() {
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700 }}>Função</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, width: 110 }}>
+                <TableCell sx={{ fontWeight: 650, color: FIN_MUTED }}>Função</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 650, color: FIN_MUTED, width: 110 }}>
                   Portal
                 </TableCell>
-                <TableCell align="center" sx={{ fontWeight: 700, width: 110 }}>
+                <TableCell align="center" sx={{ fontWeight: 650, color: FIN_MUTED, width: 110 }}>
                   App
                 </TableCell>
               </TableRow>
@@ -129,8 +119,8 @@ export default function ModulosCanalPage() {
                 return (
                   <TableRow key={cat.codigo} hover>
                     <TableCell>
-                      <Typography sx={{ fontWeight: 700, fontSize: '0.875rem' }}>{cat.nome}</Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: FIN_TEXT }}>{cat.nome}</Typography>
+                      <Typography variant="caption" sx={{ color: FIN_MUTED }}>
                         {cat.descricao}
                       </Typography>
                     </TableCell>

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
@@ -18,7 +17,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
+import InputAdornment from '@mui/material/InputAdornment';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Alert from '@mui/material/Alert';
@@ -36,15 +35,35 @@ import type { CategoriaChecklist, Pergunta, PerguntaInput, TipoResposta, TipoChe
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import { useToast } from '../../hooks/useToast';
 import { dispararAtualizacaoChecklist } from '../../utils/checklistEvent';
-import { tableCellWrapSx, tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
+import { tableContainerSx, tableSx } from '../../utils/tablePageLayout';
+import {
+  configPageSx,
+  configPaperSx,
+  configToolbarSx,
+  finBtnContainedSx,
+  finBtnOutlinedSx,
+  finCampoSx,
+  FIN_MUTED,
+  FIN_TEXT,
+} from './configPageSx';
 
-const NAVY = '#1B2A6B';
-
-const chipRegraSx = {
-  fontWeight: 600,
-  color: 'white',
-  '& .MuiChip-label': { color: 'white', px: 0.75 },
-};
+function chipRegra(tom: 'ok' | 'info' | 'alerta' | 'erro') {
+  const mapa = {
+    ok: { color: '#047857', border: 'rgba(5,150,105,0.45)', bg: 'rgba(5,150,105,0.1)' },
+    info: { color: '#0D4ECC', border: 'rgba(27,110,243,0.4)', bg: 'rgba(27,110,243,0.08)' },
+    alerta: { color: '#B45309', border: 'rgba(245,158,11,0.45)', bg: 'rgba(245,158,11,0.1)' },
+    erro: { color: '#B91C1C', border: 'rgba(239,68,68,0.4)', bg: 'rgba(239,68,68,0.08)' },
+  } as const;
+  const e = mapa[tom];
+  return {
+    height: 22,
+    fontSize: 11,
+    fontWeight: 500,
+    color: e.color,
+    borderColor: e.border,
+    bgcolor: e.bg,
+  };
+}
 
 const TIPOS: { value: TipoResposta; label: string }[] = [
   { value: 'sim_nao', label: 'Sim / Não' },
@@ -107,8 +126,6 @@ function SwitchRow({ children }: { children: React.ReactNode }) {
 }
 
 export default function ChecklistPerguntasPage() {
-  const theme = useTheme();
-  const isDark = theme.palette.mode === 'dark';
   const [secoes, setSecoes] = useState<CategoriaChecklist[]>([]);
   const [tiposChecklist, setTiposChecklist] = useState<TipoChecklist[]>([]);
   const [tipoGestao, setTipoGestao] = useState('auditoria_operacional');
@@ -265,118 +282,40 @@ export default function ChecklistPerguntasPage() {
   if (loading) return <LinearProgress />;
 
   return (
-    <Box sx={tablePageLayoutSx}>
-      <Paper
-        elevation={0}
-        sx={{
-          flexShrink: 0,
-          p: { xs: 2, sm: 2.5 },
-          borderRadius: 2,
-          border: '1px solid',
-          borderColor: isDark ? 'rgba(232, 82, 10, 0.35)' : 'divider',
-          background: isDark
-            ? 'linear-gradient(135deg, rgba(232, 82, 10, 0.28) 0%, rgba(249, 115, 22, 0.16) 100%)'
-            : `linear-gradient(135deg, ${NAVY} 0%, #2a3d8f 100%)`,
-          color: 'white',
-        }}
-      >
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            alignItems: 'flex-start',
-            justifyContent: 'space-between',
-            gap: 2,
-            mb: 2,
+    <Box sx={configPageSx}>
+      <Box sx={configToolbarSx}>
+        <TextField
+          select
+          size="small"
+          value={filtroSecao}
+          onChange={(e) => {
+            const v = e.target.value;
+            setFiltroSecao(v === 'todas' ? 'todas' : Number(v));
+          }}
+          sx={{ width: { xs: '100%', md: 240 }, ...finCampoSx }}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <FilterListIcon sx={{ fontSize: 18, color: FIN_MUTED }} />
+                </InputAdornment>
+              ),
+            },
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, minWidth: 0 }}>
-            <Box
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 2,
-                bgcolor: isDark ? 'rgba(232, 82, 10, 0.25)' : 'rgba(255,255,255,0.15)',
-                color: isDark ? '#FB923C' : 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <AssignmentIcon sx={{ fontSize: 26 }} />
-            </Box>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                Checklist perguntas
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 1 }}>
-                <Chip
-                  label={`${totalPerguntas} perguntas`}
-                  size="small"
-                  sx={{ bgcolor: isDark ? 'rgba(232, 82, 10, 0.25)' : 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
-                />
-                <Chip
-                  label={`${secoes.length} seções`}
-                  size="small"
-                  sx={{ bgcolor: isDark ? 'rgba(232, 82, 10, 0.25)' : 'rgba(255,255,255,0.18)', color: 'white', fontWeight: 600, height: 24 }}
-                />
-                <Chip
-                  label={`${perguntas.length} exibidas`}
-                  size="small"
-                  sx={{ bgcolor: isDark ? 'rgba(232, 82, 10, 0.18)' : 'rgba(255,255,255,0.12)', color: 'rgba(255,255,255,0.95)', height: 24 }}
-                />
-              </Box>
-            </Box>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => {
-                setNomeSecao('');
-                setDialogSecao(true);
-              }}
-              sx={{
-                color: 'white',
-                borderColor: isDark ? 'rgba(251, 146, 60, 0.5)' : 'rgba(255,255,255,0.45)',
-                '&:hover': { borderColor: 'white', bgcolor: isDark ? 'rgba(232, 82, 10, 0.15)' : 'rgba(255,255,255,0.08)' }
-              }}
-            >
-              Nova seção
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              startIcon={<AddIcon />}
-              onClick={abrirNova}
-              sx={{
-                bgcolor: isDark ? '#E8520A' : 'white',
-                color: isDark ? 'white' : NAVY,
-                fontWeight: 700,
-                '&:hover': { bgcolor: isDark ? '#D04505' : '#f0f2fa' }
-              }}
-            >
-              Nova pergunta
-            </Button>
-          </Box>
-        </Box>
-
-        {tiposChecklist.length > 1 && (
-          <FormControl
-            size="small"
-            sx={{
-              minWidth: 220,
-              mb: 1.5,
-              '& .MuiInputLabel-root, & .MuiSelect-select': { color: 'white' },
-              '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.35)' },
-            }}
-          >
-            <InputLabel>Checklist</InputLabel>
+          <MenuItem value="todas">Todas as seções · {perguntas.length}</MenuItem>
+          {secoes.map((s) => (
+            <MenuItem key={s.id_categoria} value={s.id_categoria}>
+              {s.ordem}. {s.nome} ({s.perguntas.length})
+            </MenuItem>
+          ))}
+        </TextField>
+        {tiposChecklist.length > 1 ? (
+          <FormControl size="small" sx={{ minWidth: 180, ...finCampoSx }}>
             <Select
-              label="Checklist"
               value={tipoGestao}
               onChange={(e) => void trocarTipoGestao(String(e.target.value))}
+              displayEmpty
             >
               {tiposChecklist.map((t) => (
                 <MenuItem key={t.codigo} value={t.codigo}>
@@ -385,46 +324,26 @@ export default function ChecklistPerguntasPage() {
               ))}
             </Select>
           </FormControl>
-        )}
-
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            bgcolor: 'rgba(255,255,255,0.1)',
-            borderRadius: 1.5,
-            px: 1.5,
-            py: 0.5,
+        ) : null}
+        <Typography sx={{ fontSize: 12, color: FIN_MUTED, display: { xs: 'none', md: 'block' } }}>
+          {totalPerguntas} perguntas · {secoes.length} seções
+        </Typography>
+        <Box sx={{ flex: 1 }} />
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => {
+            setNomeSecao('');
+            setDialogSecao(true);
           }}
+          sx={finBtnOutlinedSx}
         >
-          <FilterListIcon sx={{ fontSize: 20, opacity: 0.9, flexShrink: 0 }} />
-          <TextField
-            select
-            variant="standard"
-            size="small"
-            value={filtroSecao}
-            onChange={(e) => {
-              const v = e.target.value;
-              setFiltroSecao(v === 'todas' ? 'todas' : Number(v));
-            }}
-            slotProps={{
-              input: {
-                disableUnderline: true,
-                sx: { color: 'white', fontSize: '0.875rem', fontWeight: 500 },
-              },
-            }}
-            sx={{ flex: 1, minWidth: 0, '& .MuiSelect-icon': { color: 'white' } }}
-          >
-            <MenuItem value="todas">Todas as seções</MenuItem>
-            {secoes.map((s) => (
-              <MenuItem key={s.id_categoria} value={s.id_categoria}>
-                {s.ordem}. {s.nome} ({s.perguntas.length})
-              </MenuItem>
-            ))}
-          </TextField>
-        </Box>
-      </Paper>
+          Nova seção
+        </Button>
+        <Button size="small" variant="contained" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={abrirNova} sx={finBtnContainedSx}>
+          Nova pergunta
+        </Button>
+      </Box>
 
       {erro && !dialog && !dialogSecao && !excluirAlvo && (
         <Alert severity="error" sx={{ flexShrink: 0 }}>
@@ -432,76 +351,90 @@ export default function ChecklistPerguntasPage() {
         </Alert>
       )}
 
-      <Paper
-        elevation={0}
-        sx={tablePaperSx}
-      >
+      <Paper elevation={0} sx={configPaperSx}>
         <TableContainer sx={tableContainerSx}>
           <Table size="small" stickyHeader sx={tableSx}>
             <TableHead>
               <TableRow>
-                <TableCell width={52}>Cód.</TableCell>
-                <TableCell>Seção</TableCell>
+                <TableCell width={56}>Cód.</TableCell>
+                <TableCell width={140}>Seção</TableCell>
                 <TableCell>Pergunta</TableCell>
-                <TableCell>Tipo</TableCell>
-                <TableCell>Regras</TableCell>
-                <TableCell width={88} align="center">
-                  Ações
-                </TableCell>
+                <TableCell width={140}>Tipo</TableCell>
+                <TableCell width={220}>Regras</TableCell>
+                <TableCell width={72} align="right" />
               </TableRow>
             </TableHead>
             <TableBody>
               {perguntas.map((p) => (
-                <TableRow key={p.id_pergunta} hover>
-                  <TableCell sx={{ fontWeight: 700 }}>{p.codigo}</TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem' }}>
-                    {(p as Pergunta & { secao_nome: string }).secao_nome}
+                <TableRow
+                  key={p.id_pergunta}
+                  hover
+                  onClick={() => abrirEditar(p)}
+                  sx={{ cursor: 'pointer' }}
+                >
+                  <TableCell sx={{ fontWeight: 650, fontSize: 13, color: FIN_TEXT }}>{p.codigo}</TableCell>
+                  <TableCell>
+                    <Typography sx={{ fontSize: 12.5, color: FIN_MUTED }} noWrap>
+                      {(p as Pergunta & { secao_nome: string }).secao_nome}
+                    </Typography>
                   </TableCell>
-                  <TableCell sx={tableCellWrapSx}>{p.texto}</TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap', fontSize: '0.78rem' }}>
-                    {labelTipo(p.tipo_resposta)}
+                  <TableCell sx={{ maxWidth: 420 }}>
+                    <Typography sx={{ fontSize: 13, color: FIN_TEXT }} noWrap title={p.texto}>
+                      {p.texto}
+                    </Typography>
                   </TableCell>
-                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
-                      {p.obrigatoria && (
-                        <Tooltip title="Resposta obrigatória para avançar no checklist">
-                          <Chip label="Obrigatória" size="small" color="success" sx={chipRegraSx} />
+                  <TableCell>
+                    <Typography sx={{ fontSize: 12.5, color: FIN_MUTED }} noWrap>
+                      {labelTipo(p.tipo_resposta)}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {p.obrigatoria ? (
+                        <Tooltip title="Resposta obrigatória">
+                          <Chip label="Obrigatória" size="small" variant="outlined" sx={chipRegra('ok')} />
                         </Tooltip>
-                      )}
-                      {p.requer_foto && (
-                        <Tooltip title="Exige foto ao responder (quando o campo de foto aparece)">
-                          <Chip label="Foto obrigatória" size="small" color="info" sx={chipRegraSx} />
+                      ) : null}
+                      {p.requer_foto ? (
+                        <Tooltip title="Exige foto">
+                          <Chip label="Foto" size="small" variant="outlined" sx={chipRegra('info')} />
                         </Tooltip>
-                      )}
-                      {p.requer_obs_em_nao && (
-                        <Tooltip title="Exige observação quando a resposta for Não">
-                          <Chip label="Observação" size="small" color="warning" sx={chipRegraSx} />
+                      ) : null}
+                      {p.requer_obs_em_nao ? (
+                        <Tooltip title="Observação no Não">
+                          <Chip label="Obs." size="small" variant="outlined" sx={chipRegra('alerta')} />
                         </Tooltip>
-                      )}
-                      {p.critica && (
-                        <Tooltip title="Pergunta crítica de segurança ou operação">
-                          <Chip label="Crítica" size="small" color="error" sx={chipRegraSx} />
+                      ) : null}
+                      {p.critica ? (
+                        <Tooltip title="Pergunta crítica">
+                          <Chip label="Crítica" size="small" variant="outlined" sx={chipRegra('erro')} />
                         </Tooltip>
-                      )}
+                      ) : null}
                     </Box>
                   </TableCell>
-                  <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
-                    <Tooltip title="Editar">
-                      <IconButton size="small" color="primary" onClick={() => abrirEditar(p)}>
-                        <EditOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Excluir">
-                      <IconButton size="small" color="error" onClick={() => setExcluirAlvo(p)}>
-                        <DeleteOutlinedIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
+                  <TableCell align="right" onClick={(ev) => ev.stopPropagation()}>
+                    <IconButton
+                      size="small"
+                      aria-label="Editar"
+                      onClick={() => abrirEditar(p)}
+                      sx={{ color: FIN_MUTED, '&:hover': { color: '#1B6EF3' } }}
+                    >
+                      <EditOutlinedIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
+                    <IconButton
+                      size="small"
+                      aria-label="Excluir"
+                      onClick={() => setExcluirAlvo(p)}
+                      sx={{ color: FIN_MUTED, '&:hover': { color: '#B91C1C' } }}
+                    >
+                      <DeleteOutlinedIcon sx={{ fontSize: 18 }} />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))}
               {!perguntas.length && (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 5, color: FIN_MUTED }}>
                     Nenhuma pergunta encontrada.
                   </TableCell>
                 </TableRow>

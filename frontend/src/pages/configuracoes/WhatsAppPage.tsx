@@ -15,7 +15,7 @@ import SendIcon from '@mui/icons-material/Send';
 import { api } from '../../api/client';
 import type { WppStatus } from '../../api/client';
 import { useToast } from '../../hooks/useToast';
-import { portalPanelSx } from '../../theme/tokens';
+import { configPageSx, configPaperSx } from './configPageSx';
 
 export default function WhatsAppPage() {
   const theme = useTheme();
@@ -132,11 +132,15 @@ export default function WhatsAppPage() {
   }
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <Typography variant="body2" color="text.secondary">
-        Sessão <strong>wpp_visao_check</strong> via wppconnect-server
-      </Typography>
-
+    <Box sx={{ ...configPageSx, overflowY: 'auto' }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+          gap: 1.5,
+          alignItems: 'start',
+        }}
+      >
       {loading && <LinearProgress />}
       {erro && (
         <Alert
@@ -156,7 +160,7 @@ export default function WhatsAppPage() {
         </Alert>
       )}
 
-      <Paper elevation={0} sx={{ ...portalPanelSx, p: 2.5 }}>
+      <Paper elevation={0} sx={{ ...configPaperSx, flex: 'none', p: 2.5 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
             Status da sessão
@@ -312,7 +316,7 @@ export default function WhatsAppPage() {
         )}
       </Paper>
 
-      <Paper elevation={0} sx={{ ...portalPanelSx, p: 2.5 }}>
+      <Paper elevation={0} sx={{ ...configPaperSx, flex: 'none', p: 2.5 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
           Envio de teste
         </Typography>
@@ -339,6 +343,7 @@ export default function WhatsAppPage() {
           Cadastre o WhatsApp de cada usuário em Configurações → Usuários.
         </Typography>
       </Paper>
+      </Box>
 
       <ToastSnackbar />
     </Box>

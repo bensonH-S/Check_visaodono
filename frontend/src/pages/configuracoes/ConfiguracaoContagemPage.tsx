@@ -29,12 +29,8 @@ import {
 } from '../../api/client';
 import { CONTAGEM_SEMANAL_ATIVA } from '../../components/estoque/estoqueContagemTipo';
 import { showToast } from '../../utils/toast';
-import {
-  tableContainerSx,
-  tablePageLayoutSx,
-  tablePaperSx,
-  tableSx,
-} from '../../utils/tablePageLayout';
+import { tableContainerSx, tableSx } from '../../utils/tablePageLayout';
+import { configPageSx, configPaperSx } from './configPageSx';
 import { colors } from '../../theme/tokens';
 
 const UNIDADES = ['KG', 'UND', 'L'] as const;
@@ -230,7 +226,7 @@ export default function ConfiguracaoContagemPage() {
   };
 
   return (
-    <Box sx={tablePageLayoutSx}>
+    <Box sx={configPageSx}>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
         <TextField
           size="small"
@@ -273,7 +269,7 @@ export default function ConfiguracaoContagemPage() {
       {erro && <Alert severity="error">{erro}</Alert>}
       {loading && <LinearProgress />}
 
-      <Box sx={tablePaperSx}>
+      <Box sx={configPaperSx}>
         <TableContainer sx={tableContainerSx}>
           <Table stickyHeader size="small" sx={tableSx}>
             <TableHead>

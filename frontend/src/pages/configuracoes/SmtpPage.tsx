@@ -14,7 +14,6 @@ import Grid from '@mui/material/Grid';
 import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
 import Divider from '@mui/material/Divider';
-import EmailIcon from '@mui/icons-material/Email';
 import SaveIcon from '@mui/icons-material/Save';
 import SendIcon from '@mui/icons-material/Send';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -23,10 +22,8 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { useTheme } from '@mui/material/styles';
 import { api, type ConfiguracaoSmtp } from '../../api/client';
 import { useToast } from '../../hooks/useToast';
-import { portalPanelSx } from '../../theme/tokens';
+import { configPageSx, configPaperSx } from './configPageSx';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
-
-const NAVY = '#1B2A6B';
 
 export default function SmtpPage() {
   const theme = useTheme();
@@ -133,64 +130,8 @@ export default function SmtpPage() {
   }
 
   return (
-    <Box
-      sx={{
-        width: '100%',
-        maxWidth: 840,
-        height: '100%',
-        overflowY: 'auto',
-        pr: { xs: 0.5, sm: 1.5 },
-        pb: 4,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2.5,
-      }}
-    >
+    <Box sx={{ ...configPageSx, overflowY: 'auto', pb: 3 }}>
       <ToastSnackbar />
-
-      {/* Banner Superior */}
-      <Paper
-        elevation={0}
-        sx={{
-          p: { xs: 2, sm: 2.5 },
-          borderRadius: 2,
-          border: '1px solid',
-          borderColor: isDark ? 'rgba(232, 82, 10, 0.35)' : 'divider',
-          background: isDark
-            ? 'linear-gradient(135deg, rgba(232, 82, 10, 0.28) 0%, rgba(249, 115, 22, 0.16) 100%)'
-            : `linear-gradient(135deg, ${NAVY} 0%, #2a3d8f 100%)`,
-          color: 'white',
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 2,
-                bgcolor: isDark ? 'rgba(232, 82, 10, 0.25)' : 'rgba(255,255,255,0.15)',
-                color: isDark ? '#FB923C' : 'white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <EmailIcon sx={{ fontSize: 26 }} />
-            </Box>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                Servidor de E-mail (SMTP)
-              </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.25 }}>
-                Configure as credenciais e parâmetros de envio direto pelo painel
-              </Typography>
-            </Box>
-          </Box>
-
-        </Box>
-      </Paper>
 
       {loading && <LinearProgress />}
 
@@ -214,7 +155,7 @@ export default function SmtpPage() {
       )}
 
       {/* Card de Formulário */}
-      <Paper elevation={0} sx={{ ...portalPanelSx, p: { xs: 2, sm: 3 } }}>
+      <Paper elevation={0} sx={{ ...configPaperSx, p: { xs: 2, sm: 3 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mb: 2.5 }}>
           <Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
@@ -397,7 +338,7 @@ export default function SmtpPage() {
       </Paper>
 
       {/* Card de Teste de Envio */}
-      <Paper elevation={0} sx={{ ...portalPanelSx, p: { xs: 2, sm: 3 } }}>
+      <Paper elevation={0} sx={{ ...configPaperSx, p: { xs: 2, sm: 3 } }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>
           Testar Envio de E-mail
         </Typography>

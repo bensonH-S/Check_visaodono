@@ -28,7 +28,8 @@ import BadgeIcon from '@mui/icons-material/Badge';
 import { api } from '../../api/client';
 import type { Cargo, TipoChecklist } from '../../api/client';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
-import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
+import { tableContainerSx, tableSx } from '../../utils/tablePageLayout';
+import { configPageSx, configPaperSx } from './configPageSx';
 import { useToast } from '../../hooks/useToast';
 import { colors } from '../../theme/tokens';
 
@@ -144,7 +145,7 @@ export default function CargosPage() {
   }
 
   return (
-    <Box sx={tablePageLayoutSx}>
+    <Box sx={configPageSx}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexShrink: 0 }}>
         <Typography variant="body2" color="text.secondary">
           Perfis usados em usuários, aprovações e permissões do sistema
@@ -157,7 +158,7 @@ export default function CargosPage() {
       {loading && <LinearProgress sx={{ flexShrink: 0 }} />}
       {erro && !dialog && !excluirAlvo && <Alert severity="error" sx={{ flexShrink: 0 }}>{erro}</Alert>}
 
-      <Paper elevation={0} sx={tablePaperSx}>
+      <Paper elevation={0} sx={configPaperSx}>
         <TableContainer sx={tableContainerSx}>
           <Table size="small" stickyHeader sx={tableSx}>
           <TableHead>

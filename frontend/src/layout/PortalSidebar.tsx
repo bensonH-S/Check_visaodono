@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -21,6 +21,7 @@ import { nomeExibicaoUsuario } from '../lib/auth';
 import type { UsuarioSessao } from '../lib/auth';
 import { assetUrl, LOGO_MERIDIAN_GESTAO, LOGO_MERIDIAN_MARK_M, toAppPath } from '../config/paths';
 import { colors, layout, radius } from '../theme/tokens';
+import { FOTO_PERFIL_ATUALIZADA_EVENT, getFotoPerfil } from '../utils/fotoPerfil';
 
 const MARK_M = `${assetUrl(LOGO_MERIDIAN_MARK_M)}?v=oficial3`;
 const LOGO_GESTAO = `${assetUrl(LOGO_MERIDIAN_GESTAO)}?v=1`;
@@ -48,6 +49,18 @@ type Props = {
 export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) {
   const { version, environment } = useAppConfig();
   const { mode } = useAppTheme();
+  const [fotoTick, setFotoTick] = useState(0);
+  useEffect(() => {
+    const onFoto = () => setFotoTick((n) => n + 1);
+    window.addEventListener(FOTO_PERFIL_ATUALIZADA_EVENT, onFoto);
+    return () => window.removeEventListener(FOTO_PERFIL_ATUALIZADA_EVENT, onFoto);
+  }, []);
+  // Preferir cache local (atualiza no evento) — a prop user pode ficar stale até o layout re-renderizar.
+  const foto =
+    (user?.id_usuario ? getFotoPerfil(user.id_usuario) : null) ||
+    user?.avatar_url ||
+    null;
+  void fotoTick;
   const escuro = mode === 'dark';
   const acento = '#1B6EF3';
   const { pathname } = useLocation();
@@ -349,13 +362,17 @@ export default function PortalSidebar({ nav, user, iniciais, onLogout }: Props) 
                 fontSize: '0.625rem',
                 fontWeight: 600,
                 color: '#fff',
-                bgcolor: acento,
+                bgcolor: foto ? 'transparent' : acento,
                 flexShrink: 0,
                 boxShadow: `0 0 0 2px var(--ga-sidebar-bg)`,
                 transition: 'transform 0.12s, box-shadow 0.12s',
+                overflow: 'hidden',
+                backgroundImage: foto ? `url(${foto})` : undefined,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
               }}
             >
-              {iniciais}
+              {!foto ? iniciais : null}
             </Box>
             <Box sx={{ minWidth: 0, flex: 1 }}>
               <Typography sx={{ fontWeight: 600, lineHeight: 1.2, color: 'var(--ga-sidebar-text)', fontSize: 13 }} noWrap>

@@ -17,7 +17,7 @@ import SendIcon from '@mui/icons-material/Send';
 import SyncIcon from '@mui/icons-material/Sync';
 import { api, type AgenteAlvimStatus } from '../../api/client';
 import { useToast } from '../../hooks/useToast';
-import { portalPanelSx } from '../../theme/tokens';
+import { configPageSx, configPaperSx } from './configPageSx';
 
 const MODELO_LABEL: Record<string, string> = {
   'gpt-4o-mini': 'GPT-4o mini (barato)',
@@ -130,12 +130,8 @@ export default function AgenteAlvimPage() {
   const modelosSelect = modelos.includes(modelo) ? modelos : [modelo, ...modelos];
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 720, display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ ...configPageSx, overflowY: 'auto' }}>
       <ToastSnackbar />
-      <Typography variant="body2" color="text.secondary">
-        Persona e modelo ficam salvos aqui. O Alvim usa isso no Zap — não precisa colar prompt no chat.
-      </Typography>
-
       {loading && <LinearProgress />}
       {erro && (
         <Alert severity="error" onClose={() => setErro('')}>
@@ -149,7 +145,15 @@ export default function AgenteAlvimPage() {
         </Alert>
       )}
 
-      <Paper elevation={0} sx={{ ...portalPanelSx, p: 2.5 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' },
+          gap: 1.5,
+          alignItems: 'start',
+        }}
+      >
+      <Paper elevation={0} sx={{ ...configPaperSx, flex: 'none', p: 2.5 }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
           <Chip
             size="small"
@@ -240,12 +244,12 @@ export default function AgenteAlvimPage() {
         </Box>
       </Paper>
 
-      <Paper elevation={0} sx={{ ...portalPanelSx, p: 2.5 }}>
+      <Paper elevation={0} sx={{ ...configPaperSx, flex: 'none', p: 2.5 }}>
         <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
           Teste (não manda para regional)
         </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'flex-start' }}>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <FormControl size="small" fullWidth>
             <InputLabel id="alvim-ferramenta">Ferramenta</InputLabel>
             <Select
               labelId="alvim-ferramenta"
@@ -264,18 +268,20 @@ export default function AgenteAlvimPage() {
             value={telefoneTeste}
             onChange={(e) => setTelefoneTeste(e.target.value)}
             placeholder="61 9…"
-            sx={{ flex: 1, minWidth: 180 }}
+            fullWidth
           />
           <Button
-            variant="outlined"
+            variant="contained"
             startIcon={<SendIcon />}
             onClick={() => void enviarTeste()}
             disabled={testando}
+            sx={{ alignSelf: 'flex-start' }}
           >
             {testando ? 'Enviando…' : 'Enviar teste'}
           </Button>
         </Box>
       </Paper>
+      </Box>
     </Box>
   );
 }

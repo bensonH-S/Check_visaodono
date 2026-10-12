@@ -27,7 +27,29 @@ function iniciais(nome) {
     .toUpperCase();
 }
 
-async function mapUsuarioGestao(row) {
+function avatarDataUrl(row) {
+  if (!row?.avatar_bytes) return null;
+  const buf = Buffer.isBuffer(row.avatar_bytes) ? row.avatar_bytes : Buffer.from(row.avatar_bytes);
+  if (!buf.length) return null;
+  const mime = row.avatar_mime || 'image/jpeg';
+  return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
+function parseAvatarBase64(valor) {
+  if (valor === null) return { limpar: true };
+  if (valor === undefined) return null;
+  const raw = String(valor || '').trim();
+  if (!raw) return { limpar: true };
+  const m = raw.match(/^data:(image\/(?:jpeg|jpg|png|webp));base64,([A-Za-z0-9+/=\s]+)$/i);
+  if (!m) return { error: 'Foto inválida. Use JPEG, PNG ou WebP.' };
+  const mime = m[1].toLowerCase() === 'image/jpg' ? 'image/jpeg' : m[1].toLowerCase();
+  const bytes = Buffer.from(m[2].replace(/\s+/g, ''), 'base64');
+  if (!bytes.length) return { error: 'Foto vazia.' };
+  if (bytes.length > 350_000) return { error: 'Foto grande demais (máx. ~350 KB).' };
+  return { mime, bytes };
+}
+
+async function mapUsuarioGestao(row, { comAvatar = false } = {}) {
   const permissoes = await carregarPermissoesUsuario(row.id_usuario);
   const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes };
   const lojas = await carregarLojasDetalhe(userCtx);
@@ -39,6 +61,8 @@ async function mapUsuarioGestao(row) {
     cargo_aprovacao: row.cargo_aprovacao || null,
     cargo_nome: row.cargo_nome || null,
     avatar_inicial: row.avatar_inicial,
+    tem_avatar: Boolean(row.tem_avatar ?? row.avatar_bytes),
+    avatar_url: comAvatar ? avatarDataUrl(row) : null,
     perfil: row.perfil,
     lojas,
     lojas_ids: lojas.map((l) => l.id_loja),
@@ -53,6 +77,16 @@ async function mapUsuarioGestao(row) {
 const SQL_USUARIO = `
   SELECT u.id_usuario, u.nome, u.email, u.cargo, u.cargo_aprovacao, u.avatar_inicial,
          u.perfil::text AS perfil, u.ativo, u.telefone_whatsapp, u.notifica_whatsapp,
+         (u.avatar_bytes IS NOT NULL) AS tem_avatar,
+         cg.nome AS cargo_nome
+  FROM usuarios u
+  LEFT JOIN cargos cg ON cg.codigo = u.cargo_aprovacao`;
+
+const SQL_USUARIO_COM_AVATAR = `
+  SELECT u.id_usuario, u.nome, u.email, u.cargo, u.cargo_aprovacao, u.avatar_inicial,
+         u.perfil::text AS perfil, u.ativo, u.telefone_whatsapp, u.notifica_whatsapp,
+         u.avatar_mime, u.avatar_bytes,
+         (u.avatar_bytes IS NOT NULL) AS tem_avatar,
          cg.nome AS cargo_nome
   FROM usuarios u
   LEFT JOIN cargos cg ON cg.codigo = u.cargo_aprovacao`;
@@ -110,9 +144,9 @@ router.get('/gestao', requirePermissao('usuarios.gerenciar'), async (_req, res, 
 
 router.get('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, res, next) => {
   try {
-    const { rows } = await pool.query(`${SQL_USUARIO} WHERE id_usuario = $1`, [req.params.id]);
+    const { rows } = await pool.query(`${SQL_USUARIO_COM_AVATAR} WHERE u.id_usuario = $1`, [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Usuário não encontrado' });
-    res.json(await mapUsuarioGestao(rows[0]));
+    res.json(await mapUsuarioGestao(rows[0], { comAvatar: true }));
   } catch (e) {
     next(e);
   }
@@ -179,6 +213,7 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
       cargo_aprovacao,
       telefone_whatsapp,
       notifica_whatsapp,
+      avatar_base64,
     } = req.body;
     const emailNorm = String(email || '').trim().toLowerCase();
 
@@ -199,10 +234,16 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
       return res.status(400).json({ error: 'WhatsApp inválido. Use DDD + número (ex.: 61999998888)' });
     }
 
+    let av = null;
+    if (avatar_base64 !== undefined && avatar_base64 !== null && String(avatar_base64).trim()) {
+      av = parseAvatarBase64(avatar_base64);
+      if (av?.error) return res.status(400).json({ error: av.error });
+    }
+
     const hash = await bcrypt.hash(senha, 10);
     const { rows } = await pool.query(
-      `INSERT INTO usuarios (nome, email, cargo, cargo_aprovacao, avatar_inicial, senha_hash, perfil, ativo, telefone_whatsapp, notifica_whatsapp)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::perfil_usuario, COALESCE($8, TRUE), $9, COALESCE($10, TRUE))
+      `INSERT INTO usuarios (nome, email, cargo, cargo_aprovacao, avatar_inicial, senha_hash, perfil, ativo, telefone_whatsapp, notifica_whatsapp, avatar_mime, avatar_bytes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::perfil_usuario, COALESCE($8, TRUE), $9, COALESCE($10, TRUE), $11, $12)
        RETURNING id_usuario, nome, email, cargo, cargo_aprovacao, avatar_inicial, perfil::text AS perfil, ativo`,
       [
         nome.trim(),
@@ -215,14 +256,16 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
         ativo,
         telWpp,
         notifica_whatsapp,
+        av?.bytes ? av.mime : null,
+        av?.bytes || null,
       ],
     );
 
     const idNovo = rows[0].id_usuario;
     await syncUsuarioPermissoes(idNovo, perms);
     await syncUsuarioLojas(idNovo, lojas_ids, acessoTodasLojas({ permissoes: perms }));
-    const { rows: completo } = await pool.query(`${SQL_USUARIO} WHERE u.id_usuario = $1`, [idNovo]);
-    const criado = await mapUsuarioGestao(completo[0]);
+    const { rows: completo } = await pool.query(`${SQL_USUARIO_COM_AVATAR} WHERE u.id_usuario = $1`, [idNovo]);
+    const criado = await mapUsuarioGestao(completo[0], { comAvatar: true });
     await auditar(req, {
       modulo: 'usuarios',
       acao: 'criar',
@@ -254,6 +297,7 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       cargo_aprovacao,
       telefone_whatsapp,
       notifica_whatsapp,
+      avatar_base64,
     } = req.body;
 
     const atual = await pool.query(
@@ -342,6 +386,19 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       sets.push(`notifica_whatsapp = $${i++}`);
       vals.push(!!notifica_whatsapp);
     }
+    if (avatar_base64 !== undefined) {
+      const av = parseAvatarBase64(avatar_base64);
+      if (av?.error) return res.status(400).json({ error: av.error });
+      if (av?.limpar) {
+        sets.push(`avatar_mime = NULL`);
+        sets.push(`avatar_bytes = NULL`);
+      } else if (av?.bytes) {
+        sets.push(`avatar_mime = $${i++}`);
+        vals.push(av.mime);
+        sets.push(`avatar_bytes = $${i++}`);
+        vals.push(av.bytes);
+      }
+    }
 
     if (sets.length) {
       vals.push(id);
@@ -365,8 +422,8 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       await syncUsuarioLojas(id, idsLoja, acessoTodasLojas({ permissoes: perms }));
     }
 
-    const { rows } = await pool.query(`${SQL_USUARIO} WHERE u.id_usuario = $1`, [id]);
-    const depois = await mapUsuarioGestao(rows[0]);
+    const { rows } = await pool.query(`${SQL_USUARIO_COM_AVATAR} WHERE u.id_usuario = $1`, [id]);
+    const depois = await mapUsuarioGestao(rows[0], { comAvatar: true });
     const snapAntes = snapshotUsuarioAuditoria(antes);
     const snapDepois = snapshotUsuarioAuditoria(depois);
     const alteracoes = resumirDiff(snapAntes, snapDepois, [
@@ -379,9 +436,11 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       'acesso_todas_lojas',
       'telefone_whatsapp',
       'notifica_whatsapp',
+      'tem_avatar',
     ]);
     const partesDesc = [];
     if (senha && senha.length >= 6) partesDesc.push('senha alterada');
+    if (avatar_base64 !== undefined) partesDesc.push(avatar_base64 ? 'foto atualizada' : 'foto removida');
     await auditar(req, {
       modulo: 'usuarios',
       acao: 'atualizar',

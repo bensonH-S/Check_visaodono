@@ -19,8 +19,15 @@ import SearchIcon from '@mui/icons-material/Search';
 import PageLoading from '../../components/PageLoading';
 import { api, type AuditoriaEvento, type AuditoriaUsuarioFiltro } from '../../api/client';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
-import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
+import { tableContainerSx, tableSx } from '../../utils/tablePageLayout';
 import { selectMenuScrollProps } from '../../utils/selectMenuScroll';
+import {
+  configPageSx,
+  configPaperSx,
+  configToolbarSx,
+  finCampoSx,
+  FIN_MUTED,
+} from './configPageSx';
 
 const MODULOS = [
   { value: '', label: 'Todos' },
@@ -162,46 +169,45 @@ export default function AuditoriaPage() {
   );
 
   return (
-    <Box sx={tablePageLayoutSx}>
-      <Box sx={{ mb: 2.5 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
-          Auditoria
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 640 }}>
-          Quem fez o quê — exclusões em vermelho, uploads em azul, acessos em âmbar.
-        </Typography>
-      </Box>
-
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '180px 1fr 1.2fr' },
-          gap: 1.5,
-          mb: 2,
-        }}
-      >
+    <Box sx={configPageSx}>
+      <Box sx={configToolbarSx}>
+        <TextField
+          size="small"
+          placeholder="Buscar evento"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" sx={{ color: FIN_MUTED }} />
+                </InputAdornment>
+              ),
+            },
+          }}
+          sx={{ width: { xs: '100%', md: 240 }, flexShrink: 0, ...finCampoSx }}
+        />
         <TextField
           select
           size="small"
-          label="Módulo"
           value={modulo}
           onChange={(e) => setModulo(e.target.value)}
           slotProps={{ select: selectMenuScrollProps }}
+          sx={{ width: { xs: '100%', md: 160 }, ...finCampoSx }}
         >
           {MODULOS.map((m) => (
             <MenuItem key={m.value || 'todos'} value={m.value}>
-              {m.label}
+              {m.label === 'Todos' ? 'Todos os módulos' : m.label}
             </MenuItem>
           ))}
         </TextField>
-
         <TextField
           select
           size="small"
-          label="Usuário"
           value={idUsuario}
           onChange={(e) => setIdUsuario(e.target.value)}
           slotProps={{ select: selectMenuScrollProps }}
+          sx={{ width: { xs: '100%', md: 200 }, ...finCampoSx }}
         >
           <MenuItem value="">Todos os usuários</MenuItem>
           {usuariosAtivos.map((u) => (
@@ -211,26 +217,10 @@ export default function AuditoriaPage() {
             </MenuItem>
           ))}
         </TextField>
-
-        <TextField
-          size="small"
-          label="Buscar"
-          placeholder="Arquivo, placa, chamado, pessoa…"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" sx={{ color: 'text.disabled' }} />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
+        <Box sx={{ flex: 1 }} />
       </Box>
 
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, flexShrink: 0 }}>
         {(
           [
             ['exclusao', 'Exclusão'],
@@ -246,20 +236,21 @@ export default function AuditoriaPage() {
             <Chip
               key={tipo}
               size="small"
+              variant="outlined"
               label={label}
-              sx={{ bgcolor: e.bg, color: e.color, border: `1px solid ${e.border}`, fontWeight: 600, height: 22, fontSize: '0.7rem' }}
+              sx={{ bgcolor: e.bg, color: e.color, borderColor: e.border, fontWeight: 600, height: 24, fontSize: 11 }}
             />
           );
         })}
       </Box>
 
       {erro && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="error" sx={{ flexShrink: 0 }}>
           {erro}
         </Alert>
       )}
 
-      <Paper elevation={0} sx={tablePaperSx}>
+      <Paper elevation={0} sx={configPaperSx}>
         {loading && <PageLoading />}
         <TableContainer sx={tableContainerSx}>
           <Table size="small" sx={tableSx}>

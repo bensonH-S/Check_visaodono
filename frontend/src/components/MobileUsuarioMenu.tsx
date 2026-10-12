@@ -21,7 +21,7 @@ import { useAppTheme } from '../context/ThemeContext';
 import { deveForcarTemaClaroMobile } from '../utils/device';
 
 const NAVY = '#1B2A6B';
-/** Hubs mobile s√£o escuros mesmo com tema MUI claro for√ßado. */
+/** Hubs mobile s„o escuros mesmo com tema MUI claro forÁado. */
 function usarOverlayEscuro(mode: string) {
   return mode === 'dark' || deveForcarTemaClaroMobile();
 }
@@ -66,7 +66,7 @@ export default function MobileUsuarioMenu({
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusGroups, setStatusGroups] = useState<IntegrationStatusGroup[]>([]);
   const [statusErro, setStatusErro] = useState('');
-  const foto = user ? getFotoPerfil(user.id_usuario) : null;
+  const foto = user ? getFotoPerfil(user.id_usuario) || user.avatar_url || null : null;
   const iniciais = iniciaisUsuario(user);
 
   function fecharMenu() {
@@ -81,7 +81,7 @@ export default function MobileUsuarioMenu({
       setStatusGroups(res.groups?.length ? res.groups : []);
     } catch (e) {
       setStatusGroups([]);
-      setStatusErro(e instanceof Error ? e.message : 'N√£o foi poss√≠vel consultar o status');
+      setStatusErro(e instanceof Error ? e.message : 'N„o foi possÌvel consultar o status');
     } finally {
       setStatusLoading(false);
     }
@@ -120,7 +120,7 @@ export default function MobileUsuarioMenu({
           <Box
             component="img"
             src={assetUrl(ICONE_PWA)}
-            alt="Meridian Gest„o Operacional"
+            alt="Meridian Gestùo Operacional"
             className={logoClassName || 'ck-visitas__mark-icon'}
             sx={{
               width: logoSize,
@@ -208,7 +208,7 @@ export default function MobileUsuarioMenu({
             <LogoutIcon fontSize="small" sx={{ color: '#DC2626' }} />
           </ListItemIcon>
           <ListItemText
-            primary="Terminar sess√£o"
+            primary="Terminar sess„o"
             slotProps={{ primary: { sx: { fontSize: '0.9rem', fontWeight: 600 } } }}
           />
         </MenuItem>

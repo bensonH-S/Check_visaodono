@@ -26,7 +26,8 @@ import { api } from '../../api/client';
 import type { ManutSla } from '../../api/client';
 import { URGENCIAS, fmtPrazo, slaChip, urgenciaChip } from '../../utils/manutencaoUi';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
-import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
+import { tableContainerSx, tableSx } from '../../utils/tablePageLayout';
+import { configPageSx, configPaperSx } from './configPageSx';
 import { useToast } from '../../hooks/useToast';
 
 const emptyForm = {
@@ -133,7 +134,7 @@ export default function SlaPage() {
   const ativos = lista.filter((s) => s.ativo !== false);
 
   return (
-    <Box sx={tablePageLayoutSx}>
+    <Box sx={configPageSx}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexShrink: 0 }}>
         <Typography variant="body2" color="text.secondary">
           {ativos.length} SLAs ativos · {lista.length} no total
@@ -149,7 +150,7 @@ export default function SlaPage() {
         </Alert>
       )}
 
-      <Paper elevation={0} sx={tablePaperSx}>
+      <Paper elevation={0} sx={configPaperSx}>
         <TableContainer sx={tableContainerSx}>
           <Table size="small" stickyHeader sx={tableSx}>
           <TableHead>

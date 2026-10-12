@@ -1,69 +1,42 @@
-import { NavLink, Outlet, useLocation, Link } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
-import Divider from '@mui/material/Divider';
-import Tabs from '@mui/material/Tabs';
-import Tab from '@mui/material/Tab';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import { toAppPath } from '../config/paths';
 import { getUsuario } from '../lib/auth';
-import { colors, layout, radius } from '../theme/tokens';
-import { getConfigNavSections } from '../pages/configuracoes/configNav';
+import FinanceIdiomaToggle from '../financeiro/FinanceIdiomaToggle';
+import { FIN_BG, FIN_BORDER, FIN_MUTED, FIN_SURFACE, FIN_TEXT } from '../financeiro/temaFinanceiroEscuro';
+import { getConfigNavSections, itemConfigAtivo } from '../pages/configuracoes/configNav';
 
-function ConfigMenuItem({ to, label, icon }: { to: string; label: string; icon: React.ReactNode }) {
-  return (
-    <NavLink to={to} end style={{ textDecoration: 'none' }}>
-      {({ isActive }) => (
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            px: 1.25,
-            py: 0.875,
-            borderRadius: `${radius.md}px`,
-            fontSize: '0.8125rem',
-            fontWeight: isActive ? 600 : 450,
-            color: isActive ? 'var(--ga-sidebar-active-text)' : colors.textSecondary,
-            bgcolor: isActive ? 'var(--ga-sidebar-active-bg)' : 'transparent',
-            borderLeft: '3px solid',
-            borderColor: isActive ? 'var(--ga-sidebar-active-border)' : 'transparent',
-            transition: 'background-color 0.12s, color 0.12s, border-color 0.12s',
-            '&:hover': {
-              bgcolor: isActive ? 'var(--ga-sidebar-active-bg)' : colors.canvasAlt,
-              color: colors.textPrimary,
-            },
-            '& .MuiSvgIcon-root': {
-              fontSize: 16,
-              color: isActive ? 'var(--ga-sidebar-active-icon)' : colors.textMuted,
-            },
-          }}
-        >
-          {icon}
-          {label}
-        </Box>
-      )}
-    </NavLink>
-  );
-}
+const ACCENT = '#1B6EF3';
 
-/** Módulo único de configurações — menu interno dentro de um painel fechado. */
+/**
+ * Sidebar Meridian fica intacto.
+ * Em Configuração: barra horizontal (seção + itens) — sem segundo menu lateral.
+ */
 export default function ConfiguracoesLayout() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const path = toAppPath(useLocation().pathname);
-  const sections = getConfigNavSections(getUsuario());
-  const items = sections.flatMap((s) => s.items);
-  const tabAtivo = Math.max(
-    0,
-    items.findIndex((item) => path === item.to || path.startsWith(`${item.to}/`)),
-  );
+  const navigate = useNavigate();
+  const user = getUsuario();
+  const sections = getConfigNavSections(user);
+  const ativo = itemConfigAtivo(path, user);
+  const secaoAtiva = ativo?.section.title ?? sections[0]?.title ?? '';
+  const itensSecao = sections.find((s) => s.title === secaoAtiva)?.items ?? [];
+  const fin = path.startsWith('/configuracoes/financeiro');
+
+  function trocarSecao(titulo: string) {
+    const sec = sections.find((s) => s.title === titulo);
+    const primeiro = sec?.items[0];
+    if (primeiro) navigate(primeiro.to);
+  }
 
   return (
-    <Paper
-      elevation={0}
+    <Box
       sx={{
         flex: 1,
         minHeight: 0,
@@ -71,115 +44,141 @@ export default function ConfiguracoesLayout() {
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
-        border: '1px solid',
-        borderColor: colors.border,
-        borderRadius: 2,
-        bgcolor: colors.surface,
-        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+        bgcolor: FIN_BG,
+        color: FIN_TEXT,
       }}
     >
-      {isMobile && items.length > 1 && (
-        <Box
-          sx={{
-            flexShrink: 0,
-            borderBottom: '1px solid',
-            borderColor: colors.border,
-            bgcolor: colors.canvas,
-          }}
-        >
-          <Tabs
-            value={tabAtivo}
-            variant="scrollable"
-            scrollButtons="auto"
-            allowScrollButtonsMobile
-            sx={{
-              minHeight: 44,
-              px: 1,
-              '& .MuiTabs-indicator': { bgcolor: colors.orange, height: 2 },
-              '& .MuiTab-root': {
-                minHeight: 44,
-                py: 1,
-                px: 1.25,
-                minWidth: 'auto',
-                textTransform: 'none',
-                fontSize: '0.8125rem',
-                fontWeight: 500,
-                color: colors.textSecondary,
-                '&.Mui-selected': { color: colors.textPrimary, fontWeight: 600 },
-              },
-            }}
-          >
-            {items.map((item) => (
-              <Tab key={item.to} label={item.label} component={Link} to={item.to} />
-            ))}
-          </Tabs>
+      <Box
+        sx={{
+          flexShrink: 0,
+          borderBottom: `1px solid ${FIN_BORDER}`,
+          bgcolor: FIN_SURFACE,
+          px: { xs: 1.5, md: 2 },
+          pt: 1.25,
+          pb: 1,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <Typography sx={{ fontSize: 14, fontWeight: 700, color: FIN_TEXT, letterSpacing: '-0.01em', flex: 1 }}>
+            Configuração
+          </Typography>
+          {fin ? <FinanceIdiomaToggle size="tiny" /> : null}
         </Box>
-      )}
+
+        {isMobile ? (
+          <Select
+            size="small"
+            fullWidth
+            value={ativo?.item.to ?? ''}
+            displayEmpty
+            onChange={(e) => navigate(String(e.target.value))}
+            sx={{ fontSize: 13.5, bgcolor: FIN_BG, borderRadius: '10px' }}
+          >
+            {sections.flatMap((s) =>
+              s.items.map((i) => (
+                <MenuItem key={i.to} value={i.to} sx={{ fontSize: 13.5 }}>
+                  {s.title} · {i.label}
+                </MenuItem>
+              )),
+            )}
+          </Select>
+        ) : (
+          <>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 0.5,
+                flexWrap: 'wrap',
+                mb: 1,
+              }}
+            >
+              {sections.map((s) => {
+                const on = s.title === secaoAtiva;
+                return (
+                  <Box
+                    key={s.title}
+                    component="button"
+                    type="button"
+                    onClick={() => trocarSecao(s.title)}
+                    sx={{
+                      height: 28,
+                      px: 1.25,
+                      borderRadius: '8px',
+                      border: `1px solid ${on ? ACCENT : FIN_BORDER}`,
+                      bgcolor: on ? 'rgba(27,110,243,0.08)' : 'transparent',
+                      color: on ? ACCENT : FIN_MUTED,
+                      fontSize: 12,
+                      fontWeight: on ? 650 : 500,
+                      fontFamily: 'inherit',
+                      cursor: 'pointer',
+                      '&:hover': {
+                        borderColor: ACCENT,
+                        color: ACCENT,
+                      },
+                    }}
+                  >
+                    {s.title}
+                  </Box>
+                );
+              })}
+            </Box>
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 0.25,
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
+              {itensSecao.map((item) => (
+                <NavLink key={item.to} to={item.to} end style={{ textDecoration: 'none' }}>
+                  {({ isActive }) => (
+                    <Box
+                      sx={{
+                        height: 30,
+                        px: 1.15,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 0.75,
+                        borderRadius: '8px',
+                        fontSize: 13,
+                        fontWeight: isActive ? 650 : 500,
+                        color: isActive ? ACCENT : FIN_TEXT,
+                        bgcolor: isActive ? 'rgba(27,110,243,0.08)' : 'transparent',
+                        '&:hover': {
+                          bgcolor: isActive ? 'rgba(27,110,243,0.1)' : FIN_BG,
+                        },
+                        '& .MuiSvgIcon-root': {
+                          fontSize: 16,
+                          color: isActive ? ACCENT : FIN_MUTED,
+                        },
+                      }}
+                    >
+                      {item.icon}
+                      {item.label}
+                    </Box>
+                  )}
+                </NavLink>
+              ))}
+            </Box>
+          </>
+        )}
+      </Box>
 
       <Box
         sx={{
           flex: 1,
           minHeight: 0,
           display: 'flex',
-          flexDirection: { xs: 'column', md: 'row' },
-          overflow: 'hidden',
+          flexDirection: 'column',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          px: { xs: 1.5, md: 2 },
+          py: { xs: 1.25, md: 1.5 },
         }}
       >
-        {!isMobile && (
-          <Box
-            component="nav"
-            aria-label="Módulos de configuração"
-            sx={{
-              width: layout.sidebarWidth,
-              flexShrink: 0,
-              borderRight: '1px solid',
-              borderColor: colors.border,
-              bgcolor: colors.canvas,
-              overflowY: 'auto',
-              py: 2,
-              px: 1.25,
-            }}
-          >
-            {sections.map((section, idx) => (
-              <Box key={section.title} sx={{ mb: idx < sections.length - 1 ? 2 : 0 }}>
-                {idx > 0 && <Divider sx={{ mb: 1.5 }} />}
-                <Typography
-                  sx={{
-                    px: 1.25,
-                    pb: 0.75,
-                    fontSize: '0.6875rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.05em',
-                    textTransform: 'uppercase',
-                    color: colors.textMuted,
-                  }}
-                >
-                  {section.title}
-                </Typography>
-                {section.items.map((item) => (
-                  <ConfigMenuItem key={item.to} to={item.to} label={item.label} icon={item.icon} />
-                ))}
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        <Box
-          sx={{
-            flex: 1,
-            minWidth: 0,
-            minHeight: 0,
-            display: 'flex',
-            flexDirection: 'column',
-            overflowY: 'auto',
-            overflowX: 'hidden',
-            p: { xs: 2, md: 2.5 },
-            bgcolor: colors.surface,
-          }}
-        >
-          <Outlet />
-        </Box>
+        <Outlet />
       </Box>
-    </Paper>
+    </Box>
   );
 }

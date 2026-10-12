@@ -7,6 +7,8 @@ const CAMPOS_SENSIVEIS = new Set([
   'token',
   'accessToken',
   'authorization',
+  'avatar_base64',
+  'avatar_bytes',
 ]);
 
 /** Remove dados sensíveis antes de gravar na trilha. */
@@ -51,6 +53,7 @@ export function snapshotUsuarioAuditoria(u) {
     acesso_todas_lojas: u.acesso_todas_lojas,
     telefone_whatsapp: u.telefone_whatsapp,
     notifica_whatsapp: u.notifica_whatsapp,
+    tem_avatar: Boolean(u.tem_avatar ?? u.avatar_url),
   };
 }
 

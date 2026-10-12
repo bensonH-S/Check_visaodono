@@ -16,7 +16,6 @@ import InicioMobilePage from './pages/InicioMobilePage';
 import ChecklistConcluidoPage from './pages/ChecklistConcluidoPage';
 import VisitasPage from './pages/VisitasPage';
 import VisitasMobilePage from './pages/VisitasMobilePage';
-import LojasPage from './pages/LojasPage';
 import NcPage from './pages/NcPage';
 import RelatorioPage from './pages/RelatorioPage';
 import ManutencaoChamadosPage from './pages/manutencao/ManutencaoChamadosPage';
@@ -68,8 +67,12 @@ import RotaFreelancersAprovacao from './components/RotaFreelancersAprovacao';
 import FinanceiroOutlet from './financeiro/FinanceiroOutlet';
 import { ContasPagarPage } from './financeiro/pages/ContasPagarPage';
 import { InboxDdaPage } from './financeiro/pages/InboxDdaPage';
-import { ConfigDetalhePage, ConfigPage as FinanceiroConfigPage } from './financeiro/pages/ConfigPage';
-import { DdaPage } from './financeiro/pages/DdaPage';
+import {
+  ConfigDetalhePage,
+  ConfigPage as FinanceiroConfigPage,
+  RedirectConfigFinanceiroAntiga,
+} from './financeiro/pages/ConfigPage';
+import { PrefsProvider as FinanceiroPrefsProvider } from './financeiro/prefs';
 import { FechamentoCaixaPage } from './financeiro/pages/FechamentoCaixaPage';
 import { ModuloPage as FinanceiroModuloPage } from './financeiro/pages/ModuloPage';
 import { VendasPage as FinanceiroVendasPage } from './financeiro/pages/VendasPage';
@@ -533,9 +536,9 @@ export default function App() {
               <Route path="movimento" element={<FinanceiroModuloPage titulo="Contas movimento" />} />
               <Route path="dre" element={<FinanceiroModuloPage titulo="DRE" />} />
               <Route path="vendas" element={<FinanceiroVendasPage />} />
-              <Route path="integracoes" element={<DdaPage />} />
-              <Route path="configuracoes" element={<FinanceiroConfigPage />} />
-              <Route path="configuracoes/:secao" element={<ConfigDetalhePage />} />
+              <Route path="integracoes" element={<Navigate to="/financeiro/inbox" replace />} />
+              <Route path="configuracoes" element={<Navigate to="/configuracoes/financeiro" replace />} />
+              <Route path="configuracoes/:secao" element={<RedirectConfigFinanceiroAntiga />} />
             </Route>
             <Route
               path="chamados/aprovacoes/:idChamado"
@@ -586,7 +589,7 @@ export default function App() {
             <Route path="manutencao" element={<Navigate to="/chamados" replace />} />
             <Route path="manutencao/novo" element={<Navigate to="/chamados/novo" replace />} />
             <Route path="relatorio/visita/:id" element={<RelatorioPage />} />
-            <Route path="lojas" element={<Navigate to="/configuracoes/lojas" replace />} />
+            <Route path="lojas" element={<Navigate to="/configuracoes/financeiro/empresas" replace />} />
             <Route path="usuarios" element={<Navigate to="/configuracoes/usuarios" replace />} />
             <Route path="cargos" element={<Navigate to="/configuracoes/cargos" replace />} />
             <Route path="permissoes" element={<Navigate to="/configuracoes/cargos" replace />} />
@@ -599,14 +602,7 @@ export default function App() {
               }
             >
               <Route index element={<ConfiguracoesPage />} />
-              <Route
-                path="lojas"
-                element={
-                  <RotaPermissao permissoes={['portal.lojas.ver', 'configuracoes.ver']}>
-                    <LojasPage />
-                  </RotaPermissao>
-                }
-              />
+              <Route path="lojas" element={<Navigate to="/configuracoes/financeiro/empresas" replace />} />
               <Route
                 path="usuarios"
                 element={
@@ -709,6 +705,26 @@ export default function App() {
                   <RotaAuditoria>
                     <AuditoriaPage />
                   </RotaAuditoria>
+                }
+              />
+              <Route
+                path="financeiro"
+                element={
+                  <RotaFinanceiro>
+                    <FinanceiroPrefsProvider>
+                      <FinanceiroConfigPage />
+                    </FinanceiroPrefsProvider>
+                  </RotaFinanceiro>
+                }
+              />
+              <Route
+                path="financeiro/:secao"
+                element={
+                  <RotaFinanceiro>
+                    <FinanceiroPrefsProvider>
+                      <ConfigDetalhePage />
+                    </FinanceiroPrefsProvider>
+                  </RotaFinanceiro>
                 }
               />
             </Route>

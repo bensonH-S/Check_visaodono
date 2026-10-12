@@ -18,6 +18,14 @@ function precisaRegioesAtuacaoSessao(row, permissoes) {
   return cargo === 'supervisor_regional' || cargo === 'regional' || cargo === 'supervisor';
 }
 
+function avatarDataUrl(row) {
+  if (!row?.avatar_bytes) return null;
+  const buf = Buffer.isBuffer(row.avatar_bytes) ? row.avatar_bytes : Buffer.from(row.avatar_bytes);
+  if (!buf.length) return null;
+  const mime = row.avatar_mime || 'image/jpeg';
+  return `data:${mime};base64,${buf.toString('base64')}`;
+}
+
 async function mapUsuario(row) {
   const permissoes = await carregarPermissoesUsuario(row.id_usuario);
   const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes, cargo_aprovacao: row.cargo_aprovacao };
@@ -40,6 +48,7 @@ async function mapUsuario(row) {
     cargo_aprovacao: row.cargo_aprovacao || null,
     cargo_nome: row.cargo_nome || null,
     avatar_inicial: row.avatar_inicial,
+    avatar_url: avatarDataUrl(row),
     lojas,
     permissoes,
     acesso_todas_lojas: acessoTodasLojas(userCtx),

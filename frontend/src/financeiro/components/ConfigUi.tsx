@@ -21,6 +21,16 @@ import CloseIcon from '@mui/icons-material/Close'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined'
 import { usePrefs } from '../prefs'
+import {
+  FIN_BORDER,
+  FIN_MUTED,
+  FIN_SURFACE,
+  FIN_SURFACE_ALT,
+  FIN_TEXT,
+  finBtnContainedSx,
+  finCampoSx,
+  finPaperSx,
+} from '../temaFinanceiroEscuro'
 
 export function cnpjFormatado(valor: string | null | undefined) {
   const d = String(valor || '').replace(/\D/g, '')
@@ -56,10 +66,21 @@ export function Selo({ texto, tom }: { texto: string; tom: Tom }) {
 
 export function Resumo({ rotulo, valor, detalhe }: { rotulo: string; valor: string; detalhe: string }) {
   return (
-    <Paper variant="outlined" sx={{ p: 2, flex: '1 1 180px', minWidth: 180 }}>
-      <Typography sx={{ fontSize: 12, color: 'text.secondary', fontWeight: 500 }}>{rotulo}</Typography>
-      <Typography sx={{ fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em', mt: 0.25 }}>{valor}</Typography>
-      <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{detalhe}</Typography>
+    <Paper
+      variant="outlined"
+      sx={{
+        p: 1.5,
+        flex: '1 1 160px',
+        minWidth: 160,
+        bgcolor: FIN_SURFACE,
+        borderColor: FIN_BORDER,
+        borderRadius: '10px',
+        boxShadow: 'none',
+      }}
+    >
+      <Typography sx={{ fontSize: 11.5, color: FIN_MUTED, fontWeight: 500 }}>{rotulo}</Typography>
+      <Typography sx={{ fontSize: 18, fontWeight: 650, letterSpacing: '-0.02em', mt: 0.2, color: FIN_TEXT }}>{valor}</Typography>
+      <Typography sx={{ fontSize: 11.5, color: FIN_MUTED }}>{detalhe}</Typography>
     </Paper>
   )
 }
@@ -75,9 +96,15 @@ export function Barra({ busca, onBusca, placeholder, children }: {
   children?: ReactNode
 }) {
   return (
-    <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ alignItems: { md: 'center' } }}>
+    <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} sx={{ alignItems: { md: 'center' } }}>
       {onBusca ? (
-        <TextField size="small" placeholder={placeholder} value={busca} onChange={(ev) => onBusca(ev.target.value)} sx={{ minWidth: 300, bgcolor: 'background.paper' }} />
+        <TextField
+          size="small"
+          placeholder={placeholder}
+          value={busca}
+          onChange={(ev) => onBusca(ev.target.value)}
+          sx={{ width: { xs: '100%', md: 260 }, flexShrink: 0, ...finCampoSx }}
+        />
       ) : null}
       <Box sx={{ flex: 1 }} />
       {children}
@@ -139,7 +166,7 @@ export function TabelaConfig<T>({ colunas, linhas, chave, vazio = 'Nada encontra
 }) {
   const { t } = usePrefs()
   return (
-    <Paper variant="outlined" sx={{ overflow: 'auto' }}>
+    <Paper variant="outlined" sx={{ overflow: 'auto', flex: 1, minHeight: 0, ...finPaperSx }}>
       <Table size="small" stickyHeader>
         <TableHead>
           <TableRow>
@@ -150,12 +177,17 @@ export function TabelaConfig<T>({ colunas, linhas, chave, vazio = 'Nada encontra
           {linhas.length === 0 && (
             <TableRow>
               <TableCell colSpan={colunas.length}>
-                <Box sx={{ py: 5, textAlign: 'center', color: 'text.secondary' }}>{vazio}</Box>
+                <Box sx={{ py: 5, textAlign: 'center', color: FIN_MUTED }}>{vazio}</Box>
               </TableCell>
             </TableRow>
           )}
           {linhas.map((linha) => (
-            <TableRow key={chave(linha)} hover sx={onLinha ? { cursor: 'pointer' } : undefined} onClick={onLinha ? () => onLinha(linha) : undefined}>
+            <TableRow
+              key={chave(linha)}
+              hover
+              sx={onLinha ? { cursor: 'pointer' } : undefined}
+              onClick={onLinha ? () => onLinha(linha) : undefined}
+            >
               {colunas.map((c) => <TableCell key={c.titulo} align={c.align}>{c.render(linha)}</TableCell>)}
             </TableRow>
           ))}
@@ -172,18 +204,19 @@ export function TabelaConfig<T>({ colunas, linhas, chave, vazio = 'Nada encontra
           labelDisplayedRows={({ from, to, count }) => t(`${from}–${to} de ${count}`, `${from}–${to} of ${count}`)}
           labelRowsPerPage={t('Por página', 'Per page')}
           sx={{
-            borderTop: '1px solid',
-            borderColor: 'divider',
+            borderTop: `1px solid ${FIN_BORDER}`,
+            bgcolor: FIN_SURFACE,
+            color: FIN_MUTED,
             '& .MuiTablePagination-toolbar': { minHeight: 32, height: 32, pl: 1.5, pr: 0.5 },
-            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 12, m: 0 },
-            '& .MuiTablePagination-select': { fontSize: 12 },
+            '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 12, m: 0, color: FIN_MUTED },
+            '& .MuiTablePagination-select': { fontSize: 12, color: FIN_TEXT },
             '& .MuiTablePagination-actions': { ml: 0.5 },
             '& .MuiTablePagination-actions .MuiIconButton-root': { p: 0.25 },
           }}
         />
       ) : null}
       {rodape ? (
-        <Box sx={{ px: 2, py: 1.25, borderTop: '1px solid', borderColor: 'divider', fontSize: 12, color: 'text.secondary' }}>{rodape}</Box>
+        <Box sx={{ px: 2, py: 1.25, borderTop: `1px solid ${FIN_BORDER}`, fontSize: 12, color: FIN_MUTED }}>{rodape}</Box>
       ) : null}
     </Paper>
   )
@@ -207,18 +240,33 @@ export function PainelLateral({ aberto, titulo, subtitulo, onFechar, rodape, chi
   children: ReactNode
 }) {
   return (
-    <Drawer anchor="right" open={aberto} onClose={onFechar} slotProps={{ paper: { sx: { width: { xs: '100%', sm: 460 }, bgcolor: 'background.paper' } } }}>
+    <Drawer
+      anchor="right"
+      open={aberto}
+      onClose={onFechar}
+      slotProps={{
+        paper: {
+          sx: {
+            width: { xs: '100%', sm: 460 },
+            bgcolor: FIN_SURFACE_ALT,
+            color: FIN_TEXT,
+            borderLeft: `1px solid ${FIN_BORDER}`,
+            backgroundImage: 'none',
+          },
+        },
+      }}
+    >
       <Stack sx={{ height: '100%' }}>
-        <Stack direction="row" sx={{ alignItems: 'flex-start', px: 3, py: 2.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Stack direction="row" sx={{ alignItems: 'flex-start', px: 3, py: 2.25, borderBottom: `1px solid ${FIN_BORDER}`, bgcolor: FIN_SURFACE }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography sx={{ fontSize: 16, fontWeight: 600 }}>{titulo}</Typography>
-            {subtitulo ? <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{subtitulo}</Typography> : null}
+            <Typography sx={{ fontSize: 16, fontWeight: 600, color: FIN_TEXT }}>{titulo}</Typography>
+            {subtitulo ? <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>{subtitulo}</Typography> : null}
           </Box>
-          <IconButton size="small" onClick={onFechar}><CloseIcon fontSize="small" /></IconButton>
+          <IconButton size="small" onClick={onFechar} sx={{ color: FIN_MUTED }}><CloseIcon fontSize="small" /></IconButton>
         </Stack>
-        <Stack spacing={3} sx={{ flex: 1, overflow: 'auto', px: 3, py: 2.5 }}>{children}</Stack>
+        <Stack spacing={3} sx={{ flex: 1, overflow: 'auto', px: 3, py: 2.5, bgcolor: FIN_SURFACE_ALT }}>{children}</Stack>
         {rodape ? (
-          <Stack direction="row" spacing={1} sx={{ px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider' }}>{rodape}</Stack>
+          <Stack direction="row" spacing={1} sx={{ px: 3, py: 2, borderTop: `1px solid ${FIN_BORDER}`, bgcolor: FIN_SURFACE }}>{rodape}</Stack>
         ) : null}
       </Stack>
     </Drawer>
@@ -262,7 +310,7 @@ export type Situacao = 'ativos' | 'inativos' | 'todos'
 export function FiltroSituacao({ valor, onMudar }: { valor: Situacao; onMudar: (valor: Situacao) => void }) {
   const { t } = usePrefs()
   return (
-    <TextField select size="small" value={valor} onChange={(ev) => onMudar(ev.target.value as Situacao)} sx={{ minWidth: 150, bgcolor: 'background.paper' }}>
+    <TextField select size="small" value={valor} onChange={(ev) => onMudar(ev.target.value as Situacao)} sx={{ minWidth: 140, ...finCampoSx }}>
       <MenuItem value="ativos">{t('Ativos', 'Active')}</MenuItem>
       <MenuItem value="inativos">{t('Inativos', 'Inactive')}</MenuItem>
       <MenuItem value="todos">{t('Todos', 'All')}</MenuItem>
@@ -302,7 +350,7 @@ export function AcoesForm({ existe, emUso, salvando, podeSalvar, onSalvar, onExc
         ) : null}
         <Box sx={{ flex: 1 }} />
         <Button onClick={onFechar}>{t('Cancelar', 'Cancel')}</Button>
-        <Button variant="contained" disabled={salvando || !podeSalvar} onClick={onSalvar}>{salvando ? t('Salvando…', 'Saving…') : t('Salvar', 'Save')}</Button>
+        <Button variant="contained" disabled={salvando || !podeSalvar} onClick={onSalvar} sx={finBtnContainedSx}>{salvando ? t('Salvando…', 'Saving…') : t('Salvar', 'Save')}</Button>
       </Stack>
     </Stack>
   )

@@ -31,12 +31,8 @@ import {
 } from '../../api/client';
 import { showToast } from '../../utils/toast';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
-import {
-  tableContainerSx,
-  tablePageLayoutSx,
-  tablePaperSx,
-  tableSx,
-} from '../../utils/tablePageLayout';
+import { tableContainerSx, tableSx } from '../../utils/tablePageLayout';
+import { configPageSx, configPaperSx } from './configPageSx';
 
 type FornecedorCodigo = 'platlog' | 'coca' | 'cokenet' | 'idealwork' | 'gimba';
 
@@ -306,7 +302,7 @@ export default function EstoqueSyncNfPage() {
     : null;
 
   return (
-    <Box sx={{ ...tablePageLayoutSx, p: { xs: 1.5, md: 2 }, gap: 1.5 }}>
+    <Box sx={configPageSx}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', flexShrink: 0 }}>
         <Box sx={{ flex: 1, minWidth: 200 }}>
           <Typography sx={{ fontWeight: 800, fontSize: '1.05rem' }}>Sync NF</Typography>
@@ -331,7 +327,7 @@ export default function EstoqueSyncNfPage() {
       {erro ? <Alert severity="error">{erro}</Alert> : null}
       {loading ? <LinearProgress sx={{ flexShrink: 0 }} /> : null}
 
-      <Paper elevation={0} sx={tablePaperSx}>
+      <Paper elevation={0} sx={configPaperSx}>
         <TableContainer sx={tableContainerSx}>
           <Table stickyHeader sx={{ ...tableSx, tableLayout: 'fixed' }}>
             <TableHead>

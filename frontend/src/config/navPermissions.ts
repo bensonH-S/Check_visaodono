@@ -26,7 +26,8 @@ export const ROTAS_NAV: RotaNav[] = [
   { path: '/configuracoes', permissoes: ['configuracoes.ver'] },
   { path: '/configuracoes/contagem', permissoes: ['estoque.produtos'] },
   { path: '/configuracoes/usuarios', permissoes: ['usuarios.gerenciar'] },
-  { path: '/configuracoes/lojas', permissoes: ['portal.lojas.ver'] },
+  { path: '/configuracoes/lojas', permissoes: ['portal.lojas.ver', 'financeiro.ver'] },
+  { path: '/configuracoes/financeiro/empresas', permissoes: ['portal.lojas.ver', 'financeiro.ver'] },
   { path: '/configuracoes/cargos', permissoes: ['usuarios.gerenciar', 'configuracoes.ver'] },
 ];
 

@@ -1,4 +1,5 @@
 import { lerModulosCanalCache, moduloNoCanal } from '../config/modulosCanal';
+import { sincronizarFotoPerfilSessao } from '../utils/fotoPerfil';
 
 export type PerfilUsuario = 'administrador' | 'coordenador' | 'gerente' | 'tecnico';
 export type CargoAprovacao = string;
@@ -30,6 +31,8 @@ export type UsuarioSessao = {
   cargo_aprovacao?: CargoAprovacao | null;
   cargo_nome?: string | null;
   avatar_inicial?: string;
+  /** Data URL da foto de perfil (quando cadastrada). */
+  avatar_url?: string | null;
   lojas: LojaResumo[];
   permissoes: string[];
   acesso_todas_lojas?: boolean;
@@ -59,6 +62,13 @@ export function getUsuario(): UsuarioSessao | null {
 export function setSessao(accessToken: string, usuario: UsuarioSessao) {
   localStorage.setItem('token', accessToken);
   localStorage.setItem('usuario', JSON.stringify(usuario));
+  sincronizarFotoPerfilSessao(usuario.id_usuario, usuario.avatar_url);
+}
+
+/** Atualiza só o objeto usuário na sessão (mantém o token). */
+export function atualizarUsuarioSessao(usuario: UsuarioSessao) {
+  localStorage.setItem('usuario', JSON.stringify(usuario));
+  sincronizarFotoPerfilSessao(usuario.id_usuario, usuario.avatar_url);
 }
 
 export function logout() {

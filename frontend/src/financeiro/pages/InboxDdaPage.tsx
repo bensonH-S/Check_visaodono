@@ -676,15 +676,6 @@ export function InboxDdaPage() {
               type="button"
               size="small"
               variant="outlined"
-              onClick={() => navigate('/financeiro/integracoes')}
-              sx={{ color: INBOX_TEXT, borderColor: INBOX_BORDER, '&:hover': { borderColor: '#1B6EF3', bgcolor: 'rgba(27,110,243,0.1)' } }}
-            >
-              {t('Coletar DDA', 'Pull DDA')}
-            </Button>
-            <Button
-              type="button"
-              size="small"
-              variant="outlined"
               onClick={abrirAgenda}
               sx={{ color: INBOX_TEXT, borderColor: INBOX_BORDER, '&:hover': { borderColor: '#1B6EF3', bgcolor: 'rgba(27,110,243,0.1)' } }}
             >
@@ -833,8 +824,8 @@ export function InboxDdaPage() {
                           inbox.length
                             ? t('Ajuste o período, a loja ou o filtro acima para ver outros títulos.', 'Adjust the period, store or filter above to see other titles.')
                             : t(
-                              'Clique em “Coletar DDA” para puxar os títulos do banco. Depois confira a NF e envie para a agenda.',
-                              'Click “Pull DDA” to fetch bank titles. Then check the invoice and send them to the schedule.',
+                              'A coleta DDA roda sozinha. Quando chegar título novo, confira a NF e envie para a agenda.',
+                              'DDA pulls run automatically. When a new title arrives, check the invoice and send it to the schedule.',
                             )
                         }
                       />

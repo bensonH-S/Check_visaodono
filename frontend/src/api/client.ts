@@ -153,6 +153,7 @@ export const api = {
   permissoesCatalogo: () =>
     request<PermissaoCatalogo[]>('/usuarios/permissoes/catalogo', { cache: 'no-store' }),
   usuariosGestao: () => request<UsuarioGestao[]>('/usuarios/gestao'),
+  usuarioGestao: (id: number) => request<UsuarioGestao>(`/usuarios/gestao/${id}`),
   usuarioGestaoCriar: (body: UsuarioGestaoInput) =>
     request<UsuarioGestao>('/usuarios/gestao', { method: 'POST', body: JSON.stringify(body) }),
   usuarioGestaoAtualizar: (id: number, body: Partial<UsuarioGestaoInput>) =>
@@ -1808,6 +1809,8 @@ export interface UsuarioGestao {
   cargo_aprovacao?: string | null;
   cargo_nome?: string | null;
   avatar_inicial?: string;
+  tem_avatar?: boolean;
+  avatar_url?: string | null;
   perfil: string;
   lojas: LojaResumo[];
   lojas_ids: number[];
@@ -1829,6 +1832,8 @@ export interface UsuarioGestaoInput {
   ativo?: boolean;
   telefone_whatsapp?: string | null;
   notifica_whatsapp?: boolean;
+  /** Data URL da foto, ou null para remover. */
+  avatar_base64?: string | null;
 }
 
 export interface WppStatus {

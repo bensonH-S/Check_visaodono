@@ -1,21 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Navigate, useParams } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
-import Paper from '@mui/material/Paper'
 import Snackbar from '@mui/material/Snackbar'
 import Stack from '@mui/material/Stack'
 import TextField from '@mui/material/TextField'
 import Typography from '@mui/material/Typography'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined'
-import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined'
-import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined'
-import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined'
-import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
-import PeopleOutlinedIcon from '@mui/icons-material/PeopleOutlined'
-import HubOutlinedIcon from '@mui/icons-material/HubOutlined'
 import AddIcon from '@mui/icons-material/Add'
 import FormControlLabel from '@mui/material/FormControlLabel'
 import MenuItem from '@mui/material/MenuItem'
@@ -30,79 +21,23 @@ import { AcessoItauPage } from './AcessoItau'
 import { AcessosBb } from './AcessosBb'
 import { Contas, Empresas, Fornecedores, POR_PAGINA } from './Cadastros'
 
-const CARDS = [
-  ['empresas', 'Empresas', 'Lojas e holdings. A loja entra com BK.', StorefrontOutlinedIcon],
-  ['contas', 'Contas bancárias', 'Caixa, Banco do Brasil e Itaú, com o nome do cadastro.', AccountBalanceOutlinedIcon],
-  ['plano', 'Plano de contas', 'Classificação do que é a pagar.', AccountTreeOutlinedIcon],
-  ['fornecedores', 'Fornecedores', 'Cadastro financeiro e o plano padrão.', LocalShippingOutlinedIcon],
-  ['formas', 'Formas de pagamento', 'Boleto e guia no geral. Folha, cadastro e PIX só no freelancer.', PaymentsOutlinedIcon],
-  ['usuarios', 'Usuários', 'Quem prepara e quem autoriza.', PeopleOutlinedIcon],
-  ['bkoffice', 'BK Office', 'Usuário, senha e endereço da API que traz as vendas.', HubOutlinedIcon],
-  ['itau', 'Itaú', 'Caixa postal da VAN para o retorno de DDA.', AccountBalanceOutlinedIcon],
-  ['bb', 'Banco do Brasil', 'Acesso da API de DDA, um por empresa.', AccountBalanceOutlinedIcon],
-] as const
+const BASE_CONFIG = '/configuracoes/financeiro'
 
-const CARDS_EN: Record<string, [string, string]> = {
-  empresas: ['Companies', 'Stores and holdings. A store comes in with BK.'],
-  contas: ['Bank accounts', 'Cash, Banco do Brasil and Itaú, with the record name.'],
-  plano: ['Chart of accounts', 'How payables are classified.'],
-  fornecedores: ['Suppliers', 'Financial record and default account.'],
-  formas: ['Payment methods', 'Boleto and tax slip in general. Payroll, record and PIX only for freelancers.'],
-  usuarios: ['Users', 'Who prepares and who authorizes.'],
-  bkoffice: ['BK Office', 'User, password and API address that brings sales.'],
-  itau: ['Itaú', 'VAN mailbox for the DDA return file.'],
-  bb: ['Banco do Brasil', 'DDA API access, one per company.'],
+/** URLs antigas `/financeiro/configuracoes/:secao` → Configurações. */
+export function RedirectConfigFinanceiroAntiga() {
+  const { secao } = useParams()
+  return <Navigate to={secao ? `${BASE_CONFIG}/${secao}` : BASE_CONFIG} replace />
 }
 
 export function ConfigPage() {
-  const { idioma } = usePrefs()
-  return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' }, gap: 1.5 }}>
-      {CARDS.map(([id, titulo, texto, Icon]) => (
-        (() => {
-          const en = CARDS_EN[id]
-          const nome = idioma === 'en' ? en[0] : titulo
-          const detalhe = idioma === 'en' ? en[1] : texto
-          return (
-        <Paper
-          key={id}
-          component={Link}
-          to={`/financeiro/configuracoes/${id}`}
-          variant="outlined"
-          sx={{
-            p: 2,
-            textDecoration: 'none',
-            color: 'inherit',
-            display: 'flex',
-            gap: 1.5,
-            alignItems: 'flex-start',
-            transition: 'border-color 120ms',
-            '&:hover': { borderColor: 'primary.main' },
-          }}
-        >
-          <Box sx={{ width: 36, height: 36, borderRadius: 1, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'text.secondary', flexShrink: 0 }}>
-            <Icon fontSize="small" />
-          </Box>
-          <Box>
-            <Typography sx={{ fontSize: 14, fontWeight: 500, mb: 0.25 }}>{nome}</Typography>
-            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>{detalhe}</Typography>
-          </Box>
-        </Paper>
-          )
-        })()
-      ))}
-    </Box>
-  )
+  return <Navigate to={`${BASE_CONFIG}/empresas`} replace />
 }
 
 export function ConfigDetalhePage() {
   const { secao = '' } = useParams()
-  const navigate = useNavigate()
-  const { t } = usePrefs()
 
   return (
-    <Stack spacing={2} sx={{ height: '100%', minHeight: 0, overflow: 'auto', pb: 2 }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/financeiro/configuracoes')} sx={{ alignSelf: 'flex-start' }}>{t('Voltar', 'Back')}</Button>
+    <Stack spacing={1.25} sx={{ flex: 1, minHeight: 0, height: '100%', pb: 0.5 }}>
       {secao === 'empresas' && <Empresas />}
       {secao === 'contas' && <Contas />}
       {secao === 'plano' && <PlanoContas />}

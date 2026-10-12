@@ -272,7 +272,6 @@ export function ContasPagarPage() {
         />
         <Box sx={{ flex: 1 }} />
         <Button type="button" size="small" variant="outlined" onClick={() => navigate('/financeiro/inbox')} sx={finBtnOutlinedSx}>{t('Inbox', 'Inbox')}</Button>
-        <Button type="button" size="small" variant="outlined" onClick={() => navigate('/financeiro/integracoes')} sx={finBtnOutlinedSx}>{t('Coletar DDA', 'Pull DDA')}</Button>
         <Button
           type="button"
           size="small"

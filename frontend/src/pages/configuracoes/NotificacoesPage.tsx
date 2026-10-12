@@ -27,7 +27,8 @@ import type {
   ManutNotificacaoPlaceholder,
 } from '../../api/client';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
-import { tableContainerSx, tablePageLayoutSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
+import { tableContainerSx, tableSx } from '../../utils/tablePageLayout';
+import { configPageSx, configPaperSx } from './configPageSx';
 import { useToast } from '../../hooks/useToast';
 
 type FormState = {
@@ -234,7 +235,7 @@ export default function NotificacoesPage() {
   const ops = lista.filter((e) => e.envia_push);
 
   return (
-    <Box sx={tablePageLayoutSx}>
+    <Box sx={configPageSx}>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, flexShrink: 0 }}>
         <Box>
           <Typography variant="body2" color="text.secondary">
@@ -256,7 +257,7 @@ export default function NotificacoesPage() {
         </Alert>
       )}
 
-      <Paper elevation={0} sx={tablePaperSx}>
+      <Paper elevation={0} sx={configPaperSx}>
         <TableContainer sx={tableContainerSx}>
           <Table size="small" stickyHeader sx={tableSx}>
             <TableHead>

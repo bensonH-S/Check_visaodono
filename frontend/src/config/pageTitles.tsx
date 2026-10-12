@@ -77,16 +77,6 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
     titleEn: 'Cash closing',
     icon: <PaymentsOutlinedIcon sx={iconSx} />,
   },
-  '/financeiro/integracoes': {
-    title: 'Integrações',
-    titleEn: 'Integrations',
-    icon: <PaymentsOutlinedIcon sx={iconSx} />,
-  },
-  '/financeiro/configuracoes': {
-    title: 'Configuração financeira',
-    titleEn: 'Finance settings',
-    icon: <PaymentsOutlinedIcon sx={iconSx} />,
-  },
   '/financeiro/vendas': {
     title: 'Vendas',
     titleEn: 'Sales',
@@ -126,11 +116,12 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/estoque/mobile': { title: 'Estoque. Conferência', icon: <Inventory2Icon sx={iconSx} /> },
   '/estoque/mobile/break': { title: 'Estoque. Break', icon: <Inventory2Icon sx={iconSx} /> },
   '/usuarios': { title: 'Gestão de usuários', icon: <PeopleIcon sx={iconSx} /> },
-  '/configuracoes': { title: 'Configurações', icon: <SettingsIcon sx={iconSx} /> },
+  '/configuracoes': { title: 'Configuração', icon: <SettingsIcon sx={iconSx} /> },
   '/configuracoes/canais': { title: 'Canais do app', icon: <TuneIcon sx={iconSx} /> },
   '/configuracoes/perguntas': { title: 'Checklist perguntas', icon: <AssignmentIcon sx={iconSx} /> },
   '/configuracoes/usuarios': { title: 'Usuários', icon: <PeopleIcon sx={iconSx} /> },
-  '/configuracoes/lojas': { title: 'Unidades', icon: <StoreIcon sx={iconSx} /> },
+  '/configuracoes/lojas': { title: 'Empresas', icon: <StoreIcon sx={iconSx} /> },
+  '/configuracoes/financeiro/empresas': { title: 'Empresas', icon: <StoreIcon sx={iconSx} /> },
   '/configuracoes/categorias': { title: 'Categorias', icon: <CategoryIcon sx={iconSx} /> },
   '/configuracoes/sla': { title: 'SLA', icon: <ScheduleIcon sx={iconSx} /> },
   '/cargos': { title: 'Permissões & Cargos', icon: <BadgeIcon sx={iconSx} /> },
@@ -143,6 +134,11 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/configuracoes/contagem': { title: 'Configuração da Contagem', icon: <Inventory2Icon sx={iconSx} /> },
   '/configuracoes/notificacoes': { title: 'Notificações', icon: <NotificationsIcon sx={iconSx} /> },
   '/configuracoes/auditoria': { title: 'Auditoria', icon: <HistoryIcon sx={iconSx} /> },
+  '/configuracoes/financeiro': {
+    title: 'Financeiro',
+    titleEn: 'Finance',
+    icon: <PaymentsOutlinedIcon sx={iconSx} />,
+  },
   '/relatorio': { title: 'Relatório da Visita', icon: <DescriptionIcon sx={iconSx} /> },
 };
 
@@ -172,13 +168,13 @@ export function resolvePageTitle(path: string, idioma: 'pt' | 'en' = 'pt'): Page
   if (path.startsWith('/energia/')) {
     return { title: 'Energia', icon: <BoltIcon sx={iconSx} /> };
   }
-  if (path.startsWith('/financeiro/configuracoes')) {
-    return comIdioma(PAGE_TITLES['/financeiro/configuracoes'], idioma);
-  }
   if (path === '/financeiro' || path.startsWith('/financeiro/')) {
     return comIdioma(PAGE_TITLES[path] ?? PAGE_TITLES['/financeiro'], idioma);
   }
   if (path.startsWith('/chamados/')) return comIdioma(PAGE_TITLES['/chamados'], idioma);
+  if (path.startsWith('/configuracoes/financeiro')) {
+    return comIdioma(PAGE_TITLES['/configuracoes/financeiro'], idioma);
+  }
   if (path.startsWith('/configuracoes/')) {
     return comIdioma(PAGE_TITLES[path] ?? PAGE_TITLES['/configuracoes'], idioma);
   }
