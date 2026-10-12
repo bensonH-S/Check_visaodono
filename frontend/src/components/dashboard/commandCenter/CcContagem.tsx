@@ -175,7 +175,6 @@ export default function CcContagem({ lojas, loading, erro }: { lojas: EstoqueCon
                 </TableHead>
                 <TableBody>
                   {linhas.map((l) => {
-                    const faltou = l.status === 'faltou';
                     const andamento = l.status === 'aberta';
                     const ok = l.status === 'contou';
                     const quem = (l.criado_por_nome || l.ultima_por_nome || '').trim();

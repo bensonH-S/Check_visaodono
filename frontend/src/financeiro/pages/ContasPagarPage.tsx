@@ -1274,7 +1274,7 @@ function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   const [vencimento, setVencimento] = useState(() => inicial?.vencimento || '')
   const [documento, setDocumento] = useState(() => inicial?.documento_ref || '')
   const [origem, setOrigem] = useState(() => inicial?.origem_id || primeiraLoja)
-  const [conta, setConta] = useState(() => inicial?.conta_saida_id || '')
+  const conta = inicial?.conta_saida_id || ''
   const [planoId, setPlanoId] = useState(() => inicial?.plano_conta_id || '')
   const [forma, setForma] = useState(() => inicial?.forma_pagamento || 'boleto')
   const [fornecedor, setFornecedor] = useState<Fornecedor | null>(() => (
