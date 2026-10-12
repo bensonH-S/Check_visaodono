@@ -114,10 +114,9 @@ export const finPaperSx = {
 } as const
 
 export const finPageSx = {
+  flex: 1,
   height: '100%',
   minHeight: 0,
-  m: { xs: -1.5, md: -2 },
-  p: { xs: 1.5, md: 2 },
   bgcolor: FIN_BG,
   color: FIN_TEXT,
   boxSizing: 'border-box' as const,

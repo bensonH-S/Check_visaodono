@@ -545,7 +545,7 @@ function PortalLayoutInner() {
           sx={{
             pl: { xs: 'max(14px, env(safe-area-inset-left, 0px))', md: paginaEscalaVisitas ? 1.25 : 2.25, xl: paginaEscalaVisitas ? 1.25 : 2.25 },
             pr: { xs: 'max(14px, env(safe-area-inset-right, 0px))', md: paginaEscalaVisitas ? 1.25 : 2.25, xl: paginaEscalaVisitas ? 1.25 : 2.25 },
-            py: paginaEscalaVisitas
+            pt: paginaEscalaVisitas || isFinanceiroRota
               ? { xs: 1, md: 1 }
               : scrollInterno
                 ? { xs: 1.25, md: 1.5 }
@@ -554,8 +554,9 @@ function PortalLayoutInner() {
                   : emConfiguracoes || emFrota
                     ? { xs: 1.5, md: 1.75 }
                     : { xs: 1.5, md: 2 },
-            pb:
-              mobileTabsRodape.length > 0 && !isChamadoNovo
+            pb: isFinanceiroRota
+              ? 0
+              : mobileTabsRodape.length > 0 && !isChamadoNovo
                 ? { xs: safeAreaBottomCalc(80), md: 2 }
                 : isDashboard
                   ? { xs: 1, md: 1 }

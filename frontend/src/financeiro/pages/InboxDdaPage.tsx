@@ -551,11 +551,9 @@ export function InboxDdaPage() {
     <Stack
       spacing={1}
       sx={{
-        height: '100%',
+        flex: 1,
         minHeight: 0,
-        m: { xs: -1.5, md: -2 },
-        px: { xs: 1.5, md: 2 },
-        py: { xs: 1, md: 1 },
+        height: '100%',
         bgcolor: INBOX_BG,
         color: INBOX_TEXT,
         boxSizing: 'border-box',
@@ -771,13 +769,13 @@ export function InboxDdaPage() {
         value={aba}
         onChange={(_, v) => { setAba(v); setPagina(0) }}
         sx={{
-          minHeight: 32,
+          minHeight: 36,
           '& .MuiTabs-indicator': { bgcolor: '#1B6EF3' },
           '& .MuiTab-root': {
-            minHeight: 32,
+            minHeight: 36,
             py: 0,
             px: 1.5,
-            fontSize: 12,
+            fontSize: 13,
             textTransform: 'none',
             gap: 0.75,
             color: INBOX_MUTED,
@@ -909,10 +907,23 @@ export function InboxDdaPage() {
               borderTop: '1px solid',
               borderColor: INBOX_BORDER,
               color: INBOX_MUTED,
-              '& .MuiTablePagination-toolbar': { minHeight: 32, height: 32, pl: 1.5, pr: 0.5 },
-              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 12, m: 0, color: INBOX_MUTED },
-              '& .MuiTablePagination-select': { color: INBOX_TEXT },
-              '& .MuiTablePagination-input': { color: INBOX_TEXT },
+              overflow: 'hidden',
+              '& .MuiTablePagination-toolbar': {
+                minHeight: '28px !important',
+                height: 28,
+                pl: 1.5,
+                pr: 0.5,
+              },
+              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                fontSize: 12,
+                lineHeight: 1,
+                m: 0,
+                color: INBOX_MUTED,
+              },
+              '& .MuiTablePagination-select': { color: INBOX_TEXT, py: 0 },
+              '& .MuiTablePagination-input': { color: INBOX_TEXT, m: 0 },
+              '& .MuiTablePagination-actions': { ml: 0.5 },
+              '& .MuiTablePagination-actions .MuiIconButton-root': { p: 0.25 },
             }}
           />
         </Paper>
@@ -1005,10 +1016,23 @@ export function InboxDdaPage() {
               borderTop: '1px solid',
               borderColor: INBOX_BORDER,
               color: INBOX_MUTED,
-              '& .MuiTablePagination-toolbar': { minHeight: 32, height: 32, pl: 1.5, pr: 0.5 },
-              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': { fontSize: 12, m: 0, color: INBOX_MUTED },
-              '& .MuiTablePagination-select': { color: INBOX_TEXT },
-              '& .MuiTablePagination-input': { color: INBOX_TEXT },
+              overflow: 'hidden',
+              '& .MuiTablePagination-toolbar': {
+                minHeight: '28px !important',
+                height: 28,
+                pl: 1.5,
+                pr: 0.5,
+              },
+              '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                fontSize: 12,
+                lineHeight: 1,
+                m: 0,
+                color: INBOX_MUTED,
+              },
+              '& .MuiTablePagination-select': { color: INBOX_TEXT, py: 0 },
+              '& .MuiTablePagination-input': { color: INBOX_TEXT, m: 0 },
+              '& .MuiTablePagination-actions': { ml: 0.5 },
+              '& .MuiTablePagination-actions .MuiIconButton-root': { p: 0.25 },
             }}
           />
         </Paper>
@@ -1283,9 +1307,9 @@ function Resumo({
       sx={{
         position: 'relative',
         px: 1.25,
-        py: 0.4,
+        py: 0.75,
         pl: 1.6,
-        minWidth: 120,
+        minWidth: 140,
         flex: 1,
         overflow: 'hidden',
         bgcolor: INBOX_SURFACE,
@@ -1303,9 +1327,9 @@ function Resumo({
         },
       }}
     >
-      <Typography sx={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: alerta ? '#B91C1C' : INBOX_MUTED }}>{rotulo}</Typography>
-      <Typography sx={{ fontSize: 15, fontWeight: 650, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15, color: alerta ? '#B91C1C' : INBOX_TEXT }}>{valor}</Typography>
-      <Typography sx={{ fontSize: 11, color: alerta ? '#B91C1C' : INBOX_MUTED }}>{detalhe}</Typography>
+      <Typography sx={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: alerta ? '#B91C1C' : INBOX_MUTED }}>{rotulo}</Typography>
+      <Typography sx={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15, color: alerta ? '#B91C1C' : INBOX_TEXT }}>{valor}</Typography>
+      <Typography sx={{ fontSize: 12, color: alerta ? '#B91C1C' : INBOX_MUTED }}>{detalhe}</Typography>
     </Paper>
   )
 }
