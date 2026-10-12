@@ -6,10 +6,9 @@
   align-items: center;
   justify-content: center;
   pointer-events: none;
-  background: rgba(5, 16, 23, 0.42);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  animation: meridian-curtain-in 0.22s ease-out both;
+  /* Leve — presença de marca, não “loading” de tela cheia. */
+  background: rgba(5, 16, 23, 0.18);
+  animation: meridian-curtain-in 0.18s ease-out both;
 }
 
 .meridian-route-curtain--out {
@@ -27,11 +26,11 @@
 
 .meridian-route-curtain__mark {
   position: relative;
-  width: clamp(4.25rem, 14vmin, 6.5rem);
-  height: clamp(4.25rem, 14vmin, 6.5rem);
+  width: clamp(3.5rem, 11vmin, 5.25rem);
+  height: clamp(3.5rem, 11vmin, 5.25rem);
   object-fit: contain;
-  filter: drop-shadow(0 10px 28px rgba(0, 0, 0, 0.35));
-  animation: meridian-mark-in 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+  filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.28));
+  animation: meridian-mark-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .meridian-route-curtain--out .meridian-route-curtain__mark {

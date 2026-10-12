@@ -4,24 +4,57 @@ import { assetUrl, LOGO_MERIDIAN_MARK_M } from '../config/paths';
 import './meridian-route-curtain.css';
 
 const MARK = `${assetUrl(LOGO_MERIDIAN_MARK_M)}?v=oficial3`;
-const SHOW_MS = 480;
+/** Tempo mínimo entre aparições — evita “pisca” a cada clique. */
+const COOLDOWN_MS = 14_000;
+const SHOW_MS = 360;
 
 /**
- * Cortina curta com o símbolo M ao trocar de rota no portal.
- * Não bloqueia clique depois do fade; some sozinha.
+ * Área “de produto” (módulo). Trocas dentro da mesma área
+ * (Inbox → Agenda, subpáginas de estoque) não disparam a marca.
+ */
+function areaDeRota(pathname: string): string {
+  const p = (pathname || '/').replace(/\/+$/, '') || '/';
+  if (p === '/' || p === '/dashboard') return 'command-center';
+  if (p.startsWith('/financeiro')) return 'financeiro';
+  if (p.startsWith('/estoque')) return 'estoque';
+  if (p.startsWith('/frota')) return 'frota';
+  if (p.startsWith('/configuracoes') || p.startsWith('/usuarios')) return 'config';
+  if (p.startsWith('/escalas')) return 'escalas';
+  if (p.startsWith('/chamados') || p.startsWith('/manutencao')) return 'chamados';
+  if (p.startsWith('/checklist')) return 'checklist';
+  if (p.startsWith('/energia')) return 'energia';
+  if (p.startsWith('/metas')) return 'metas';
+  if (p.startsWith('/visitas') || p.startsWith('/nao-conformidades')) return 'campo';
+  if (p.startsWith('/ranking')) return 'indicadores';
+  const seg = p.split('/').filter(Boolean)[0];
+  return seg || 'app';
+}
+
+/**
+ * Marca Meridian só em salto de módulo, com cooldown —
+ * presença de marca, não loading de toda página.
  */
 export default function MeridianRouteCurtain() {
   const { pathname } = useLocation();
-  const primeiro = useRef(true);
+  const areaAnterior = useRef<string | null>(null);
+  const ultimaVez = useRef(0);
   const [ativo, setAtivo] = useState(false);
   const [saida, setSaida] = useState(false);
   const seq = useRef(0);
 
   useEffect(() => {
-    if (primeiro.current) {
-      primeiro.current = false;
+    const area = areaDeRota(pathname);
+    if (areaAnterior.current == null) {
+      areaAnterior.current = area;
       return;
     }
+    if (area === areaAnterior.current) return;
+    areaAnterior.current = area;
+
+    const agora = Date.now();
+    if (agora - ultimaVez.current < COOLDOWN_MS) return;
+    ultimaVez.current = agora;
+
     const id = ++seq.current;
     setSaida(false);
     setAtivo(true);
@@ -33,7 +66,7 @@ export default function MeridianRouteCurtain() {
       if (seq.current !== id) return;
       setAtivo(false);
       setSaida(false);
-    }, SHOW_MS + 280);
+    }, SHOW_MS + 240);
     return () => {
       window.clearTimeout(tHide);
       window.clearTimeout(tOff);
