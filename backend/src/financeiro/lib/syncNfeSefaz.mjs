@@ -54,8 +54,15 @@ function recente(iso) {
   return Date.now() - t < ESPERA_MS
 }
 
-export async function garantirSchemaSefaz(financePool) {
-  await financePool.query(fs.readFileSync(schemaPath, 'utf8'))
+let schemaSefaz = null
+
+export function garantirSchemaSefaz(financePool) {
+  if (schemaSefaz) return schemaSefaz
+  schemaSefaz = financePool.query(fs.readFileSync(schemaPath, 'utf8')).catch((err) => {
+    schemaSefaz = null
+    throw err
+  })
+  return schemaSefaz
 }
 
 async function garantirCancelada() {
@@ -569,7 +576,6 @@ export async function amarrarDdaComNotasReceita(financePool) {
 
 export async function listarNotasReceita(financePool, empresaId) {
   await garantirSchemaSefaz(financePool)
-  amarrarDdaComNotasReceita(financePool).catch((err) => console.error(`[sefaz] união DDA+NF: ${err.message}`))
   const params = []
   let filtro = ''
   if (empresaId) {

@@ -37,7 +37,7 @@ import QrCode2OutlinedIcon from '@mui/icons-material/QrCode2Outlined'
 import RestaurantOutlinedIcon from '@mui/icons-material/RestaurantOutlined'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined'
-import { api, brl, type Empresa, type FechamentoDia, type Fornecedor, type LancamentoCaixa, type MesFechamento } from '../api'
+import { api, brl, emCache, lojaCaixaSalva, salvarLojaCaixa, urlCaixa, urlEmpresas, type Empresa, type FechamentoDia, type Fornecedor, type LancamentoCaixa, type MesFechamento } from '../api'
 import { ordenarEmpresas } from '../ordemEmpresas'
 import { usePrefs } from '../prefs'
 import FiltroMesFinanceiro from '../FiltroMesFinanceiro'
@@ -279,10 +279,13 @@ function Metrica({ rotulo, valor, alerta }: { rotulo: string; valor: string; ale
 
 export function FechamentoCaixaPage() {
   const { t, idioma } = usePrefs()
-  const [empresas, setEmpresas] = useState<Empresa[]>([])
-  const [empresaId, setEmpresaId] = useState('')
+  const [empresas, setEmpresas] = useState<Empresa[]>(() => emCache<Empresa[]>(urlEmpresas()) ?? [])
+  const [empresaId, setEmpresaId] = useState(lojaCaixaSalva)
   const [mes, setMes] = useState(mesAtual)
-  const [mesDados, setMesDados] = useState<MesFechamento | null>(null)
+  const [mesDados, setMesDados] = useState<MesFechamento | null>(() => {
+    const id = lojaCaixaSalva()
+    return id ? emCache<MesFechamento>(urlCaixa(mesAtual(), id)) ?? null : null
+  })
   const [selecionado, setSelecionado] = useState<FechamentoDia | null>(null)
   const [editando, setEditando] = useState<FechamentoDia | null>(null)
   const [erro, setErro] = useState('')
@@ -296,8 +299,11 @@ export function FechamentoCaixaPage() {
   useEffect(() => {
     api.empresas().then((lista) => {
       setEmpresas(lista)
-      const loja = lista.find((e) => String(e.bk_number || '').replace(/\D/g, '') === '23531') || lista.find((e) => e.tipo === 'loja')
-      if (loja) setEmpresaId((atual) => atual || loja.id)
+      setEmpresaId((atual) => {
+        if (atual && lista.some((e) => e.id === atual)) return atual
+        const loja = lista.find((e) => String(e.bk_number || '').replace(/\D/g, '') === '23531') || lista.find((e) => e.tipo === 'loja')
+        return loja?.id || ''
+      })
     }).catch((err: unknown) => setErro(err instanceof Error ? err.message : t('Não carregou as lojas', 'Could not load stores')))
   }, [])
 
@@ -321,7 +327,10 @@ export function FechamentoCaixaPage() {
       .catch((err: unknown) => setErro(err instanceof Error ? err.message : t('Não carregou o fechamento', 'Could not load cash closing')))
   }
 
-  useEffect(() => { carregar() }, [empresaId, mes])
+  useEffect(() => {
+    if (empresaId) salvarLojaCaixa(empresaId)
+    carregar()
+  }, [empresaId, mes])
 
   const dias = mesDados?.dias ?? []
   const lojaAtual = lojas.find((l) => l.id === empresaId)

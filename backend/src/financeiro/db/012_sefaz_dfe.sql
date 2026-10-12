@@ -35,3 +35,7 @@ create index if not exists nfe_recebida_emissao
 alter table nfe_recebida add column if not exists xml text;
 alter table nfe_recebida add column if not exists despesa_id uuid;
 alter table nfe_recebida add column if not exists ciencia_em timestamptz;
+
+create index if not exists nfe_recebida_despesa_idx
+  on nfe_recebida (despesa_id, atualizado_em desc nulls last)
+  where despesa_id is not null;

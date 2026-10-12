@@ -22,11 +22,20 @@ const CAMPOS = [
   'ifood', 'azul', 'rappi', 'food99', 'despesas_caixa', 'depositos_caixa',
 ]
 
-export async function garantirSchemaCaixa(pool) {
-  await pool.query(fs.readFileSync(schemaPath, 'utf8'))
-  await pool.query(fs.readFileSync(lancamentosPath, 'utf8'))
-  await pool.query(fs.readFileSync(statusPath, 'utf8'))
-  await pool.query(fs.readFileSync(chavesPath, 'utf8'))
+let schemaCaixa = null
+
+export function garantirSchemaCaixa(pool) {
+  if (schemaCaixa) return schemaCaixa
+  schemaCaixa = (async () => {
+    await pool.query(fs.readFileSync(schemaPath, 'utf8'))
+    await pool.query(fs.readFileSync(lancamentosPath, 'utf8'))
+    await pool.query(fs.readFileSync(statusPath, 'utf8'))
+    await pool.query(fs.readFileSync(chavesPath, 'utf8'))
+  })().catch((err) => {
+    schemaCaixa = null
+    throw err
+  })
+  return schemaCaixa
 }
 
 function erro(mensagem, status = 400) {
@@ -204,40 +213,56 @@ export async function mesFechamentos(pool, { mes, empresaId }) {
   if (!mes || !/^\d{4}-\d{2}$/.test(mes)) throw erro('Informe o mês no formato AAAA-MM.')
   if (!empresaId) throw erro('Informe a loja.')
 
-  const empresa = (await pool.query(`
-    select id, apelido, razao_social, bk_number, tipo
-    from empresas where id = $1 and ativo
-  `, [empresaId])).rows[0]
-  if (!empresa) throw erro('Loja não encontrada.', 404)
-  if (empresa.tipo !== 'loja') throw erro('Só loja fecha caixa.')
-
   const inicio = `${mes}-01`
   const { rows } = await pool.query(`
-    select f.*, e.apelido, e.razao_social, e.bk_number
-    from fechamento_caixa f
-    join empresas e on e.id = f.empresa_id
-    where f.empresa_id = $1
-      and f.data >= $2::date
-      and f.data < ($2::date + interval '1 month')
+    select e.id as empresa_id, e.apelido, e.razao_social, e.bk_number, e.tipo,
+           f.id, f.empresa_id as fechamento_empresa_id, f.data,
+           f.dinheiro, f.pix, f.debito, f.credito, f.cart_digital,
+           f.ifood, f.azul, f.rappi, f.food99, f.despesas_caixa, f.depositos_caixa,
+           f.bandeiras, f.observacao, f.status, f.atualizado_em,
+           coalesce(lans.lancamentos, '[]'::json) as lancamentos
+    from empresas e
+    left join fechamento_caixa f
+      on f.empresa_id = e.id
+     and f.data >= $2::date
+     and f.data < ($2::date + interval '1 month')
+    left join lateral (
+      select json_agg(json_build_object(
+        'id', l.id,
+        'tipo', l.tipo,
+        'valor', l.valor,
+        'plano_conta_id', l.plano_conta_id,
+        'fornecedor_id', l.fornecedor_id,
+        'numero', l.numero,
+        'descricao', l.descricao,
+        'fornecedor_nome', l.fornecedor_nome,
+        'comprovante_nome', l.comprovante_nome,
+        'comprovante_arquivo', l.comprovante_arquivo,
+        'plano', p.nome,
+        'fornecedor', coalesce(nullif(fn.nome, ''), nullif(l.fornecedor_nome, ''))
+      ) order by l.criado_em) as lancamentos
+      from fechamento_caixa_lancamentos l
+      left join plano_contas p on p.id = l.plano_conta_id
+      left join fornecedores fn on fn.id = l.fornecedor_id
+      where f.id is not null and l.fechamento_id = f.id
+    ) lans on true
+    where e.id = $1 and e.ativo
     order by f.data
   `, [empresaId, inicio])
 
-  const ids = rows.map((linha) => linha.id)
-  const porFechamento = new Map()
-  if (ids.length) {
-    const lans = await pool.query(`${SQL_LANCAMENTOS}
-      where l.fechamento_id = any($1::uuid[])
-      order by l.criado_em
-    `, [ids])
-    for (const item of lans.rows) {
-      const lista = porFechamento.get(item.fechamento_id) || []
-      lista.push(lancamentoPublico(item))
-      porFechamento.set(item.fechamento_id, lista)
-    }
+  const cabeca = rows[0]
+  if (!cabeca) throw erro('Loja não encontrada.', 404)
+  if (cabeca.tipo !== 'loja') throw erro('Só loja fecha caixa.')
+  const empresa = {
+    id: cabeca.empresa_id,
+    apelido: cabeca.apelido,
+    razao_social: cabeca.razao_social,
+    bk_number: cabeca.bk_number,
   }
 
-  const porDia = new Map(rows.map((linha) => {
-    const pub = linhaPublica({ ...linha, lancamentos: porFechamento.get(linha.id) || [] })
+  const porDia = new Map(rows.filter((linha) => linha.id).map((linha) => {
+    const lancamentos = (Array.isArray(linha.lancamentos) ? linha.lancamentos : []).map(lancamentoPublico)
+    const pub = linhaPublica({ ...linha, empresa_id: linha.fechamento_empresa_id || empresa.id, lancamentos })
     return [Number(pub.data.slice(8, 10)), pub]
   }))
 
@@ -316,8 +341,9 @@ async function statusLoja(pool, empresaId) {
     return { ok: false, ultimo_ok: null, ultimo_dia: null, atraso_horas: null, mensagem: '' }
   }
   const atrasoMin = (Date.now() - new Date(row.ultimo_ok).getTime()) / 60000
+  // Hermes pinga poucas vezes ao dia; 48h cobre um dia sem o ping da noite.
   return {
-    ok: atrasoMin <= 26 * 60,
+    ok: atrasoMin <= 48 * 60,
     ultimo_ok: row.ultimo_ok,
     ultimo_dia: dataIso(row.ultimo_dia),
     atraso_horas: Math.round((atrasoMin / 60) * 10) / 10,

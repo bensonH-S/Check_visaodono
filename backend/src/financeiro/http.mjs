@@ -509,9 +509,13 @@ async function amarrarNotas() {
 }
 
 let sincronizandoNotas = null
+let ultimoSyncNotas = 0
+const INTERVALO_SYNC_NOTAS_MS = 90_000
 
 function sincronizarNotasEmFundo() {
   if (sincronizandoNotas) return
+  if (Date.now() - ultimoSyncNotas < INTERVALO_SYNC_NOTAS_MS) return
+  ultimoSyncNotas = Date.now()
   sincronizandoNotas = (async () => {
     try { await vincularFornecedores() } catch (err) { console.error(err.message) }
     try { await amarrarNotas() } catch (err) { console.error(err.message) }
@@ -520,7 +524,6 @@ function sincronizarNotasEmFundo() {
 }
 
 async function listarDespesas(empresaId) {
-  sincronizarNotasEmFundo()
   const params = []
   let where = ''
   if (empresaId) {
@@ -554,26 +557,27 @@ async function listarDespesas(empresaId) {
            nr.tem_xml as nfe_tem_xml
     from despesas d
     join empresas eo on eo.id = d.empresa_origem_id
-    left join lateral (
-      select id, chave, tem_xml
+    left join (
+      select distinct on (despesa_id)
+             despesa_id, id, chave, tem_xml
       from nfe_recebida
-      where despesa_id = d.id
-      order by atualizado_em desc nulls last
-      limit 1
-    ) nr on true
+      where despesa_id is not null
+      order by despesa_id, atualizado_em desc nulls last
+    ) nr on nr.despesa_id = d.id
     left join contas_bancarias cs on cs.id = d.conta_saida_id
-    left join empresas ec on ec.id = cs.empresa_id
     left join empresas er on er.id = d.empresa_registro_id
     left join fornecedores f on f.id = d.fornecedor_id
     left join plano_contas p on p.id = d.plano_conta_id
-    left join lateral (
-      select chave_pix from fornecedor_pagamentos fp
-      where fp.fornecedor_id = d.fornecedor_id and fp.meio = 'pix' and chave_pix is not null and chave_pix <> ''
-      limit 1
-    ) pix on true
+    left join (
+      select distinct on (fornecedor_id) fornecedor_id, chave_pix
+      from fornecedor_pagamentos
+      where meio = 'pix' and chave_pix is not null and chave_pix <> ''
+      order by fornecedor_id
+    ) pix on pix.fornecedor_id = d.fornecedor_id
     ${where}
     order by d.vencimento nulls last, d.descricao
   `, params)
+  setTimeout(sincronizarNotasEmFundo, 0)
   return rows
 }
 
@@ -1513,6 +1517,10 @@ export function iniciarFinanceiro() {
   garantirSchemaItau(pool).catch((err) => console.error(`[financeiro] sfg: ${err.message}`))
   garantirSchemaCaixa(pool).catch((err) => console.error(`[financeiro] caixa: ${err.message}`))
   garantirSchemaSefaz(pool).catch((err) => console.error(`[financeiro] sefaz: ${err.message}`))
+  // Hermes ainda cai no Azimut (:3018) enquanto o nginx não tiver location /financas/api/caixa/ → :3007.
+  import('./lib/syncCaixaAzimut.mjs')
+    .then(({ iniciarSyncCaixaAzimut }) => iniciarSyncCaixaAzimut(env))
+    .catch((err) => console.warn(`[caixa] ponte Azimut: ${err.message}`))
   if (intervaloSefaz >= 60000) {
     setTimeout(cicloSefaz, 20000)
     setInterval(cicloSefaz, intervaloSefaz)
@@ -1529,6 +1537,9 @@ export function iniciarFinanceiro() {
     alter table despesas add column if not exists nf_confirmada boolean not null default false;
     alter table despesas add column if not exists boleto_arquivo text;
     alter table despesas add column if not exists nota_arquivo text;
+    create index if not exists fornecedor_pagamentos_pix_idx
+      on fornecedor_pagamentos (fornecedor_id)
+      where meio = 'pix' and chave_pix is not null and chave_pix <> '';
   `).catch((err) => {
     console.error(`[financeiro] ${err.message}`)
   })

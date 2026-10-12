@@ -37,7 +37,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
-import { api, brl, type Despesa, type Empresa, type Fornecedor } from '../api'
+import { api, brl, emCache, urlDespesas, urlEmpresas, type Despesa, type Empresa, type Fornecedor } from '../api'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
@@ -154,8 +154,8 @@ export function ContasPagarPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const { t, idioma } = usePrefs()
-  const [empresas, setEmpresas] = useState<Empresa[]>([])
-  const [despesas, setDespesas] = useState<Despesa[]>([])
+  const [empresas, setEmpresas] = useState<Empresa[]>(() => emCache<Empresa[]>(urlEmpresas()) ?? [])
+  const [despesas, setDespesas] = useState<Despesa[]>(() => emCache<Despesa[]>(urlDespesas(params.get('loja') || undefined)) ?? [])
   const [loja, setLoja] = useState(() => params.get('loja') || '')
   const [busca, setBusca] = useState('')
   const [de, setDe] = useState(() => params.get('de') || periodoAtual().de)
@@ -176,7 +176,6 @@ export function ContasPagarPage() {
     setDespesas(rows)
     setErroBanco('')
   }).catch(() => {
-    setDespesas([])
     setErroBanco(t(
       'Não carregou o financeiro. Confira a permissão financeiro.ver.',
       'Could not load finance. Check the financeiro.ver permission.',
@@ -188,7 +187,6 @@ export function ContasPagarPage() {
       setEmpresas(rows)
       if (rows.length) setErroBanco('')
     }).catch(() => {
-      setEmpresas([])
       setErroBanco(t(
         'Não carregou o financeiro. Confira a permissão financeiro.ver.',
         'Could not load finance. Check the financeiro.ver permission.',

@@ -28,7 +28,7 @@ import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
-import { api, brl, type Despesa, type Empresa, type NotaReceita } from '../api'
+import { api, brl, emCache, urlDespesas, urlEmpresas, urlNotas, type Despesa, type Empresa, type NotaReceita } from '../api'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
@@ -207,8 +207,8 @@ export function InboxDdaPage() {
   const { t, idioma } = usePrefs()
   const navigate = useNavigate()
   const [aba, setAba] = useState(0)
-  const [empresas, setEmpresas] = useState<Empresa[]>([])
-  const [despesas, setDespesas] = useState<Despesa[]>([])
+  const [empresas, setEmpresas] = useState<Empresa[]>(() => emCache<Empresa[]>(urlEmpresas()) ?? [])
+  const [despesas, setDespesas] = useState<Despesa[]>(() => emCache<Despesa[]>(urlDespesas()) ?? [])
   const [loja, setLoja] = useState('')
   const [busca, setBusca] = useState('')
   const [de, setDe] = useState(() => periodoAtual().de)
@@ -221,7 +221,7 @@ export function InboxDdaPage() {
   const [enviando, setEnviando] = useState(false)
   const [pagina, setPagina] = useState(0)
   const [porPagina, setPorPagina] = useState(30)
-  const [notas, setNotas] = useState<NotaReceita[]>([])
+  const [notas, setNotas] = useState<NotaReceita[]>(() => emCache<{ notas: NotaReceita[] }>(urlNotas())?.notas ?? [])
   const [filtroNf, setFiltroNf] = useState<(typeof FILTROS_NF)[number]>('Todas')
   const [buscandoNf, setBuscandoNf] = useState(false)
   const [aviso, setAviso] = useState('')
@@ -237,16 +237,13 @@ export function InboxDdaPage() {
   const carregarNotas = (empresa = loja) =>
     api.notasReceita(empresa || undefined).then((r) => {
       setNotas(r.notas)
-    }).catch(() => {
-      setNotas([])
-    })
+    }).catch(() => undefined)
 
   const carregar = (empresa = loja) =>
     api.despesas(empresa || undefined).then((rows) => {
       setDespesas(rows)
       setErro('')
     }).catch(() => {
-      setDespesas([])
       setErro(t(
         'Não carregou o financeiro. Confira a permissão financeiro.ver.',
         'Could not load finance. Check the financeiro.ver permission.',
@@ -254,7 +251,7 @@ export function InboxDdaPage() {
     })
 
   useEffect(() => {
-    api.empresas().then(setEmpresas).catch(() => setEmpresas([]))
+    api.empresas().then(setEmpresas).catch(() => undefined)
     carregar('')
     carregarNotas('')
   }, [])

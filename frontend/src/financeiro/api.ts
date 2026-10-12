@@ -104,13 +104,79 @@ async function financeFetch(url: string, init: RequestInit = {}) {
   return fetch(url, { ...init, headers: authHeaders(init.headers) })
 }
 
-async function get<T>(url: string): Promise<T> {
-  const res = await financeFetch(url)
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}))
-    throw new Error(data.error || data.erro || data.detalhe || 'Falha ao carregar')
+const memoria = new Map<string, unknown>()
+const emVoo = new Map<string, Promise<unknown>>()
+
+/** Última leitura bem-sucedida, para a aba abrir já com dados enquanto atualiza. */
+export function emCache<T>(url: string): T | undefined {
+  return memoria.has(url) ? (memoria.get(url) as T) : undefined
+}
+
+export function leituraPedida(url: string) {
+  return memoria.has(url) || emVoo.has(url)
+}
+
+export function urlEmpresas() {
+  return `${apiRoot}/empresas`
+}
+
+export function urlDespesas(empresa?: string) {
+  return `${apiRoot}/despesas${empresa ? `?empresa=${empresa}` : ''}`
+}
+
+export function urlNotas(empresa?: string) {
+  const q = empresa ? `?empresa=${encodeURIComponent(empresa)}` : ''
+  return `${apiRoot}/nfe/recebidas${q}`
+}
+
+export function urlCaixa(mes: string, empresaId: string) {
+  return `${apiRoot}/caixa?mes=${encodeURIComponent(mes)}&empresa=${encodeURIComponent(empresaId)}`
+}
+
+const CAIXA_LOJA = 'mf-caixa-loja'
+
+export function lojaCaixaSalva() {
+  try {
+    return localStorage.getItem(CAIXA_LOJA) || ''
+  } catch {
+    return ''
   }
-  return res.json()
+}
+
+export function salvarLojaCaixa(id: string) {
+  try {
+    if (id) localStorage.setItem(CAIXA_LOJA, id)
+  } catch {
+    /* storage bloqueado */
+  }
+}
+
+export function mesCaixaAtual() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+  }).format(new Date()).slice(0, 7)
+}
+
+async function get<T>(url: string): Promise<T> {
+  const voo = emVoo.get(url)
+  if (voo) return voo as Promise<T>
+  const promessa = (async () => {
+    const res = await financeFetch(url)
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.error || data.erro || data.detalhe || 'Falha ao carregar')
+    }
+    const data = await res.json() as T
+    memoria.set(url, data)
+    return data
+  })()
+  emVoo.set(url, promessa)
+  promessa.finally(() => {
+    if (emVoo.get(url) === promessa) emVoo.delete(url)
+  })
+  return promessa
 }
 
 export type NotaReceita = {
@@ -289,10 +355,10 @@ export type ResumoFinanceiro = {
 export const api = {
   sistema: () => get<Sessao>(`${apiRoot}/sistema`),
   resumo: () => get<ResumoFinanceiro>(`${apiRoot}/resumo`),
-  empresas: () => get<Empresa[]>(`${apiRoot}/empresas`),
+  empresas: () => get<Empresa[]>(urlEmpresas()),
   contas: () => get<Conta[]>(`${apiRoot}/contas`),
   plano: () => get<Plano[]>(`${apiRoot}/plano`),
-  despesas: (empresa?: string) => get<Despesa[]>(`${apiRoot}/despesas${empresa ? `?empresa=${empresa}` : ''}`),
+  despesas: (empresa?: string) => get<Despesa[]>(urlDespesas(empresa)),
   abrirNota: async (id: string) => {
     const res = await financeFetch(`${apiRoot}/despesas/${id}/nota`)
     if (!res.ok) {
@@ -384,10 +450,8 @@ export const api = {
       empresas?: number
       falhas?: number
     }>(`${apiRoot}/dda/bb`),
-  notasReceita: (empresa?: string) => {
-    const q = empresa ? `?empresa=${encodeURIComponent(empresa)}` : ''
-    return get<{ notas: NotaReceita[]; coleta: ColetaReceita }>(`${apiRoot}/nfe/recebidas${q}`)
-  },
+  notasReceita: (empresa?: string) =>
+    get<{ notas: NotaReceita[]; coleta: ColetaReceita }>(urlNotas(empresa)),
   coletarNotasReceita: async () => {
     const res = await financeFetch(`${apiRoot}/nfe/coletar`, { method: 'POST' })
     if (!res.ok) throw new Error('Não iniciou a consulta na Receita')
@@ -419,7 +483,7 @@ export const api = {
   },
   vendas: (dia: string) => get<ResumoVendas>(`${apiRoot}/vendas?dia=${encodeURIComponent(dia)}`),
   caixaMes: (mes: string, empresaId: string) =>
-    get<MesFechamento>(`${apiRoot}/caixa?mes=${encodeURIComponent(mes)}&empresa=${encodeURIComponent(empresaId)}`),
+    get<MesFechamento>(urlCaixa(mes, empresaId)),
   salvarCaixa: async (body: Record<string, unknown>) => {
     const res = await financeFetch(`${apiRoot}/caixa`, {
       method: 'PUT',
