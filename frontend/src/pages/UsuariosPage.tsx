@@ -239,7 +239,9 @@ function FormUsuario({
         telefone_whatsapp: form.telefone_whatsapp.trim() || null,
         notifica_whatsapp: form.notifica_whatsapp,
         ...(form.senha ? { senha: form.senha } : {}),
-        ...(avatarTouched ? { avatar_base64: avatarDraft || null } : {}),
+        ...(avatarTouched || (typeof avatarDraft === 'string' && avatarDraft.startsWith('data:image/'))
+          ? { avatar_base64: avatarDraft || null }
+          : {}),
       };
       if (!todasLojas && !body.lojas_ids.length) {
         setErro('Selecione ao menos uma loja ou marque "Acesso a todas as lojas".');
