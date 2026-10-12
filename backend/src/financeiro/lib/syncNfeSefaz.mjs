@@ -1119,7 +1119,7 @@ async function garantirFonteNfe(financePool) {
     }
     await financePool.query(`
       ALTER TABLE despesas ADD CONSTRAINT despesas_fonte_check
-      CHECK (fonte IS NULL OR fonte IN ('dda', 'manual', 'nfe'))
+      CHECK (fonte IS NULL OR fonte IN ('dda', 'manual', 'nfe', 'freecontrol'))
     `)
   }
   fonteNfePronta = true

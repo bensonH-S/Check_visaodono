@@ -6,7 +6,11 @@ const router = Router();
 
 iniciarFinanceiro();
 
-const semPermissaoDeTela = new Set(['/caixa/ingest', '/caixa/heartbeat']);
+const semPermissaoDeTela = new Set([
+  '/caixa/ingest',
+  '/caixa/heartbeat',
+  '/despesas/freecontrol-lote',
+]);
 
 router.use((req, res, next) => {
   if (req.method === 'POST' && semPermissaoDeTela.has(req.path)) return next();

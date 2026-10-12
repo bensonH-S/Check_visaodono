@@ -62,6 +62,12 @@ function nomeBancoFinanceiro() {
 
 async function garantirSchemaFonte(db) {
   await db.query(fs.readFileSync(path.join(root, 'db', '010_despesa_fonte.sql'), 'utf8'))
+  try {
+    const { garantirSchemaFreecontrol } = await import('./lib/importFreecontrol.mjs')
+    await garantirSchemaFreecontrol(db)
+  } catch (err) {
+    console.error(`[financeiro] freecontrol schema: ${err.message}`)
+  }
 }
 
 async function garantirSchemaDespesaId(db) {
@@ -548,9 +554,11 @@ async function listarDespesas(empresaId) {
            coalesce(nullif(d.dados_pagamento, ''), pix.chave_pix) as pagamento,
            coalesce(d.fonte, case
              when d.documento_ref like 'DDA|%' then 'dda'
+             when d.documento_ref like 'FC|%' then 'freecontrol'
              when d.forma_pagamento = 'boleto' and d.documento_ref ~ '^\\d{44}$' then 'dda'
              else 'manual'
            end) as fonte,
+           d.freecontrol_tipo,
            nr.id as nfe_recebida_id,
            (nr.id is not null) as tem_nfe_receita,
            nr.chave as nfe_chave,
@@ -644,6 +652,20 @@ export async function receberCaixaLoja(req, res) {
     return send(res, 200, JSON.stringify(resultado))
   } catch (err) {
     return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não recebeu o caixa da loja.' }))
+  }
+}
+
+/** Lote semanal Free Control → Contas a Pagar (Bearer FREECONTROL_MERIDIAN_TOKEN). */
+export async function receberFreecontrolLote(req, res) {
+  try {
+    if (!req.body || typeof req.body !== 'object') {
+      req.body = await readBody(req)
+    }
+    const { receberLoteFreecontrol } = await import('./lib/importFreecontrol.mjs')
+    const resultado = await receberLoteFreecontrol(pool, req, env)
+    return send(res, 200, JSON.stringify(resultado))
+  } catch (err) {
+    return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não importou o lote Free Control.' }))
   }
 }
 
@@ -876,6 +898,9 @@ export async function handleFinance(req, res) {
             limit $1
           `, [limite])
       return send(res, 200, JSON.stringify(rows))
+    }
+    if (req.method === 'POST' && url.pathname === '/api/despesas/freecontrol-lote') {
+      return receberFreecontrolLote(req, res)
     }
     if (req.method === 'POST' && url.pathname === '/api/despesas') {
       const body = await readBody(req)

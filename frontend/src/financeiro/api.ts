@@ -79,7 +79,8 @@ export type Despesa = {
   conta_empresa_id: string | null
   pagamento: string | null
   /** dda = veio do DDA; nfe = nota da Receita; manual = lançado na tela */
-  fonte: 'dda' | 'nfe' | 'manual' | null
+  fonte: 'dda' | 'nfe' | 'manual' | 'freecontrol' | null
+  freecontrol_tipo?: 'freelance' | 'treinamento' | 'despesa' | null
   /** NF-e da Receita já ligada a este boleto */
   nfe_recebida_id?: string | null
   tem_nfe_receita?: boolean

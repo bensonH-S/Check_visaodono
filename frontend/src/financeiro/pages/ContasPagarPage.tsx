@@ -89,10 +89,10 @@ function situacao(e: Despesa) {
   return 'a_pagar'
 }
 const CODIGO: Record<string, string> = {
-  folha: 'Folha', cadastro: 'Cadastro', chave_pix: 'Chave PIX',
+  folha: 'Folha Pagamento', cadastro: 'Cadastro', chave_pix: 'Chave PIX',
   boleto: 'Boleto', guia: 'Guia', dinheiro: 'Dinheiro', online: 'Online',
 }
-const FILTROS = ['Todas', 'DDA', 'Boletos', 'Para autorizar', 'Vencidas', 'NF confirmada'] as const
+const FILTROS = ['Todas', 'DDA', 'Free Control', 'Boletos', 'Para autorizar', 'Vencidas', 'NF confirmada'] as const
 
 const TOM_CLARO: Record<string, { color: string; border: string; bg: string }> = {
   rascunho: { color: '#64748B', border: '#E2E8F0', bg: 'transparent' },
@@ -137,6 +137,14 @@ function periodoAtual() {
   const fim = new Date(inicio)
   fim.setDate(fim.getDate() + 7)
   return { de: dataLocal(inicio), ate: dataLocal(fim) }
+}
+
+/**
+ * Agenda é sempre sáb→sáb. Free Control consolida seg→dom e vence na segunda
+ * seguinte — essa segunda cai dentro do sáb→sáb atual da Agenda.
+ */
+function periodoFreeControl() {
+  return periodoAtual()
 }
 
 function arquivoBase64(buffer: ArrayBuffer) {
@@ -214,6 +222,7 @@ export function ContasPagarPage() {
       const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.plano ?? ''}`.toLowerCase()
       if (busca && !texto.includes(busca.toLowerCase())) return false
       if (filtro === 'DDA') return e.fonte === 'dda'
+      if (filtro === 'Free Control') return e.fonte === 'freecontrol'
       if (filtro === 'Boletos') return e.forma_pagamento === 'boleto'
       if (filtro === 'Para autorizar') return e.status === 'pronta'
       if (filtro === 'Vencidas') return aberta(e) && !!e.vencimento && e.vencimento < hoje
@@ -227,7 +236,8 @@ export function ContasPagarPage() {
 
   const visiveis = linhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
 
-  const soma = (pred: (e: Despesa) => boolean) => noPeriodo.filter(pred).reduce((a, e) => a + Number(e.valor), 0)
+  // Cards seguem o filtro ativo (ex.: Free Control = só o consolidado BANCO), não o total da agenda.
+  const soma = (pred: (e: Despesa) => boolean) => linhas.filter(pred).reduce((a, e) => a + Number(e.valor), 0)
   const lojas = useMemo(() => ordenarEmpresas(empresas), [empresas])
   const vencida = soma((e) => aberta(e) && !!e.vencimento && e.vencimento < hoje)
 
@@ -282,11 +292,23 @@ export function ContasPagarPage() {
         >
           {t('Importar', 'Import')}
         </Button>
-        <Button type="button" size="small" variant="contained" startIcon={<AddIcon sx={{ fontSize: 16 }} />} onClick={() => setAberto(true)} sx={finBtnContainedSx}>{t('Nova despesa', 'New expense')}</Button>
+        <Button
+          type="button"
+          size="small"
+          variant="contained"
+          startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+          onClick={() => {
+            setEditando(null)
+            setAberto(true)
+          }}
+          sx={finBtnContainedSx}
+        >
+          {t('Nova despesa', 'New expense')}
+        </Button>
       </Stack>
 
       <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap' }}>
-        <Resumo cor="#F59E0B" rotulo={t('A pagar', 'To pay')} valor={brl(soma(aberta))} detalhe={t(`${noPeriodo.filter(aberta).length} em aberto`, `${noPeriodo.filter(aberta).length} open`)} />
+        <Resumo cor="#F59E0B" rotulo={t('A pagar', 'To pay')} valor={brl(soma(aberta))} detalhe={t(`${linhas.filter(aberta).length} em aberto`, `${linhas.filter(aberta).length} open`)} />
         <Resumo cor="#10B981" rotulo={t('Pago', 'Paid')} valor={brl(soma((e) => e.status === 'paga' || e.status === 'conciliada'))} detalhe={t('já baixadas', 'already settled')} />
         <Resumo cor="#1B6EF3" rotulo={t('Para autorizar', 'To authorize')} valor={brl(soma((e) => e.status === 'pronta'))} detalhe={t('aguardando o Felipe', 'waiting for Felipe')} />
         <Resumo cor="#EF4444" rotulo={t('Vencida', 'Overdue')} valor={brl(vencida)} detalhe={t('sem pagar', 'unpaid')} alerta={vencida > 0} />
@@ -298,11 +320,20 @@ export function ContasPagarPage() {
             key={item}
             size="small"
             label={t(
-              item === 'Todas' ? 'Todas' : item === 'DDA' ? 'DDA' : item === 'Boletos' ? 'Boletos' : item === 'Para autorizar' ? 'Para autorizar' : item === 'Vencidas' ? 'Vencidas' : 'NF confirmada',
-              item === 'Todas' ? 'All' : item === 'DDA' ? 'DDA' : item === 'Boletos' ? 'Boletos' : item === 'Para autorizar' ? 'To authorize' : item === 'Vencidas' ? 'Overdue' : 'Invoice confirmed',
+              item === 'Todas' ? 'Todas' : item === 'DDA' ? 'DDA' : item === 'Free Control' ? 'Free Control' : item === 'Boletos' ? 'Boletos' : item === 'Para autorizar' ? 'Para autorizar' : item === 'Vencidas' ? 'Vencidas' : 'NF confirmada',
+              item === 'Todas' ? 'All' : item === 'DDA' ? 'DDA' : item === 'Free Control' ? 'Free Control' : item === 'Boletos' ? 'Boletos' : item === 'Para autorizar' ? 'To authorize' : item === 'Vencidas' ? 'Overdue' : 'Invoice confirmed',
             )}
             variant="outlined"
-            onClick={() => { setFiltro(item); setPagina(0) }}
+            onClick={() => {
+              setFiltro(item)
+              setPagina(0)
+              // Free Control é seg→dom; a Agenda abre em sáb→sáb.
+              if (item === 'Free Control') {
+                const fc = periodoFreeControl()
+                setDe(fc.de)
+                setAte(fc.ate)
+              }
+            }}
             sx={finChipSx(filtro === item)}
           />
         ))}
@@ -386,19 +417,56 @@ export function ContasPagarPage() {
                   </Box>
                 </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
-                  {e.fonte === 'dda' || e.fonte === 'nfe' ? (
+                  {e.fonte === 'dda' || e.fonte === 'nfe' || e.fonte === 'freecontrol' ? (
                     <Chip
                       size="small"
-                      label={e.fonte === 'nfe' ? 'NF' : 'DDA'}
+                      label={
+                        e.fonte === 'nfe'
+                          ? 'NF'
+                          : e.fonte === 'dda'
+                            ? 'DDA'
+                            : e.freecontrol_tipo === 'treinamento'
+                              ? 'TREIN'
+                              : e.freecontrol_tipo === 'despesa'
+                                ? 'DESP'
+                                : 'FREE'
+                      }
                       sx={{
                         height: 20,
                         fontSize: 10.5,
                         fontWeight: 700,
                         letterSpacing: '0.04em',
-                        bgcolor: e.fonte === 'nfe' ? 'rgba(16,185,129,0.18)' : 'rgba(27,110,243,0.22)',
-                        color: e.fonte === 'nfe' ? '#047857' : '#1D4ED8',
+                        bgcolor:
+                          e.fonte === 'nfe'
+                            ? 'rgba(16,185,129,0.18)'
+                            : e.fonte === 'dda'
+                              ? 'rgba(27,110,243,0.22)'
+                              : e.freecontrol_tipo === 'treinamento'
+                                ? 'rgba(232,82,10,0.14)'
+                                : e.freecontrol_tipo === 'despesa'
+                                  ? 'rgba(100,116,139,0.16)'
+                                  : 'rgba(13,148,136,0.16)',
+                        color:
+                          e.fonte === 'nfe'
+                            ? '#047857'
+                            : e.fonte === 'dda'
+                              ? '#1D4ED8'
+                              : e.freecontrol_tipo === 'treinamento'
+                                ? '#C2410C'
+                                : e.freecontrol_tipo === 'despesa'
+                                  ? '#475569'
+                                  : '#0F766E',
                         border: '1px solid',
-                        borderColor: e.fonte === 'nfe' ? 'rgba(110,231,183,0.35)' : 'rgba(147,197,253,0.35)',
+                        borderColor:
+                          e.fonte === 'nfe'
+                            ? 'rgba(110,231,183,0.35)'
+                            : e.fonte === 'dda'
+                              ? 'rgba(147,197,253,0.35)'
+                              : e.freecontrol_tipo === 'treinamento'
+                                ? 'rgba(232,82,10,0.28)'
+                                : e.freecontrol_tipo === 'despesa'
+                                  ? 'rgba(100,116,139,0.28)'
+                                  : 'rgba(13,148,136,0.35)',
                       }}
                     />
                   ) : (
@@ -514,13 +582,16 @@ export function ContasPagarPage() {
         </DialogActions>
       </Dialog>
 
-      <DespesaForm
-        aberto={aberto || !!editando}
-        inicial={editando}
-        empresas={empresas}
-        onFechar={() => { setAberto(false); setEditando(null) }}
-        onSalvou={(mensagem) => { setAberto(false); setEditando(null); carregar(); setAviso(mensagem) }}
-      />
+      {(aberto || editando) ? (
+        <DespesaForm
+          key={editando?.id || 'nova'}
+          aberto
+          inicial={editando}
+          empresas={empresas}
+          onFechar={() => { setAberto(false); setEditando(null) }}
+          onSalvou={(mensagem) => { setAberto(false); setEditando(null); carregar(); setAviso(mensagem) }}
+        />
+      ) : null}
       <ImportarArquivosDialog
         aberto={importarAberto}
         onFechar={() => setImportarAberto(false)}
@@ -1086,8 +1157,15 @@ function ImportarArquivosDialog({
 
 function Codigo({ forma, pagamento }: { forma: string | null; pagamento: string | null }) {
   const texto = (pagamento || '').trim()
-  if (forma === 'folha' || texto.toLowerCase() === 'folha') {
-    return <Typography sx={{ fontSize: 13, textAlign: 'center' }}>—</Typography>
+  const folha = forma === 'folha'
+    || /^folha(\s+pagamento)?$/i.test(texto)
+    || /^folha\s+cadastrada$/i.test(texto)
+  if (folha) {
+    return (
+      <Typography sx={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.02em', textAlign: 'center', color: FIN_TEXT }}>
+        FOLHA PAGAMENTO
+      </Typography>
+    )
   }
   if ((forma === 'chave_pix' || forma === 'boleto') && texto) return <Copia texto={texto} />
   return <Typography sx={{ fontSize: 13, textAlign: 'center' }}>—</Typography>
@@ -1190,47 +1268,30 @@ function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
 }) {
   const { t } = usePrefs()
   const lojas = empresas.filter((e) => e.tipo === 'loja')
-  const [descricao, setDescricao] = useState('')
-  const [valor, setValor] = useState('')
-  const [vencimento, setVencimento] = useState('')
-  const [documento, setDocumento] = useState('')
-  const [origem, setOrigem] = useState('')
-  const [conta, setConta] = useState('')
-  const [planoId, setPlanoId] = useState('')
-  const [forma, setForma] = useState('boleto')
-  const [fornecedor, setFornecedor] = useState<Fornecedor | null>(null)
-  const [buscaFor, setBuscaFor] = useState('')
+  const primeiraLoja = lojas[0]?.id || ''
+  const [descricao, setDescricao] = useState(() => inicial?.descricao || '')
+  const [valor, setValor] = useState(() => (inicial ? brl(Number(inicial.valor)) : ''))
+  const [vencimento, setVencimento] = useState(() => inicial?.vencimento || '')
+  const [documento, setDocumento] = useState(() => inicial?.documento_ref || '')
+  const [origem, setOrigem] = useState(() => inicial?.origem_id || primeiraLoja)
+  const [conta, setConta] = useState(() => inicial?.conta_saida_id || '')
+  const [planoId, setPlanoId] = useState(() => inicial?.plano_conta_id || '')
+  const [forma, setForma] = useState(() => inicial?.forma_pagamento || 'boleto')
+  const [fornecedor, setFornecedor] = useState<Fornecedor | null>(() => (
+    inicial?.fornecedor_id
+      ? { id: inicial.fornecedor_id, nome: inicial.fornecedor || '', plano_conta_id: inicial.plano_conta_id, plano: inicial.plano }
+      : null
+  ))
+  const [buscaFor, setBuscaFor] = useState(() => inicial?.fornecedor || '')
   const [hits, setHits] = useState<Fornecedor[]>([])
-  const [pagamento, setPagamento] = useState('')
+  const [pagamento, setPagamento] = useState(() => inicial?.pagamento || '')
   const [erroCampos, setErroCampos] = useState({ descricao: false, valor: false, origem: false })
   const [abrindoNota, setAbrindoNota] = useState(false)
   const [abrindoBoleto, setAbrindoBoleto] = useState(false)
 
   const pedeCodigo = forma === 'boleto' || forma === 'chave_pix'
 
-  useEffect(() => {
-    if (!aberto) return
-    setErroCampos({ descricao: false, valor: false, origem: false })
-    setHits([])
-    if (!inicial) {
-      setDescricao(''); setValor(''); setVencimento(''); setDocumento('')
-      setOrigem(empresas.find((e) => e.tipo === 'loja')?.id || '')
-      setConta(''); setPlanoId(''); setForma('boleto')
-      setFornecedor(null); setBuscaFor(''); setPagamento('')
-      return
-    }
-    setDescricao(inicial.descricao)
-    setValor(brl(Number(inicial.valor)))
-    setVencimento(inicial.vencimento || '')
-    setDocumento(inicial.documento_ref || '')
-    setOrigem(inicial.origem_id)
-    setConta(inicial.conta_saida_id || '')
-    setPlanoId(inicial.plano_conta_id || '')
-    setForma(inicial.forma_pagamento || 'boleto')
-    setFornecedor(inicial.fornecedor_id ? { id: inicial.fornecedor_id, nome: inicial.fornecedor || '', plano_conta_id: inicial.plano_conta_id, plano: inicial.plano } : null)
-    setBuscaFor(inicial.fornecedor || '')
-    setPagamento(inicial.pagamento || '')
-  }, [aberto, inicial, empresas])
+  // Monta com key=nova|id — sem resetar quando a lista de empresas refresca.
 
   const buscar = async (q: string) => {
     setBuscaFor(q)
@@ -1300,9 +1361,26 @@ function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   }
 
   return (
-    <Drawer anchor="right" open={aberto} onClose={onFechar} slotProps={{ paper: { sx: drawerEscuroPaper } }}>
-      <Stack spacing={1.5} sx={{ p: 3, overflow: 'auto', bgcolor: FIN_SURFACE_ALT, color: FIN_TEXT, minHeight: '100%' }}>
-        <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
+    <Drawer
+      anchor="right"
+      open={aberto}
+      onClose={onFechar}
+      keepMounted={false}
+      ModalProps={{ keepMounted: false }}
+      slotProps={{ paper: { sx: drawerEscuroPaper } }}
+    >
+      <Stack sx={{ height: '100%' }}>
+        <Stack
+          direction="row"
+          spacing={1}
+          sx={{
+            alignItems: 'center',
+            px: 3,
+            py: 2,
+            borderBottom: `1px solid ${FIN_BORDER}`,
+            bgcolor: FIN_SURFACE,
+          }}
+        >
           <Box
             sx={{
               width: 36,
@@ -1317,166 +1395,171 @@ function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
           >
             <AddIcon sx={{ fontSize: 22 }} />
           </Box>
-          <Typography variant="h6" sx={{ color: FIN_TEXT, fontWeight: 650, letterSpacing: '-0.02em' }}>
+          <Typography sx={{ flex: 1, fontSize: 16, fontWeight: 650, letterSpacing: '-0.02em', color: FIN_TEXT }}>
             {inicial ? t('Editar despesa', 'Edit expense') : t('Nova despesa', 'New expense')}
           </Typography>
+          <IconButton size="small" onClick={onFechar} sx={{ color: FIN_MUTED }} aria-label={t('Fechar', 'Close')}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
         </Stack>
-        <TextField
-          label={t('Descrição', 'Description')}
-          size="small"
-          value={descricao}
-          error={erroCampos.descricao}
-          onChange={(ev) => {
-            setDescricao(ev.target.value)
-            if (erroCampos.descricao) setErroCampos((e) => ({ ...e, descricao: false }))
-          }}
-          sx={[finCampoSx, erroCampos.descricao ? finCampoErroSx : null]}
-        />
-        <TextField
-          label={t('Valor', 'Amount')}
-          size="small"
-          value={valor}
-          placeholder="R$ 0,00"
-          error={erroCampos.valor}
-          onChange={(ev) => {
-            setValor(aoDigitarValor(ev.target.value))
-            if (erroCampos.valor) setErroCampos((e) => ({ ...e, valor: false }))
-          }}
-          onBlur={() => setValor((atual) => atual && Number.isFinite(parseMoeda(atual)) ? brl(parseMoeda(atual)) : '')}
-          sx={[finCampoSx, erroCampos.valor ? finCampoErroSx : null]}
-        />
-        <CampoDataFinanceiro
-          label={t('Vencimento', 'Due date')}
-          value={vencimento}
-          onChange={setVencimento}
-        />
-        <TextField
-          label={t('Documento', 'Document')}
-          size="small"
-          value={documento}
-          onChange={(ev) => setDocumento(ev.target.value)}
-          sx={finCampoSx}
-        />
-        <Autocomplete
-          size="small"
-          options={lojas}
-          getOptionLabel={(e) => e.apelido}
-          value={lojas.find((e) => e.id === origem) || null}
-          onChange={(_, item) => {
-            setOrigem(item?.id || '')
-            if (erroCampos.origem) setErroCampos((e) => ({ ...e, origem: false }))
-          }}
-          slotProps={lista}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label={t('Loja', 'Store')}
-              error={erroCampos.origem}
-              sx={[finCampoSx, erroCampos.origem ? finCampoErroSx : null]}
-            />
-          )}
-        />
-        <Autocomplete
-          size="small"
-          options={hits}
-          getOptionLabel={(item) => item.nome || ''}
-          isOptionEqualToValue={(a, b) => a.id === b.id}
-          filterOptions={(opcoes) => opcoes}
-          inputValue={buscaFor}
-          value={fornecedor}
-          openOnFocus
-          onOpen={() => { void carregarFornecedores() }}
-          onInputChange={(_, texto, motivo) => { if (motivo === 'input') void buscar(texto) }}
-          onChange={(_, item) => escolherFornecedor(item)}
-          noOptionsText={t('Nenhum fornecedor', 'No suppliers')}
-          loadingText={t('Buscando…', 'Searching…')}
-          slotProps={lista}
-          renderInput={(params) => (
-            <TextField {...params} label={t('Fornecedor', 'Supplier')} placeholder={t('Buscar', 'Search')} sx={finCampoSx} />
-          )}
-          renderOption={(props, item) => (
-            <li {...props} key={item.id}>{item.nome}{item.plano ? ` · ${item.plano}` : ''}</li>
-          )}
-        />
-        {fornecedor?.plano && (
-          <Typography variant="body2" sx={{ color: FIN_MUTED }}>
-            {t('Plano de contas', 'Account')}: {fornecedor.plano}
-          </Typography>
-        )}
-        <TextField
-          select
-          label={t('Forma de pagamento', 'Payment method')}
-          size="small"
-          value={forma}
-          onChange={(ev) => setForma(ev.target.value)}
-          sx={finCampoSx}
-          slotProps={{ select: finSelectMenu }}
-        >
-          {Object.entries(CODIGO).map(([id, nome]) => <MenuItem key={id} value={id}>{nome}</MenuItem>)}
-        </TextField>
-        {pedeCodigo && (
+        <Stack spacing={1.5} sx={{ p: 3, overflow: 'auto', flex: 1, bgcolor: FIN_SURFACE_ALT, color: FIN_TEXT }}>
           <TextField
-            label={forma === 'boleto' ? t('Código de barras do boleto', 'Boleto barcode') : t('Chave PIX', 'PIX key')}
+            label={t('Descrição', 'Description')}
             size="small"
-            value={pagamento}
-            onChange={(ev) => setPagamento(ev.target.value)}
-            placeholder={t('Para copiar na hora de pagar', 'Copy this when paying')}
+            autoFocus={!inicial}
+            value={descricao}
+            error={erroCampos.descricao}
+            onChange={(ev) => {
+              setDescricao(ev.target.value)
+              if (erroCampos.descricao) setErroCampos((e) => ({ ...e, descricao: false }))
+            }}
+            sx={[finCampoSx, erroCampos.descricao ? finCampoErroSx : null]}
+          />
+          <TextField
+            label={t('Valor', 'Amount')}
+            size="small"
+            value={valor}
+            placeholder="R$ 0,00"
+            error={erroCampos.valor}
+            onChange={(ev) => {
+              setValor(aoDigitarValor(ev.target.value))
+              if (erroCampos.valor) setErroCampos((e) => ({ ...e, valor: false }))
+            }}
+            onBlur={() => setValor((atual) => atual && Number.isFinite(parseMoeda(atual)) ? brl(parseMoeda(atual)) : '')}
+            sx={[finCampoSx, erroCampos.valor ? finCampoErroSx : null]}
+          />
+          <CampoDataFinanceiro
+            label={t('Vencimento', 'Due date')}
+            value={vencimento}
+            onChange={setVencimento}
+          />
+          <TextField
+            label={t('Documento', 'Document')}
+            size="small"
+            value={documento}
+            onChange={(ev) => setDocumento(ev.target.value)}
             sx={finCampoSx}
           />
-        )}
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
-          <Button
-            variant="outlined"
+          <Autocomplete
             size="small"
-            startIcon={<DescriptionOutlinedIcon sx={{ fontSize: 16 }} />}
-            disabled={!inicial?.numero_nf || abrindoNota}
-            onClick={async () => {
-              if (!inicial) return
-              setAbrindoNota(true)
-              try { await api.abrirNota(inicial.id) }
-              catch (err) {
-                showToast(err instanceof Error ? err.message : t('Não abriu a nota', 'Could not open invoice'), 'error')
-              }
-              finally { setAbrindoNota(false) }
+            options={lojas}
+            getOptionLabel={(e) => e.apelido}
+            value={lojas.find((e) => e.id === origem) || null}
+            onChange={(_, item) => {
+              setOrigem(item?.id || '')
+              if (erroCampos.origem) setErroCampos((e) => ({ ...e, origem: false }))
             }}
-            sx={{
-              ...finBtnOutlinedSx,
-              minWidth: 0,
-              flex: 1,
-              color: inicial?.numero_nf ? FIN_TEXT : FIN_MUTED,
-              borderColor: inicial?.numero_nf ? 'rgba(27,110,243,0.45)' : FIN_BORDER,
-              bgcolor: FIN_SURFACE,
-            }}
-          >
-            {abrindoNota ? t('Abrindo nota…', 'Opening invoice…') : t('Ver nota fiscal', 'View invoice')}
-          </Button>
-          <Button
-            variant="outlined"
+            slotProps={lista}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={t('Loja', 'Store')}
+                error={erroCampos.origem}
+                sx={[finCampoSx, erroCampos.origem ? finCampoErroSx : null]}
+              />
+            )}
+          />
+          <Autocomplete
             size="small"
-            startIcon={<PictureAsPdfOutlinedIcon sx={{ fontSize: 16 }} />}
-            disabled={!inicial?.numero_nf || abrindoBoleto}
-            onClick={async () => {
-              if (!inicial) return
-              setAbrindoBoleto(true)
-              try { await api.abrirBoleto(inicial.id) }
-              catch (err) {
-                showToast(err instanceof Error ? err.message : t('Não abriu o boleto', 'Could not open boleto'), 'error')
-              }
-              finally { setAbrindoBoleto(false) }
-            }}
-            sx={{
-              ...finBtnOutlinedSx,
-              minWidth: 0,
-              flex: 1,
-              color: inicial?.numero_nf ? FIN_TEXT : FIN_MUTED,
-              borderColor: inicial?.numero_nf ? 'rgba(27,110,243,0.45)' : FIN_BORDER,
-              bgcolor: FIN_SURFACE,
-            }}
+            options={hits}
+            getOptionLabel={(item) => item.nome || ''}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            filterOptions={(opcoes) => opcoes}
+            inputValue={buscaFor}
+            value={fornecedor}
+            onOpen={() => { void carregarFornecedores() }}
+            onInputChange={(_, texto, motivo) => { if (motivo === 'input') void buscar(texto) }}
+            onChange={(_, item) => escolherFornecedor(item)}
+            noOptionsText={t('Nenhum fornecedor', 'No suppliers')}
+            loadingText={t('Buscando…', 'Searching…')}
+            slotProps={lista}
+            renderInput={(params) => (
+              <TextField {...params} label={t('Fornecedor', 'Supplier')} placeholder={t('Buscar', 'Search')} sx={finCampoSx} />
+            )}
+            renderOption={(props, item) => (
+              <li {...props} key={item.id}>{item.nome}{item.plano ? ` · ${item.plano}` : ''}</li>
+            )}
+          />
+          {fornecedor?.plano && (
+            <Typography variant="body2" sx={{ color: FIN_MUTED }}>
+              {t('Plano de contas', 'Account')}: {fornecedor.plano}
+            </Typography>
+          )}
+          <TextField
+            select
+            label={t('Forma de pagamento', 'Payment method')}
+            size="small"
+            value={forma}
+            onChange={(ev) => setForma(ev.target.value)}
+            sx={finCampoSx}
+            slotProps={{ select: finSelectMenu }}
           >
-            {abrindoBoleto ? t('Abrindo boleto…', 'Opening boleto…') : t('Ver boleto', 'View boleto')}
-          </Button>
+            {Object.entries(CODIGO).map(([id, nome]) => <MenuItem key={id} value={id}>{nome}</MenuItem>)}
+          </TextField>
+          {pedeCodigo && (
+            <TextField
+              label={forma === 'boleto' ? t('Código de barras do boleto', 'Boleto barcode') : t('Chave PIX', 'PIX key')}
+              size="small"
+              value={pagamento}
+              onChange={(ev) => setPagamento(ev.target.value)}
+              placeholder={t('Para copiar na hora de pagar', 'Copy this when paying')}
+              sx={finCampoSx}
+            />
+          )}
+          {inicial ? (
+            <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<DescriptionOutlinedIcon sx={{ fontSize: 16 }} />}
+                disabled={!inicial.numero_nf || abrindoNota}
+                onClick={async () => {
+                  setAbrindoNota(true)
+                  try { await api.abrirNota(inicial.id) }
+                  catch (err) {
+                    showToast(err instanceof Error ? err.message : t('Não abriu a nota', 'Could not open invoice'), 'error')
+                  }
+                  finally { setAbrindoNota(false) }
+                }}
+                sx={{
+                  ...finBtnOutlinedSx,
+                  minWidth: 0,
+                  flex: 1,
+                  color: inicial.numero_nf ? FIN_TEXT : FIN_MUTED,
+                  borderColor: inicial.numero_nf ? 'rgba(27,110,243,0.45)' : FIN_BORDER,
+                  bgcolor: FIN_SURFACE,
+                }}
+              >
+                {abrindoNota ? t('Abrindo nota…', 'Opening invoice…') : t('Ver nota fiscal', 'View invoice')}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<PictureAsPdfOutlinedIcon sx={{ fontSize: 16 }} />}
+                disabled={!inicial.numero_nf || abrindoBoleto}
+                onClick={async () => {
+                  setAbrindoBoleto(true)
+                  try { await api.abrirBoleto(inicial.id) }
+                  catch (err) {
+                    showToast(err instanceof Error ? err.message : t('Não abriu o boleto', 'Could not open boleto'), 'error')
+                  }
+                  finally { setAbrindoBoleto(false) }
+                }}
+                sx={{
+                  ...finBtnOutlinedSx,
+                  minWidth: 0,
+                  flex: 1,
+                  color: inicial.numero_nf ? FIN_TEXT : FIN_MUTED,
+                  borderColor: inicial.numero_nf ? 'rgba(27,110,243,0.45)' : FIN_BORDER,
+                  bgcolor: FIN_SURFACE,
+                }}
+              >
+                {abrindoBoleto ? t('Abrindo boleto…', 'Opening boleto…') : t('Ver boleto', 'View boleto')}
+              </Button>
+            </Stack>
+          ) : null}
         </Stack>
-        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', pt: 1 }}>
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', px: 3, py: 2, borderTop: `1px solid ${FIN_BORDER}`, bgcolor: FIN_SURFACE }}>
           <Button onClick={onFechar} sx={{ color: FIN_MUTED }}>{t('Cancelar', 'Cancel')}</Button>
           <Button variant="contained" onClick={salvar} sx={finBtnContainedSx}>
             {inicial ? t('Salvar', 'Save') : t('Criar rascunho', 'Create draft')}

@@ -310,12 +310,19 @@ api.use((req, res, next) => {
   next();
 });
 
-const { receberCaixaLoja } = await import('./backend/src/financeiro/http.mjs');
+const { receberCaixaLoja, receberFreecontrolLote } = await import('./backend/src/financeiro/http.mjs');
 
 function responderCaixaLoja(req, res) {
   receberCaixaLoja(req, res).catch((err) => {
     if (res.headersSent) return;
     res.status(500).json({ erro: err?.message || 'Não recebeu o caixa da loja.' });
+  });
+}
+
+function responderFreecontrolLote(req, res) {
+  receberFreecontrolLote(req, res).catch((err) => {
+    if (res.headersSent) return;
+    res.status(500).json({ erro: err?.message || 'Não importou o lote Free Control.' });
   });
 }
 
@@ -326,6 +333,10 @@ api.use((req, res, next) => {
     && (req.path === '/financeiro/caixa/ingest' || req.path === '/financeiro/caixa/heartbeat')
   ) {
     return responderCaixaLoja(req, res);
+  }
+  // Free Control (segunda) manda lote BANCO → Contas a Pagar.
+  if (req.method === 'POST' && req.path === '/financeiro/despesas/freecontrol-lote') {
+    return responderFreecontrolLote(req, res);
   }
   next();
 });
