@@ -132,7 +132,7 @@ export default function CcCanalVendas({ canal }: { canal: CanalId }) {
             <Typography sx={{ fontSize: 10, fontWeight: 650, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary' }}>
               Taxas
             </Typography>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, color: '#C4452D', fontVariantNumeric: 'tabular-nums' }}>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
               {fmtBrl(c.taxas)}
             </Typography>
           </Box>

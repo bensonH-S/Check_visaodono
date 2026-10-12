@@ -112,8 +112,7 @@ export default function CcFilaPagamento({ despesas, loading, erro }: { despesas:
             </TableHead>
             <TableBody>
               {filas.map((l, i) => {
-                const critico = l.vencidas > 0;
-                const t = critico ? tom('vermelho', escuro) : l.autorizar > 0 ? tom('azul', escuro) : tom('ambar', escuro);
+                const tVenc = tom('vermelho', escuro);
                 return (
                   <TableRow key={l.loja} hover>
                     <TableCell sx={{ ...celulaSx, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
@@ -134,7 +133,7 @@ export default function CcFilaPagamento({ despesas, loading, erro }: { despesas:
                     </TableCell>
                     <TableCell align="center" sx={celulaSx}>
                       {l.vencidas > 0 ? (
-                        <Chip size="small" variant="outlined" label={fmtInt(l.vencidas)} sx={{ ...chipSx(t), height: 22 }} />
+                        <Chip size="small" variant="outlined" label={fmtInt(l.vencidas)} sx={{ ...chipSx(tVenc), height: 22 }} />
                       ) : (
                         <Typography sx={{ fontSize: 13, color: 'text.disabled', lineHeight: 1.3 }}>0</Typography>
                       )}
@@ -151,7 +150,7 @@ export default function CcFilaPagamento({ despesas, loading, erro }: { despesas:
                         fontSize: 13,
                         letterSpacing: '-0.02em',
                         fontVariantNumeric: 'tabular-nums',
-                        color: critico ? 'error.main' : 'inherit',
+                        color: 'text.primary',
                         whiteSpace: 'nowrap',
                       }}
                     >

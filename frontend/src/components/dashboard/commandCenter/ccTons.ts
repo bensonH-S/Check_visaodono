@@ -5,7 +5,7 @@ const CLARO: Record<string, Tom> = {
   neutro: { color: '#64748B', border: '#E2E8F0', bg: 'transparent' },
   azul: { color: '#1D4ED8', border: 'rgba(59,130,246,0.45)', bg: 'rgba(59,130,246,0.1)' },
   verde: { color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'rgba(16,185,129,0.12)' },
-  vermelho: { color: '#B91C1C', border: 'rgba(239,68,68,0.45)', bg: 'rgba(239,68,68,0.08)' },
+  vermelho: { color: '#C4452D', border: 'rgba(196,69,45,0.45)', bg: 'transparent' },
   ambar: { color: '#B45309', border: 'rgba(245,158,11,0.5)', bg: 'rgba(245,158,11,0.12)' },
 };
 

@@ -33,16 +33,31 @@ function Resumo({
         textDecoration: 'none',
         color: 'inherit',
         ...(to ? { '&:hover': { borderColor: 'primary.main' } } : {}),
-        ...(alerta ? { borderColor: '#EF4444', bgcolor: 'rgba(239,68,68,0.06)' } : {}),
+        position: 'relative',
+        overflow: 'hidden',
+        bgcolor: 'background.paper',
+        borderColor: 'divider',
+        pl: alerta ? 1.5 : 1.25,
+        '&::before': alerta
+          ? {
+              content: '""',
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 3,
+              bgcolor: '#C4452D',
+            }
+          : undefined,
       }}
     >
-      <Typography sx={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: alerta ? 'error.main' : 'text.secondary' }}>
+      <Typography sx={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary' }}>
         {rotulo}
       </Typography>
-      <Typography sx={{ fontSize: 15, fontWeight: 650, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15, color: alerta ? 'error.main' : 'inherit' }}>
+      <Typography sx={{ fontSize: 15, fontWeight: 650, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.15, color: alerta ? '#C4452D' : 'inherit' }}>
         {valor}
       </Typography>
-      <Typography sx={{ fontSize: 11, color: alerta ? 'error.main' : 'text.secondary' }}>{detalhe}</Typography>
+      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{detalhe}</Typography>
     </Paper>
   );
 }

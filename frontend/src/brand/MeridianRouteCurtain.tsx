@@ -33,14 +33,27 @@ function areaDeRota(pathname: string): string {
 /**
  * Marca Meridian só em salto de módulo, com cooldown —
  * presença de marca, não loading de toda página.
+ *
+ * Timers ficam em refs: redirect interno (ex.: /configuracoes → Empresas)
+ * remonta o efeito e, se limpar o timeout no cleanup, a marca fica presa.
  */
 export default function MeridianRouteCurtain() {
   const { pathname } = useLocation();
   const areaAnterior = useRef<string | null>(null);
   const ultimaVez = useRef(0);
+  const seq = useRef(0);
+  const timers = useRef<{ hide: number | null; off: number | null }>({ hide: null, off: null });
   const [ativo, setAtivo] = useState(false);
   const [saida, setSaida] = useState(false);
-  const seq = useRef(0);
+
+  useEffect(() => {
+    return () => {
+      if (timers.current.hide != null) window.clearTimeout(timers.current.hide);
+      if (timers.current.off != null) window.clearTimeout(timers.current.off);
+      timers.current.hide = null;
+      timers.current.off = null;
+    };
+  }, []);
 
   useEffect(() => {
     const area = areaDeRota(pathname);
@@ -55,22 +68,23 @@ export default function MeridianRouteCurtain() {
     if (agora - ultimaVez.current < COOLDOWN_MS) return;
     ultimaVez.current = agora;
 
+    if (timers.current.hide != null) window.clearTimeout(timers.current.hide);
+    if (timers.current.off != null) window.clearTimeout(timers.current.off);
+
     const id = ++seq.current;
     setSaida(false);
     setAtivo(true);
-    const tHide = window.setTimeout(() => {
+    timers.current.hide = window.setTimeout(() => {
       if (seq.current !== id) return;
       setSaida(true);
     }, SHOW_MS);
-    const tOff = window.setTimeout(() => {
+    timers.current.off = window.setTimeout(() => {
       if (seq.current !== id) return;
       setAtivo(false);
       setSaida(false);
+      timers.current.hide = null;
+      timers.current.off = null;
     }, SHOW_MS + 240);
-    return () => {
-      window.clearTimeout(tHide);
-      window.clearTimeout(tOff);
-    };
   }, [pathname]);
 
   if (!ativo) return null;

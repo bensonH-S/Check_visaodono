@@ -59,8 +59,8 @@ function Kpi({
         overflow: 'hidden',
         textDecoration: 'none',
         color: 'inherit',
-        bgcolor: alerta ? 'rgba(196, 69, 45, 0.06)' : 'background.paper',
-        borderColor: alerta ? 'rgba(196, 69, 45, 0.35)' : 'divider',
+        bgcolor: 'background.paper',
+        borderColor: 'divider',
         transition: 'border-color 0.15s, transform 0.15s',
         ...(to
           ? {
@@ -87,7 +87,7 @@ function Kpi({
           fontWeight: 700,
           letterSpacing: '0.06em',
           textTransform: 'uppercase',
-          color: alerta ? '#C4452D' : 'text.secondary',
+          color: 'text.secondary',
           mb: 0.25,
         }}
       >
@@ -105,7 +105,7 @@ function Kpi({
       >
         {valor}
       </Typography>
-      <Typography sx={{ fontSize: 11, color: alerta ? '#C4452D' : 'text.secondary', mt: 0.25, lineHeight: 1.25 }}>{detalhe}</Typography>
+      <Typography sx={{ fontSize: 11, color: 'text.secondary', mt: 0.25, lineHeight: 1.25 }}>{detalhe}</Typography>
     </Paper>
   );
 }
@@ -190,7 +190,7 @@ export default function CcHeroFinanceiro({
           rotulo="A pagar na semana"
           valor={ok ? fmtBrl(nums.semanaValor) : '—'}
           detalhe={ok ? `${fmtInt(nums.semanaQtd)} títulos · sáb ${rotuloSemana}` : sem}
-          accent="#1B6EF3"
+          accent="#0F172A"
           to="/financeiro"
         />
         <Kpi

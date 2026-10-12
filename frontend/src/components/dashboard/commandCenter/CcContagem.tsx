@@ -61,7 +61,7 @@ function ResumoMini({
         pr: 1,
         py: 0.7,
         cursor: 'pointer',
-        bgcolor: ativo ? 'rgba(27, 110, 243, 0.04)' : 'background.paper',
+        bgcolor: 'background.paper',
         borderColor: ativo ? accent : 'divider',
         transition: 'border-color 0.12s',
         '&::before': {
@@ -139,7 +139,7 @@ export default function CcContagem({ lojas, loading, erro }: { lojas: EstoqueCon
             <ResumoMini
               rotulo="Rede"
               valor={fmtInt(lojas.length)}
-              accent="#1B6EF3"
+              accent="#0F172A"
               ativo={filtro === 'todas'}
               onClick={() => setFiltro('todas')}
             />
@@ -181,18 +181,12 @@ export default function CcContagem({ lojas, loading, erro }: { lojas: EstoqueCon
                     const quem = (l.criado_por_nome || l.ultima_por_nome || '').trim();
                     const rotulo = ok ? 'Contou' : andamento ? 'Em andamento' : 'Não contou';
                     const corChip = ok
-                      ? { color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'rgba(16,185,129,0.1)' }
+                      ? { color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'transparent' }
                       : andamento
-                        ? { color: '#B45309', border: 'rgba(245,158,11,0.5)', bg: 'rgba(245,158,11,0.1)' }
-                        : { color: '#B91C1C', border: 'rgba(239,68,68,0.45)', bg: 'rgba(239,68,68,0.08)' };
+                        ? { color: '#B45309', border: 'rgba(245,158,11,0.5)', bg: 'transparent' }
+                        : { color: '#C4452D', border: 'rgba(196,69,45,0.4)', bg: 'transparent' };
                     return (
-                      <TableRow
-                        key={l.id_loja}
-                        hover
-                        sx={{
-                          bgcolor: faltou ? 'rgba(196, 69, 45, 0.03)' : 'transparent',
-                        }}
-                      >
+                      <TableRow key={l.id_loja} hover>
                         <TableCell sx={celulaSx}>
                           <Typography noWrap title={lojaCurta(l.name)} sx={{ fontSize: 13, fontWeight: 650, color: '#0F172A' }}>
                             {lojaCurta(l.name)}
