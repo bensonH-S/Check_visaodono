@@ -255,6 +255,42 @@ export type AcessoBb = {
   ultima_mensagem: string | null
 }
 
+export type CredencialExtratoItau = {
+  id: string
+  nome: string
+  empresa_id: string | null
+  empresa: string | null
+  cnpj: string | null
+  ambiente: 'homologacao' | 'producao'
+  client_id: string
+  segredo_definido: boolean
+  certificado_definido: boolean
+  chave_definida: boolean
+  ativo: boolean
+  pronta: boolean
+  ultima_coleta: string | null
+  ultimo_ok: boolean | null
+  ultima_mensagem: string | null
+}
+
+export type LancamentoExtratoItau = {
+  id: string
+  statement_id: string
+  operacao: string | null
+  estorno: boolean
+  data_contabil: string | null
+  literal: string | null
+  valor: number
+  contraparte_nome: string | null
+  origem_tipo: string | null
+  despesa_id: string | null
+  despesa: string | null
+  agencia: string
+  numero: string
+  digito: string | null
+  empresa: string
+}
+
 export type AcessoItau = {
   host: string
   porta: number
@@ -528,6 +564,27 @@ export const api = {
   },
   coletarItau: async () => {
     const res = await financeFetch(`${apiRoot}/config/itau/coletar`, { method: 'POST' })
+    if (!res.ok) throw new Error('Não iniciou a coleta')
+  },
+  credenciaisExtratoItau: () => get<CredencialExtratoItau[]>(`${apiRoot}/config/itau-extrato`),
+  salvarCredencialExtratoItau: async (body: Record<string, unknown>) => {
+    const id = typeof body.id === 'string' ? body.id : ''
+    const res = await financeFetch(id ? `${apiRoot}/config/itau-extrato/${id}` : `${apiRoot}/config/itau-extrato`, {
+      method: id ? 'PUT' : 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.erro || 'Não salvou')
+    return data as CredencialExtratoItau
+  },
+  removerCredencialExtratoItau: async (id: string) => {
+    const res = await financeFetch(`${apiRoot}/config/itau-extrato/${id}`, { method: 'DELETE' })
+    if (!res.ok) throw new Error('Não removeu')
+  },
+  lancamentosExtratoItau: () => get<{ lancamentos: LancamentoExtratoItau[]; coleta: { mensagem?: string; ok?: boolean } }>(`${apiRoot}/itau/extrato`),
+  coletarExtratoItau: async () => {
+    const res = await financeFetch(`${apiRoot}/itau/extrato/coletar`, { method: 'POST' })
     if (!res.ok) throw new Error('Não iniciou a coleta')
   },
   acessosBb: () => get<AcessoBb[]>(`${apiRoot}/config/bb`),

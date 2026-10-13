@@ -75,6 +75,7 @@ const CONFIG_NAV: ConfigNavSection[] = [
       { to: `${FIN}/usuarios`, label: 'Aprovação', descricao: 'Quem prepara e quem autoriza.', icon: <PeopleOutlinedIcon fontSize="small" />, permissoes: PERM_FIN },
       { to: `${FIN}/bkoffice`, label: 'BK Office', descricao: 'Acesso da API de vendas.', icon: <HubOutlinedIcon fontSize="small" />, permissoes: PERM_FIN },
       { to: `${FIN}/itau`, label: 'Itaú', descricao: 'Caixa postal VAN do DDA.', icon: <AccountBalanceOutlinedIcon fontSize="small" />, permissoes: PERM_FIN },
+      { to: `${FIN}/itau-extrato`, label: 'Extrato Itaú', descricao: 'API de extrato para conciliação.', icon: <AccountBalanceOutlinedIcon fontSize="small" />, permissoes: PERM_FIN },
       { to: `${FIN}/bb`, label: 'Banco do Brasil', descricao: 'API de DDA por empresa.', icon: <AccountBalanceOutlinedIcon fontSize="small" />, permissoes: PERM_FIN },
     ],
   },

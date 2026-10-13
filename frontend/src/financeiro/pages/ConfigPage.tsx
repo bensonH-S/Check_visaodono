@@ -19,6 +19,7 @@ import {
 import { usePrefs } from '../prefs'
 import { AcessoItauPage } from './AcessoItau'
 import { AcessosBb } from './AcessosBb'
+import { ExtratoItauPage } from './ExtratoItau'
 import { Contas, Empresas, Fornecedores, POR_PAGINA } from './Cadastros'
 
 const BASE_CONFIG = '/configuracoes/financeiro'
@@ -46,6 +47,7 @@ export function ConfigDetalhePage() {
       {secao === 'usuarios' && <Usuarios />}
       {secao === 'bkoffice' && <BkOffice />}
       {secao === 'itau' && <AcessoItauPage />}
+      {secao === 'itau-extrato' && <ExtratoItauPage />}
       {secao === 'bb' && <AcessosBb />}
     </Stack>
   )

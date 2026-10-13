@@ -6,6 +6,14 @@ import pg from 'pg'
 import { acharFornecedor, classificar, descricaoDda, lerArquivoDda, lerCnab240 } from './lib/dda.mjs'
 import { baixarRetornos, garantirSchemaItau, lerItau, montarConfig, registrarItau, salvarItau } from './lib/itauSfg.mjs'
 import {
+  coletarExtratoItau,
+  garantirSchemaExtratoItau,
+  listarCredenciaisExtrato,
+  listarLancamentosExtrato,
+  removerCredencialExtrato,
+  salvarCredencialExtrato,
+} from './lib/itauExtrato.mjs'
+import {
   configPronta,
   credenciaisAtivasBb,
   garantirSchemaBb,
@@ -112,6 +120,7 @@ const sessao = { nome: 'Felipe', papel: 'Autoriza' }
 let coletaVendas = null
 let coletaSfg = null
 let coletaBb = null
+let coletaExtrato = null
 let coletaSefaz = null
 let estadoBb = {
   ok: false,
@@ -120,6 +129,15 @@ let estadoBb = {
   criadas: 0,
   empresas: 0,
   falhas: 0,
+  em: null,
+}
+let estadoExtratoItau = {
+  ok: false,
+  mensagem: 'A coleta do extrato Itaú ainda não rodou.',
+  codigo: 'itau_extrato_nao_rodou',
+  contas: 0,
+  lancamentos: 0,
+  sugestoes: 0,
   em: null,
 }
 let estadoSfg = {
@@ -1274,6 +1292,38 @@ export async function handleFinance(req, res) {
       cicloSfg().catch((err) => console.error(`[sfg] ${err.message}`))
       return send(res, 202, JSON.stringify({ ok: true }))
     }
+    if (req.method === 'GET' && url.pathname === '/api/config/itau-extrato') {
+      return send(res, 200, JSON.stringify(await listarCredenciaisExtrato(pool)))
+    }
+    if (req.method === 'POST' && url.pathname === '/api/config/itau-extrato') {
+      const body = await readBody(req)
+      try {
+        return send(res, 201, JSON.stringify(await salvarCredencialExtrato(pool, body)))
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não salvou a credencial.' }))
+      }
+    }
+    if (/^\/api\/config\/itau-extrato\/[^/]+$/.test(url.pathname) && (req.method === 'PUT' || req.method === 'DELETE')) {
+      const id = url.pathname.split('/').pop()
+      if (req.method === 'DELETE') {
+        await removerCredencialExtrato(pool, id)
+        return send(res, 200, JSON.stringify({ id }))
+      }
+      const body = await readBody(req)
+      try {
+        return send(res, 200, JSON.stringify(await salvarCredencialExtrato(pool, { ...body, id })))
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não salvou a credencial.' }))
+      }
+    }
+    if (req.method === 'GET' && url.pathname === '/api/itau/extrato') {
+      const lancamentos = await listarLancamentosExtrato(pool, url.searchParams.get('limite'))
+      return send(res, 200, JSON.stringify({ lancamentos, coleta: estadoExtratoItau }))
+    }
+    if (req.method === 'POST' && url.pathname === '/api/itau/extrato/coletar') {
+      cicloExtratoItau().catch((err) => console.error(`[itau-extrato] ${err.message}`))
+      return send(res, 202, JSON.stringify({ ok: true }))
+    }
     if (req.method === 'GET' && url.pathname === '/api/config/bb') {
       return send(res, 200, JSON.stringify(await listarAcessosBb(pool)))
     }
@@ -1332,6 +1382,7 @@ export async function handleFinance(req, res) {
 const intervaloVendas = Number(process.env.VENDAS_SYNC_MS || 180000)
 const intervaloSfg = Number(process.env.ITAU_SFG_MS || 900000)
 const intervaloBb = Number(process.env.BB_DDA_MS || 900000)
+const intervaloExtratoItau = Number(process.env.ITAU_EXTRATO_MS || 900000)
 // Ambiente Nacional: com a fila em dia, a próxima consulta só depois de 1 hora.
 // Menos que isso a Receita devolve consumo indevido e trava o CNPJ.
 const intervaloSefaz = Number(process.env.SEFAZ_DFE_MS || 3600000)
@@ -1409,6 +1460,38 @@ async function cicloSfg() {
     console.error(`[sfg] ${mensagem}`)
   } finally {
     coletaSfg = null
+  }
+}
+
+let avisouExtratoItau = false
+
+async function cicloExtratoItau() {
+  if (coletaExtrato) return
+  coletaExtrato = coletarExtratoItau(pool, env)
+  try {
+    const resultado = await coletaExtrato
+    estadoExtratoItau = { ...resultado, em: new Date().toISOString() }
+    if (!resultado.ok && resultado.codigo === 'itau_extrato_sem_credencial') {
+      if (!avisouExtratoItau) {
+        console.log('[itau-extrato] sem Client ID, segredo e certificado dinâmico. A coleta espera a credencial.')
+        avisouExtratoItau = true
+      }
+      return
+    }
+    console.log(`[itau-extrato] ${resultado.mensagem}`)
+  } catch (err) {
+    estadoExtratoItau = {
+      ok: false,
+      mensagem: err.message || 'Falha ao consultar o extrato Itaú',
+      codigo: 'itau_extrato_erro',
+      contas: 0,
+      lancamentos: 0,
+      sugestoes: 0,
+      em: new Date().toISOString(),
+    }
+    console.error(`[itau-extrato] ${estadoExtratoItau.mensagem}`)
+  } finally {
+    coletaExtrato = null
   }
 }
 
@@ -1540,6 +1623,7 @@ export function iniciarFinanceiro() {
   garantirSchemaDespesaId(pool).catch((err) => console.error(`[financeiro] despesa.id: ${err.message}`))
   garantirSchemaBb(pool).catch((err) => console.error(`[financeiro] bb: ${err.message}`))
   garantirSchemaItau(pool).catch((err) => console.error(`[financeiro] sfg: ${err.message}`))
+  garantirSchemaExtratoItau(pool).catch((err) => console.error(`[financeiro] itau extrato: ${err.message}`))
   garantirSchemaCaixa(pool).catch((err) => console.error(`[financeiro] caixa: ${err.message}`))
   garantirSchemaSefaz(pool).catch((err) => console.error(`[financeiro] sefaz: ${err.message}`))
   // Hermes ainda cai no Azimut (:3018) enquanto o nginx não tiver location /financas/api/caixa/ → :3007.
@@ -1553,6 +1637,10 @@ export function iniciarFinanceiro() {
   if (intervaloBb >= 60000) {
     setTimeout(cicloBb, 15000)
     setInterval(cicloBb, intervaloBb)
+  }
+  if (intervaloExtratoItau >= 60000) {
+    setTimeout(cicloExtratoItau, 18000)
+    setInterval(cicloExtratoItau, intervaloExtratoItau)
   }
   pool.query(`
     alter table despesas add column if not exists dados_pagamento text;
