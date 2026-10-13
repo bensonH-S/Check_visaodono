@@ -5,7 +5,8 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { api, fmtData, fmtNota, scoreColorTema } from '../../api/client';
 import type { NcItem } from '../../api/client';
-import { agruparNcsPorVisita, parseNcDescricao } from '../../components/nc/ncPageUtils';
+import { agruparNcsPorVisita, lojasQueFecharam, parseNcDescricao } from '../../components/nc/ncPageUtils';
+import { formatDataHoraBalaoMapa } from '../../utils/dateBr';
 import { getUsuario, logout } from '../../lib/auth';
 import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import MobileUsuarioMenu from '../../components/MobileUsuarioMenu';
@@ -27,7 +28,13 @@ export default function NcMobileListaPage() {
   const user = getUsuario();
   const [aba, setAba] = useState<Aba>('abertas');
   const [itens, setItens] = useState<NcItem[]>([]);
-  const [stats, setStats] = useState({ total_aberto: '0', criticas: '0', visitas_pendentes: '0' });
+  const [stats, setStats] = useState({
+    total_aberto: '0',
+    criticas: '0',
+    visitas_pendentes: '0',
+    total_resolvida: '0',
+    lojas_fechadas: '0',
+  });
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [abertasIds, setAbertasIds] = useState<Set<number>>(() => new Set());
@@ -35,17 +42,15 @@ export default function NcMobileListaPage() {
   useEffect(() => {
     setLoading(true);
     api
-      .naoConformidades(aba === 'abertas' ? { status: 'Em aberto' } : undefined)
+      .naoConformidades(aba === 'abertas' ? { status: 'Em aberto' } : { status: 'Resolvida' })
       .then((res) => {
-        const lista =
-          aba === 'resolvidas'
-            ? res.items.filter((i) => i.status === 'Resolvida')
-            : res.items;
-        setItens(lista);
+        setItens(res.items);
         setStats({
           total_aberto: res.stats.total_aberto,
           criticas: res.stats.criticas,
           visitas_pendentes: res.stats.visitas_pendentes ?? '0',
+          total_resolvida: res.stats.total_resolvida ?? '0',
+          lojas_fechadas: res.stats.lojas_fechadas ?? '0',
         });
       })
       .catch((e) => setErr(e.message))
@@ -53,6 +58,7 @@ export default function NcMobileListaPage() {
   }, [aba]);
 
   const visitas = useMemo(() => agruparNcsPorVisita(itens), [itens]);
+  const lojasFechadas = useMemo(() => lojasQueFecharam(itens), [itens]);
 
   useEffect(() => {
     setAbertasIds(new Set());
@@ -114,7 +120,7 @@ export default function NcMobileListaPage() {
             className={`ck-estoque-hub__tab${aba === 'resolvidas' ? ' is-on' : ''}`}
             onClick={() => setAba('resolvidas')}
           >
-            Resolvidas
+            Fechados
           </button>
         </nav>
       </header>
@@ -132,6 +138,10 @@ export default function NcMobileListaPage() {
           <div className="ck-nc-hub__kpi is-crit">
             <strong>{loading ? '—' : stats.criticas}</strong>
             <span>Críticas</span>
+          </div>
+          <div className="ck-nc-hub__kpi is-ok">
+            <strong>{loading ? '—' : stats.total_resolvida}</strong>
+            <span>Fechados · {loading ? '—' : stats.lojas_fechadas} lojas</span>
           </div>
         </div>
       </div>
@@ -152,10 +162,23 @@ export default function NcMobileListaPage() {
           <div className="ck-nc-hub__empty">
             {aba === 'abertas'
               ? 'Nenhuma pendência de checklist na sua região.'
-              : 'Nenhuma NC resolvida ainda.'}
+              : 'Nenhuma NC fechada ainda.'}
           </div>
         ) : (
-          visitas.map((visita) => {
+          <>
+          {aba === 'resolvidas' && lojasFechadas.length > 0 ? (
+            <div className="ck-nc-hub__lojas">
+              <p>Lojas que fecharam</p>
+              <div className="ck-nc-hub__meta-chips">
+                {lojasFechadas.map((loja) => (
+                  <span key={loja.loja} className="ck-nc-hub__chip is-ok">
+                    {loja.loja} · {loja.total}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {visitas.map((visita) => {
             const nota = visita.nota_final;
             const pendentes = visita.itens.filter((i) => i.status === 'Em aberto');
             const lista =
@@ -242,13 +265,20 @@ export default function NcMobileListaPage() {
                             {nc.area === 'Resultado geral' && (
                               <small style={{ marginTop: 4 }}>{nc.gravidade}</small>
                             )}
+                            {aba === 'resolvidas' && (
+                              <small className="ck-nc-hub__fechou">
+                                Fechado {nc.data_resolucao ? formatDataHoraBalaoMapa(nc.data_resolucao) : ''}
+                                {nc.nome_resolvido_por ? ` · ${nc.nome_resolvido_por}` : ''}
+                                {nc.observacao_resolucao ? ` · ${nc.observacao_resolucao}` : ''}
+                              </small>
+                            )}
                           </span>
                           {aba === 'abertas' ? (
                             <span className="ck-nc-hub__item-go" aria-hidden>
                               ›
                             </span>
                           ) : (
-                            <span className="ck-nc-hub__chip is-ok">Resolvida</span>
+                            <span className="ck-nc-hub__chip is-ok">Fechada</span>
                           )}
                         </button>
                       );
@@ -257,7 +287,8 @@ export default function NcMobileListaPage() {
                 ) : null}
               </div>
             );
-          })
+          })}
+          </>
         )}
       </div>
 

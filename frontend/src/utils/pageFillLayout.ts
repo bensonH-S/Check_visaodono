@@ -25,6 +25,7 @@ export function isPaginaScrollInterno(path: string): boolean {
     emFrotaPortal ||
     path.startsWith('/configuracoes/') ||
     path === '/financeiro' ||
-    path.startsWith('/financeiro/')
+    path.startsWith('/financeiro/') ||
+    path === '/nao-conformidades'
   );
 }

@@ -4180,6 +4180,8 @@ export interface NcResponse {
     total_aberto: string;
     criticas: string;
     visitas_pendentes?: string;
+    total_resolvida?: string;
+    lojas_fechadas?: string;
   };
 }
 

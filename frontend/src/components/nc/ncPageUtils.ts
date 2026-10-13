@@ -9,7 +9,20 @@ export interface NcVisitaGrupo {
   porArea: Array<{ area: string; itens: NcItem[] }>;
   resumoGeral: NcItem | null;
   abertas: number;
+  resolvidas: number;
   criticas: number;
+}
+
+export function lojasQueFecharam(itens: NcItem[]): Array<{ loja: string; total: number }> {
+  const map = new Map<string, number>();
+  for (const nc of itens) {
+    if (nc.status !== 'Resolvida') continue;
+    const loja = nc.name?.trim() || 'Loja';
+    map.set(loja, (map.get(loja) || 0) + 1);
+  }
+  return [...map.entries()]
+    .map(([loja, total]) => ({ loja, total }))
+    .sort((a, b) => b.total - a.total || a.loja.localeCompare(b.loja, 'pt-BR'));
 }
 
 export function parseNcDescricao(descricao: string) {
@@ -75,6 +88,7 @@ export function agruparNcsPorVisita(itens: NcItem[]): NcVisitaGrupo[] {
       });
 
     const abertas = lista.filter((i) => i.status === 'Em aberto').length;
+    const resolvidas = lista.filter((i) => i.status === 'Resolvida').length;
     const criticas = lista.filter(
       (i) => i.status === 'Em aberto' && i.gravidade === 'Crítica',
     ).length;
@@ -88,6 +102,7 @@ export function agruparNcsPorVisita(itens: NcItem[]): NcVisitaGrupo[] {
       porArea,
       resumoGeral,
       abertas,
+      resolvidas,
       criticas,
     });
   }

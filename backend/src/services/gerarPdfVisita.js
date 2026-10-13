@@ -12,8 +12,10 @@ const CONTENT_W = PAGE_W - MARGIN * 2;
 const FOOTER_Y = PAGE_H - 9;
 const CONTENT_BOTTOM = FOOTER_Y - 4;
 
-const NAVY = [11, 26, 59];
-const NAVY_MID = [27, 42, 107];
+const NAVY = [15, 23, 42];
+const NAVY_MID = [30, 58, 138];
+const INK = [5, 16, 23];
+const BLUE = [27, 110, 243];
 const ACCENT = [232, 82, 10];
 const GRUPO_TXT = [160, 176, 200];
 const SLATE = [71, 85, 105];
@@ -26,8 +28,6 @@ const FAIL = [185, 28, 28];
 const MUTED = [100, 116, 139];
 const TOTAL_BG = [11, 26, 59];
 const NC_BG = [254, 242, 242];
-const NC_TXT = [153, 27, 27];
-
 function setFill(doc, c) {
   doc.setFillColor(c[0], c[1], c[2]);
 }
@@ -120,13 +120,14 @@ function desenharMarca(doc, logo, x, y, iconSize = 14) {
   const tx = x + (logo ? iconSize + 3.5 : 0);
   const ty = y + iconSize / 2 + 1.2;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  setText(doc, GRUPO_TXT);
-  doc.text('grupo', tx, ty);
-  const w = doc.getTextWidth('grupo');
-  setText(doc, ACCENT);
-  doc.text('alvim', tx + w, ty);
-  return tx + w + doc.getTextWidth('alvim');
+  doc.setFontSize(11);
+  setText(doc, [255, 255, 255]);
+  doc.text('MERIDIAN', tx, ty - 1.4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6);
+  setText(doc, [148, 163, 184]);
+  doc.text('GESTÃO OPERACIONAL', tx, ty + 2.6);
+  return tx + doc.getTextWidth('GESTÃO OPERACIONAL');
 }
 
 function rodape(doc, rotulo) {
@@ -145,17 +146,14 @@ function rodape(doc, rotulo) {
     doc.setLineWidth(0.25);
     doc.line(MARGIN, FOOTER_Y - 3.2, PAGE_W - MARGIN, FOOTER_Y - 3.2);
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    setText(doc, SLATE_LIGHT);
-    doc.text('grupo', MARGIN, FOOTER_Y);
-    const wGrupo = doc.getTextWidth('grupo');
     doc.setFont('helvetica', 'bold');
-    setText(doc, ACCENT);
-    doc.text('alvim', MARGIN + wGrupo, FOOTER_Y);
+    doc.setFontSize(6.5);
+    setText(doc, NAVY);
+    const wMarca = doc.getTextWidth('MERIDIAN');
+    doc.text('MERIDIAN', MARGIN, FOOTER_Y);
     doc.setFont('helvetica', 'normal');
     setText(doc, SLATE_LIGHT);
-    doc.text('  ·  MERIDIAN · CIGA', MARGIN + wGrupo + doc.getTextWidth('alvim'), FOOTER_Y);
+    doc.text('  ·  Gestão operacional', MARGIN + wMarca, FOOTER_Y);
 
     doc.text(rotulo, PAGE_W / 2, FOOTER_Y, { align: 'center' });
     doc.text(`${i} / ${total}  ·  ${gerado}`, PAGE_W - MARGIN, FOOTER_Y, { align: 'right' });
@@ -169,10 +167,10 @@ function cabecalhoExecutivo(doc, dados, logo, ciga = null) {
   const rotulo = rotuloVisita(v);
   const headerH = ciga ? 34 : 26;
 
-  setFill(doc, NAVY);
+  setFill(doc, INK);
   doc.rect(0, 0, PAGE_W, headerH, 'F');
-  setFill(doc, ACCENT);
-  doc.rect(0, headerH, PAGE_W, 0.9, 'F');
+  setFill(doc, BLUE);
+  doc.rect(0, headerH, PAGE_W, 1.1, 'F');
 
   const marcaEndX = desenharMarca(doc, logo, MARGIN, ciga ? 5 : 6, ciga ? 12 : 14);
 
@@ -352,10 +350,10 @@ function cabecalhoExecutivo(doc, dados, logo, ciga = null) {
 
 function tituloSecao(doc, y, texto) {
   y = garantirEspaco(doc, y, 12);
-  setFill(doc, NAVY);
+  setFill(doc, INK);
   doc.roundedRect(MARGIN, y, CONTENT_W, 7.5, 0.8, 0.8, 'F');
-  setFill(doc, ACCENT);
-  doc.rect(MARGIN, y, 2, 7.5, 'F');
+  setFill(doc, BLUE);
+  doc.rect(MARGIN, y, 2.2, 7.5, 'F');
   setText(doc, [255, 255, 255]);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
@@ -600,36 +598,37 @@ function desenharNaoConformidades(
   if (!ncs.length) return;
 
   doc.addPage();
-  let y = MARGIN + 2;
+  const criticas = ncs.filter((nc) => /crit/i.test(nc.gravidade || '')).length;
 
-  setFill(doc, NC_BG);
-  setStroke(doc, [252, 165, 165]);
-  doc.setLineWidth(0.25);
-  doc.roundedRect(MARGIN, y, CONTENT_W, 14, 1.2, 1.2, 'FD');
+  setFill(doc, [127, 29, 29]);
+  doc.rect(0, 0, PAGE_W, 32, 'F');
   setFill(doc, FAIL);
-  doc.rect(MARGIN, y, 2, 14, 'F');
+  doc.rect(0, 32, PAGE_W, 1.4, 'F');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
-  setText(doc, SLATE_LIGHT);
-  doc.text('RESUMO', MARGIN + 6, y + 4.5);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  setText(doc, NC_TXT);
+  doc.setFontSize(7);
+  setText(doc, [254, 202, 202]);
+  doc.text('PLANO DE AÇÃO', MARGIN, 12);
+  doc.setFontSize(15);
+  setText(doc, [255, 255, 255]);
   doc.text(
     `${ncs.length} não conformidade${ncs.length > 1 ? 's' : ''} identificada${ncs.length > 1 ? 's' : ''}`,
-    MARGIN + 6,
-    y + 9.5,
+    MARGIN,
+    21,
   );
-
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  setText(doc, SLATE);
+  doc.setFontSize(8);
+  setText(doc, [254, 202, 202]);
   const ctx = `${visita.name}${visita.bk_number ? ` · BKN ${visita.bk_number}` : ''} · Visita #${visita.id_visita}`;
-  doc.text(ctx, PAGE_W - MARGIN - 4, y + 9.5, { align: 'right' });
+  doc.text(ctx, MARGIN, 27);
+  if (criticas) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    setText(doc, [255, 255, 255]);
+    doc.text(`${criticas} crítica${criticas > 1 ? 's' : ''}`, PAGE_W - MARGIN, 20, { align: 'right' });
+  }
 
-  y += 18;
+  let y = 40;
   y = tituloSecao(doc, y, 'Não conformidades');
 
   const colNum = 8;

@@ -12,10 +12,11 @@ const CONTENT_W = PAGE_W - MARGIN * 2;
 const FOOTER_Y = PAGE_H - 9;
 const CONTENT_BOTTOM = FOOTER_Y - 4;
 
-const NAVY = [11, 26, 59] as const;
-const NAVY_MID = [27, 42, 107] as const;
+const NAVY = [15, 23, 42] as const;
+const NAVY_MID = [30, 58, 138] as const;
+const INK = [5, 16, 23] as const;
+const BLUE = [27, 110, 243] as const;
 const ACCENT = [232, 82, 10] as const;
-const GRUPO_TXT = [160, 176, 200] as const;
 const SLATE = [71, 85, 105] as const;
 const SLATE_LIGHT = [148, 163, 184] as const;
 const LINE = [226, 232, 240] as const;
@@ -24,9 +25,7 @@ const HEADER_BG = [241, 245, 249] as const;
 const OK = [21, 128, 61] as const;
 const FAIL = [185, 28, 28] as const;
 const MUTED = [100, 116, 139] as const;
-const TOTAL_BG = [11, 26, 59] as const;
 const NC_BG = [254, 242, 242] as const;
-const NC_TXT = [153, 27, 27] as const;
 
 type Rgb = readonly [number, number, number];
 type LogoIcon = { dataUrl: string; w: number; h: number };
@@ -72,6 +71,12 @@ function corNota(nota: number): Rgb {
   return FAIL;
 }
 
+function vereditoNota(nota: number): string {
+  if (nota >= 85) return 'EXCELENTE';
+  if (nota >= 75) return 'NA META';
+  return 'ABAIXO DA META';
+}
+
 function formatarResposta(r: VisitaDetalhe['respostas'][0]): string {
   if (r.nota_estrelas != null) return `${r.nota_estrelas} de 5 estrelas`;
   if (r.resposta) return r.resposta;
@@ -98,7 +103,7 @@ function estiloResposta(
 
 async function carregarIconeMarca(): Promise<LogoIcon | null> {
   try {
-    const res = await fetch(assetUrl('Logo_Alvim_Icone.png'));
+    const res = await fetch(assetUrl('Simbolo_Meridian_Oficial.png'));
     if (!res.ok) return null;
     const blob = await res.blob();
     const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -126,12 +131,13 @@ function desenharMarca(doc: jsPDF, logo: LogoIcon | null, x: number, y: number, 
   const tx = x + (logo ? iconSize + 3.5 : 0);
   const ty = y + iconSize / 2 + 1.2;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(12);
-  setText(doc, GRUPO_TXT);
-  doc.text('grupo', tx, ty);
-  const w = doc.getTextWidth('grupo');
-  setText(doc, ACCENT);
-  doc.text('alvim', tx + w, ty);
+  doc.setFontSize(11);
+  setText(doc, [255, 255, 255]);
+  doc.text('MERIDIAN', tx, ty - 1.4);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(6);
+  setText(doc, [148, 163, 184]);
+  doc.text('GESTÃO OPERACIONAL', tx, ty + 2.6);
 }
 
 function rodape(doc: jsPDF, rotulo: string) {
@@ -150,17 +156,14 @@ function rodape(doc: jsPDF, rotulo: string) {
     doc.setLineWidth(0.25);
     doc.line(MARGIN, FOOTER_Y - 3.2, PAGE_W - MARGIN, FOOTER_Y - 3.2);
 
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    setText(doc, SLATE_LIGHT);
-    doc.text('grupo', MARGIN, FOOTER_Y);
-    const wGrupo = doc.getTextWidth('grupo');
     doc.setFont('helvetica', 'bold');
-    setText(doc, ACCENT);
-    doc.text('alvim', MARGIN + wGrupo, FOOTER_Y);
+    doc.setFontSize(6.5);
+    setText(doc, NAVY);
+    const wMarca = doc.getTextWidth('MERIDIAN');
+    doc.text('MERIDIAN', MARGIN, FOOTER_Y);
     doc.setFont('helvetica', 'normal');
     setText(doc, SLATE_LIGHT);
-    doc.text('  ·  Vision Check', MARGIN + wGrupo + doc.getTextWidth('alvim'), FOOTER_Y);
+    doc.text('  ·  Gestão operacional', MARGIN + wMarca, FOOTER_Y);
 
     doc.text(rotulo, PAGE_W / 2, FOOTER_Y, { align: 'center' });
     doc.text(`${i} / ${total}  ·  ${gerado}`, PAGE_W - MARGIN, FOOTER_Y, { align: 'right' });
@@ -177,10 +180,10 @@ function cabecalhoExecutivo(
   const titulo = tituloRelatorio(v);
   const rotulo = rotuloVisita(v);
 
-  setFill(doc, NAVY);
+  setFill(doc, INK);
   doc.rect(0, 0, PAGE_W, 26, 'F');
-  setFill(doc, ACCENT);
-  doc.rect(0, 26, PAGE_W, 0.9, 'F');
+  setFill(doc, BLUE);
+  doc.rect(0, 26, PAGE_W, 1.1, 'F');
 
   desenharMarca(doc, logo, MARGIN, 6, 14);
 
@@ -197,57 +200,51 @@ function cabecalhoExecutivo(
   const lojaLinha = doc.splitTextToSize(rotulo, 110);
   doc.text(lojaLinha.slice(0, 2), PAGE_W - MARGIN, 21.5, { align: 'right' });
 
-  let y = 32;
-
-  setFill(doc, ROW_ALT);
-  setStroke(doc, LINE);
-  doc.setLineWidth(0.2);
-  doc.roundedRect(MARGIN, y, CONTENT_W, 10, 1, 1, 'FD');
+  let y = 33;
+  const heroH = 30;
+  const scoreW = 42;
+  const scoreX = MARGIN + CONTENT_W - scoreW;
+  const nomeLinhas = doc.splitTextToSize(String(v.name || 'Loja'), CONTENT_W - scoreW - 8).slice(0, 2);
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6);
-  setText(doc, SLATE_LIGHT);
-  doc.text('LOJA', MARGIN + 4, y + 3.8);
-  doc.setFontSize(10);
+  doc.setFontSize(16);
   setText(doc, NAVY);
-  doc.text(v.name, MARGIN + 4, y + 8.2);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6);
-  setText(doc, SLATE_LIGHT);
-  doc.text('AUDITOR', MARGIN + CONTENT_W * 0.42, y + 3.8);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
-  setText(doc, SLATE);
-  doc.text(v.nome_usuario, MARGIN + CONTENT_W * 0.42, y + 8.2);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6);
-  setText(doc, SLATE_LIGHT);
-  doc.text('STATUS', MARGIN + CONTENT_W * 0.72, y + 3.8);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  setText(doc, v.status === 'Finalizada' ? OK : ACCENT);
-  doc.text(v.status, MARGIN + CONTENT_W * 0.72, y + 8.2);
-
-  y += 13;
+  doc.text(nomeLinhas, MARGIN, y + 7);
 
   const catsOk = dados.desempenho_categorias.filter((c) => Number(c.percentual) >= 80).length;
   const anterior = dados.historico_notas[1];
   const diff = anterior ? nota - Number(anterior.nota) : null;
+  const ncs = dados.nao_conformidades.length;
+  const nCriticas = dados.nao_conformidades.filter((nc) => /crit/i.test(nc.gravidade || '')).length;
 
-  const cards: Array<{ label: string; value: string; hint?: string; destaque?: boolean }> = [
-    {
-      label: 'NOTA FINAL',
-      value: fmtNota(v.nota_final),
-      hint:
-        nota >= 85
-          ? 'excelente desempenho'
-          : nota >= 75
-            ? 'dentro da meta'
-            : 'abaixo da meta',
-      destaque: true,
-    },
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  setText(doc, SLATE);
+  const metaLinha = [
+    fmtData(v.data_visita),
+    v.nome_usuario,
+    v.bk_number ? `BKN ${v.bk_number}` : '',
+    v.status,
+  ]
+    .filter(Boolean)
+    .join('   ·   ');
+  doc.text(metaLinha, MARGIN, y + 8 + nomeLinhas.length * 6, { maxWidth: CONTENT_W - scoreW - 8 });
+
+  const cor = corNota(nota);
+  setFill(doc, cor);
+  doc.roundedRect(scoreX, y, scoreW, heroH, 2, 2, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(6.5);
+  setText(doc, [255, 255, 255]);
+  doc.text('NOTA DA VISITA', scoreX + scoreW / 2, y + 7, { align: 'center' });
+  doc.setFontSize(22);
+  doc.text(fmtNota(v.nota_final), scoreX + scoreW / 2, y + 17.5, { align: 'center' });
+  doc.setFontSize(7.5);
+  doc.text(vereditoNota(nota), scoreX + scoreW / 2, y + 24, { align: 'center' });
+
+  y += heroH + 5;
+
+  const cards: Array<{ label: string; value: string; hint?: string; alerta?: boolean }> = [
     {
       label: 'CATEGORIAS',
       value: String(dados.desempenho_categorias.length),
@@ -256,67 +253,47 @@ function cabecalhoExecutivo(
     {
       label: 'RESPOSTAS',
       value: String(dados.respostas.length),
-      hint: 'itens registrados',
+      hint: 'itens do checklist',
     },
     {
-      label: 'NCs',
-      value: String(dados.nao_conformidades.length),
-      hint: dados.nao_conformidades.length ? 'não conformidades' : 'nenhuma aberta',
+      label: 'NÃO CONFORMIDADES',
+      value: String(ncs),
+      hint: nCriticas ? `${nCriticas} crítica${nCriticas > 1 ? 's' : ''}` : ncs ? 'a tratar' : 'nenhuma aberta',
+      alerta: ncs > 0,
     },
     {
-      label: 'DURAÇÃO',
-      value: v.duracao_minutos != null ? `${v.duracao_minutos} min` : '—',
-      hint: diff != null ? `${diff >= 0 ? '+' : ''}${diff.toFixed(0)}p vs anterior` : 'tempo em loja',
+      label: 'EVOLUÇÃO',
+      value: diff != null ? `${diff >= 0 ? '+' : ''}${diff.toFixed(0)} p` : v.duracao_minutos != null ? `${v.duracao_minutos} min` : '—',
+      hint: diff != null ? 'versus visita anterior' : 'tempo em loja',
     },
   ];
 
-  const gap = 2.2;
+  const gap = 2.4;
   const cardW = (CONTENT_W - gap * (cards.length - 1)) / cards.length;
-  const cardH = 15.5;
+  const cardH = 16;
 
   for (let i = 0; i < cards.length; i++) {
     const c = cards[i];
     const x = MARGIN + i * (cardW + gap);
-    const destaque = c.destaque;
-
-    if (destaque) {
-      setFill(doc, TOTAL_BG);
-      doc.roundedRect(x, y, cardW, cardH, 1, 1, 'F');
-      setFill(doc, corNota(nota));
-      doc.rect(x, y, 1.3, cardH, 'F');
-      setText(doc, GRUPO_TXT);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(5.5);
-      doc.text(c.label, x + 4.5, y + 4.2);
-      setText(doc, [255, 255, 255]);
-      doc.setFontSize(14);
-      doc.text(c.value, x + 4.5, y + 10);
-      if (c.hint) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(5.5);
-        setText(doc, SLATE_LIGHT);
-        doc.text(c.hint, x + 4.5, y + 13.2);
-      }
-    } else {
-      setFill(doc, [255, 255, 255]);
-      setStroke(doc, LINE);
-      doc.setLineWidth(0.25);
-      doc.roundedRect(x, y, cardW, cardH, 1, 1, 'FD');
-      setFill(doc, NAVY);
-      doc.rect(x, y, 1.3, cardH, 'F');
-      setText(doc, SLATE_LIGHT);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(5.5);
-      doc.text(c.label, x + 4.5, y + 4.2);
-      setText(doc, NAVY);
-      doc.setFontSize(11);
-      doc.text(c.value, x + 4.5, y + 9.8);
-      if (c.hint) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(5.5);
-        setText(doc, MUTED);
-        doc.text(c.hint, x + 4.5, y + 13.2);
-      }
+    const faixa = c.alerta ? FAIL : BLUE;
+    setFill(doc, [255, 255, 255]);
+    setStroke(doc, c.alerta ? ([252, 165, 165] as const) : LINE);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(x, y, cardW, cardH, 1.2, 1.2, 'FD');
+    setFill(doc, faixa);
+    doc.rect(x, y, 1.6, cardH, 'F');
+    setText(doc, SLATE_LIGHT);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.5);
+    doc.text(c.label, x + 4.5, y + 4.4);
+    setText(doc, c.alerta ? FAIL : NAVY);
+    doc.setFontSize(13);
+    doc.text(c.value, x + 4.5, y + 10.2);
+    if (c.hint) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(6);
+      setText(doc, MUTED);
+      doc.text(c.hint, x + 4.5, y + 13.6);
     }
   }
 
@@ -349,10 +326,10 @@ function cabecalhoExecutivo(
 
 function tituloSecao(doc: jsPDF, y: number, texto: string): number {
   y = garantirEspaco(doc, y, 12);
-  setFill(doc, NAVY);
+  setFill(doc, INK);
   doc.roundedRect(MARGIN, y, CONTENT_W, 7.5, 0.8, 0.8, 'F');
-  setFill(doc, ACCENT);
-  doc.rect(MARGIN, y, 2, 7.5, 'F');
+  setFill(doc, BLUE);
+  doc.rect(MARGIN, y, 2.2, 7.5, 'F');
   setText(doc, [255, 255, 255]);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
@@ -597,36 +574,37 @@ function desenharNaoConformidades(
   if (!ncs.length) return;
 
   doc.addPage();
-  let y = MARGIN + 2;
+  const criticas = ncs.filter((nc) => /crit/i.test(nc.gravidade || '')).length;
 
-  setFill(doc, NC_BG);
-  setStroke(doc, [252, 165, 165]);
-  doc.setLineWidth(0.25);
-  doc.roundedRect(MARGIN, y, CONTENT_W, 14, 1.2, 1.2, 'FD');
+  setFill(doc, [127, 29, 29]);
+  doc.rect(0, 0, PAGE_W, 32, 'F');
   setFill(doc, FAIL);
-  doc.rect(MARGIN, y, 2, 14, 'F');
+  doc.rect(0, 32, PAGE_W, 1.4, 'F');
 
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
-  setText(doc, SLATE_LIGHT);
-  doc.text('RESUMO', MARGIN + 6, y + 4.5);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  setText(doc, NC_TXT);
+  doc.setFontSize(7);
+  setText(doc, [254, 202, 202]);
+  doc.text('PLANO DE AÇÃO', MARGIN, 12);
+  doc.setFontSize(15);
+  setText(doc, [255, 255, 255]);
   doc.text(
     `${ncs.length} não conformidade${ncs.length > 1 ? 's' : ''} identificada${ncs.length > 1 ? 's' : ''}`,
-    MARGIN + 6,
-    y + 9.5,
+    MARGIN,
+    21,
   );
-
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  setText(doc, SLATE);
+  doc.setFontSize(8);
+  setText(doc, [254, 202, 202]);
   const ctx = `${visita.name}${visita.bk_number ? ` · BKN ${visita.bk_number}` : ''} · Visita #${visita.id_visita}`;
-  doc.text(ctx, PAGE_W - MARGIN - 4, y + 9.5, { align: 'right' });
+  doc.text(ctx, MARGIN, 27);
+  if (criticas) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    setText(doc, [255, 255, 255]);
+    doc.text(`${criticas} crítica${criticas > 1 ? 's' : ''}`, PAGE_W - MARGIN, 20, { align: 'right' });
+  }
 
-  y += 18;
+  let y = 40;
   y = tituloSecao(doc, y, 'Não conformidades');
 
   const colNum = 8;

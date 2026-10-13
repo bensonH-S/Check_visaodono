@@ -78,7 +78,7 @@
 
 .ck-nc-hub__kpis {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin-bottom: 4px;
 }
@@ -129,6 +129,38 @@
 
 .ck-nc-hub__kpi.is-on strong {
   color: #0548d1;
+}
+
+.ck-nc-hub__kpi.is-ok {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.ck-nc-hub__kpi.is-ok strong {
+  color: #4ade80;
+}
+
+.ck-nc-hub__lojas {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(51, 56, 64, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.ck-nc-hub__lojas p {
+  margin: 0 0 8px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #8d8d8d;
+}
+
+.ck-nc-hub__fechou {
+  margin-top: 4px !important;
+  color: #4ade80 !important;
+  font-weight: 600 !important;
 }
 
 .ck-nc-hub__kpi span {

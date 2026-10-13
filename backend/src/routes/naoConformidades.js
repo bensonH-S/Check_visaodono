@@ -94,7 +94,9 @@ router.get(
       SELECT
         COUNT(*) FILTER (WHERE nc.status = 'Em aberto') AS total_aberto,
         COUNT(*) FILTER (WHERE nc.status = 'Em aberto' AND nc.gravidade = 'Crítica') AS criticas,
-        COUNT(DISTINCT nc.id_visita) FILTER (WHERE nc.status = 'Em aberto') AS visitas_pendentes
+        COUNT(DISTINCT nc.id_visita) FILTER (WHERE nc.status = 'Em aberto') AS visitas_pendentes,
+        COUNT(*) FILTER (WHERE nc.status = 'Resolvida') AS total_resolvida,
+        COUNT(DISTINCT nc.id_loja) FILTER (WHERE nc.status = 'Resolvida') AS lojas_fechadas
       FROM nao_conformidades nc
       ${SQL_NC_CHECKLIST_FINALIZADO}
       WHERE 1=1
