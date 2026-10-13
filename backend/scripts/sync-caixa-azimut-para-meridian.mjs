@@ -117,11 +117,12 @@ async function main() {
     if (!loja) continue
     const valores = camposSel.map((c) => Number(row[c]) || 0)
     const sets = camposSel.map((c, i) => `${c} = CASE WHEN fechamento_caixa.status = 'fechado' THEN fechamento_caixa.${c} ELSE $${i + 5} END`)
-    const insertCols = ['empresa_id', 'data', 'status', 'observacao', ...camposSel]
-    const insertVals = ['$1', '$2', 'COALESCE($3, \'rascunho\')', 'COALESCE($4, \'\')', ...camposSel.map((_, i) => `$${i + 5}`)]
+    const insertCols = ['id', 'empresa_id', 'data', 'status', 'observacao', ...camposSel]
+    const insertVals = ['gen_random_uuid()', '$1', '$2', 'COALESCE($3, \'rascunho\')', 'COALESCE($4, \'\')', ...camposSel.map((_, i) => `$${i + 5}`)]
+    sets.unshift('id = COALESCE(fechamento_caixa.id, EXCLUDED.id)')
     if (temOrigemM) {
-      insertCols.splice(2, 0, 'origem')
-      insertVals.splice(2, 0, `'pos'`)
+      insertCols.splice(3, 0, 'origem')
+      insertVals.splice(3, 0, `'pos'`)
       sets.push(`origem = CASE WHEN fechamento_caixa.status = 'fechado' THEN fechamento_caixa.origem ELSE 'pos' END`)
     }
     if (temBandeirasM) {

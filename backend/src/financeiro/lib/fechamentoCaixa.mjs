@@ -7,6 +7,7 @@ const schemaPath = path.join(rootDir, 'db', '007_fechamento_caixa.sql')
 const lancamentosPath = path.join(rootDir, 'db', '008_fechamento_caixa_lancamentos.sql')
 const statusPath = path.join(rootDir, 'db', '009_caixa_bandeiras_status.sql')
 const chavesPath = path.join(rootDir, 'db', '012_caixa_chaves.sql')
+const idPath = path.join(rootDir, 'db', '014_fechamento_caixa_id.sql')
 const pastaComprovantes = path.join(rootDir, 'data', 'caixa', 'comprovantes')
 const MAX_COMPROVANTE = 8 * 1024 * 1024
 const MIME_COMPROVANTE = {
@@ -31,6 +32,7 @@ export function garantirSchemaCaixa(pool) {
     await pool.query(fs.readFileSync(lancamentosPath, 'utf8'))
     await pool.query(fs.readFileSync(statusPath, 'utf8'))
     await pool.query(fs.readFileSync(chavesPath, 'utf8'))
+    await pool.query(fs.readFileSync(idPath, 'utf8'))
   })().catch((err) => {
     schemaCaixa = null
     throw err
@@ -260,7 +262,7 @@ export async function mesFechamentos(pool, { mes, empresaId }) {
     bk_number: cabeca.bk_number,
   }
 
-  const porDia = new Map(rows.filter((linha) => linha.id).map((linha) => {
+  const porDia = new Map(rows.filter((linha) => linha.data).map((linha) => {
     const lancamentos = (Array.isArray(linha.lancamentos) ? linha.lancamentos : []).map(lancamentoPublico)
     const pub = linhaPublica({ ...linha, empresa_id: linha.fechamento_empresa_id || empresa.id, lancamentos })
     return [Number(pub.data.slice(8, 10)), pub]
@@ -451,12 +453,13 @@ export async function salvarFechamento(pool, body) {
 
   const { rows } = await pool.query(`
     insert into fechamento_caixa (
-      empresa_id, data, dinheiro, pix, debito, credito, cart_digital,
+      id, empresa_id, data, dinheiro, pix, debito, credito, cart_digital,
       ifood, azul, rappi, food99, despesas_caixa, depositos_caixa, observacao, status, bandeiras, atualizado_em
     ) values (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, now()
+      gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, now()
     )
     on conflict (empresa_id, data) do update set
+      id = coalesce(fechamento_caixa.id, excluded.id),
       dinheiro = excluded.dinheiro,
       pix = excluded.pix,
       debito = excluded.debito,

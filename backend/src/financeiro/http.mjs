@@ -1626,7 +1626,7 @@ export function iniciarFinanceiro() {
   garantirSchemaExtratoItau(pool).catch((err) => console.error(`[financeiro] itau extrato: ${err.message}`))
   garantirSchemaCaixa(pool).catch((err) => console.error(`[financeiro] caixa: ${err.message}`))
   garantirSchemaSefaz(pool).catch((err) => console.error(`[financeiro] sefaz: ${err.message}`))
-  // Hermes ainda cai no Azimut (:3018) enquanto o nginx não tiver location /financas/api/caixa/ → :3007.
+  // O que o Hermes ainda deixar no Azimut entra por esta ponte. O recebimento direto é /caixa/ingest.
   import('./lib/syncCaixaAzimut.mjs')
     .then(({ iniciarSyncCaixaAzimut }) => iniciarSyncCaixaAzimut(env))
     .catch((err) => console.warn(`[caixa] ponte Azimut: ${err.message}`))

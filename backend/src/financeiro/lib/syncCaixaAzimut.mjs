@@ -24,7 +24,7 @@ function poolOpts(env, database, searchPath) {
   }
 }
 
-export async function syncCaixaAzimutParaMeridian(env = process.env, { dias = 7 } = {}) {
+export async function syncCaixaAzimutParaMeridian(env = process.env, { dias = 45 } = {}) {
   if (rodando) return { skipped: true, ...ultimo }
   rodando = true
   const azimut = new pg.Pool(poolOpts(env, env.AZIMUT_CAIXA_DB || 'meridian_finance'))
@@ -79,12 +79,14 @@ export async function syncCaixaAzimutParaMeridian(env = process.env, { dias = 7 
            + f.ifood + f.azul + f.rappi + f.food99) > 0
     `, [dias])
 
+    const somaLocal = campos.map((c) => `coalesce(fechamento_caixa.${c}, 0)`).join(' + ')
     let fechOk = 0
+    let fechNovos = 0
     for (const row of fechA.rows) {
       const empresaId = porBk.get(row.bk)
       if (!empresaId) continue
       const vals = campos.map((c) => Number(row[c]) || 0)
-      await meridian.query(`
+      const gravou = await meridian.query(`
         INSERT INTO fechamento_caixa (
           id, empresa_id, data, status, observacao,
           ${campos.join(', ')}, atualizado_em
@@ -93,14 +95,28 @@ export async function syncCaixaAzimutParaMeridian(env = process.env, { dias = 7 
           ${campos.map((_, i) => `$${i + 5}`).join(', ')}, now()
         )
         ON CONFLICT (empresa_id, data) DO UPDATE SET
-          ${campos.map((c) => `${c} = CASE WHEN fechamento_caixa.status = 'fechado' THEN fechamento_caixa.${c} ELSE EXCLUDED.${c} END`).join(', ')},
-          observacao = CASE WHEN fechamento_caixa.status = 'fechado' THEN fechamento_caixa.observacao ELSE COALESCE(EXCLUDED.observacao, fechamento_caixa.observacao) END,
-          atualizado_em = now()
+          id = COALESCE(fechamento_caixa.id, EXCLUDED.id),
+          ${campos.map((c) => `${c} = CASE
+            WHEN fechamento_caixa.status = 'fechado' THEN fechamento_caixa.${c}
+            WHEN (${somaLocal}) > 0 THEN fechamento_caixa.${c}
+            ELSE EXCLUDED.${c}
+          END`).join(', ')},
+          observacao = CASE
+            WHEN fechamento_caixa.status = 'fechado' THEN fechamento_caixa.observacao
+            WHEN (${somaLocal}) > 0 THEN fechamento_caixa.observacao
+            ELSE COALESCE(EXCLUDED.observacao, fechamento_caixa.observacao)
+          END,
+          atualizado_em = CASE
+            WHEN fechamento_caixa.status = 'fechado' OR (${somaLocal}) > 0 THEN fechamento_caixa.atualizado_em
+            ELSE now()
+          END
+        RETURNING (xmax = 0) AS inserido
       `, [empresaId, row.data, row.status, row.observacao, ...vals])
       fechOk += 1
+      if (gravou.rows[0]?.inserido) fechNovos += 1
     }
 
-    ultimo = { ok: true, statusOk, fechOk, em: new Date().toISOString() }
+    ultimo = { ok: true, statusOk, fechOk, fechNovos, em: new Date().toISOString() }
     return ultimo
   } finally {
     rodando = false
@@ -117,7 +133,7 @@ export function iniciarSyncCaixaAzimut(env = process.env) {
   const tick = () => {
     syncCaixaAzimutParaMeridian(env).then((r) => {
       if (r?.skipped) return
-      console.log(`[caixa] ponte Azimut→Meridian: ${r.statusOk} status, ${r.fechOk} fechamentos`)
+      console.log(`[caixa] ponte Azimut→Meridian: ${r.statusOk} status, ${r.fechOk} fechamentos, ${r.fechNovos || 0} novos`)
     }).catch((err) => {
       console.warn(`[caixa] ponte Azimut falhou: ${err.message}`)
     })
