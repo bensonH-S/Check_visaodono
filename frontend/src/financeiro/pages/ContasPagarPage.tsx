@@ -11,6 +11,9 @@ import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import Drawer from '@mui/material/Drawer'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import Radio from '@mui/material/Radio'
+import RadioGroup from '@mui/material/RadioGroup'
 import IconButton from '@mui/material/IconButton'
 import LinearProgress from '@mui/material/LinearProgress'
 import MenuItem from '@mui/material/MenuItem'
@@ -37,7 +40,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
-import { api, brl, emCache, estaNoInbox, urlDespesas, urlEmpresas, type Despesa, type Empresa, type Fornecedor } from '../api'
+import { api, brl, emCache, estaNoInbox, linhaAcrescimo, urlDespesas, urlEmpresas, type Despesa, type Empresa, type Fornecedor } from '../api'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
@@ -464,7 +467,12 @@ export function ContasPagarPage() {
                 <TableCell align="center" sx={{ verticalAlign: 'middle', color: aberta(e) && e.vencimento && e.vencimento < hoje ? '#B91C1C' : FIN_TEXT }}>
                   {e.vencimento ? e.vencimento.split('-').reverse().join('/') : '—'}
                 </TableCell>
-                <TableCell align="center" sx={{ verticalAlign: 'middle', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{brl(Number(e.valor))}</TableCell>
+                <TableCell align="center" sx={{ verticalAlign: 'middle', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{brl(Number(e.valor))}</Typography>
+                  {linhaAcrescimo(e) ? (
+                    <Typography sx={{ fontSize: 10.5, color: '#B45309', lineHeight: 1.2 }}>{linhaAcrescimo(e)}</Typography>
+                  ) : null}
+                </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle', width: 72, px: 0.5 }}>
                   <Stack direction="row" spacing={0.25} sx={{ justifyContent: 'center' }}>
                     <Tooltip title={t('Abrir', 'Open')}>
@@ -1246,6 +1254,42 @@ function parseMoeda(texto: string) {
   return Number(limpo)
 }
 
+function CampoMoeda({
+  label,
+  value,
+  onChange,
+  disabled,
+  error,
+}: {
+  label: string
+  value: string
+  onChange?: (texto: string) => void
+  disabled?: boolean
+  error?: boolean
+}) {
+  return (
+    <TextField
+      label={label}
+      size="small"
+      value={disabled && !value ? 'R$ 0,00' : value}
+      disabled={disabled}
+      error={error}
+      placeholder="R$ 0,00"
+      onChange={onChange ? (ev) => onChange(aoDigitarValor(ev.target.value)) : undefined}
+      onBlur={() => {
+        if (!onChange || !value) return
+        const n = parseMoeda(value)
+        if (Number.isFinite(n)) onChange(brl(n))
+      }}
+      sx={[finCampoSx, error ? finCampoErroSx : null]}
+    />
+  )
+}
+
+function centavos(n: number) {
+  return Math.round(n * 100) / 100
+}
+
 export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   aberto: boolean
   inicial: Despesa | null
@@ -1256,9 +1300,17 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   const { t } = usePrefs()
   const lojas = empresas.filter((e) => e.tipo === 'loja')
   const primeiraLoja = lojas[0]?.id || ''
+  const faceInicial = inicial ? Number(inicial.valor_face ?? inicial.valor) : null
   const [descricao, setDescricao] = useState(() => inicial?.descricao || '')
-  const [valor, setValor] = useState(() => (inicial ? brl(Number(inicial.valor)) : ''))
-  const [vencimento, setVencimento] = useState(() => inicial?.vencimento || '')
+  const [valor, setValor] = useState(() => (faceInicial != null ? brl(faceInicial) : ''))
+  const [modo, setModo] = useState<'total' | 'taxas'>(() => inicial?.modo_acrescimo === 'taxas' ? 'taxas' : 'total')
+  const [multa, setMulta] = useState(() => (inicial?.multa ? brl(Number(inicial.multa)) : ''))
+  const [juros, setJuros] = useState(() => (inicial?.juros ? brl(Number(inicial.juros)) : ''))
+  const [outras, setOutras] = useState(() => (inicial?.outras_taxas ? brl(Number(inicial.outras_taxas)) : ''))
+  const [desconto, setDesconto] = useState(() => (inicial?.desconto ? brl(Number(inicial.desconto)) : ''))
+  const [total, setTotal] = useState(() => (inicial ? brl(Number(inicial.valor)) : ''))
+  const [vencimentoOriginal, setVencimentoOriginal] = useState(() => inicial?.vencimento_original || inicial?.vencimento || '')
+  const [pagarEm, setPagarEm] = useState(() => inicial?.vencimento || '')
   const [documento, setDocumento] = useState(() => inicial?.documento_ref || '')
   const [origem, setOrigem] = useState(() => inicial?.origem_id || primeiraLoja)
   const conta = inicial?.conta_saida_id || ''
@@ -1277,6 +1329,31 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   const [abrindoBoleto, setAbrindoBoleto] = useState(false)
 
   const pedeCodigo = forma === 'boleto' || forma === 'chave_pix'
+  const taxa = (texto: string) => {
+    const n = parseMoeda(texto)
+    return Number.isFinite(n) ? n : 0
+  }
+  const faceNum = Number.isFinite(parseMoeda(valor)) ? parseMoeda(valor) : 0
+  const totalTaxas = centavos(faceNum + taxa(multa) + taxa(juros) + taxa(outras) - taxa(desconto))
+  const totalExibido = modo === 'taxas' ? brl(totalTaxas) : total
+
+  const aoMudarValor = (novo: string) => {
+    const anterior = parseMoeda(valor)
+    setValor(novo)
+    if (modo === 'total' && (!total || parseMoeda(total) === anterior)) setTotal(novo)
+  }
+
+  const aoMudarModo = (proximo: 'total' | 'taxas') => {
+    if (proximo === 'taxas' && !taxa(multa) && !taxa(juros) && !taxa(outras) && !taxa(desconto)) {
+      const face = Number.isFinite(parseMoeda(valor)) ? parseMoeda(valor) : 0
+      const alvo = total.trim() && Number.isFinite(parseMoeda(total)) ? parseMoeda(total) : face
+      const diff = centavos(alvo - face)
+      if (diff > 0) setJuros(brl(diff))
+      else if (diff < 0) setDesconto(brl(-diff))
+    }
+    if (proximo === 'total') setTotal(brl(Math.max(totalTaxas, 0)))
+    setModo(proximo)
+  }
 
   // Monta com key=nova|id — sem resetar quando a lista de empresas refresca.
 
@@ -1305,14 +1382,19 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   }
 
   const salvar = async () => {
-    const numero = parseMoeda(valor)
+    const face = parseMoeda(valor)
+    const totalNum = modo === 'taxas'
+      ? totalTaxas
+      : (total.trim() ? parseMoeda(total) : face)
     const faltaDesc = !descricao.trim()
-    const faltaValor = !Number.isFinite(numero) || numero <= 0
+    const faltaValor = !Number.isFinite(face) || face <= 0 || !Number.isFinite(totalNum) || totalNum < 0
     const faltaOrigem = !origem
     if (faltaDesc || faltaValor || faltaOrigem) {
       setErroCampos({ descricao: faltaDesc, valor: faltaValor, origem: faltaOrigem })
       showToast(
-        t('Descrição, origem e valor são obrigatórios.', 'Description, store and amount are required.'),
+        faltaValor && Number.isFinite(face) && face > 0
+          ? t('O total não pode ficar negativo.', 'The total cannot be negative.')
+          : t('Descrição, origem e valor são obrigatórios.', 'Description, store and amount are required.'),
         'error',
       )
       return
@@ -1321,8 +1403,15 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
     try {
       const corpo = {
         descricao: descricao.trim(),
-        valor: numero,
-        vencimento: vencimento || null,
+        valor: totalNum,
+        valor_face: face,
+        multa: modo === 'taxas' ? taxa(multa) : 0,
+        juros: modo === 'taxas' ? taxa(juros) : 0,
+        outras_taxas: modo === 'taxas' ? taxa(outras) : 0,
+        desconto: modo === 'taxas' ? taxa(desconto) : 0,
+        modo_acrescimo: modo,
+        vencimento_original: vencimentoOriginal || null,
+        vencimento: pagarEm || vencimentoOriginal || null,
         documento_ref: documento.trim() || null,
         forma_pagamento: forma,
         empresa_origem_id: origem,
@@ -1337,7 +1426,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
         inicial
           ? t('Despesa atualizada.', 'Expense updated.')
           : t('Despesa criada no inbox. Confirme para ela entrar na Agenda banco.', 'Expense created in the inbox. Confirm it to add it to the bank schedule.'),
-        inicial ? undefined : { vencimento: vencimento || null },
+        inicial ? undefined : { vencimento: pagarEm || vencimentoOriginal || null },
       )
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('Não salvou', 'Could not save')
@@ -1407,23 +1496,46 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
             }}
             sx={[finCampoSx, erroCampos.descricao ? finCampoErroSx : null]}
           />
-          <TextField
+          <CampoMoeda
             label={t('Valor', 'Amount')}
-            size="small"
             value={valor}
-            placeholder="R$ 0,00"
             error={erroCampos.valor}
-            onChange={(ev) => {
-              setValor(aoDigitarValor(ev.target.value))
+            onChange={(texto) => {
+              aoMudarValor(texto)
               if (erroCampos.valor) setErroCampos((e) => ({ ...e, valor: false }))
             }}
-            onBlur={() => setValor((atual) => atual && Number.isFinite(parseMoeda(atual)) ? brl(parseMoeda(atual)) : '')}
-            sx={[finCampoSx, erroCampos.valor ? finCampoErroSx : null]}
+          />
+          <RadioGroup
+            row
+            value={modo}
+            onChange={(ev) => aoMudarModo(ev.target.value === 'taxas' ? 'taxas' : 'total')}
+            sx={{ px: 0.5, '& .MuiFormControlLabel-label': { fontSize: 13, color: FIN_TEXT } }}
+          >
+            <FormControlLabel value="total" control={<Radio size="small" sx={{ color: FIN_MUTED, '&.Mui-checked': { color: '#1B6EF3' } }} />} label={t('Informar Total', 'Enter total')} />
+            <FormControlLabel value="taxas" control={<Radio size="small" sx={{ color: FIN_MUTED, '&.Mui-checked': { color: '#1B6EF3' } }} />} label={t('Informar Taxas', 'Enter fees')} />
+          </RadioGroup>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+            <CampoMoeda label={t('Multa', 'Fine')} value={modo === 'taxas' ? multa : 'R$ 0,00'} disabled={modo !== 'taxas'} onChange={setMulta} />
+            <CampoMoeda label={t('Juros', 'Interest')} value={modo === 'taxas' ? juros : 'R$ 0,00'} disabled={modo !== 'taxas'} onChange={setJuros} />
+            <CampoMoeda label={t('Outras taxas', 'Other fees')} value={modo === 'taxas' ? outras : 'R$ 0,00'} disabled={modo !== 'taxas'} onChange={setOutras} />
+            <CampoMoeda label={t('Desconto', 'Discount')} value={modo === 'taxas' ? desconto : 'R$ 0,00'} disabled={modo !== 'taxas'} onChange={setDesconto} />
+          </Box>
+          <CampoMoeda
+            label={t('Total', 'Total')}
+            value={totalExibido}
+            disabled={modo === 'taxas'}
+            error={modo === 'taxas' && totalTaxas < 0}
+            onChange={modo === 'total' ? setTotal : undefined}
           />
           <CampoDataFinanceiro
             label={t('Vencimento', 'Due date')}
-            value={vencimento}
-            onChange={setVencimento}
+            value={vencimentoOriginal}
+            onChange={setVencimentoOriginal}
+          />
+          <CampoDataFinanceiro
+            label={t('Pagar em', 'Pay on')}
+            value={pagarEm}
+            onChange={setPagarEm}
           />
           <TextField
             label={t('Documento', 'Document')}

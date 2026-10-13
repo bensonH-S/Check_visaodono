@@ -71,6 +71,7 @@ function nomeBancoFinanceiro() {
 async function garantirSchemaFonte(db) {
   await db.query(fs.readFileSync(path.join(root, 'db', '010_despesa_fonte.sql'), 'utf8'))
   await db.query(fs.readFileSync(path.join(root, 'db', '015_despesa_pendente_inbox.sql'), 'utf8'))
+  await db.query(fs.readFileSync(path.join(root, 'db', '016_despesa_acrescimos.sql'), 'utf8'))
   try {
     const { garantirSchemaFreecontrol } = await import('./lib/importFreecontrol.mjs')
     await garantirSchemaFreecontrol(db)
@@ -116,6 +117,31 @@ pool.on('error', (err) => console.error(`[db] pool: ${err.message}`))
 operacional.on('error', (err) => console.error(`[db] operacional: ${err.message}`))
 
 const FORMAS = new Set(['dinheiro', 'online', 'boleto', 'guia', 'folha', 'cadastro', 'chave_pix'])
+
+function dinheiroNaoNegativo(n) {
+  const v = Number(n)
+  if (!Number.isFinite(v) || v < 0) return null
+  return Math.round(v * 100) / 100
+}
+
+/** Valor de face + taxas. `valor` gravado é o total que entra na agenda. */
+function lerAcrescimo(body) {
+  const modo = body.modo_acrescimo === 'taxas' ? 'taxas' : 'total'
+  const face = dinheiroNaoNegativo(body.valor_face != null && body.valor_face !== '' ? body.valor_face : body.valor)
+  if (face == null) return { erro: 'Valor inválido.' }
+  const multa = modo === 'taxas' ? (dinheiroNaoNegativo(body.multa) ?? 0) : 0
+  const juros = modo === 'taxas' ? (dinheiroNaoNegativo(body.juros) ?? 0) : 0
+  const outras = modo === 'taxas' ? (dinheiroNaoNegativo(body.outras_taxas) ?? 0) : 0
+  const desconto = modo === 'taxas' ? (dinheiroNaoNegativo(body.desconto) ?? 0) : 0
+  if ([multa, juros, outras, desconto].some((n) => n == null)) return { erro: 'Taxa inválida.' }
+  const total = modo === 'taxas'
+    ? Math.round((face + multa + juros + outras - desconto) * 100) / 100
+    : dinheiroNaoNegativo(body.valor)
+  if (total == null || total < 0) return { erro: 'Total inválido.' }
+  const vencimentoOriginal = body.vencimento_original || null
+  const vencimento = body.vencimento || vencimentoOriginal || null
+  return { modo, face, multa, juros, outras, desconto, total, vencimento, vencimentoOriginal }
+}
 
 const sessao = { nome: 'Felipe', papel: 'Autoriza' }
 let coletaVendas = null
@@ -564,7 +590,15 @@ async function listarDespesas(empresaId) {
            coalesce(nullif(btrim(d.descricao), ''), nullif(btrim(f.nome), ''),
              case when nullif(btrim(d.numero_nf), '') is not null then 'NF ' || btrim(d.numero_nf) else 'Boleto DDA' end
            ) as descricao,
-           d.valor::float8 as valor, to_char(d.vencimento, 'YYYY-MM-DD') as vencimento,
+           d.valor::float8 as valor,
+           coalesce(d.valor_face, d.valor)::float8 as valor_face,
+           coalesce(d.multa, 0)::float8 as multa,
+           coalesce(d.juros, 0)::float8 as juros,
+           coalesce(d.outras_taxas, 0)::float8 as outras_taxas,
+           coalesce(d.desconto, 0)::float8 as desconto,
+           coalesce(d.modo_acrescimo, 'total') as modo_acrescimo,
+           to_char(d.vencimento, 'YYYY-MM-DD') as vencimento,
+           to_char(d.vencimento_original, 'YYYY-MM-DD') as vencimento_original,
            to_char(d.competencia, 'YYYY-MM-DD') as competencia, d.forma_pagamento, d.status,
            d.documento_ref, d.numero_nf, d.nfe_id, d.nf_confirmada, d.empresa_origem_id as origem_id, eo.apelido as origem, eo.razao_social as origem_razao,
            er.apelido as registrado_em,
@@ -928,9 +962,9 @@ export async function handleFinance(req, res) {
     }
     if (req.method === 'POST' && url.pathname === '/api/despesas') {
       const body = await readBody(req)
-      const valor = Number(body.valor)
-      if (!body.descricao || !body.empresa_origem_id || !Number.isFinite(valor) || valor < 0) {
-        return send(res, 400, JSON.stringify({ erro: 'Descrição, origem e valor são obrigatórios.' }))
+      const acrescimo = lerAcrescimo(body)
+      if (acrescimo.erro || !body.descricao || !body.empresa_origem_id) {
+        return send(res, 400, JSON.stringify({ erro: acrescimo.erro || 'Descrição, origem e valor são obrigatórios.' }))
       }
       if (body.forma_pagamento && !FORMAS.has(body.forma_pagamento)) {
         return send(res, 400, JSON.stringify({ erro: 'Forma de pagamento inválida.' }))
@@ -947,8 +981,9 @@ export async function handleFinance(req, res) {
       const inserted = await pool.query(`
         insert into despesas (
           id, descricao, fornecedor_id, empresa_origem_id, empresa_registro_id, conta_saida_id, plano_conta_id,
-          documento_ref, competencia, vencimento, valor, forma_pagamento, dados_pagamento, status, fonte, pendente_inbox
-        ) values (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'manual', true)
+          documento_ref, competencia, vencimento, vencimento_original, valor, valor_face, multa, juros, outras_taxas, desconto, modo_acrescimo,
+          forma_pagamento, dados_pagamento, status, fonte, pendente_inbox
+        ) values (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,'manual', true)
         returning id, status
       `, [
         String(body.descricao).trim(),
@@ -959,8 +994,15 @@ export async function handleFinance(req, res) {
         body.plano_conta_id || null,
         body.documento_ref || null,
         body.competencia || null,
-        body.vencimento || null,
-        valor,
+        acrescimo.vencimento,
+        acrescimo.vencimentoOriginal,
+        acrescimo.total,
+        acrescimo.face,
+        acrescimo.multa,
+        acrescimo.juros,
+        acrescimo.outras,
+        acrescimo.desconto,
+        acrescimo.modo,
         body.forma_pagamento || null,
         body.dados_pagamento ? String(body.dados_pagamento).trim() : null,
         status,
@@ -1017,9 +1059,9 @@ export async function handleFinance(req, res) {
     if (req.method === 'PATCH' && url.pathname.startsWith('/api/despesas/')) {
       const id = url.pathname.split('/').pop()
       const body = await readBody(req)
-      const valor = Number(body.valor)
-      if (!body.descricao || !body.empresa_origem_id || !Number.isFinite(valor) || valor < 0) {
-        return send(res, 400, JSON.stringify({ erro: 'Descrição, origem e valor são obrigatórios.' }))
+      const acrescimo = lerAcrescimo(body)
+      if (acrescimo.erro || !body.descricao || !body.empresa_origem_id) {
+        return send(res, 400, JSON.stringify({ erro: acrescimo.erro || 'Descrição, origem e valor são obrigatórios.' }))
       }
       if (body.forma_pagamento && !FORMAS.has(body.forma_pagamento)) {
         return send(res, 400, JSON.stringify({ erro: 'Forma de pagamento inválida.' }))
@@ -1027,10 +1069,12 @@ export async function handleFinance(req, res) {
       const updated = await pool.query(`
         update despesas set
           descricao = $1, fornecedor_id = $2, empresa_origem_id = $3, conta_saida_id = $4, plano_conta_id = $5,
-          documento_ref = $6, vencimento = $7, valor = $8, forma_pagamento = $9, dados_pagamento = $10,
-          status = case when $12::text is null then status else $12 end,
-          competencia = case when $13::date is null then competencia else $13::date end
-        where id = $11
+          documento_ref = $6, vencimento = $7, vencimento_original = $8, valor = $9, valor_face = $10,
+          multa = $11, juros = $12, outras_taxas = $13, desconto = $14, modo_acrescimo = $15,
+          forma_pagamento = $16, dados_pagamento = $17,
+          status = case when $19::text is null then status else $19 end,
+          competencia = case when $20::date is null then competencia else $20::date end
+        where id = $18
         returning id, status
       `, [
         String(body.descricao).trim(),
@@ -1039,8 +1083,15 @@ export async function handleFinance(req, res) {
         body.conta_saida_id || null,
         body.plano_conta_id || null,
         body.documento_ref || null,
-        body.vencimento || null,
-        valor,
+        acrescimo.vencimento,
+        acrescimo.vencimentoOriginal,
+        acrescimo.total,
+        acrescimo.face,
+        acrescimo.multa,
+        acrescimo.juros,
+        acrescimo.outras,
+        acrescimo.desconto,
+        acrescimo.modo,
         body.forma_pagamento || null,
         body.dados_pagamento ? String(body.dados_pagamento).trim() : null,
         id,

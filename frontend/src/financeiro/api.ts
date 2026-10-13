@@ -59,7 +59,14 @@ export type Despesa = {
   id: string
   descricao: string
   valor: number
+  valor_face?: number | null
+  multa?: number
+  juros?: number
+  outras_taxas?: number
+  desconto?: number
+  modo_acrescimo?: 'total' | 'taxas' | null
   vencimento: string | null
+  vencimento_original?: string | null
   competencia: string | null
   forma_pagamento: string | null
   status: string
@@ -707,6 +714,16 @@ export const api = {
 
 export const brl = (n: number) =>
   n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+/** Face diferente do total: a despesa foi lançada com juros ou taxas. */
+export function linhaAcrescimo(e: Pick<Despesa, 'valor' | 'valor_face' | 'juros'>) {
+  const face = Number(e.valor_face)
+  const total = Number(e.valor)
+  if (!Number.isFinite(face) || Math.abs(face - total) < 0.009) return ''
+  const juros = Number(e.juros) || 0
+  if (juros > 0) return `de ${brl(face)} · juros ${brl(juros)}`
+  return `de ${brl(face)}`
+}
 
 export function ehLabor(nome: string) {
   const n = nome.normalize('NFD').replace(/\p{Diacritic}/gu, '').toUpperCase()

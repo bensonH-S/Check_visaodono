@@ -26,10 +26,11 @@ import IconButton from '@mui/material/IconButton'
 import AddIcon from '@mui/icons-material/Add'
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
-import { api, brl, emCache, estaNoInbox, urlDespesas, urlEmpresas, urlNotas, type Despesa, type Empresa, type NotaReceita } from '../api'
+import { api, brl, emCache, estaNoInbox, linhaAcrescimo, urlDespesas, urlEmpresas, urlNotas, type Despesa, type Empresa, type NotaReceita } from '../api'
 import { DespesaForm } from './ContasPagarPage'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
@@ -237,6 +238,7 @@ export function InboxDdaPage() {
     modo: 'dda' | 'nf-dda' | 'nf-nova' | 'manual'
   } | null>(null)
   const [novaAberta, setNovaAberta] = useState(false)
+  const [editando, setEditando] = useState<Despesa | null>(null)
 
   const carregarNotas = (empresa = loja) =>
     api.notasReceita(empresa || undefined).then((r) => {
@@ -498,6 +500,17 @@ export function InboxDdaPage() {
   const enviar = (ids = [...marcadas]) => {
     if (!ids.length) return
     const manuais = ids.filter((id) => despesas.find((item) => item.id === id)?.fonte === 'manual')
+    const semValor = manuais
+      .map((id) => despesas.find((item) => item.id === id))
+      .filter((item): item is Despesa => !!item && !prontaParaAgenda(item))
+    if (semValor.length) {
+      setEditando(semValor[0])
+      setErro(t(
+        'Informe valor, juros e o dia de pagamento antes de enviar para a agenda.',
+        'Enter the amount, interest and payment date before sending to the schedule.',
+      ))
+      return
+    }
     if (manuais.length) {
       setConfirmacao({
         modo: 'manual',
@@ -855,7 +868,7 @@ export function InboxDdaPage() {
                       sx={checkSx}
                     />
                   </TableCell>
-                  <TableCell align="center" sx={{ width: 120, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
+                  <TableCell align="center" sx={{ width: 148, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
                   <TableCell sx={{ width: '34%' }}>{t('Fornecedor', 'Supplier')}</TableCell>
                   <TableCell align="center" sx={{ width: '16%', ...celulaCentroSx }}>{t('Loja', 'Store')}</TableCell>
                   <TableCell sx={{ width: 108 }}>{t('Vencimento', 'Due date')}</TableCell>
@@ -916,6 +929,7 @@ export function InboxDdaPage() {
                             vencida={vencida}
                             ocupado={enviando || acaoNf?.id === e.nfe_recebida_id}
                             t={t}
+                            onEditar={manual ? () => setEditando(e) : undefined}
                             onNota={() => verNotaDoDda(e)}
                             onDanfe={() => { void abrirDanfeDoDda(e) }}
                             onAgenda={() => { if (e.id) void enviar([e.id]) }}
@@ -923,7 +937,9 @@ export function InboxDdaPage() {
                         </Box>
                       </TableCell>
                       <TableCell sx={{ overflow: 'hidden' }}>
-                        <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 650, lineHeight: 1.25 }}>{rotuloDescricao(e)}</Typography>
+                        <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 650, lineHeight: 1.25 }}>
+                          {rotuloDescricao(e)}
+                        </Typography>
                         {e.numero_nf && (
                           <Typography noWrap sx={{ fontSize: 11, color: INBOX_MUTED }}>NF {e.numero_nf}</Typography>
                         )}
@@ -931,11 +947,14 @@ export function InboxDdaPage() {
                       <TableCell align="center" sx={celulaCentroSx}>
                         <Typography noWrap sx={{ fontSize: 12, color: INBOX_TEXT }}>{e.origem || '—'}</Typography>
                       </TableCell>
-                      <TableCell sx={{ color: vencida ? '#B91C1C' : INBOX_TEXT, fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
+                      <TableCell sx={{ color: vencida ? '#B91C1C' : (e.fonte === 'manual' && e.vencimento_original && e.vencimento_original !== e.vencimento ? '#B45309' : INBOX_TEXT), fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
                         {dataBr(e.vencimento)}
                       </TableCell>
                       <TableCell align="right" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontSize: 12.5, pr: 2.5 }}>
                         {brl(Number(e.valor))}
+                        {linhaAcrescimo(e) ? (
+                          <Typography sx={{ fontSize: 10.5, fontWeight: 600, color: '#B45309', lineHeight: 1.2 }}>{linhaAcrescimo(e)}</Typography>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   )
@@ -1104,21 +1123,23 @@ export function InboxDdaPage() {
           </Button>
         </DialogActions>
       </Dialog>
-      {novaAberta ? (
+      {(novaAberta || editando) ? (
         <DespesaForm
-          key="nova-inbox"
+          key={editando?.id || 'nova-inbox'}
           aberto
-          inicial={null}
+          inicial={editando}
           empresas={empresas}
-          onFechar={() => setNovaAberta(false)}
+          onFechar={() => { setNovaAberta(false); setEditando(null) }}
           onSalvou={(mensagem, criado) => {
             setNovaAberta(false)
+            setEditando(null)
             const vencimento = criado?.vencimento || ''
             if (vencimento) {
               setDe((atual) => (vencimento < atual ? vencimento : atual))
               setAte((atual) => (vencimento > atual ? vencimento : atual))
             }
             setAba(0)
+            setErro('')
             carregar(loja)
             setAviso(mensagem)
           }}
@@ -1126,6 +1147,11 @@ export function InboxDdaPage() {
       ) : null}
     </Stack>
   )
+}
+
+function prontaParaAgenda(e: Despesa) {
+  if (e.fonte !== 'manual') return true
+  return Number(e.valor) > 0 && !!e.vencimento
 }
 
 function Selo({
@@ -1180,6 +1206,7 @@ function SimbolosDda({
   vencida,
   ocupado,
   t,
+  onEditar,
   onNota,
   onDanfe,
   onAgenda,
@@ -1188,11 +1215,13 @@ function SimbolosDda({
   vencida: boolean
   ocupado: boolean
   t: (pt: string, en: string) => string
+  onEditar?: () => void
   onNota: () => void
   onDanfe: () => void
   onAgenda: () => void
 }) {
   const manual = despesa.fonte === 'manual'
+  const podeEnviar = prontaParaAgenda(despesa)
   const temNf = !!despesa.tem_nfe_receita || !!despesa.nfe_recebida_id
   return (
     <Stack direction="row" spacing={0.25} sx={{ alignItems: 'center' }}>
@@ -1230,8 +1259,17 @@ function SimbolosDda({
       </Tooltip>
         </>
       )}
+      {manual && (
+        <Tooltip title={t('Informar valor, juros e total', 'Enter amount, interest and total')}>
+          <IconButton size="small" onClick={onEditar} sx={{ p: 0.25, color: COR_MANUAL }}>
+            <EditOutlinedIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </Tooltip>
+      )}
       <Tooltip title={manual
-        ? t('Confirmar e mandar para a agenda', 'Confirm and send to the schedule')
+        ? (podeEnviar
+          ? t('Confirmar e mandar para a agenda', 'Confirm and send to the schedule')
+          : t('Informe o valor e o dia de pagamento antes de enviar', 'Enter the amount and payment date before sending'))
         : temNf
           ? t('Tem NF unida. Enviar pede confirmação', 'Linked invoice. Send asks for confirmation')
           : t('Enviar para a agenda', 'Send to the agenda')}
@@ -1239,7 +1277,7 @@ function SimbolosDda({
         <span>
           <IconButton
             size="small"
-            disabled={ocupado || !despesa.id}
+            disabled={ocupado || !despesa.id || (manual && !podeEnviar)}
             onClick={onAgenda}
             sx={{ p: 0.25, color: '#D97706' }}
           >
