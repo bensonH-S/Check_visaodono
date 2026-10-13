@@ -37,7 +37,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
-import { api, brl, emCache, urlDespesas, urlEmpresas, type Despesa, type Empresa, type Fornecedor } from '../api'
+import { api, brl, emCache, estaNoInbox, urlDespesas, urlEmpresas, type Despesa, type Empresa, type Fornecedor } from '../api'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
@@ -171,7 +171,6 @@ export function ContasPagarPage() {
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>('Todas')
   const [pagina, setPagina] = useState(0)
   const [porPagina, setPorPagina] = useState(20)
-  const [aberto, setAberto] = useState(false)
   const [editando, setEditando] = useState<Despesa | null>(null)
   const [excluir, setExcluir] = useState<Despesa | null>(null)
   const [excluindo, setExcluindo] = useState(false)
@@ -203,8 +202,9 @@ export function ContasPagarPage() {
     carregar(params.get('loja') || '')
   }, [])
 
-  /** Agenda banco: DDA só depois de confirmado (status pronta+). Manual entra direto. */
+  /** Agenda banco: DDA e despesa manual nova só depois da confirmação no Inbox. */
   const naAgenda = useMemo(() => despesas.filter((e) => {
+    if (estaNoInbox(e)) return false
     if (e.fonte === 'dda') return ['pronta', 'autorizada', 'enviada', 'paga', 'conciliada'].includes(e.status)
     return true
   }), [despesas])
@@ -292,19 +292,6 @@ export function ContasPagarPage() {
         >
           {t('Importar', 'Import')}
         </Button>
-        <Button
-          type="button"
-          size="small"
-          variant="contained"
-          startIcon={<AddIcon sx={{ fontSize: 16 }} />}
-          onClick={() => {
-            setEditando(null)
-            setAberto(true)
-          }}
-          sx={finBtnContainedSx}
-        >
-          {t('Nova despesa', 'New expense')}
-        </Button>
       </Stack>
 
       <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap' }}>
@@ -382,8 +369,8 @@ export function ContasPagarPage() {
                           'Adjust the period, store or filter above to see other entries.',
                         )
                         : t(
-                          'Clique em “Nova despesa” ou “Importar” para lançar na agenda. Os boletos do Inbox entram depois da NF conferida.',
-                          'Click “New expense” or “Import” to add to the agenda. Inbox boletos appear after the invoice is checked.',
+                          'Crie a despesa no Inbox e confirme para ela entrar aqui. Importar ainda lança direto na agenda. Os boletos do Inbox entram depois da confirmação.',
+                          'Create the expense in the Inbox and confirm it to land here. Import still posts straight to the agenda. Inbox boletos appear after confirmation.',
                         )
                     }
                   />
@@ -582,14 +569,14 @@ export function ContasPagarPage() {
         </DialogActions>
       </Dialog>
 
-      {(aberto || editando) ? (
+      {editando ? (
         <DespesaForm
-          key={editando?.id || 'nova'}
+          key={editando.id}
           aberto
           inicial={editando}
           empresas={empresas}
-          onFechar={() => { setAberto(false); setEditando(null) }}
-          onSalvou={(mensagem) => { setAberto(false); setEditando(null); carregar(); setAviso(mensagem) }}
+          onFechar={() => setEditando(null)}
+          onSalvou={(mensagem) => { setEditando(null); carregar(); setAviso(mensagem) }}
         />
       ) : null}
       <ImportarArquivosDialog
@@ -1259,12 +1246,12 @@ function parseMoeda(texto: string) {
   return Number(limpo)
 }
 
-function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
+export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   aberto: boolean
   inicial: Despesa | null
   empresas: Empresa[]
   onFechar: () => void
-  onSalvou: (mensagem: string) => void
+  onSalvou: (mensagem: string, criado?: { vencimento: string | null }) => void
 }) {
   const { t } = usePrefs()
   const lojas = empresas.filter((e) => e.tipo === 'loja')
@@ -1346,7 +1333,12 @@ function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
       }
       if (inicial) await api.atualizarDespesa(inicial.id, corpo)
       else await api.criarDespesa(corpo)
-      onSalvou(inicial ? t('Despesa atualizada.', 'Expense updated.') : t('Despesa cadastrada.', 'Expense created.'))
+      onSalvou(
+        inicial
+          ? t('Despesa atualizada.', 'Expense updated.')
+          : t('Despesa criada no inbox. Confirme para ela entrar na Agenda banco.', 'Expense created in the inbox. Confirm it to add it to the bank schedule.'),
+        inicial ? undefined : { vencimento: vencimento || null },
+      )
     } catch (err) {
       const msg = err instanceof Error ? err.message : t('Não salvou', 'Could not save')
       showToast(msg, 'error')
@@ -1562,7 +1554,7 @@ function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', px: 3, py: 2, borderTop: `1px solid ${FIN_BORDER}`, bgcolor: FIN_SURFACE }}>
           <Button onClick={onFechar} sx={{ color: FIN_MUTED }}>{t('Cancelar', 'Cancel')}</Button>
           <Button variant="contained" onClick={salvar} sx={finBtnContainedSx}>
-            {inicial ? t('Salvar', 'Save') : t('Criar rascunho', 'Create draft')}
+            {inicial ? t('Salvar', 'Save') : t('Criar no inbox', 'Create in inbox')}
           </Button>
         </Stack>
       </Stack>

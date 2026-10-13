@@ -127,7 +127,7 @@ export function useCcData({ podeFinanceiro, data }: { podeFinanceiro: boolean; d
   const cacheDesp = podeFinanceiro ? emCache<Despesa[]>(urlDesp) : undefined;
   const cacheCont = cacheContagemQualquer(data);
 
-  const [despesas, setDespesas] = useState<Despesa[]>(() => cacheDesp ?? []);
+  const [despesas, setDespesas] = useState<Despesa[]>(() => (cacheDesp ?? []).filter((d) => !d.pendente_inbox));
   const [contagem, setContagem] = useState<EstoqueContagemRedeItem[]>(() => cacheCont ?? []);
   const [loading, setLoading] = useState(() => podeFinanceiro && !cacheDesp);
   /** Só skeleton se não há nada pra mostrar. */
@@ -147,7 +147,7 @@ export function useCcData({ podeFinanceiro, data }: { podeFinanceiro: boolean; d
         .despesas()
         .then((lista) => {
           if (cancel) return;
-          setDespesas(lista);
+          setDespesas(lista.filter((d) => !d.pendente_inbox));
           setErroFin('');
           setLoading(false);
         })

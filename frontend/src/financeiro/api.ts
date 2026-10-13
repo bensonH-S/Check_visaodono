@@ -86,6 +86,18 @@ export type Despesa = {
   tem_nfe_receita?: boolean
   nfe_chave?: string | null
   nfe_tem_xml?: boolean
+  /** true = criada na tela e ainda não confirmada no Inbox */
+  pendente_inbox?: boolean
+}
+
+const STATUS_INBOX = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
+
+/** Título que ainda espera confirmação no Inbox (DDA ou despesa manual nova). */
+export function estaNoInbox(e: Pick<Despesa, 'fonte' | 'status' | 'pendente_inbox'>) {
+  if (!STATUS_INBOX.has(e.status)) return false
+  if (e.fonte === 'dda') return true
+  if (e.fonte === 'manual') return e.pendente_inbox === true
+  return false
 }
 
 import { apiBasePath } from '../config/paths'

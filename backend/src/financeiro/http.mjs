@@ -70,6 +70,7 @@ function nomeBancoFinanceiro() {
 
 async function garantirSchemaFonte(db) {
   await db.query(fs.readFileSync(path.join(root, 'db', '010_despesa_fonte.sql'), 'utf8'))
+  await db.query(fs.readFileSync(path.join(root, 'db', '015_despesa_pendente_inbox.sql'), 'utf8'))
   try {
     const { garantirSchemaFreecontrol } = await import('./lib/importFreecontrol.mjs')
     await garantirSchemaFreecontrol(db)
@@ -518,6 +519,10 @@ async function amarrarNotas() {
            status = case
              when status in ('rascunho', 'classificada', 'bloqueada_duplicata') then 'pronta'
              else status
+           end,
+           pendente_inbox = case
+             when status in ('rascunho', 'classificada', 'bloqueada_duplicata') then false
+             else pendente_inbox
            end
          where id = $1 and nf_confirmada = false`,
         [cruzamento.despesa_id, cruzamento.nfe_id],
@@ -526,7 +531,7 @@ async function amarrarNotas() {
   }
   // Já tinham NF conferida e ainda estavam no inbox (legado / corrida).
   await pool.query(`
-    update despesas set status = 'pronta'
+    update despesas set status = 'pronta', pendente_inbox = false
     where nf_confirmada = true
       and status in ('rascunho', 'classificada', 'bloqueada_duplicata')
   `)
@@ -580,7 +585,8 @@ async function listarDespesas(empresaId) {
            nr.id as nfe_recebida_id,
            (nr.id is not null) as tem_nfe_receita,
            nr.chave as nfe_chave,
-           nr.tem_xml as nfe_tem_xml
+           nr.tem_xml as nfe_tem_xml,
+           coalesce(d.pendente_inbox, false) as pendente_inbox
     from despesas d
     join empresas eo on eo.id = d.empresa_origem_id
     left join (
@@ -941,8 +947,8 @@ export async function handleFinance(req, res) {
       const inserted = await pool.query(`
         insert into despesas (
           id, descricao, fornecedor_id, empresa_origem_id, empresa_registro_id, conta_saida_id, plano_conta_id,
-          documento_ref, competencia, vencimento, valor, forma_pagamento, dados_pagamento, status, fonte
-        ) values (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'manual')
+          documento_ref, competencia, vencimento, valor, forma_pagamento, dados_pagamento, status, fonte, pendente_inbox
+        ) values (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'manual', true)
         returning id, status
       `, [
         String(body.descricao).trim(),
@@ -998,7 +1004,7 @@ export async function handleFinance(req, res) {
       }
       if (paraAtualizar.length) {
         const up = await pool.query(
-          `update despesas set status = 'pronta'
+          `update despesas set status = 'pronta', pendente_inbox = false
            where id = any($1::uuid[])
              and status not in ('paga', 'conciliada', 'cancelada', 'pronta', 'autorizada', 'enviada')
            returning id::text as id, status`,

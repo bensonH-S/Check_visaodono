@@ -23,12 +23,14 @@ import Tabs from '@mui/material/Tabs'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
 import IconButton from '@mui/material/IconButton'
+import AddIcon from '@mui/icons-material/Add'
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
-import { api, brl, emCache, urlDespesas, urlEmpresas, urlNotas, type Despesa, type Empresa, type NotaReceita } from '../api'
+import { api, brl, emCache, estaNoInbox, urlDespesas, urlEmpresas, urlNotas, type Despesa, type Empresa, type NotaReceita } from '../api'
+import { DespesaForm } from './ContasPagarPage'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
@@ -142,7 +144,8 @@ const paperInboxSx = {
 } as const
 
 const INBOX_STATUS = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
-const FILTROS = ['Todas', 'Vencidas', 'NF confirmada', 'Aguardando NF'] as const
+const FILTROS = ['Todas', 'Manuais', 'Vencidas', 'NF confirmada', 'Aguardando NF'] as const
+const COR_MANUAL = '#D97706'
 const FILTROS_NF = ['Todas', 'Autorizadas', 'Canceladas', 'Com XML'] as const
 const hoje = new Date().toISOString().slice(0, 10)
 
@@ -231,8 +234,9 @@ export function InboxDdaPage() {
     texto: string
     ids?: string[]
     notaId?: string
-    modo: 'dda' | 'nf-dda' | 'nf-nova'
+    modo: 'dda' | 'nf-dda' | 'nf-nova' | 'manual'
   } | null>(null)
+  const [novaAberta, setNovaAberta] = useState(false)
 
   const carregarNotas = (empresa = loja) =>
     api.notasReceita(empresa || undefined).then((r) => {
@@ -257,13 +261,13 @@ export function InboxDdaPage() {
   }, [])
 
   const inbox = useMemo(
-    () => despesas.filter((e) => e.fonte === 'dda' && INBOX_STATUS.has(e.status)),
+    () => despesas.filter((e) => estaNoInbox(e)),
     [despesas],
   )
 
   const noPeriodo = useMemo(() => inbox.filter((e) => {
     const vencimento = (e.vencimento || '').slice(0, 10)
-    if (!vencimento) return !de && !ate
+    if (!vencimento) return e.fonte === 'manual' || (!de && !ate)
     if (de && vencimento < de) return false
     if (ate && vencimento > ate) return false
     return true
@@ -273,9 +277,10 @@ export function InboxDdaPage() {
     const filtradas = noPeriodo.filter((e) => {
       const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.numero_nf ?? ''}`.toLowerCase()
       if (busca && !texto.includes(busca.toLowerCase())) return false
+      if (filtro === 'Manuais') return e.fonte === 'manual'
       if (filtro === 'Vencidas') return !!e.vencimento && e.vencimento < hoje
       if (filtro === 'NF confirmada') return e.nf_confirmada
-      if (filtro === 'Aguardando NF') return !e.nf_confirmada
+      if (filtro === 'Aguardando NF') return e.fonte !== 'manual' && !e.nf_confirmada
       return true
     })
     return ordenarLancamentosPorEmpresa(filtradas, empresas)
@@ -464,14 +469,24 @@ export function InboxDdaPage() {
         return
       }
       setMarcadas(new Set())
-      setAviso(t(
-        ok === 1
-          ? 'Boleto enviado para a agenda. Ele sai deste inbox; a nota fiscal continua na outra aba.'
-          : `${ok} boletos enviados para a agenda. Eles saem deste inbox; as notas fiscais continuam na outra aba.`,
-        ok === 1
-          ? 'Boleto sent to the agenda. It leaves this inbox; the invoice stays on the other tab.'
-          : `${ok} boletos sent to the agenda. They leave this inbox; invoices stay on the other tab.`,
-      ))
+      const soManual = ids.every((id) => despesas.find((item) => item.id === id)?.fonte === 'manual')
+      setAviso(soManual
+        ? t(
+          ok === 1
+            ? 'Despesa confirmada. Ela entrou na Agenda banco.'
+            : `${ok} despesas confirmadas. Elas entraram na Agenda banco.`,
+          ok === 1
+            ? 'Expense confirmed. It is on the bank schedule.'
+            : `${ok} expenses confirmed. They are on the bank schedule.`,
+        )
+        : t(
+          ok === 1
+            ? 'Boleto enviado para a agenda. Ele sai deste inbox; a nota fiscal continua na outra aba.'
+            : `${ok} boletos enviados para a agenda. Eles saem deste inbox; as notas fiscais continuam na outra aba.`,
+          ok === 1
+            ? 'Boleto sent to the agenda. It leaves this inbox; the invoice stays on the other tab.'
+            : `${ok} boletos sent to the agenda. They leave this inbox; invoices stay on the other tab.`,
+        ))
       await Promise.all([carregar(loja), carregarNotas(loja)])
     } catch (err) {
       setErro(err instanceof Error ? err.message : t('Não enviou', 'Could not send'))
@@ -482,6 +497,21 @@ export function InboxDdaPage() {
 
   const enviar = (ids = [...marcadas]) => {
     if (!ids.length) return
+    const manuais = ids.filter((id) => despesas.find((item) => item.id === id)?.fonte === 'manual')
+    if (manuais.length) {
+      setConfirmacao({
+        modo: 'manual',
+        ids,
+        titulo: manuais.length === 1
+          ? t('Confirmar despesa?', 'Confirm this expense?')
+          : t(`Confirmar ${manuais.length} despesas?`, `Confirm ${manuais.length} expenses?`),
+        texto: t(
+          'Depois da confirmação, a despesa entra na Agenda banco e sai deste inbox.',
+          'After confirmation, the expense goes to the bank schedule and leaves this inbox.',
+        ),
+      })
+      return
+    }
     const comNf = ids.filter((id) => {
       const d = despesas.find((item) => item.id === id)
       return !!(d?.tem_nfe_receita || d?.nfe_recebida_id)
@@ -514,7 +544,7 @@ export function InboxDdaPage() {
       await executarLancarNota(pedido.notaId)
       return
     }
-    if ((pedido.modo === 'dda' || pedido.modo === 'nf-dda') && pedido.ids?.length) {
+    if ((pedido.modo === 'dda' || pedido.modo === 'nf-dda' || pedido.modo === 'manual') && pedido.ids?.length) {
       await executarEnvioDda(pedido.ids)
     }
   }
@@ -675,6 +705,21 @@ export function InboxDdaPage() {
             <Button
               type="button"
               size="small"
+              variant="contained"
+              startIcon={<AddIcon sx={{ fontSize: 16 }} />}
+              onClick={() => setNovaAberta(true)}
+              sx={{
+                color: '#fff',
+                bgcolor: '#1B6EF3',
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#0D4ECC', boxShadow: 'none' },
+              }}
+            >
+              {t('Nova despesa', 'New expense')}
+            </Button>
+            <Button
+              type="button"
+              size="small"
               variant="outlined"
               onClick={abrirAgenda}
               sx={{ color: INBOX_TEXT, borderColor: INBOX_BORDER, '&:hover': { borderColor: '#1B6EF3', bgcolor: 'rgba(27,110,243,0.1)' } }}
@@ -721,7 +766,7 @@ export function InboxDdaPage() {
       <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
         {aba === 0 ? (
           <>
-            <Resumo cor="#1B6EF3" rotulo={t('No inbox', 'In inbox')} valor={String(noPeriodo.length)} detalhe={t('boletos DDA', 'DDA boletos')} />
+            <Resumo cor="#1B6EF3" rotulo={t('No inbox', 'In inbox')} valor={String(noPeriodo.length)} detalhe={t('aguardando confirmação', 'waiting for confirmation')} />
             <Resumo cor="#10B981" rotulo={t('NF conferida', 'Invoice checked')} valor={String(comNf.length)} detalhe={t('prontos para agenda', 'ready for schedule')} />
             <Resumo cor="#F59E0B" rotulo={t('Aguardando NF', 'Awaiting invoice')} valor={String(semNf.length)} detalhe={t('gestor no app', 'manager in the app')} />
             <Resumo cor="#EF4444" rotulo={t('Vencidas', 'Overdue')} valor={String(vencidas.length)} detalhe={t('no inbox', 'in inbox')} alerta={vencidas.length > 0} />
@@ -737,7 +782,10 @@ export function InboxDdaPage() {
       </Stack>
 
       <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>
-        {(aba === 0 ? FILTROS : FILTROS_NF).map((item) => (
+        {(aba === 0 ? FILTROS : FILTROS_NF).map((item) => {
+          const ativo = (aba === 0 ? filtro : filtroNf) === item
+          const manual = item === 'Manuais'
+          return (
           <Chip
             key={item}
             size="small"
@@ -747,13 +795,18 @@ export function InboxDdaPage() {
             sx={{
               height: 24,
               fontSize: 11,
-              bgcolor: (aba === 0 ? filtro : filtroNf) === item ? 'rgba(27, 110, 243, 0.1)' : INBOX_SURFACE,
-              borderColor: (aba === 0 ? filtro : filtroNf) === item ? '#1B6EF3' : INBOX_BORDER,
-              color: (aba === 0 ? filtro : filtroNf) === item ? '#0D4ECC' : INBOX_MUTED,
-              fontWeight: (aba === 0 ? filtro : filtroNf) === item ? 600 : 500,
+              bgcolor: ativo
+                ? (manual ? 'rgba(217, 119, 6, 0.16)' : 'rgba(27, 110, 243, 0.1)')
+                : (manual ? 'rgba(217, 119, 6, 0.08)' : INBOX_SURFACE),
+              borderColor: ativo
+                ? (manual ? COR_MANUAL : '#1B6EF3')
+                : (manual ? 'rgba(217, 119, 6, 0.45)' : INBOX_BORDER),
+              color: manual ? '#B45309' : (ativo ? '#0D4ECC' : INBOX_MUTED),
+              fontWeight: ativo || manual ? 600 : 500,
             }}
           />
-        ))}
+          )
+        })}
       </Stack>
 
       <Tabs
@@ -778,7 +831,7 @@ export function InboxDdaPage() {
         <Tab
           icon={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 18 }} />}
           iconPosition="start"
-          label={t(`DDA (${linhas.length})`, `DDA (${linhas.length})`)}
+          label={t(`A confirmar (${linhas.length})`, `To confirm (${linhas.length})`)}
         />
         <Tab
           icon={<ReceiptLongOutlinedIcon sx={{ fontSize: 18 }} />}
@@ -817,15 +870,15 @@ export function InboxDdaPage() {
                         icone={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 40 }} />}
                         titulo={
                           inbox.length
-                            ? t('Nenhum boleto neste filtro', 'No boletos in this filter')
-                            : t('Nenhum boleto DDA no período', 'No DDA boletos in this period')
+                            ? t('Nenhum título neste filtro', 'No titles in this filter')
+                            : t('Nada aguardando confirmação', 'Nothing waiting for confirmation')
                         }
                         texto={
                           inbox.length
                             ? t('Ajuste o período, a loja ou o filtro acima para ver outros títulos.', 'Adjust the period, store or filter above to see other titles.')
                             : t(
-                              'A coleta DDA roda sozinha. Quando chegar título novo, confira a NF e envie para a agenda.',
-                              'DDA pulls run automatically. When a new title arrives, check the invoice and send it to the schedule.',
+                              'Nova despesa entra aqui. Confirme para ela ir à Agenda banco. Os boletos DDA também aparecem nesta lista.',
+                              'New expenses land here. Confirm one to send it to the bank schedule. DDA boletos also show in this list.',
                             )
                         }
                       />
@@ -834,9 +887,19 @@ export function InboxDdaPage() {
                 )}
                 {visiveis.map((e) => {
                   const vencida = !!e.vencimento && e.vencimento < hoje
+                  const manual = e.fonte === 'manual'
                   const chave = e.id || `${e.documento_ref || ''}|${e.vencimento || ''}|${e.valor}`
                   return (
-                    <TableRow key={chave} hover selected={!!e.id && marcadas.has(e.id)}>
+                    <TableRow
+                      key={chave}
+                      hover
+                      selected={!!e.id && marcadas.has(e.id)}
+                      sx={manual ? {
+                        bgcolor: 'rgba(217, 119, 6, 0.1)',
+                        '&.Mui-selected': { bgcolor: 'rgba(217, 119, 6, 0.22) !important' },
+                        '&:hover': { bgcolor: 'rgba(217, 119, 6, 0.16) !important' },
+                      } : undefined}
+                    >
                       <TableCell sx={celulaCheckSx}>
                         <Checkbox
                           size="small"
@@ -1037,10 +1100,30 @@ export function InboxDdaPage() {
         <DialogActions sx={{ px: 2.5, pb: 2 }}>
           <Button size="small" onClick={() => setConfirmacao(null)}>{t('Cancelar', 'Cancel')}</Button>
           <Button size="small" variant="contained" disabled={enviando || !!acaoNf} onClick={() => { void confirmarAcao() }}>
-            {t('Sim, enviar', 'Yes, send')}
+            {confirmacao?.modo === 'manual' ? t('Sim, confirmar', 'Yes, confirm') : t('Sim, enviar', 'Yes, send')}
           </Button>
         </DialogActions>
       </Dialog>
+      {novaAberta ? (
+        <DespesaForm
+          key="nova-inbox"
+          aberto
+          inicial={null}
+          empresas={empresas}
+          onFechar={() => setNovaAberta(false)}
+          onSalvou={(mensagem, criado) => {
+            setNovaAberta(false)
+            const vencimento = criado?.vencimento || ''
+            if (vencimento) {
+              setDe((atual) => (vencimento < atual ? vencimento : atual))
+              setAte((atual) => (vencimento > atual ? vencimento : atual))
+            }
+            setAba(0)
+            carregar(loja)
+            setAviso(mensagem)
+          }}
+        />
+      ) : null}
     </Stack>
   )
 }
@@ -1109,10 +1192,17 @@ function SimbolosDda({
   onDanfe: () => void
   onAgenda: () => void
 }) {
+  const manual = despesa.fonte === 'manual'
   const temNf = !!despesa.tem_nfe_receita || !!despesa.nfe_recebida_id
   return (
     <Stack direction="row" spacing={0.25} sx={{ alignItems: 'center' }}>
-      <Selo rotulo="DDA" titulo={t('Boleto DDA', 'DDA boleto')} cor="#0F766E" />
+      <Selo
+        rotulo={manual ? 'MAN' : 'DDA'}
+        titulo={manual ? t('Despesa criada no inbox', 'Expense created in the inbox') : t('Boleto DDA', 'DDA boleto')}
+        cor={manual ? COR_MANUAL : '#0F766E'}
+      />
+      {!manual && (
+        <>
       <Selo
         rotulo="NFE"
         titulo={temNf
@@ -1138,9 +1228,13 @@ function SimbolosDda({
           </IconButton>
         </span>
       </Tooltip>
-      <Tooltip title={temNf
-        ? t('Tem NF unida. Enviar pede confirmação', 'Linked invoice. Send asks for confirmation')
-        : t('Enviar para a agenda', 'Send to the agenda')}
+        </>
+      )}
+      <Tooltip title={manual
+        ? t('Confirmar e mandar para a agenda', 'Confirm and send to the schedule')
+        : temNf
+          ? t('Tem NF unida. Enviar pede confirmação', 'Linked invoice. Send asks for confirmation')
+          : t('Enviar para a agenda', 'Send to the agenda')}
       >
         <span>
           <IconButton
@@ -1243,6 +1337,7 @@ function SimbolosNota({
 function rotuloFiltro(item: string, t: (pt: string, en: string) => string) {
   const mapa: Record<string, [string, string]> = {
     Todas: ['Todas', 'All'],
+    Manuais: ['Manuais', 'Manual'],
     Vencidas: ['Vencidas', 'Overdue'],
     'NF confirmada': ['NF confirmada', 'Invoice confirmed'],
     'Aguardando NF': ['Aguardando NF', 'Awaiting invoice'],
