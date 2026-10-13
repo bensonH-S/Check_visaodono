@@ -892,7 +892,7 @@ export function InboxDdaPage() {
                       sx={checkSx}
                     />
                   </TableCell>
-                  <TableCell align="center" sx={{ width: 176, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
+                  <TableCell align="center" sx={{ width: 168, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
                   <TableCell sx={{ width: '34%' }}>{t('Fornecedor', 'Supplier')}</TableCell>
                   <TableCell align="center" sx={{ width: '16%', ...celulaCentroSx }}>{t('Loja', 'Store')}</TableCell>
                   <TableCell sx={{ width: 108 }}>{t('Vencimento', 'Due date')}</TableCell>
@@ -1270,54 +1270,63 @@ function SimbolosDda({
   const manual = despesa.fonte === 'manual'
   const podeEnviar = prontaParaAgenda(despesa)
   const temNf = !!despesa.tem_nfe_receita || !!despesa.nfe_recebida_id
+  const botao = { width: 26, height: 26, p: 0 }
   return (
-    <Stack direction="row" spacing={0.25} sx={{ alignItems: 'center' }}>
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: '28px 28px 26px 26px 26px',
+        columnGap: '2px',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 'max-content',
+        mx: 'auto',
+      }}
+    >
       <Selo
         rotulo={manual ? 'MAN' : 'DDA'}
         titulo={manual ? t('Despesa criada no inbox', 'Expense created in the inbox') : t('Boleto DDA', 'DDA boleto')}
         cor={manual ? COR_MANUAL : '#0F766E'}
       />
-      {!manual && (
-        <>
-      <Selo
-        rotulo="NFE"
-        titulo={temNf
-          ? t('Tem nota fiscal. Abrir na aba Notas', 'Has invoice. Open Invoices tab')
-          : despesa.nf_confirmada
-            ? t('NF conferida no gestor', 'Invoice checked in stock')
-            : t('Aguardando nota fiscal', 'Awaiting invoice')}
-        cor={temNf || despesa.nf_confirmada ? '#1D4ED8' : '#94A3B8'}
-        onClick={temNf ? onNota : undefined}
-      />
-      <Tooltip title={temNf
-        ? t('Abrir DANFE', 'Open DANFE')
-        : t('DANFE quando a nota chegar', 'DANFE when the invoice arrives')}
-      >
-        <span>
-          <IconButton
-            size="small"
-            disabled={ocupado || !despesa.nfe_recebida_id}
-            onClick={onDanfe}
-            sx={{ p: 0.25, color: despesa.nfe_tem_xml ? '#1D4ED8' : '#94A3B8' }}
-          >
-            <DescriptionOutlinedIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </span>
-      </Tooltip>
-        </>
+      {manual ? (
+        <Selo
+          rotulo="NFE"
+          titulo={t('Despesa manual, sem nota fiscal', 'Manual expense, no invoice')}
+          cor="#94A3B8"
+        />
+      ) : (
+        <Selo
+          rotulo="NFE"
+          titulo={temNf
+            ? t('Tem nota fiscal. Abrir na aba Notas', 'Has invoice. Open Invoices tab')
+            : despesa.nf_confirmada
+              ? t('NF conferida no gestor', 'Invoice checked in stock')
+              : t('Aguardando nota fiscal', 'Awaiting invoice')}
+          cor={temNf || despesa.nf_confirmada ? '#1D4ED8' : '#94A3B8'}
+          onClick={temNf ? onNota : undefined}
+        />
       )}
-      {manual && (
+      {manual ? (
         <Tooltip title={t('Informar valor, juros e total', 'Enter amount, interest and total')}>
-          <IconButton size="small" onClick={onEditar} sx={{ p: 0.25, color: COR_MANUAL }}>
+          <IconButton size="small" onClick={onEditar} sx={{ ...botao, color: COR_MANUAL }}>
             <EditOutlinedIcon sx={{ fontSize: 18 }} />
           </IconButton>
         </Tooltip>
-      )}
-      {manual && onExcluir && (
-        <Tooltip title={t('Excluir despesa', 'Delete expense')}>
-          <IconButton size="small" disabled={ocupado} onClick={onExcluir} sx={{ p: 0.25, color: '#B91C1C' }}>
-            <DeleteOutlineIcon sx={{ fontSize: 18 }} />
-          </IconButton>
+      ) : (
+        <Tooltip title={temNf
+          ? t('Abrir DANFE', 'Open DANFE')
+          : t('DANFE quando a nota chegar', 'DANFE when the invoice arrives')}
+        >
+          <span>
+            <IconButton
+              size="small"
+              disabled={ocupado || !despesa.nfe_recebida_id}
+              onClick={onDanfe}
+              sx={{ ...botao, color: despesa.nfe_tem_xml ? '#1D4ED8' : '#94A3B8' }}
+            >
+              <DescriptionOutlinedIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </span>
         </Tooltip>
       )}
       <Tooltip title={manual
@@ -1333,18 +1342,25 @@ function SimbolosDda({
             size="small"
             disabled={ocupado || !despesa.id || (manual && !podeEnviar)}
             onClick={onAgenda}
-            sx={{ p: 0.25, color: '#D97706' }}
+            sx={{ ...botao, color: '#D97706' }}
           >
             <PaymentsOutlinedIcon sx={{ fontSize: 18 }} />
           </IconButton>
         </span>
       </Tooltip>
-      {vencida ? (
+      {manual && onExcluir ? (
+        <Tooltip title={t('Excluir despesa', 'Delete expense')}>
+          <IconButton size="small" disabled={ocupado} onClick={onExcluir} sx={{ ...botao, color: '#B91C1C' }}>
+            <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </Tooltip>
+      ) : vencida ? (
         <Tooltip title={t('Boleto vencido', 'Overdue boleto')}>
           <WarningAmberOutlinedIcon
             sx={{
               fontSize: 18,
               color: '#DC2626',
+              justifySelf: 'center',
               animation: 'inbox-vencido-pisca 1.4s ease-in-out infinite',
               '@keyframes inbox-vencido-pisca': {
                 '0%, 100%': { opacity: 1 },
@@ -1355,9 +1371,9 @@ function SimbolosDda({
           />
         </Tooltip>
       ) : (
-        <Box sx={{ width: 18, flexShrink: 0 }} />
+        <Box sx={{ width: 26, height: 26 }} />
       )}
-    </Stack>
+    </Box>
   )
 }
 
