@@ -26,6 +26,7 @@ import IconButton from '@mui/material/IconButton'
 import AddIcon from '@mui/icons-material/Add'
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
@@ -239,6 +240,8 @@ export function InboxDdaPage() {
   } | null>(null)
   const [novaAberta, setNovaAberta] = useState(false)
   const [editando, setEditando] = useState<Despesa | null>(null)
+  const [excluir, setExcluir] = useState<Despesa | null>(null)
+  const [excluindo, setExcluindo] = useState(false)
 
   const carregarNotas = (empresa = loja) =>
     api.notasReceita(empresa || undefined).then((r) => {
@@ -494,6 +497,27 @@ export function InboxDdaPage() {
       setErro(err instanceof Error ? err.message : t('Não enviou', 'Could not send'))
     } finally {
       setEnviando(false)
+    }
+  }
+
+  const confirmarExclusao = async () => {
+    if (!excluir) return
+    setExcluindo(true)
+    setErro('')
+    try {
+      await api.excluirDespesa(excluir.id)
+      setMarcadas((atual) => {
+        const next = new Set(atual)
+        next.delete(excluir.id)
+        return next
+      })
+      setExcluir(null)
+      setAviso(t('Despesa excluída.', 'Expense deleted.'))
+      await carregar(loja)
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : t('Não excluiu', 'Could not delete'))
+    } finally {
+      setExcluindo(false)
     }
   }
 
@@ -868,7 +892,7 @@ export function InboxDdaPage() {
                       sx={checkSx}
                     />
                   </TableCell>
-                  <TableCell align="center" sx={{ width: 148, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
+                  <TableCell align="center" sx={{ width: 176, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
                   <TableCell sx={{ width: '34%' }}>{t('Fornecedor', 'Supplier')}</TableCell>
                   <TableCell align="center" sx={{ width: '16%', ...celulaCentroSx }}>{t('Loja', 'Store')}</TableCell>
                   <TableCell sx={{ width: 108 }}>{t('Vencimento', 'Due date')}</TableCell>
@@ -930,6 +954,7 @@ export function InboxDdaPage() {
                             ocupado={enviando || acaoNf?.id === e.nfe_recebida_id}
                             t={t}
                             onEditar={manual ? () => setEditando(e) : undefined}
+                            onExcluir={manual ? () => setExcluir(e) : undefined}
                             onNota={() => verNotaDoDda(e)}
                             onDanfe={() => { void abrirDanfeDoDda(e) }}
                             onAgenda={() => { if (e.id) void enviar([e.id]) }}
@@ -1123,6 +1148,26 @@ export function InboxDdaPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      <Dialog open={!!excluir} onClose={() => { if (!excluindo) setExcluir(null) }} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontSize: 16, fontWeight: 650 }}>{t('Excluir esta despesa?', 'Delete this expense?')}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>
+            {excluir ? rotuloDescricao(excluir) : ''}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, pb: 2 }}>
+          <Button size="small" onClick={() => setExcluir(null)} disabled={excluindo}>{t('Cancelar', 'Cancel')}</Button>
+          <Button
+            size="small"
+            color="error"
+            variant="contained"
+            disabled={excluindo}
+            onClick={() => { void confirmarExclusao() }}
+          >
+            {excluindo ? t('Excluindo…', 'Deleting…') : t('Excluir', 'Delete')}
+          </Button>
+        </DialogActions>
+      </Dialog>
       {(novaAberta || editando) ? (
         <DespesaForm
           key={editando?.id || 'nova-inbox'}
@@ -1207,6 +1252,7 @@ function SimbolosDda({
   ocupado,
   t,
   onEditar,
+  onExcluir,
   onNota,
   onDanfe,
   onAgenda,
@@ -1216,6 +1262,7 @@ function SimbolosDda({
   ocupado: boolean
   t: (pt: string, en: string) => string
   onEditar?: () => void
+  onExcluir?: () => void
   onNota: () => void
   onDanfe: () => void
   onAgenda: () => void
@@ -1263,6 +1310,13 @@ function SimbolosDda({
         <Tooltip title={t('Informar valor, juros e total', 'Enter amount, interest and total')}>
           <IconButton size="small" onClick={onEditar} sx={{ p: 0.25, color: COR_MANUAL }}>
             <EditOutlinedIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </Tooltip>
+      )}
+      {manual && onExcluir && (
+        <Tooltip title={t('Excluir despesa', 'Delete expense')}>
+          <IconButton size="small" disabled={ocupado} onClick={onExcluir} sx={{ p: 0.25, color: '#B91C1C' }}>
+            <DeleteOutlineIcon sx={{ fontSize: 18 }} />
           </IconButton>
         </Tooltip>
       )}
