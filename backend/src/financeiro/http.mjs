@@ -39,6 +39,7 @@ import {
   listarNotasReceita,
 } from './lib/syncNfeSefaz.mjs'
 import { parsePdfDespesa } from './lib/importarPdfDespesa.mjs'
+import { montarPlanilhaBanco, nomeArquivoPlanilha } from './lib/planilhaBanco.mjs'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const portalRoot = path.resolve(root, '..', '..', '..')
@@ -641,7 +642,7 @@ async function listarDespesas(empresaId) {
       order by fornecedor_id
     ) pix on pix.fornecedor_id = d.fornecedor_id
     ${where}
-    order by d.vencimento nulls last, d.descricao
+    order by d.valor desc nulls last, d.vencimento nulls last, d.descricao
   `, params)
   setTimeout(sincronizarNotasEmFundo, 0)
   return rows
@@ -759,6 +760,65 @@ export async function handleFinance(req, res) {
     }
     if (req.method === 'GET' && url.pathname === '/api/despesas') {
       return send(res, 200, JSON.stringify(await listarDespesas(url.searchParams.get('empresa') || '')))
+    }
+    if (req.method === 'GET' && url.pathname === '/api/despesas/planilha-banco') {
+      const de = String(url.searchParams.get('de') || '').slice(0, 10)
+      const ate = String(url.searchParams.get('ate') || '').slice(0, 10)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(de) || !/^\d{4}-\d{2}-\d{2}$/.test(ate) || de > ate) {
+        return send(res, 400, JSON.stringify({ erro: 'Informe o período da agenda.' }))
+      }
+      const empresaId = String(url.searchParams.get('empresa') || '').trim()
+      const params = [de, ate]
+      if (empresaId) params.push(empresaId)
+      const empresas = await pool.query(`
+        select e.id::text as id, e.apelido, e.razao_social, e.tipo
+        from empresas e
+        where e.ativo
+          ${empresaId ? 'and e.id = $1' : ''}
+        order by e.apelido
+      `, empresaId ? [empresaId] : [])
+      const linhas = await pool.query(`
+        select d.empresa_origem_id::text as origem_id,
+               eo.apelido,
+               d.descricao,
+               d.valor::float8 as valor,
+               to_char(d.vencimento, 'YYYY-MM-DD') as vencimento,
+               d.numero_nf,
+               d.forma_pagamento,
+               coalesce(nullif(d.dados_pagamento, ''), pix.chave_pix) as pagamento,
+               d.documento_ref,
+               d.fonte,
+               d.freecontrol_tipo,
+               er.apelido as registrado_em
+        from despesas d
+        join empresas eo on eo.id = d.empresa_origem_id
+        left join empresas er on er.id = d.empresa_registro_id
+        left join (
+          select distinct on (fornecedor_id) fornecedor_id, chave_pix
+          from fornecedor_pagamentos
+          where meio = 'pix' and chave_pix is not null and chave_pix <> ''
+          order by fornecedor_id
+        ) pix on pix.fornecedor_id = d.fornecedor_id
+        where d.status <> 'cancelada'
+          and d.vencimento between $1::date and $2::date
+          and not (
+            d.status in ('rascunho', 'classificada', 'bloqueada_duplicata')
+            and (
+              d.fonte = 'dda'
+              or (coalesce(d.fonte, 'manual') = 'manual' and coalesce(d.pendente_inbox, false))
+            )
+          )
+          ${empresaId ? 'and d.empresa_origem_id = $3' : ''}
+        order by d.valor desc, d.vencimento, d.descricao
+      `, params)
+      const buffer = await montarPlanilhaBanco({ de, ate, empresas: empresas.rows, linhas: linhas.rows })
+      const nome = nomeArquivoPlanilha(de, ate)
+      res.writeHead(200, {
+        'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'content-disposition': `attachment; filename="${nome}"`,
+        'cache-control': 'no-store',
+      })
+      return res.end(buffer)
     }
     if (req.method === 'GET' && /^\/api\/despesas\/[^/]+\/nota$/.test(url.pathname)) {
       const id = url.pathname.split('/')[3]

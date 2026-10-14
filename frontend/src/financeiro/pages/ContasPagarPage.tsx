@@ -36,6 +36,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined'
@@ -181,6 +182,22 @@ export function ContasPagarPage() {
   const [erroExcluir, setErroExcluir] = useState('')
   const [erroBanco, setErroBanco] = useState('')
   const [importarAberto, setImportarAberto] = useState(false)
+  const [baixandoExcel, setBaixandoExcel] = useState(false)
+
+  const baixarExcel = async () => {
+    if (!de || !ate || de > ate) {
+      showToast(t('Escolha o período da agenda.', 'Choose the agenda period.'), 'warning')
+      return
+    }
+    setBaixandoExcel(true)
+    try {
+      await api.baixarPlanilhaBanco(de, ate, loja || undefined)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t('Não gerou a planilha.', 'Could not build the spreadsheet.'), 'error')
+    } finally {
+      setBaixandoExcel(false)
+    }
+  }
 
   const carregar = (empresa = loja) => api.despesas(empresa || undefined).then((rows) => {
     setDespesas(rows)
@@ -285,6 +302,17 @@ export function ContasPagarPage() {
         />
         <Box sx={{ flex: 1 }} />
         <Button type="button" size="small" variant="outlined" onClick={() => navigate('/financeiro/inbox')} sx={finBtnOutlinedSx}>{t('Inbox', 'Inbox')}</Button>
+        <Button
+          type="button"
+          size="small"
+          variant="outlined"
+          startIcon={<FileDownloadOutlinedIcon sx={{ fontSize: 16 }} />}
+          disabled={baixandoExcel}
+          onClick={baixarExcel}
+          sx={finBtnOutlinedSx}
+        >
+          {t('Excel', 'Excel')}
+        </Button>
         <Button
           type="button"
           size="small"

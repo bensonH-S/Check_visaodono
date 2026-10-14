@@ -415,6 +415,23 @@ export const api = {
   contas: () => get<Conta[]>(`${apiRoot}/contas`),
   plano: () => get<Plano[]>(`${apiRoot}/plano`),
   despesas: (empresa?: string) => get<Despesa[]>(urlDespesas(empresa)),
+  baixarPlanilhaBanco: async (de: string, ate: string, empresa?: string) => {
+    const q = new URLSearchParams({ de, ate })
+    if (empresa) q.set('empresa', empresa)
+    const res = await financeFetch(`${apiRoot}/despesas/planilha-banco?${q}`)
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error((data as { erro?: string }).erro || 'Não gerou a planilha')
+    }
+    const disposto = res.headers.get('content-disposition') || ''
+    const nome = /filename="([^"]+)"/.exec(disposto)?.[1] || `BANCO ${de} A ${ate}.xlsx`
+    const url = URL.createObjectURL(await res.blob())
+    const link = document.createElement('a')
+    link.href = url
+    link.download = nome
+    link.click()
+    URL.revokeObjectURL(url)
+  },
   abrirNota: async (id: string) => {
     const res = await financeFetch(`${apiRoot}/despesas/${id}/nota`)
     if (!res.ok) {

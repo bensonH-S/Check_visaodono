@@ -66,9 +66,10 @@ type LancamentoEmpresa = {
   origem?: string | null
   vencimento?: string | null
   descricao?: string | null
+  valor?: number | string | null
 }
 
-/** Agenda/Inbox: mesma ordem do filtro de loja; no mesmo estabelecimento, por vencimento. */
+/** Agenda/Inbox: mesma ordem do filtro de loja; no mesmo estabelecimento, do maior valor para o menor. */
 export function ordenarLancamentosPorEmpresa<T extends LancamentoEmpresa>(lista: T[], empresas: Empresa[]) {
   const ordenadas = ordenarEmpresas(empresas)
   const posicao = new Map(ordenadas.map((e, i) => [e.id, i]))
@@ -81,6 +82,9 @@ export function ordenarLancamentosPorEmpresa<T extends LancamentoEmpresa>(lista:
       ? posicao.get(b.origem_id)!
       : depois + ordemNomeEmpresa(b.origem || '')
     if (ia !== ib) return ia - ib
+    const na = Number(a.valor) || 0
+    const nb = Number(b.valor) || 0
+    if (na !== nb) return nb - na
     const va = (a.vencimento || '').slice(0, 10)
     const vb = (b.vencimento || '').slice(0, 10)
     if (va !== vb) return va.localeCompare(vb)
