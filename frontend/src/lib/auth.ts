@@ -74,17 +74,20 @@ export function atualizarUsuarioSessao(usuario: UsuarioSessao) {
 export function logout() {
   const token = getToken();
   if (token) {
-    void import('../config/paths')
-      .then(({ apiBasePath }) =>
-        fetch(`${apiBasePath}/auth/logout`, {
+    void Promise.all([import('../config/paths'), import('./auditoriaSessao')])
+      .then(([{ apiBasePath }, { getAuditoriaSessaoId, clearAuditoriaSessaoId }]) => {
+        const idSessao = getAuditoriaSessaoId();
+        clearAuditoriaSessaoId();
+        return fetch(`${apiBasePath}/auth/logout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: '{}',
-        }),
-      )
+          body: JSON.stringify({ id_sessao: idSessao }),
+          keepalive: true,
+        });
+      })
       .catch(() => undefined);
   }
   // Mantém mf-idioma (PT/EN) para o próximo login.

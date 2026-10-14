@@ -24,6 +24,7 @@ const ACAO_LABEL = {
   login: 'Entrou no sistema',
   logout: 'Saiu do sistema',
   login_falha: 'Tentativa de acesso falhou',
+  navegar: 'Navegou',
   criar: 'Criou',
   atualizar: 'Alterou',
   excluir: 'Excluiu',
@@ -88,12 +89,14 @@ export async function registrarAuditoria({
   idReferencia = null,
   descricao,
   detalhes = null,
+  ip = null,
+  user_agent = null,
 }) {
   if (!(await garantirTabela())) return;
   try {
     await pool.query(
-      `INSERT INTO sistema_auditoria (id_usuario, modulo, acao, entidade, id_referencia, descricao, detalhes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+      `INSERT INTO sistema_auditoria (id_usuario, modulo, acao, entidade, id_referencia, descricao, detalhes, ip, user_agent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)`,
       [
         idUsuario ?? null,
         String(modulo || 'sistema').slice(0, 40),
@@ -102,9 +105,33 @@ export async function registrarAuditoria({
         idReferencia != null ? String(idReferencia).slice(0, 80) : null,
         String(descricao || '').slice(0, 4000),
         detalhes ? JSON.stringify(detalhes) : null,
+        ip ? String(ip).slice(0, 80) : null,
+        user_agent ? String(user_agent).slice(0, 400) : null,
       ],
     );
   } catch (e) {
+    // Fallback se migration 195 ainda não aplicou colunas ip/user_agent
+    if (String(e.message || '').includes('column') && String(e.message || '').includes('ip')) {
+      try {
+        await pool.query(
+          `INSERT INTO sistema_auditoria (id_usuario, modulo, acao, entidade, id_referencia, descricao, detalhes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)`,
+          [
+            idUsuario ?? null,
+            String(modulo || 'sistema').slice(0, 40),
+            String(acao || 'acao').slice(0, 40),
+            entidade ? String(entidade).slice(0, 60) : null,
+            idReferencia != null ? String(idReferencia).slice(0, 80) : null,
+            String(descricao || '').slice(0, 4000),
+            detalhes ? JSON.stringify(detalhes) : null,
+          ],
+        );
+        return;
+      } catch (e2) {
+        logger.warn('auditoria', 'Falha ao registrar evento', { error: e2.message, modulo, acao });
+        return;
+      }
+    }
     logger.warn('auditoria', 'Falha ao registrar evento', { error: e.message, modulo, acao });
   }
 }
@@ -135,6 +162,7 @@ function classificarAcao(acao, descricao = '') {
     return 'upload';
   }
   if (a === 'login' || a === 'logout' || a === 'login_falha') return 'acesso';
+  if (a === 'navegar') return 'navegacao';
   if (a.includes('criar') || a === 'iniciar' || a === 'criado') return 'criacao';
   if (a.includes('atualizar') || a.includes('salvar') || a.includes('alter') || a === 'finalizar') return 'alteracao';
   if (a.includes('assum') || a.includes('devolver') || a.includes('aprov') || a.includes('fechamento')) {

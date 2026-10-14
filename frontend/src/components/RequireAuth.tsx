@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { normalizeAppRoute } from '../config/paths';
 import { isMobileDevice } from '../utils/device';
 import PageLoading from './PageLoading';
+import AuditTracker from './AuditTracker';
 import Box from '@mui/material/Box';
 import { colors } from '../theme/tokens';
 
@@ -85,5 +86,10 @@ export default function RequireAuth({ children }: { children: React.ReactNode })
     return <Navigate to={loginPath} replace state={{ from: normalizeAppRoute(location.pathname) }} />;
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      <AuditTracker />
+      {children}
+    </>
+  );
 }

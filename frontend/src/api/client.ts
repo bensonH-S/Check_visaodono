@@ -221,6 +221,64 @@ export const api = {
   },
   auditoriaUsuariosFiltro: () =>
     request<AuditoriaUsuarioFiltro[]>('/auditoria/usuarios-filtro'),
+  auditoriaSessaoInicio: (body?: { origem?: string }) =>
+    request<{ id_sessao: number; iniciada_em: string }>('/auditoria/sessao/inicio', {
+      method: 'POST',
+      body: JSON.stringify(body || { origem: 'app' }),
+    }),
+  auditoriaSessaoPing: (id_sessao: number) =>
+    request<{ ok: boolean; id_sessao: number }>('/auditoria/sessao/ping', {
+      method: 'POST',
+      body: JSON.stringify({ id_sessao }),
+    }),
+  auditoriaSessaoFim: (id_sessao: number) =>
+    request<{ ok: boolean }>('/auditoria/sessao/fim', {
+      method: 'POST',
+      body: JSON.stringify({ id_sessao }),
+    }),
+  auditoriaNavegacao: (body: { id_sessao: number; rota: string; titulo?: string }) =>
+    request<{ id_navegacao: number; id_sessao: number; rota: string; titulo: string | null }>(
+      '/auditoria/navegacao',
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
+  auditoriaSessoes: (params?: {
+    page?: number;
+    pageSize?: number;
+    id_usuario?: number;
+    de?: string;
+    ate?: string;
+    abertas?: boolean;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page != null) q.set('page', String(params.page));
+    if (params?.pageSize != null) q.set('pageSize', String(params.pageSize));
+    if (params?.id_usuario != null) q.set('id_usuario', String(params.id_usuario));
+    if (params?.de) q.set('de', params.de);
+    if (params?.ate) q.set('ate', params.ate);
+    if (params?.abertas) q.set('abertas', '1');
+    const s = q.toString();
+    return request<AuditoriaSessoesResposta>(`/auditoria/sessoes${s ? `?${s}` : ''}`);
+  },
+  auditoriaNavegacoes: (params?: {
+    page?: number;
+    pageSize?: number;
+    id_usuario?: number;
+    id_sessao?: number;
+    de?: string;
+    ate?: string;
+    rota?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page != null) q.set('page', String(params.page));
+    if (params?.pageSize != null) q.set('pageSize', String(params.pageSize));
+    if (params?.id_usuario != null) q.set('id_usuario', String(params.id_usuario));
+    if (params?.id_sessao != null) q.set('id_sessao', String(params.id_sessao));
+    if (params?.de) q.set('de', params.de);
+    if (params?.ate) q.set('ate', params.ate);
+    if (params?.rota?.trim()) q.set('rota', params.rota.trim());
+    const s = q.toString();
+    return request<AuditoriaNavegacoesResposta>(`/auditoria/navegacoes${s ? `?${s}` : ''}`);
+  },
   logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST', body: '{}' }),
 
   cargos: (params?: { aprovador?: boolean }) => {
@@ -4008,7 +4066,7 @@ export interface AuditoriaEvento {
   modulo_label?: string;
   acao: string;
   acao_label?: string;
-  tipo_acao?: 'acesso' | 'criacao' | 'alteracao' | 'exclusao' | 'upload' | 'operacao' | 'outro';
+  tipo_acao?: 'acesso' | 'criacao' | 'alteracao' | 'exclusao' | 'upload' | 'operacao' | 'navegacao' | 'outro';
   entidade: string | null;
   id_referencia: string | null;
   descricao: string;
@@ -4022,6 +4080,49 @@ export interface AuditoriaUsuarioFiltro {
   nome: string;
   email: string;
   ativo: boolean;
+}
+
+export interface AuditoriaSessao {
+  id_sessao: number;
+  id_usuario: number;
+  usuario_nome: string | null;
+  usuario_email: string | null;
+  iniciada_em: string;
+  ultimo_ping_em: string;
+  encerrada_em: string | null;
+  duracao_segundos: number;
+  ip: string | null;
+  dispositivo: string | null;
+  origem: string | null;
+  aberta: boolean;
+  navegacoes: number;
+}
+
+export interface AuditoriaSessoesResposta {
+  items: AuditoriaSessao[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface AuditoriaNavegacaoItem {
+  id_navegacao: number;
+  id_sessao: number;
+  id_usuario: number;
+  usuario_nome: string | null;
+  usuario_email: string | null;
+  rota: string;
+  titulo: string | null;
+  entrou_em: string;
+  saiu_em: string | null;
+  duracao_segundos: number | null;
+}
+
+export interface AuditoriaNavegacoesResposta {
+  items: AuditoriaNavegacaoItem[];
+  total: number;
+  page: number;
+  pageSize: number;
 }
 
 export interface FrotaDocumento {

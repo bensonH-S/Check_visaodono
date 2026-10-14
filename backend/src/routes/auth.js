@@ -168,13 +168,18 @@ router.post('/logout', authMiddleware, async (req, res, next) => {
       [req.user.sub],
     );
     const u = rows[0];
+    const idSessao = req.body?.id_sessao;
+    if (idSessao) {
+      const { encerrarSessao } = await import('../services/auditoriaSessao.js');
+      await encerrarSessao(req, idSessao);
+    }
     await auditar(req, {
       modulo: 'auth',
       acao: 'logout',
       entidade: 'sessao',
       idReferencia: req.user.sub,
       descricao: u ? `${u.nome} saiu do sistema` : 'Usuário saiu do sistema',
-      detalhes: u ? { email: u.email } : null,
+      detalhes: u ? { email: u.email, id_sessao: idSessao || null } : { id_sessao: idSessao || null },
     });
     res.json({ ok: true });
   } catch (e) {

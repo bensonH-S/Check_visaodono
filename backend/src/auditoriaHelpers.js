@@ -1,4 +1,5 @@
 import { registrarAuditoria } from './services/auditoria.js';
+import { ipDe, uaDe } from './services/auditoriaSessao.js';
 
 const CAMPOS_SENSIVEIS = new Set([
   'senha',
@@ -210,22 +211,26 @@ export function inferirAuditoriaHttp(req) {
 }
 
 /** Registra auditoria e marca a requisição para evitar duplicata no middleware. */
-export function auditar(req, payload) {
+export function auditar(req, payload = {}) {
   if (req) req.auditoriaRegistrada = true;
   return registrarAuditoria({
-    idUsuario: req?.user?.sub ?? payload?.idUsuario ?? null,
     ...payload,
+    idUsuario: req?.user?.sub ?? payload?.idUsuario ?? null,
+    ip: payload.ip ?? (req ? ipDe(req) : null),
+    user_agent: payload.user_agent ?? (req ? uaDe(req) : null),
   });
 }
 
 const IGNORAR_PREFIXOS = ['/public/', '/health'];
-/** Endpoints ruidosos (GPS, push, etc.) — nunca entram na trilha. */
+/** Endpoints ruidosos (GPS, push, telemetria de auditoria) — nunca entram como mutação. */
 const IGNORAR_PATHS = [
   /\/manutencao\/chamados/i,
   /\/frota\/posicao(?:\/|\?|$)/i,
   /\/frota\/rastreamento\/ajustar-rota/i,
   /\/push\/subscribe/i,
   /\/push\/unsubscribe/i,
+  /\/auditoria\/sessao\//i,
+  /\/auditoria\/navegacao$/i,
 ];
 
 function caminhoRequest(req) {
