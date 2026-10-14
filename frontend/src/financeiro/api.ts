@@ -1,5 +1,115 @@
 export type Empresa = { id: string; apelido: string; razao_social: string; tipo: 'loja' | 'holding'; cnpj?: string | null; bk_number?: string | null }
 export type Conta = { id: string; empresa_id: string; nome: string; tipo: string; apelido: string }
+export type ConciliacaoDiaResumo = {
+  data: string
+  total_extrato: number
+  pendente_extrato: number
+  qtd_extrato: number
+  total_sistema: number
+  pendente_sistema: number
+  qtd_sistema: number
+  ok: boolean
+}
+export type ContaExtrato = { id: string; rotulo: string; apelido: string }
+export class ContaNaoIdentificada extends Error {
+  contas: ContaExtrato[]
+  constructor(mensagem: string, contas: ContaExtrato[]) {
+    super(mensagem || 'Não identifiquei a conta do extrato.')
+    this.contas = contas
+  }
+}
+export type ConciliacaoSemana = {
+  de: string
+  ate: string
+  contas: ContaExtrato[]
+  dias: ConciliacaoDiaResumo[]
+}
+export type ConciliacaoLancamento = {
+  id: string
+  empresa_id: string
+  loja: string
+  conta_nome: string | null
+  banco: string | null
+  operacao: string
+  estorno?: boolean
+  valor: number
+  data_contabil: string
+  historico: string | null
+  documento_ref: string | null
+  status: string
+  despesa_id: string | null
+  sugerido_despesa_id: string | null
+  despesa_descricao?: string | null
+}
+export type ConciliacaoContaPeriodo = {
+  id: string
+  empresa_id: string
+  apelido: string
+  nome: string | null
+  banco: string | null
+  agencia: string | null
+  numero: string | null
+  digito: string | null
+}
+export type ConciliacaoResumo = {
+  entradas: number
+  saidas: number
+  liquido: number
+  qtd: number
+  conciliados: number
+  em_aberto: number
+  valor_aberto: number
+  sem_extrato: number
+  valor_sem_extrato: number
+}
+export type ConciliacaoResumoLoja = {
+  tem_extrato: boolean
+  debitos: number
+  conciliados: number
+  abertos_banco: number
+  abertos_sistema: number
+  valor_banco: number
+  valor_sistema: number
+  bate: boolean
+}
+export type ConciliacaoLoja = {
+  empresa_id: string
+  apelido: string
+  resumo: ConciliacaoResumoLoja
+  extrato: ConciliacaoLancamento[]
+  sistema: ConciliacaoDespesa[]
+}
+export type ConciliacaoPainel = {
+  de: string
+  ate: string
+  lojas: ConciliacaoLoja[]
+}
+export type ConciliacaoPeriodo = {
+  conta_id: string | null
+  de: string
+  ate: string
+  contas: ConciliacaoContaPeriodo[]
+  resumo: ConciliacaoResumo
+  extrato: ConciliacaoLancamento[]
+  sistema: ConciliacaoDespesa[]
+}
+export type ConciliacaoDespesa = {
+  id: string
+  descricao: string
+  valor: number
+  vencimento: string | null
+  status: string
+  documento_ref: string | null
+  numero_nf: string | null
+  forma_pagamento: string | null
+  loja: string
+}
+export type ConciliacaoDia = {
+  data: string
+  extrato: ConciliacaoLancamento[]
+  sistema: ConciliacaoDespesa[]
+  sugestoes: Array<{ lancamento_id: string; despesa_id: string }>
+}
 export type Plano = { id: string; nome: string }
 export type PlanoCompleto = {
   id: string
@@ -414,6 +524,74 @@ export const api = {
   empresas: () => get<Empresa[]>(urlEmpresas()),
   contas: () => get<Conta[]>(`${apiRoot}/contas`),
   plano: () => get<Plano[]>(`${apiRoot}/plano`),
+  conciliacaoPainel: (de: string, ate: string) =>
+    get<ConciliacaoPainel>(`${apiRoot}/conciliacao/painel?${new URLSearchParams({ de, ate })}`),
+  conciliacaoPeriodo: (conta: string, de: string, ate: string) =>
+    get<ConciliacaoPeriodo>(`${apiRoot}/conciliacao/periodo?${new URLSearchParams({ conta, de, ate })}`),
+  conciliacaoSemana: (empresa: string, de: string, ate: string) =>
+    get<ConciliacaoSemana>(`${apiRoot}/conciliacao/semana?${new URLSearchParams({ empresa, de, ate })}`),
+  conciliacaoDia: (empresa: string, data: string) =>
+    get<ConciliacaoDia>(`${apiRoot}/conciliacao/dia?${new URLSearchParams({ empresa, data })}`),
+  uploadExtrato: async (nome: string, base64: string, contaId?: string, empresaId?: string) => {
+    const res = await financeFetch(`${apiRoot}/conciliacao/upload`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        conta_id: contaId || null,
+        empresa_id: empresaId || null,
+        nome,
+        base64,
+      }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      const falha = data as { erro?: string; codigo?: string; contas?: ContaExtrato[] }
+      if (falha.codigo === 'conta_nao_identificada') throw new ContaNaoIdentificada(falha.erro || '', falha.contas || [])
+      throw new Error(falha.erro || 'Não importou o extrato')
+    }
+    return data as {
+      arquivo_id: string
+      criadas: number
+      repetidas: number
+      de: string
+      ate: string
+      ja_importado?: boolean
+      conta: string
+      conta_id?: string
+      empresa_id: string
+      conciliadas?: number
+    }
+  },
+  confirmarConciliacao: async (lancamentoId: string, despesaId: string) => {
+    const res = await financeFetch(`${apiRoot}/conciliacao/confirmar`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ lancamento_id: lancamentoId, despesa_id: despesaId }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((data as { erro?: string }).erro || 'Não conciliou')
+    return data
+  },
+  desfazerConciliacao: async (lancamentoId: string) => {
+    const res = await financeFetch(`${apiRoot}/conciliacao/desfazer`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ lancamento_id: lancamentoId }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((data as { erro?: string }).erro || 'Não desfez')
+    return data
+  },
+  marcarSemPar: async (lancamentoId: string) => {
+    const res = await financeFetch(`${apiRoot}/conciliacao/sem-par`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ lancamento_id: lancamentoId }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((data as { erro?: string }).erro || 'Não marcou')
+    return data
+  },
   despesas: (empresa?: string) => get<Despesa[]>(urlDespesas(empresa)),
   baixarPlanilhaBanco: async (de: string, ate: string, empresa?: string) => {
     const q = new URLSearchParams({ de, ate })

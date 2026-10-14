@@ -40,6 +40,17 @@ import {
 } from './lib/syncNfeSefaz.mjs'
 import { parsePdfDespesa } from './lib/importarPdfDespesa.mjs'
 import { montarPlanilhaBanco, nomeArquivoPlanilha } from './lib/planilhaBanco.mjs'
+import {
+  confirmarConciliacao,
+  desfazerConciliacao,
+  diaConciliacao,
+  garantirSchemaConciliacao,
+  importarExtrato,
+  marcarSemPar,
+  painelConciliacao,
+  periodoConciliacao,
+  semanaConciliacao,
+} from './lib/conciliacaoExtrato.mjs'
 
 const root = path.dirname(fileURLToPath(import.meta.url))
 const portalRoot = path.resolve(root, '..', '..', '..')
@@ -819,6 +830,108 @@ export async function handleFinance(req, res) {
         'cache-control': 'no-store',
       })
       return res.end(buffer)
+    }
+    if (req.method === 'GET' && url.pathname === '/api/conciliacao/periodo') {
+      const contaId = String(url.searchParams.get('conta') || '').trim()
+      const de = String(url.searchParams.get('de') || '').slice(0, 10)
+      const ate = String(url.searchParams.get('ate') || '').slice(0, 10)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(de) || !/^\d{4}-\d{2}-\d{2}$/.test(ate) || de > ate) {
+        return send(res, 400, JSON.stringify({ erro: 'Informe o período.' }))
+      }
+      const dias = Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86400000)
+      if (dias > 62) return send(res, 400, JSON.stringify({ erro: 'O período máximo é de 62 dias.' }))
+      await garantirSchemaConciliacao(pool)
+      try {
+        return send(res, 200, JSON.stringify(await periodoConciliacao(pool, { contaId, de, ate })))
+      } catch (err) {
+        return send(res, 400, JSON.stringify({ erro: err.message || 'Não carregou a conciliação.' }))
+      }
+    }
+    if (req.method === 'GET' && url.pathname === '/api/conciliacao/painel') {
+      const de = String(url.searchParams.get('de') || '').slice(0, 10)
+      const ate = String(url.searchParams.get('ate') || '').slice(0, 10)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(de) || !/^\d{4}-\d{2}-\d{2}$/.test(ate) || de > ate) {
+        return send(res, 400, JSON.stringify({ erro: 'Informe a semana.' }))
+      }
+      const dias = Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86400000)
+      if (dias > 21) return send(res, 400, JSON.stringify({ erro: 'A conciliação abre uma semana.' }))
+      await garantirSchemaConciliacao(pool)
+      try {
+        return send(res, 200, JSON.stringify(await painelConciliacao(pool, { de, ate })))
+      } catch (err) {
+        return send(res, 400, JSON.stringify({ erro: err.message || 'Não carregou a conciliação.' }))
+      }
+    }
+    if (req.method === 'GET' && url.pathname === '/api/conciliacao/semana') {
+      const empresaId = String(url.searchParams.get('empresa') || '').trim()
+      const de = String(url.searchParams.get('de') || '').slice(0, 10)
+      const ate = String(url.searchParams.get('ate') || '').slice(0, 10)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(de) || !/^\d{4}-\d{2}-\d{2}$/.test(ate) || de > ate) {
+        return send(res, 400, JSON.stringify({ erro: 'Informe a semana.' }))
+      }
+      await garantirSchemaConciliacao(pool)
+      return send(res, 200, JSON.stringify(await semanaConciliacao(pool, { empresaId, de, ate })))
+    }
+    if (req.method === 'GET' && url.pathname === '/api/conciliacao/dia') {
+      const empresaId = String(url.searchParams.get('empresa') || '').trim()
+      const data = String(url.searchParams.get('data') || '').slice(0, 10)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+        return send(res, 400, JSON.stringify({ erro: 'Informe o dia.' }))
+      }
+      await garantirSchemaConciliacao(pool)
+      return send(res, 200, JSON.stringify(await diaConciliacao(pool, { empresaId, data })))
+    }
+    if (req.method === 'POST' && url.pathname === '/api/conciliacao/upload') {
+      const body = await readBody(req)
+      await garantirSchemaConciliacao(pool)
+      try {
+        return send(res, 201, JSON.stringify(await importarExtrato(pool, {
+          contaId: String(body.conta_id || '').trim() || null,
+          empresaId: String(body.empresa_id || '').trim() || null,
+          nome: body.nome || 'extrato.ofx',
+          base64: body.base64,
+        })))
+      } catch (err) {
+        return send(res, err.codigo ? 422 : 400, JSON.stringify({
+          erro: err.message || 'Não importou o extrato.',
+          codigo: err.codigo || null,
+          contas: err.contas || [],
+        }))
+      }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/conciliacao/confirmar') {
+      const body = await readBody(req)
+      await garantirSchemaConciliacao(pool)
+      try {
+        return send(res, 200, JSON.stringify(await confirmarConciliacao(pool, {
+          lancamentoId: body.lancamento_id,
+          despesaId: body.despesa_id,
+        })))
+      } catch (err) {
+        return send(res, 400, JSON.stringify({ erro: err.message || 'Não conciliou.' }))
+      }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/conciliacao/desfazer') {
+      const body = await readBody(req)
+      await garantirSchemaConciliacao(pool)
+      try {
+        return send(res, 200, JSON.stringify(await desfazerConciliacao(pool, {
+          lancamentoId: body.lancamento_id,
+        })))
+      } catch (err) {
+        return send(res, 400, JSON.stringify({ erro: err.message || 'Não desfez.' }))
+      }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/conciliacao/sem-par') {
+      const body = await readBody(req)
+      await garantirSchemaConciliacao(pool)
+      try {
+        return send(res, 200, JSON.stringify(await marcarSemPar(pool, {
+          lancamentoId: body.lancamento_id,
+        })))
+      } catch (err) {
+        return send(res, 400, JSON.stringify({ erro: err.message || 'Não marcou.' }))
+      }
     }
     if (req.method === 'GET' && /^\/api\/despesas\/[^/]+\/nota$/.test(url.pathname)) {
       const id = url.pathname.split('/')[3]
@@ -1741,6 +1854,7 @@ export function iniciarFinanceiro() {
   garantirSchemaBb(pool).catch((err) => console.error(`[financeiro] bb: ${err.message}`))
   garantirSchemaItau(pool).catch((err) => console.error(`[financeiro] sfg: ${err.message}`))
   garantirSchemaExtratoItau(pool).catch((err) => console.error(`[financeiro] itau extrato: ${err.message}`))
+  garantirSchemaConciliacao(pool).catch((err) => console.error(`[financeiro] conciliacao: ${err.message}`))
   garantirSchemaCaixa(pool).catch((err) => console.error(`[financeiro] caixa: ${err.message}`))
   garantirSchemaSefaz(pool).catch((err) => console.error(`[financeiro] sefaz: ${err.message}`))
   // O que o Hermes ainda deixar no Azimut entra por esta ponte. O recebimento direto é /caixa/ingest.

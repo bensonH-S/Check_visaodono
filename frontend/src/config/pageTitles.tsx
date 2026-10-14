@@ -72,6 +72,13 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
     subtitleEn: 'DDA and Receita Federal invoices',
     icon: <PaymentsOutlinedIcon sx={iconSx} />,
   },
+  '/financeiro/conciliacao': {
+    title: 'Conciliação',
+    titleEn: 'Reconciliation',
+    subtitle: 'Calendário do mês · concilia o dia no extrato',
+    subtitleEn: 'Month calendar · reconcile the day on the statement',
+    icon: <PaymentsOutlinedIcon sx={iconSx} />,
+  },
   '/financeiro/caixa': {
     title: 'Fechamento de caixa',
     titleEn: 'Cash closing',

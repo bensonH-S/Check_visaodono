@@ -27,6 +27,7 @@ import BoltIcon from '@mui/icons-material/Bolt';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import PointOfSaleOutlinedIcon from '@mui/icons-material/PointOfSaleOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
+import CompareArrowsOutlinedIcon from '@mui/icons-material/CompareArrowsOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import FinanceIdiomaToggle from '../financeiro/FinanceIdiomaToggle';
@@ -124,6 +125,7 @@ function PortalLayoutInner() {
   const isFinanceiroRota =
     path === '/financeiro' ||
     path.startsWith('/financeiro/inbox') ||
+    path.startsWith('/financeiro/conciliacao') ||
     path.startsWith('/financeiro/caixa');
   const mostraIdiomaFinanceiro = isFinanceiroRota;
   const idiomaFinanceiro = useIdiomaFinanceiro();
@@ -367,6 +369,13 @@ function PortalLayoutInner() {
       icon: <AccountBalanceOutlinedIcon fontSize="small" />,
       show: podeVerFinanceiro(user),
       end: true,
+      section: secFin,
+    },
+    {
+      to: '/financeiro/conciliacao',
+      label: finEn ? 'Reconciliation' : 'Conciliação',
+      icon: <CompareArrowsOutlinedIcon fontSize="small" />,
+      show: podeVerFinanceiro(user),
       section: secFin,
     },
     {

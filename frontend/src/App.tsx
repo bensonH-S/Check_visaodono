@@ -74,6 +74,7 @@ import {
 } from './financeiro/pages/ConfigPage';
 import { PrefsProvider as FinanceiroPrefsProvider } from './financeiro/prefs';
 import { FechamentoCaixaPage } from './financeiro/pages/FechamentoCaixaPage';
+import { ConciliacaoPage } from './financeiro/pages/ConciliacaoPage';
 import { ModuloPage as FinanceiroModuloPage } from './financeiro/pages/ModuloPage';
 import { VendasPage as FinanceiroVendasPage } from './financeiro/pages/VendasPage';
 import UsuariosPage from './pages/UsuariosPage';
@@ -531,6 +532,7 @@ export default function App() {
             >
               <Route index element={<ContasPagarPage />} />
               <Route path="inbox" element={<InboxDdaPage />} />
+              <Route path="conciliacao" element={<ConciliacaoPage />} />
               <Route path="receber" element={<FinanceiroModuloPage titulo="Contas a receber" />} />
               <Route path="caixa" element={<FechamentoCaixaPage />} />
               <Route path="movimento" element={<FinanceiroModuloPage titulo="Contas movimento" />} />
