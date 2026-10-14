@@ -618,6 +618,7 @@ function PainelDia({
   onSemPar: (lancamentoId: string) => void
   t: (pt: string, en: string) => string
 }) {
+  const [verFeitos, setVerFeitos] = useState(false)
   const ligadas = useMemo(() => new Set(dados.extrato.map((l) => l.despesa_id).filter(Boolean) as string[]), [dados])
   const sistemaPorId = useMemo(() => {
     const mapa = new Map<string, ConciliacaoDespesa>()
@@ -625,27 +626,46 @@ function PainelDia({
     return mapa
   }, [dados])
 
-  const lanc = dados.extrato.find((l) => l.id === selBanco) || null
-  const titulo = dados.sistema.find((d) => d.id === selTitulo) || null
   const bancoAberto = (l: ConciliacaoLancamento) => !l.despesa_id && l.status !== 'sem_par' && l.status !== 'conciliado'
   const tituloAberto = (d: ConciliacaoDespesa) => d.status !== 'conciliada' && !ligadas.has(d.id)
 
+  const bancoPendentes = dados.extrato.filter(bancoAberto)
+  const bancoFeitos = dados.extrato.filter((l) => !bancoAberto(l))
+  const agendaPendentes = dados.sistema.filter(tituloAberto)
+  const agendaFeitos = dados.sistema.filter((d) => !tituloAberto(d))
+
+  const listaBanco = verFeitos ? [...bancoPendentes, ...bancoFeitos] : bancoPendentes
+  const listaAgenda = verFeitos ? [...agendaPendentes, ...agendaFeitos] : agendaPendentes
+
+  const lanc = dados.extrato.find((l) => l.id === selBanco) || null
+  const titulo = dados.sistema.find((d) => d.id === selTitulo) || null
   const podeCasar = !!(
     lanc && titulo && bancoAberto(lanc) && tituloAberto(titulo) && mesmoValor(lanc.valor, titulo.valor)
   )
 
-  const somaBanco = dados.extrato.reduce((s, l) => s + (bancoAberto(l) ? l.valor : 0), 0)
-  const somaAgenda = dados.sistema.reduce((s, d) => s + (tituloAberto(d) ? d.valor : 0), 0)
+  const somaBanco = bancoPendentes.reduce((s, l) => s + l.valor, 0)
+  const somaAgenda = agendaPendentes.reduce((s, d) => s + d.valor, 0)
+  const qtdFeitos = bancoFeitos.filter((l) => l.despesa_id || l.status === 'conciliado').length
 
   return (
     <Box sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-      <Box sx={{ px: 2, py: 1, borderBottom: `1px solid ${FIN_BORDER}`, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Typography sx={{ fontSize: 12.5, color: FIN_MUTED, flex: 1 }}>
-          {t(
-            'O sistema já casou o que deu. Aqui só fica o que ainda precisa de decisão.',
-            'The system already matched what it could. Only leftovers need a decision here.',
-          )}
-        </Typography>
+      <Box sx={{ px: 2, py: 1.1, borderBottom: `1px solid ${FIN_BORDER}`, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Box sx={{ flex: 1, minWidth: 200 }}>
+          <Typography sx={{ fontSize: 13, fontWeight: 650, color: FIN_TEXT }}>
+            {t(
+              `${bancoPendentes.length} no banco sem casar · ${agendaPendentes.length} na agenda sem extrato`,
+              `${bancoPendentes.length} unmatched on bank · ${agendaPendentes.length} unmatched on agenda`,
+            )}
+          </Typography>
+          <Typography sx={{ fontSize: 11.5, color: FIN_MUTED, mt: 0.15 }}>
+            {qtdFeitos
+              ? t(`${qtdFeitos} já conciliado(s) automaticamente — escondidos abaixo.`, `${qtdFeitos} already auto-matched — hidden below.`)
+              : t('Clique um de cada lado com o mesmo valor, ou ignore o que não é título.', 'Click one on each side with the same amount, or ignore non-bills.')}
+          </Typography>
+        </Box>
+        <Button size="small" variant="outlined" onClick={() => setVerFeitos((v) => !v)} sx={{ ...finBtnOutlinedSx, textTransform: 'none' }}>
+          {verFeitos ? t('Só pendentes', 'Open only') : t('Ver conciliados', 'Show matched')}
+        </Button>
         <Button
           size="small"
           variant="contained"
@@ -653,7 +673,7 @@ function PainelDia({
           onClick={() => lanc && titulo && onConfirmar(lanc.id, titulo.id)}
           sx={{ ...finBtnContainedSx, textTransform: 'none', fontWeight: 700 }}
         >
-          {podeCasar ? t('Conciliar selecionados', 'Match selected') : t('Selecione o par', 'Select the pair')}
+          {podeCasar ? t('Conciliar os dois', 'Match both') : t('Selecione os dois', 'Select both')}
         </Button>
         {lanc && bancoAberto(lanc) && (
           <Button
@@ -671,31 +691,37 @@ function PainelDia({
 
       <Box sx={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
         <Coluna
-          titulo={t('Movimentos do sistema', 'System movements')}
-          meta={`${t('Qtd', 'Qty')} ${dados.sistema.length} · ${t('Pendente', 'Open')} ${brl(somaAgenda)}`}
-        >
-          {!dados.sistema.length && (
-            <Typography sx={{ p: 2, fontSize: 12.5, color: FIN_MUTED }}>{t('Nenhum título neste dia.', 'No bills this day.')}</Typography>
+          titulo={t('Agenda (a pagar)', 'Agenda (payables)')}
+          meta={t(
+            `${listaAgenda.length} listado(s) · ${brl(somaAgenda)} em aberto`,
+            `${listaAgenda.length} listed · ${brl(somaAgenda)} open`,
           )}
-          {dados.sistema.map((item) => {
+        >
+          {!listaAgenda.length && (
+            <Typography sx={{ p: 2, fontSize: 12.5, color: FIN_MUTED }}>
+              {verFeitos
+                ? t('Nada neste dia.', 'Nothing this day.')
+                : t('Nada pendente na agenda. Tudo que dava casou, ou não há título.', 'No open agenda items. Everything matched, or there is no bill.')}
+            </Typography>
+          )}
+          {listaAgenda.map((item) => {
             const aberto = tituloAberto(item)
             const ativo = item.id === selTitulo
-            const casa = !!(lanc && aberto && mesmoValor(lanc.valor, item.valor))
+            const mesmo = !!(lanc && aberto && mesmoValor(lanc.valor, item.valor))
             return (
               <LinhaItem
                 key={item.id}
                 ativo={ativo}
-                ok={!aberto}
-                destaque={casa}
+                status={aberto ? (mesmo ? 'par' : 'aberto') : 'ok'}
                 data={dataBr(item.vencimento)}
                 nome={item.descricao}
-                detalhe={[item.numero_nf && `NF ${item.numero_nf}`, item.forma_pagamento, item.loja].filter(Boolean).join(' · ')}
+                detalhe={[item.numero_nf && `NF ${item.numero_nf}`, item.forma_pagamento].filter(Boolean).join(' · ') || undefined}
                 valor={brl(item.valor)}
                 onClick={() => {
                   if (!aberto) return
                   onSelTitulo(item.id)
                   if (lanc && !mesmoValor(lanc.valor, item.valor)) {
-                    const par = dados.extrato.find((l) => bancoAberto(l) && mesmoValor(l.valor, item.valor))
+                    const par = bancoPendentes.find((l) => mesmoValor(l.valor, item.valor))
                     if (par) onSelBanco(par.id)
                   }
                 }}
@@ -705,42 +731,53 @@ function PainelDia({
         </Coluna>
 
         <Coluna
-          titulo={t('Extrato bancário', 'Bank statement')}
-          meta={`${t('Qtd', 'Qty')} ${dados.extrato.length} · ${t('Pendente', 'Open')} ${brl(somaBanco)}`}
+          titulo={t('Extrato do banco', 'Bank statement')}
+          meta={t(
+            `${listaBanco.length} listado(s) · ${brl(somaBanco)} em aberto`,
+            `${listaBanco.length} listed · ${brl(somaBanco)} open`,
+          )}
           borda
         >
-          {!dados.extrato.length && (
-            <Typography sx={{ p: 2, fontSize: 12.5, color: FIN_MUTED }}>{t('Nenhuma saída do extrato neste dia.', 'No statement outflows this day.')}</Typography>
+          {!listaBanco.length && (
+            <Typography sx={{ p: 2, fontSize: 12.5, color: FIN_MUTED }}>
+              {verFeitos
+                ? t('Nenhuma saída neste dia.', 'No outflows this day.')
+                : t('Nada pendente no banco neste dia.', 'Nothing open on the bank this day.')}
+            </Typography>
           )}
-          {dados.extrato.map((item) => {
+          {listaBanco.map((item) => {
             const aberto = bancoAberto(item)
             const sug = item.sugerido_despesa_id ? sistemaPorId.get(item.sugerido_despesa_id) : null
             const ativo = item.id === selBanco
-            const ok = !aberto
+            const status = !aberto
+              ? (item.status === 'sem_par' ? 'ignorado' : 'ok')
+              : sug
+                ? 'par'
+                : 'aberto'
             return (
               <LinhaItem
                 key={item.id}
                 ativo={ativo}
-                ok={ok}
+                status={status}
                 data={dataBr(item.data_contabil)}
                 nome={item.historico || '—'}
                 detalhe={
-                  ok
-                    ? (item.despesa_descricao || t('Conciliado', 'Reconciled'))
+                  !aberto
+                    ? (item.status === 'sem_par'
+                      ? t('Ignorado (não é título)', 'Ignored (not a bill)')
+                      : `${t('Casado com', 'Matched to')}: ${item.despesa_descricao || '—'}`)
                     : sug
-                      ? `${t('Sugestão', 'Suggested')}: ${sug.descricao}`
-                      : item.status === 'sem_par'
-                        ? t('Sem título', 'No bill')
-                        : undefined
+                      ? `${t('Mesmo valor que', 'Same amount as')}: ${sug.descricao}`
+                      : undefined
                 }
                 valor={brl(item.valor)}
                 onClick={() => {
+                  if (!aberto) return
                   onSelBanco(item.id)
                   if (item.sugerido_despesa_id) onSelTitulo(item.sugerido_despesa_id)
-                  else if (item.despesa_id) onSelTitulo(item.despesa_id)
                   else onSelTitulo(null)
                 }}
-                acao={ok ? (
+                acao={!aberto && item.despesa_id ? (
                   <Button size="small" onClick={(ev) => { ev.stopPropagation(); void onDesfazer(item.id) }} sx={{ minWidth: 0, px: 0.5, fontSize: 11, textTransform: 'none', color: FIN_MUTED }}>
                     {t('Desfazer', 'Undo')}
                   </Button>
@@ -763,11 +800,21 @@ function PainelDia({
 
       <DialogActions sx={{ borderTop: `1px solid ${FIN_BORDER}`, px: 2, py: 1, justifyContent: 'space-between' }}>
         <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
-          {t('Soma pendente agenda', 'Open agenda sum')}: {brl(somaAgenda)} · {t('banco', 'bank')}: {brl(somaBanco)}
+          {t('Em aberto', 'Open')}: {t('agenda', 'agenda')} {brl(somaAgenda)} · {t('banco', 'bank')} {brl(somaBanco)}
         </Typography>
+        <Chip
+          size="small"
+          label={ativoLegenda(t)}
+          variant="outlined"
+          sx={{ height: 24, fontSize: 11, borderColor: FIN_BORDER, color: FIN_MUTED }}
+        />
       </DialogActions>
     </Box>
   )
+}
+
+function ativoLegenda(t: (pt: string, en: string) => string) {
+  return t('Azul = selecionado · Laranja = em aberto · Verde = já casado', 'Blue = selected · Amber = open · Green = matched')
 }
 
 function Coluna({
@@ -798,8 +845,7 @@ function LinhaItem({
   detalhe,
   valor,
   ativo,
-  ok,
-  destaque,
+  status,
   onClick,
   acao,
 }: {
@@ -808,41 +854,68 @@ function LinhaItem({
   detalhe?: string
   valor: string
   ativo?: boolean
-  ok?: boolean
-  destaque?: boolean
+  status: 'aberto' | 'par' | 'ok' | 'ignorado'
   onClick?: () => void
   acao?: ReactNode
 }) {
+  const fundo = ativo
+    ? 'rgba(27,110,243,0.12)'
+    : status === 'par'
+      ? 'rgba(245,158,11,0.1)'
+      : status === 'ok'
+        ? 'rgba(16,185,129,0.06)'
+        : 'transparent'
+  const chip = status === 'ok'
+    ? { label: 'OK', color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'rgba(16,185,129,0.1)' }
+    : status === 'ignorado'
+      ? { label: '—', color: FIN_MUTED, border: FIN_BORDER, bg: FIN_SURFACE_ALT }
+      : status === 'par'
+        ? { label: '=', color: '#B45309', border: 'rgba(245,158,11,0.5)', bg: 'rgba(245,158,11,0.12)' }
+        : { label: '?', color: '#B45309', border: 'rgba(245,158,11,0.35)', bg: 'rgba(245,158,11,0.06)' }
+
   return (
     <Box
       onClick={onClick}
       sx={{
         display: 'grid',
-        gridTemplateColumns: '64px minmax(0, 1fr) auto',
+        gridTemplateColumns: '76px 28px minmax(0, 1fr) auto',
         gap: 0.75,
         alignItems: 'center',
         px: 1.25,
         py: 0.9,
         borderBottom: `1px solid ${FIN_BORDER}`,
-        cursor: onClick ? 'pointer' : 'default',
-        bgcolor: ativo
-          ? 'rgba(27,110,243,0.1)'
-          : destaque
-            ? 'rgba(16,185,129,0.08)'
-            : ok
-              ? 'rgba(16,185,129,0.04)'
-              : 'transparent',
-        opacity: ok && !ativo ? 0.7 : 1,
-        '&:hover': onClick ? { bgcolor: 'rgba(27,110,243,0.06)' } : undefined,
+        cursor: onClick && status !== 'ok' && status !== 'ignorado' ? 'pointer' : 'default',
+        bgcolor: fundo,
+        opacity: status === 'ok' || status === 'ignorado' ? 0.72 : 1,
+        boxShadow: ativo ? 'inset 3px 0 0 #1B6EF3' : 'none',
+        '&:hover': onClick && status !== 'ok' && status !== 'ignorado' ? { bgcolor: 'rgba(27,110,243,0.06)' } : undefined,
       }}
     >
-      <Typography sx={{ fontSize: 11.5, color: FIN_MUTED, fontVariantNumeric: 'tabular-nums' }}>{data}</Typography>
+      <Typography sx={{ fontSize: 11.5, color: FIN_MUTED, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+        {data}
+      </Typography>
+      <Box
+        sx={{
+          width: 22,
+          height: 22,
+          borderRadius: '6px',
+          border: `1px solid ${chip.border}`,
+          bgcolor: chip.bg,
+          color: chip.color,
+          fontSize: 11,
+          fontWeight: 700,
+          display: 'grid',
+          placeItems: 'center',
+        }}
+      >
+        {chip.label}
+      </Box>
       <Box sx={{ minWidth: 0 }}>
-        <Typography sx={{ fontSize: 12.5, fontWeight: ativo ? 650 : 500, color: FIN_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <Typography sx={{ fontSize: 12.5, fontWeight: ativo ? 700 : 550, color: FIN_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {nome}
         </Typography>
         {detalhe && (
-          <Typography sx={{ fontSize: 11, color: ok ? '#047857' : destaque ? '#047857' : '#1D4ED8', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <Typography sx={{ fontSize: 11, color: FIN_MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {detalhe}
           </Typography>
         )}

@@ -82,7 +82,21 @@ DATA:OFXSGML
     assert.equal(unico.id, 'd9')
     assert.equal(pareceNaoTitulo({ operacao: 'C', historico: 'CIELO VISA' }), true)
     assert.equal(pareceNaoTitulo({ operacao: 'D', historico: 'TARIFA PACOTE' }), true)
+    assert.equal(pareceNaoTitulo({ operacao: 'D', historico: 'APL APLIC AUT MAIS' }), true)
     assert.equal(pareceNaoTitulo({ operacao: 'D', historico: 'PLATLOG BOLETO' }), false)
+    assert.equal(pareceNaoTitulo(
+      { operacao: 'D', historico: 'PIX ENVIADO BURGER KING 26.075.154/0001-36' },
+      { cnpjsGrupo: ['26075154000136'] },
+    ), true)
+    assert.equal(pareceNaoTitulo(
+      { operacao: 'D', historico: 'PIX ENVIADO FORNECEDOR X 12.345.678/0001-99' },
+      { cnpjsGrupo: ['26075154000136'] },
+    ), false)
+    const porNome = escolherConciliacaoAutomatica(
+      { operacao: 'D', estorno: false, valor: 932.31, data_contabil: '2026-10-09', empresa_id: 'e1', historico: 'BOLETO PAGO SUPRICORP S A' },
+      [{ id: 'd8', empresa_origem_id: 'e1', valor: 932.31, vencimento: '2026-10-09', status: 'pronta', descricao: 'SUPRICORP' }],
+    )
+    assert.equal(porNome?.id, 'd8')
     const sugestoes = sugerirPagar(
       [{ id: 'l1', operacao: 'D', valor: 100.5, data_contabil: '2026-10-12', empresa_id: 'e1', status: 'pendente' }],
       [{ id: 'd1', empresa_origem_id: 'e1', valor: 100.5, vencimento: '2026-10-12', status: 'pronta' }],

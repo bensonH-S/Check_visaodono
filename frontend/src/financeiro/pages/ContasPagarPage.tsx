@@ -83,15 +83,17 @@ const drawerEscuroPaper = {
   borderLeft: `1px solid ${FIN_BORDER}`,
 } as const
 
+const aberta = (e: Despesa) => !['paga', 'conciliada', 'cancelada'].includes(e.status)
+const hoje = new Date().toISOString().slice(0, 10)
+
+/** Agenda banco: só 3 cores — a pagar (azul), pago (verde), vencida (vermelho). */
 function situacao(e: Despesa) {
-  if (e.status === 'conciliada') return 'conciliada'
-  if (e.status === 'paga') return 'paga'
-  if (e.status === 'enviada') return 'enviada'
-  if (e.status === 'autorizada') return 'autorizada'
-  if (e.status === 'pronta') return 'pronta'
+  if (e.status === 'conciliada' || e.status === 'paga') return 'pago'
   if (e.status === 'bloqueada_duplicata') return 'bloqueada_duplicata'
+  if (aberta(e) && e.vencimento && e.vencimento < hoje) return 'vencida'
   return 'a_pagar'
 }
+
 const CODIGO: Record<string, string> = {
   folha: 'Folha Pagamento', cadastro: 'Cadastro', chave_pix: 'Chave PIX',
   boleto: 'Boleto', guia: 'Guia', dinheiro: 'Dinheiro', online: 'Online',
@@ -99,30 +101,18 @@ const CODIGO: Record<string, string> = {
 const FILTROS = ['Todas', 'DDA', 'Free Control', 'Boletos', 'Para autorizar', 'Vencidas', 'NF confirmada'] as const
 
 const TOM_CLARO: Record<string, { color: string; border: string; bg: string }> = {
-  rascunho: { color: '#64748B', border: '#E2E8F0', bg: 'transparent' },
-  classificada: { color: '#0D4ECC', border: 'rgba(27,110,243,0.35)', bg: 'rgba(27,110,243,0.08)' },
-  pronta: { color: '#1D4ED8', border: 'rgba(59,130,246,0.45)', bg: 'rgba(59,130,246,0.1)' },
-  autorizada: { color: '#1D4ED8', border: 'rgba(59,130,246,0.45)', bg: 'rgba(59,130,246,0.1)' },
-  enviada: { color: '#1D4ED8', border: 'rgba(59,130,246,0.45)', bg: 'rgba(59,130,246,0.1)' },
-  paga: { color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'rgba(16,185,129,0.12)' },
-  conciliada: { color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'rgba(16,185,129,0.12)' },
+  a_pagar: { color: '#1D4ED8', border: 'rgba(59,130,246,0.45)', bg: 'rgba(59,130,246,0.1)' },
+  pago: { color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'rgba(16,185,129,0.12)' },
+  vencida: { color: '#B91C1C', border: 'rgba(239,68,68,0.5)', bg: 'rgba(239,68,68,0.1)' },
   bloqueada_duplicata: { color: '#B91C1C', border: 'rgba(239,68,68,0.45)', bg: 'rgba(239,68,68,0.08)' },
-  a_pagar: { color: '#B45309', border: 'rgba(245,158,11,0.5)', bg: 'rgba(245,158,11,0.12)' },
 }
 
 const ROTULO: Record<string, [string, string]> = {
-  conciliada: ['Conciliada', 'Reconciled'],
-  paga: ['Paga', 'Paid'],
-  enviada: ['Enviada', 'Sent'],
-  autorizada: ['Autorizada', 'Authorized'],
-  pronta: ['Para autorizar', 'To authorize'],
-  bloqueada_duplicata: ['Duplicata', 'Duplicate'],
   a_pagar: ['A pagar', 'To pay'],
-  rascunho: ['Rascunho', 'Draft'],
+  pago: ['Pago', 'Paid'],
+  vencida: ['Vencida', 'Overdue'],
+  bloqueada_duplicata: ['Duplicata', 'Duplicate'],
 }
-
-const aberta = (e: Despesa) => !['paga', 'conciliada', 'cancelada'].includes(e.status)
-const hoje = new Date().toISOString().slice(0, 10)
 
 function rotuloDescricao(e: Despesa) {
   return rotuloDespesa(e)
@@ -326,10 +316,25 @@ export function ContasPagarPage() {
       </Stack>
 
       <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap' }}>
-        <Resumo cor="#F59E0B" rotulo={t('A pagar', 'To pay')} valor={brl(soma(aberta))} detalhe={t(`${linhas.filter(aberta).length} em aberto`, `${linhas.filter(aberta).length} open`)} />
-        <Resumo cor="#10B981" rotulo={t('Pago', 'Paid')} valor={brl(soma((e) => e.status === 'paga' || e.status === 'conciliada'))} detalhe={t('já baixadas', 'already settled')} />
-        <Resumo cor="#1B6EF3" rotulo={t('Para autorizar', 'To authorize')} valor={brl(soma((e) => e.status === 'pronta'))} detalhe={t('aguardando o Felipe', 'waiting for Felipe')} />
-        <Resumo cor="#EF4444" rotulo={t('Vencida', 'Overdue')} valor={brl(vencida)} detalhe={t('sem pagar', 'unpaid')} alerta={vencida > 0} />
+        <Resumo
+          cor="#1B6EF3"
+          rotulo={t('A pagar', 'To pay')}
+          valor={brl(soma((e) => aberta(e) && !(e.vencimento && e.vencimento < hoje)))}
+          detalhe={t('no prazo', 'on time')}
+        />
+        <Resumo
+          cor="#10B981"
+          rotulo={t('Pago', 'Paid')}
+          valor={brl(soma((e) => e.status === 'paga' || e.status === 'conciliada'))}
+          detalhe={t('já baixadas', 'already settled')}
+        />
+        <Resumo
+          cor="#EF4444"
+          rotulo={t('Vencida', 'Overdue')}
+          valor={brl(vencida)}
+          detalhe={t('passou do vencimento', 'past due')}
+          alerta={vencida > 0}
+        />
       </Stack>
 
       <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap' }}>

@@ -860,15 +860,16 @@ export function InboxDdaPage() {
             textTransform: 'none',
             gap: 0.75,
             color: INBOX_MUTED,
+            alignItems: 'center',
             '&.Mui-selected': { color: INBOX_TEXT },
           },
-          '& .MuiTab-iconWrapper': { mb: '0 !important', mr: 0 },
+          '& .MuiTab-iconWrapper': { mb: '0 !important', mr: 0, display: 'inline-flex', alignItems: 'center' },
         }}
       >
         <Tab
           icon={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 18 }} />}
           iconPosition="start"
-          label={t(`A confirmar (${linhas.length})`, `To confirm (${linhas.length})`)}
+          label={t(`DDA (${linhas.length})`, `DDA (${linhas.length})`)}
         />
         <Tab
           icon={<ReceiptLongOutlinedIcon sx={{ fontSize: 18 }} />}
@@ -908,14 +909,14 @@ export function InboxDdaPage() {
                         titulo={
                           inbox.length
                             ? t('Nenhum título neste filtro', 'No titles in this filter')
-                            : t('Nada aguardando confirmação', 'Nothing waiting for confirmation')
+                            : t('Nenhum boleto DDA no inbox', 'No DDA boletos in the inbox')
                         }
                         texto={
                           inbox.length
                             ? t('Ajuste o período, a loja ou o filtro acima para ver outros títulos.', 'Adjust the period, store or filter above to see other titles.')
                             : t(
-                              'Nova despesa entra aqui. Confirme para ela ir à Agenda banco. Os boletos DDA também aparecem nesta lista.',
-                              'New expenses land here. Confirm one to send it to the bank schedule. DDA boletos also show in this list.',
+                              'Boletos DDA e despesas manuais entram aqui. Confirme para mandar à Agenda banco.',
+                              'DDA boletos and manual expenses land here. Confirm to send them to the bank schedule.',
                             )
                         }
                       />
@@ -1033,7 +1034,7 @@ export function InboxDdaPage() {
             <Table size="small" stickyHeader sx={{ width: '100%', minWidth: 760, tableLayout: 'fixed' }}>
               <TableHead>
                 <TableRow sx={{ '& .MuiTableCell-head': { verticalAlign: 'middle' } }}>
-                  <TableCell align="center" sx={{ width: 112, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
+                  <TableCell align="center" sx={{ width: 148, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
                   <TableCell sx={{ width: 120 }}>{t('Situação', 'Status')}</TableCell>
                   <TableCell sx={{ width: '32%' }}>{t('Emitente', 'Issuer')}</TableCell>
                   <TableCell align="center" sx={{ width: '15%', ...celulaCentroSx }}>{t('Loja', 'Store')}</TableCell>
@@ -1397,19 +1398,34 @@ function SimbolosNota({
     : semLoja
       ? t('Sem loja com este CNPJ', 'No store for this CNPJ')
       : ''
+  const botao = { width: 26, height: 26, p: 0 }
   return (
-    <Stack direction="row" spacing={0.25} sx={{ alignItems: 'center' }}>
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: '28px 28px 26px 26px 26px',
+        columnGap: '2px',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 'max-content',
+        mx: 'auto',
+      }}
+    >
       <Selo
         rotulo="NFE"
         titulo={cancelada ? t('NF-e cancelada', 'Cancelled NF-e') : t('Nota fiscal eletrônica', 'Electronic invoice')}
         cor={cancelada ? '#DC2626' : '#1D4ED8'}
       />
-      {nota.tem_dda ? (
-        <Selo rotulo="DDA" titulo={t('Tem boleto DDA', 'Has DDA boleto')} cor="#0F766E" />
-      ) : null}
+      <Selo
+        rotulo="DDA"
+        titulo={nota.tem_dda
+          ? t('Tem boleto DDA', 'Has DDA boleto')
+          : t('Sem boleto DDA nesta nota', 'No DDA boleto on this invoice')}
+        cor={nota.tem_dda ? '#0F766E' : '#94A3B8'}
+      />
       <Tooltip title={t('Abrir DANFE', 'Open DANFE')}>
         <span>
-          <IconButton size="small" disabled={ocupado} onClick={onDanfe} sx={{ p: 0.25, color: nota.tem_xml ? '#1D4ED8' : '#94A3B8' }}>
+          <IconButton size="small" disabled={ocupado} onClick={onDanfe} sx={{ ...botao, color: nota.tem_xml ? '#1D4ED8' : '#94A3B8' }}>
             <DescriptionOutlinedIcon sx={{ fontSize: 18 }} />
           </IconButton>
         </span>
@@ -1425,7 +1441,7 @@ function SimbolosNota({
             size="small"
             disabled={ocupado || (cancelada && !nota.despesa_id)}
             onClick={onAgenda}
-            sx={{ p: 0.25, color: nota.despesa_id ? '#D97706' : '#94A3B8' }}
+            sx={{ ...botao, color: nota.despesa_id ? '#D97706' : '#94A3B8' }}
           >
             <PaymentsOutlinedIcon sx={{ fontSize: 18 }} />
           </IconButton>
@@ -1433,12 +1449,12 @@ function SimbolosNota({
       </Tooltip>
       {alerta ? (
         <Tooltip title={alerta}>
-          <WarningAmberOutlinedIcon sx={{ fontSize: 18, color: '#EA580C' }} />
+          <WarningAmberOutlinedIcon sx={{ fontSize: 18, color: '#EA580C', justifySelf: 'center' }} />
         </Tooltip>
       ) : (
-        <Box sx={{ width: 18, flexShrink: 0 }} />
+        <Box sx={{ width: 26, height: 26 }} />
       )}
-    </Stack>
+    </Box>
   )
 }
 
@@ -1457,25 +1473,26 @@ function rotuloFiltro(item: string, t: (pt: string, en: string) => string) {
   return t(par[0], par[1])
 }
 
-function chipSituacao(situacao: NotaReceita['situacao'], t: (pt: string, en: string) => string, escuro: boolean) {
+function chipSituacao(situacao: NotaReceita['situacao'], t: (pt: string, en: string) => string, _escuro: boolean) {
   const cancelada = situacao === 'cancelada' || situacao === 'denegada'
   const rotulo = situacao === 'cancelada'
     ? t('Cancelada', 'Cancelled')
     : situacao === 'denegada'
       ? t('Denegada', 'Denied')
       : t('Autorizada', 'Authorized')
+  // Autorizada = azul (nota válida na SEFAZ). Cancelada/denegada = vermelho.
   return (
     <Chip
       size="small"
       label={rotulo}
+      variant="outlined"
       sx={{
         height: 20,
         fontSize: 11,
         fontWeight: 600,
-        bgcolor: cancelada
-          ? (escuro ? 'rgba(248,113,113,0.14)' : 'rgba(239,68,68,0.1)')
-          : (escuro ? 'rgba(52,211,153,0.14)' : 'rgba(16,185,129,0.12)'),
-        color: cancelada ? (escuro ? '#FCA5A5' : '#B91C1C') : (escuro ? '#6EE7B7' : '#047857'),
+        bgcolor: cancelada ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)',
+        borderColor: cancelada ? 'rgba(239,68,68,0.45)' : 'rgba(59,130,246,0.45)',
+        color: cancelada ? '#B91C1C' : '#1D4ED8',
       }}
     />
   )

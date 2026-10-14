@@ -456,10 +456,18 @@ export function lerExtratoArquivo(buffer, nome) {
   throw new Error('Use a planilha do banco, OFX ou CSV.')
 }
 
-const PALAVRAS_BANCO = new Set(['PAGAMENTO', 'PAGAMENTOS', 'PIX', 'ENVIADO', 'RECEBIDO', 'TED', 'DOC', 'BOLETO', 'TARIFA', 'SALDO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO'])
+const PALAVRAS_BANCO = new Set([
+  'PAGAMENTO', 'PAGAMENTOS', 'PAGO', 'PIX', 'ENVIADO', 'RECEBIDO', 'TED', 'DOC', 'BOLETO',
+  'TARIFA', 'SALDO', 'TRANSFERENCIA', 'DEBITO', 'CREDITO', 'COMPRA', 'CARTAO', 'QR', 'CODE',
+  'REF', 'AUT', 'MAIS', 'LIQ', 'LIQUIDACAO',
+])
 
 function tokensNome(valor) {
-  return normalizarNome(valor).split(' ').filter((t) => t.length >= 5 && !PALAVRAS_BANCO.has(t))
+  const limpo = normalizarNome(valor)
+    .replace(/\b(BOLETO|PAGO|PAGAMENTO|PIX|TED|DOC|QR|CODE|ENVIADO|RECEBIDO|COMPRA|CARTAO)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return limpo.split(' ').filter((t) => t.length >= 4 && !PALAVRAS_BANCO.has(t))
 }
 
 function nomeContraparte(lancamento) {
@@ -493,26 +501,52 @@ function unico(lista) {
   return lista.length === 1 ? lista[0] : null
 }
 
-/** Entrada, tarifa, IOF, transferência entre contas — não é título a pagar. */
-export function pareceNaoTitulo(lancamento) {
+function cnpjsNoTexto(valor) {
+  const brutos = String(valor || '').match(/\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}|\d{14}/g) || []
+  return [...new Set(brutos.map((c) => documentoPessoa(c)).filter((c) => c.length === 14))]
+}
+
+/**
+ * Entrada, tarifa, aplicação, IOF ou PIX/TED para CNPJ do próprio grupo
+ * (transferência entre contas) — não é título a pagar.
+ */
+export function pareceNaoTitulo(lancamento, { cnpjsGrupo } = {}) {
   if (!lancamento) return false
   if (lancamento.operacao === 'C') return true
   if (lancamento.estorno) return true
-  const h = normalizarNome(lancamento.historico)
+  const historico = texto(lancamento.historico)
+  const h = normalizarNome(historico)
   if (!h) return false
-  return /^(TARIFA|IOF|JUROS|ANUIDADE|ENCARGOS)\b/.test(h)
-    || /\b(TARIFA|IOF|PACOTE DE SERVICOS|MENSALIDADE|APLICACAO|RESGATE|RENDIMENTO)\b/.test(h)
-    || /\b(TRANSF|TED|PIX)\b.*\b(MESMA TITULARIDADE|ENTRE CONTAS|CONTAS PROPRIAS)\b/.test(h)
+  if (/^(TARIFA|IOF|JUROS|ANUIDADE|ENCARGOS|APL|APLIC)\b/.test(h)
+    || /\b(TARIFA|IOF|PACOTE DE SERVICOS|MENSALIDADE|APLICACAO|APLIC AUT|RESGATE|RENDIMENTO|CDB|FUNDO)\b/.test(h)
+    || /\b(TRANSF|TED|PIX)\b.*\b(MESMA TITULARIDADE|ENTRE CONTAS|CONTAS PROPRIAS)\b/.test(h)) {
+    return true
+  }
+
+  const grupo = new Set((cnpjsGrupo || []).map((c) => documentoPessoa(c)).filter((c) => c.length === 14))
+  if (!grupo.size) return false
+
+  const docs = [
+    ...cnpjsNoTexto(historico),
+    ...cnpjsNoTexto(lancamento.documento_ref),
+  ]
+  const paraOGrupo = docs.some((doc) => grupo.has(doc))
+  if (!paraOGrupo) return false
+
+  // PIX/TED/DOC enviado ao CNPJ de loja do grupo = transferência interna.
+  return /\b(PIX|TED|DOC|TRANSF)\b/.test(h)
+    || /\b(ENVIADO|TRANSFERIDO|REMETIDO)\b/.test(h)
+    || /\b(BURGER KING|POPEYES|ALVIM)\b/.test(h)
 }
 
 /**
  * Casa sozinho o que for óbvio — o usuário só mexe no que sobrar ambíguo.
  * Ordem: código de barras → CNPJ → mesmo dia → folga → nome → valor único no período.
  */
-export function escolherConciliacaoAutomatica(lancamento, despesas, folgaDias = FOLGA_AUTO) {
+export function escolherConciliacaoAutomatica(lancamento, despesas, folgaDias = FOLGA_AUTO, opts = {}) {
   if (lancamento.operacao !== 'D' || lancamento.estorno || lancamento.despesa_id) return null
   if (lancamento.status === 'sem_par' || lancamento.status === 'conciliado') return null
-  if (pareceNaoTitulo(lancamento)) return null
+  if (pareceNaoTitulo(lancamento, opts)) return null
   const valor = centavos(lancamento.valor)
   if (valor == null) return null
   const data = String(lancamento.data_contabil || lancamento.data_evento || '').slice(0, 10)
@@ -559,11 +593,11 @@ export function escolherConciliacaoAutomatica(lancamento, despesas, folgaDias = 
   return null
 }
 
-export function escolherDespesaPagar(lancamento, despesas, folgaDias = FOLGA_AUTO) {
-  return escolherConciliacaoAutomatica(lancamento, despesas, folgaDias)
+export function escolherDespesaPagar(lancamento, despesas, folgaDias = FOLGA_AUTO, opts = {}) {
+  return escolherConciliacaoAutomatica(lancamento, despesas, folgaDias, opts)
 }
 
-export function sugerirPagar(lancamentos, despesas, folgaDias = FOLGA_AUTO) {
+export function sugerirPagar(lancamentos, despesas, folgaDias = FOLGA_AUTO, opts = {}) {
   const ocupadas = new Set([
     ...lancamentos.map((l) => l.despesa_id).filter(Boolean),
     ...lancamentos.map((l) => l.sugerido_despesa_id).filter(Boolean),
@@ -571,10 +605,10 @@ export function sugerirPagar(lancamentos, despesas, folgaDias = FOLGA_AUTO) {
   const livres = () => despesas.filter((d) => !ocupadas.has(d.id))
   const sugestoes = []
   const ordem = [...lancamentos]
-    .filter((l) => l.operacao === 'D' && !l.despesa_id && l.status !== 'sem_par' && !pareceNaoTitulo(l))
+    .filter((l) => l.operacao === 'D' && !l.despesa_id && l.status !== 'sem_par' && !pareceNaoTitulo(l, opts))
     .sort((a, b) => String(a.data_contabil).localeCompare(String(b.data_contabil)) || Number(b.valor) - Number(a.valor))
   for (const linha of ordem) {
-    const despesa = escolherConciliacaoAutomatica(linha, livres(), folgaDias)
+    const despesa = escolherConciliacaoAutomatica(linha, livres(), folgaDias, opts)
     if (!despesa) continue
     ocupadas.add(despesa.id)
     sugestoes.push({ lancamento_id: linha.id, despesa_id: despesa.id })
@@ -649,6 +683,16 @@ function erroConta(mensagem, contas) {
   return err
 }
 
+async function cnpjsDoGrupo(pool) {
+  const { rows } = await pool.query(`
+    select cnpj from empresas
+    where coalesce(ativo, true)
+      and cnpj is not null
+      and length(regexp_replace(cnpj, '\\D', '', 'g')) = 14
+  `)
+  return rows.map((r) => documentoPessoa(r.cnpj)).filter(Boolean)
+}
+
 export async function conciliarAutomatico(pool, { contaId, empresaId, de, ate }) {
   const linhas = await pool.query(`
     select id::text as id, empresa_id::text as empresa_id, operacao, estorno,
@@ -664,9 +708,11 @@ export async function conciliarAutomatico(pool, { contaId, empresaId, de, ate })
   `, [contaId, empresaId, de, ate])
   if (!linhas.rows.length) return 0
 
+  const cnpjsGrupo = await cnpjsDoGrupo(pool)
+  const opts = { cnpjsGrupo }
   let semPar = 0
   for (const linha of linhas.rows) {
-    if (!pareceNaoTitulo(linha)) continue
+    if (!pareceNaoTitulo(linha, opts)) continue
     try {
       await marcarSemPar(pool, { lancamentoId: linha.id })
       semPar += 1
@@ -675,7 +721,7 @@ export async function conciliarAutomatico(pool, { contaId, empresaId, de, ate })
     }
   }
 
-  const abertas = linhas.rows.filter((l) => l.operacao === 'D' && !l.estorno && !pareceNaoTitulo(l))
+  const abertas = linhas.rows.filter((l) => l.operacao === 'D' && !l.estorno && !pareceNaoTitulo(l, opts))
   if (!abertas.length) return semPar
 
   const despesas = await pool.query(`
@@ -703,6 +749,7 @@ export async function conciliarAutomatico(pool, { contaId, empresaId, de, ate })
       linha,
       despesas.rows.filter((d) => !ocupadas.has(d.id)),
       FOLGA_AUTO,
+      opts,
     )
     if (!despesa) continue
     try {
@@ -1239,24 +1286,103 @@ export async function diaConciliacao(pool, { empresaId, data }) {
     order by d.valor desc, d.descricao
   `, [empresa, data])
 
+  // Segunda passagem: o que o motor ainda achar óbvio, confirma de uma vez.
+  const cnpjsGrupo = await cnpjsDoGrupo(pool)
+  const optsNaoTitulo = { cnpjsGrupo }
+  const abertas = extrato.rows.filter((l) => !l.despesa_id && l.status !== 'sem_par' && l.status !== 'conciliado')
+  const despesasLivres = sistema.rows.filter((d) => !['conciliada', 'faltou'].includes(d.status))
+  const ocupadas = new Set(extrato.rows.map((l) => l.despesa_id).filter(Boolean))
+  for (const linha of abertas) {
+    if (pareceNaoTitulo(linha, optsNaoTitulo)) {
+      try { await marcarSemPar(pool, { lancamentoId: linha.id }) } catch { /* ok */ }
+      continue
+    }
+    const despesa = escolherConciliacaoAutomatica(
+      linha,
+      despesasLivres.filter((d) => !ocupadas.has(d.id)),
+      FOLGA_AUTO,
+      optsNaoTitulo,
+    )
+    if (!despesa) continue
+    try {
+      await confirmarConciliacao(pool, { lancamentoId: linha.id, despesaId: despesa.id })
+      ocupadas.add(despesa.id)
+      linha.despesa_id = despesa.id
+      linha.status = 'conciliado'
+      linha.despesa_descricao = despesa.descricao
+    } catch { /* deixa aberto */ }
+  }
+
+  const extratoFinal = await pool.query(`
+    select l.id::text as id,
+           l.empresa_id::text as empresa_id,
+           l.operacao,
+           l.estorno,
+           l.valor::float8 as valor,
+           to_char(l.data_contabil, 'YYYY-MM-DD') as data_contabil,
+           l.historico,
+           l.documento_ref,
+           l.status,
+           l.despesa_id::text as despesa_id,
+           l.sugerido_despesa_id::text as sugerido_despesa_id,
+           d.descricao as despesa_descricao,
+           c.nome as conta_nome,
+           c.banco,
+           e.apelido as loja
+    from extrato_lancamentos l
+    join contas_bancarias c on c.id = l.conta_id
+    join empresas e on e.id = l.empresa_id
+    left join despesas d on d.id = l.despesa_id
+    where ($1::uuid is null or l.empresa_id = $1::uuid)
+      and l.data_contabil = $2::date
+      and l.operacao = 'D'
+      and not l.estorno
+    order by
+      case when l.despesa_id is null and l.status not in ('sem_par', 'conciliado') then 0 else 1 end,
+      l.valor desc, l.historico
+  `, [empresa, data])
+
+  const sistemaFinal = await pool.query(`
+    select d.id::text as id,
+           d.descricao,
+           d.valor::float8 as valor,
+           to_char(d.vencimento, 'YYYY-MM-DD') as vencimento,
+           d.status,
+           d.documento_ref,
+           d.numero_nf,
+           d.forma_pagamento,
+           d.empresa_origem_id::text as empresa_origem_id,
+           eo.apelido as loja
+    from despesas d
+    join empresas eo on eo.id = d.empresa_origem_id
+    where ($1::uuid is null or d.empresa_origem_id = $1::uuid)
+      and d.status <> 'cancelada'
+      and d.vencimento between ($2::date - 3) and ($2::date + 3)
+      and ${inboxSql()}
+    order by
+      case when d.status = 'conciliada' then 1 else 0 end,
+      d.valor desc, d.descricao
+  `, [empresa, data])
+
   const sugestoes = sugerirPagar(
-    extrato.rows,
-    sistema.rows.filter((d) => !['conciliada', 'faltou'].includes(d.status)),
+    extratoFinal.rows,
+    sistemaFinal.rows.filter((d) => !['conciliada', 'faltou'].includes(d.status)),
+    FOLGA_AUTO,
+    optsNaoTitulo,
   )
   const mapaSugestao = new Map(sugestoes.map((s) => [s.lancamento_id, s.despesa_id]))
   const ligadas = new Set([
     ...sugestoes.map((s) => s.despesa_id),
-    ...extrato.rows.map((l) => l.despesa_id).filter(Boolean),
+    ...extratoFinal.rows.map((l) => l.despesa_id).filter(Boolean),
   ])
-  // Sem loja escolhida a janela de ±3 dias traz o grupo inteiro; mostra só o dia e o que já casou.
   const visiveis = empresa
-    ? sistema.rows
-    : sistema.rows.filter((d) => d.vencimento === data || ligadas.has(d.id))
+    ? sistemaFinal.rows
+    : sistemaFinal.rows.filter((d) => d.vencimento === data || ligadas.has(d.id))
   return {
     data,
-    extrato: extrato.rows.map((l) => ({
+    extrato: extratoFinal.rows.map((l) => ({
       ...l,
-      sugerido_despesa_id: l.sugerido_despesa_id || mapaSugestao.get(l.id) || null,
+      sugerido_despesa_id: l.despesa_id ? null : (l.sugerido_despesa_id || mapaSugestao.get(l.id) || null),
     })),
     sistema: visiveis,
     sugestoes,
