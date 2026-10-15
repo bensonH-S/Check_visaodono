@@ -48,6 +48,10 @@ import {
 import { showWelcomeToast } from '../utils/toast';
 import NotificacoesSino from '../components/NotificacoesSino';
 import SobreSistemaButton from '../components/SobreSistemaButton';
+import AbrirChamadoTiDialog from '../components/AbrirChamadoTiDialog';
+import PortalSino from '../components/PortalSino';
+import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import { podeGerenciarTicketsTi } from '../lib/auth';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
 import AtivarGpsHeaderButton from '../components/AtivarGpsHeaderButton';
 import { colors } from '../theme/tokens';
@@ -401,6 +405,13 @@ function PortalLayoutInner() {
     // GESTÃO
     { to: '/estoque', label: 'Estoque & CMV', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), section: 'GESTÃO' },
     { to: '/ranking', label: 'Indicadores', icon: <BarChartIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'GESTÃO' },
+    {
+      to: '/configuracoes/tickets',
+      label: 'Tickets TI',
+      icon: <SupportAgentIcon fontSize="small" />,
+      show: podeGerenciarTicketsTi(user),
+      section: 'GESTÃO',
+    },
   ].filter((n) => n.show);
 
   const podeConfig = getConfigNavSections(user).length > 0;
@@ -477,6 +488,8 @@ function PortalLayoutInner() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               {dashboardFilters}
               {mostraIdiomaFinanceiro ? <FinanceIdiomaToggle /> : null}
+              <PortalSino variante="portal" />
+              <AbrirChamadoTiDialog variante="portal" />
               {podeConfig ? (
                 <Tooltip title={mostraIdiomaFinanceiro && finEn ? 'Settings' : 'Configurações'}>
                   <IconButton
@@ -525,6 +538,8 @@ function PortalLayoutInner() {
             {emConfiguracoes ? null : <PageHeaderTitle {...pageTitle} variant="mobile" tone="default" />}
           </Box>
           <SobreSistemaButton variante="portal" />
+          <PortalSino variante="icone" />
+          <AbrirChamadoTiDialog variante="icone" />
           <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
           {/* Tema escuro oculto no mobile por enquanto — só claro. */}
           {mostraIdiomaFinanceiro || path.startsWith('/configuracoes/financeiro') ? (

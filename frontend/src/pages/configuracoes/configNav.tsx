@@ -18,7 +18,8 @@ import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
 import PeopleOutlinedIcon from '@mui/icons-material/PeopleOutlined';
 import HubOutlinedIcon from '@mui/icons-material/HubOutlined';
-import { getUsuario, temPermissao } from '../../lib/auth';
+import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
+import { getUsuario, podeGerenciarTicketsTi, temPermissao } from '../../lib/auth';
 import type { UsuarioSessao } from '../../lib/auth';
 
 export type ConfigNavItem = {
@@ -173,6 +174,14 @@ const CONFIG_NAV: ConfigNavSection[] = [
         descricao: 'Histórico de ações no sistema.',
         icon: <HistoryIcon fontSize="small" />,
         permissoes: ['configuracoes.auditoria'],
+      },
+      {
+        to: '/configuracoes/tickets',
+        label: 'Tickets TI',
+        descricao: 'Board Scrum de chamados e demandas.',
+        icon: <SupportAgentOutlinedIcon fontSize="small" />,
+        permissoes: [],
+        regra: (user) => podeGerenciarTicketsTi(user),
       },
     ],
   },

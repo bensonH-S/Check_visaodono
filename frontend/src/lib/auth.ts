@@ -601,6 +601,21 @@ export function podeVerFinanceiro(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('financeiro.ver', usuario);
 }
 
+export function podeGerenciarTicketsTi(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (u.perfil === 'administrador' || u.cargo_aprovacao === 'administrador') return true;
+  const cargo = String(u.cargo_aprovacao || u.perfil || '').toLowerCase();
+  if (cargo === 'ceo' || cargo === 'diretor' || cargo === 'ti') return true;
+  return temPermissao('ti.tickets.gerenciar', u);
+}
+
+export function podeAbrirTicketTi(usuario?: UsuarioSessao | null): boolean {
+  // Qualquer colaborador logado pode abrir chamado para o TI.
+  const u = usuario ?? getUsuario();
+  return Boolean(u?.id_usuario);
+}
+
 export function podeAbrirEnergia(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('energia.abrir', usuario) || operaLojaEnergia(usuario);
 }

@@ -31,6 +31,7 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import LanguageIcon from '@mui/icons-material/Language';
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
+import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 
 import { colors } from '../theme/tokens';
 
@@ -141,6 +142,7 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
   '/configuracoes/contagem': { title: 'Configuração da Contagem', icon: <Inventory2Icon sx={iconSx} /> },
   '/configuracoes/notificacoes': { title: 'Notificações', icon: <NotificationsIcon sx={iconSx} /> },
   '/configuracoes/auditoria': { title: 'Auditoria', icon: <HistoryIcon sx={iconSx} /> },
+  '/configuracoes/tickets': { title: 'Tickets TI', icon: <SupportAgentOutlinedIcon sx={iconSx} /> },
   '/configuracoes/financeiro': {
     title: 'Financeiro',
     titleEn: 'Finance',

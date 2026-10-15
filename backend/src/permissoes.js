@@ -44,6 +44,8 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'financeiro.ver', nome: 'Ver módulo Financeiro (contas a pagar, caixa, DDA)', grupo: 'Financeiro', ordem: 185 },
   { codigo: 'freelancers.aprovar', nome: 'Aprovar turnos de freelancers (ponto) na região', grupo: 'Freelancers', ordem: 180 },
   { codigo: 'sistema.backup', nome: 'Gerar e baixar dump do banco (TI)', grupo: 'Sistema', ordem: 190 },
+  { codigo: 'ti.tickets.abrir', nome: 'Abrir chamado para o TI', grupo: 'TI / Tickets', ordem: 200 },
+  { codigo: 'ti.tickets.gerenciar', nome: 'Gerenciar board de tickets do TI', grupo: 'TI / Tickets', ordem: 201 },
 ];
 
 const PERMISSOES_DASHBOARD = new Set([
@@ -107,7 +109,24 @@ export async function carregarPermissoesUsuario(idUsuario) {
      ORDER BY p.ordem`,
     [idUsuario],
   );
-  return rows.map((r) => r.codigo);
+  const perms = rows.map((r) => r.codigo);
+  try {
+    const { rows: acc } = await pool.query(
+      `SELECT 1 FROM ti_ticket_acessos
+       WHERE id_usuario = $1 AND pode_gerenciar = TRUE
+       LIMIT 1`,
+      [idUsuario],
+    );
+    if (acc.length && !perms.includes('ti.tickets.gerenciar')) {
+      perms.push('ti.tickets.gerenciar');
+    }
+    if (acc.length && !perms.includes('ti.tickets.abrir')) {
+      perms.push('ti.tickets.abrir');
+    }
+  } catch {
+    /* tabela ainda não migrada */
+  }
+  return perms;
 }
 
 export async function normalizarPermissoes(codigos) {

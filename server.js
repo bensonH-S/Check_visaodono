@@ -171,6 +171,8 @@ const escalaVisitasRouter = (await import('./backend/src/routes/escalaVisitas.js
 const metasRouter = (await import('./backend/src/routes/metas.js')).default;
 const estoqueRouter = (await import('./backend/src/routes/estoque.js')).default;
 const auditoriaRouter = (await import('./backend/src/routes/auditoria.js')).default;
+const tiTicketsRouter = (await import('./backend/src/routes/tiTickets.js')).default;
+const portalNotificacoesRouter = (await import('./backend/src/routes/portalNotificacoes.js')).default;
 const freelancersAprovacaoRouter = (await import('./backend/src/routes/freelancersAprovacao.js')).default;
 const energiaRouter = (await import('./backend/src/routes/energia.js')).default;
 const financeiroRouter = (await import('./backend/src/routes/financeiro.js')).default;
@@ -373,6 +375,8 @@ api.use('/escalas/visitas', escalaVisitasRouter);
 api.use('/metas', metasRouter);
 api.use('/estoque', estoqueRouter);
 api.use('/auditoria', auditoriaRouter);
+api.use('/ti-tickets', tiTicketsRouter);
+api.use('/portal-notificacoes', portalNotificacoesRouter);
 api.use('/freelancers-aprovacao', freelancersAprovacaoRouter);
 api.use('/energia', energiaRouter);
 api.use('/financeiro', financeiroRouter);

@@ -279,6 +279,70 @@ export const api = {
     const s = q.toString();
     return request<AuditoriaNavegacoesResposta>(`/auditoria/navegacoes${s ? `?${s}` : ''}`);
   },
+
+  tiTicketsPode: () => request<{ abrir: boolean; gerenciar: boolean }>('/ti-tickets/me/pode'),
+  tiMeusTickets: () => request<TiTicket[]>('/ti-tickets/meus'),
+  tiTicketsBoard: () => request<TiTicket[]>('/ti-tickets/board'),
+  tiTicket: (id: number) => request<TiTicketDetalhe>(`/ti-tickets/${id}`),
+  tiTicketCriar: (body: {
+    titulo: string;
+    descricao?: string;
+    prioridade?: TiTicket['prioridade'];
+    area?: string;
+    status?: TiTicket['status'];
+    origem?: TiTicket['origem'];
+    responsavel_id?: number | null;
+  }) =>
+    request<TiTicket>('/ti-tickets', { method: 'POST', body: JSON.stringify(body) }),
+  tiTicketAtualizar: (id: number, body: Partial<TiTicket>) =>
+    request<TiTicket>(`/ti-tickets/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  tiTicketMover: (id: number, body: { status: TiTicket['status']; ordem?: number }) =>
+    request<TiTicket>(`/ti-tickets/${id}/mover`, { method: 'POST', body: JSON.stringify(body) }),
+  tiTicketExcluir: (id: number) =>
+    request<{ ok: boolean }>(`/ti-tickets/${id}`, { method: 'DELETE' }),
+  tiTicketComentar: (id: number, texto: string) =>
+    request<TiTicketComentario>(`/ti-tickets/${id}/comentarios`, {
+      method: 'POST',
+      body: JSON.stringify({ texto }),
+    }),
+  tiTicketAvaliar: (id: number, body: { avaliacao: number; comentario?: string }) =>
+    request<TiTicket>(`/ti-tickets/${id}/avaliar`, { method: 'POST', body: JSON.stringify(body) }),
+  tiNotas: () => request<TiNota[]>('/ti-tickets/notas'),
+  tiNotaCriar: (body?: { titulo?: string; corpo?: string }) =>
+    request<TiNota>('/ti-tickets/notas', { method: 'POST', body: JSON.stringify(body || {}) }),
+  tiNotaSalvar: (id: number, body: { titulo?: string; corpo?: string }) =>
+    request<TiNota>(`/ti-tickets/notas/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  tiNotaExcluir: (id: number) =>
+    request<{ ok: boolean }>(`/ti-tickets/notas/${id}`, { method: 'DELETE' }),
+  tiAcessos: () => request<TiTicketAcesso[]>('/ti-tickets/acessos'),
+  tiAcessoConceder: (id_usuario: number) =>
+    request<TiTicketAcesso[]>('/ti-tickets/acessos', {
+      method: 'POST',
+      body: JSON.stringify({ id_usuario }),
+    }),
+  tiAcessoRevogar: (id_usuario: number) =>
+    request<TiTicketAcesso[]>(`/ti-tickets/acessos/${id_usuario}`, { method: 'DELETE' }),
+  tiUsuariosAcesso: () =>
+    request<
+      {
+        id_usuario: number;
+        nome: string;
+        email: string;
+        ativo?: boolean;
+        avatar_inicial?: string | null;
+        avatar_url?: string | null;
+      }[]
+    >('/ti-tickets/usuarios-acesso'),
+  tiTicketComentarioExcluir: (idComentario: number) =>
+    request<{ ok: boolean }>(`/ti-tickets/comentarios/${idComentario}`, { method: 'DELETE' }),
+
+  portalNotificacoes: () =>
+    request<{ items: PortalNotificacao[]; nao_lidas: number }>('/portal-notificacoes'),
+  portalNotificacaoLida: (id: number | string) =>
+    request<{ ok: boolean }>(`/portal-notificacoes/${id}/lida`, { method: 'POST', body: '{}' }),
+  portalNotificacoesLidas: () =>
+    request<{ ok: boolean }>('/portal-notificacoes/lidas', { method: 'POST', body: '{}' }),
+
   logout: () => request<{ ok: boolean }>('/auth/logout', { method: 'POST', body: '{}' }),
 
   cargos: (params?: { aprovador?: boolean }) => {
@@ -4123,6 +4187,75 @@ export interface AuditoriaNavegacoesResposta {
   total: number;
   page: number;
   pageSize: number;
+}
+
+export interface TiTicket {
+  id_ticket: number;
+  titulo: string;
+  descricao: string;
+  status: 'chamado' | 'fazer' | 'pendente' | 'feito';
+  prioridade: 'baixa' | 'media' | 'alta' | 'urgente';
+  area: string;
+  origem: 'colaborador' | 'mesa' | 'interno';
+  criado_por: number | null;
+  criado_por_nome: string | null;
+  responsavel_id: number | null;
+  responsavel_nome: string | null;
+  responsavel_avatar_inicial?: string | null;
+  responsavel_avatar_url?: string | null;
+  prazo: string | null;
+  avaliacao: number | null;
+  avaliacao_comentario: string | null;
+  ordem: number;
+  created_at: string;
+  updated_at: string;
+  concluido_em: string | null;
+}
+
+export interface PortalNotificacao {
+  id_notificacao: number | string;
+  id_usuario: number;
+  tipo: string;
+  titulo: string;
+  mensagem: string;
+  link: string | null;
+  ref_tipo: string | null;
+  ref_id: string | null;
+  lida: boolean;
+  created_at: string;
+  origem?: string;
+}
+
+export interface TiTicketComentario {
+  id_comentario: number;
+  id_ticket: number;
+  id_usuario: number | null;
+  usuario_nome: string | null;
+  texto: string;
+  created_at: string;
+}
+
+export type TiTicketDetalhe = TiTicket & { comentarios?: TiTicketComentario[] };
+
+export interface TiNota {
+  id_nota: number;
+  titulo: string;
+  corpo: string;
+  ordem?: number;
+  atualizado_por: number | null;
+  atualizado_por_nome: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TiTicketAcesso {
+  id_usuario: number;
+  nome: string;
+  email: string;
+  pode_gerenciar: boolean;
+  concedido_por: number | null;
+  concedido_por_nome: string | null;
+  created_at: string;
 }
 
 export interface FrotaDocumento {

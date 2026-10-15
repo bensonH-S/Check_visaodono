@@ -89,11 +89,13 @@ import WhatsAppPage from './pages/configuracoes/WhatsAppPage';
 import AgenteAlvimPage from './pages/configuracoes/AgenteAlvimPage';
 import NotificacoesPage from './pages/configuracoes/NotificacoesPage';
 import AuditoriaPage from './pages/configuracoes/AuditoriaPage';
+import TicketsTiPage from './pages/configuracoes/TicketsTiPage';
 import SmtpPage from './pages/configuracoes/SmtpPage';
 import ModulosCanalPage from './pages/configuracoes/ModulosCanalPage';
 import EstoqueSyncNfPage from './pages/configuracoes/EstoqueSyncNfPage';
 import ConfiguracaoContagemPage from './pages/configuracoes/ConfiguracaoContagemPage';
 import RotaAuditoria from './components/RotaAuditoria';
+import RotaTicketsTi from './components/RotaTicketsTi';
 import RotaConfiguracoes from './components/RotaConfiguracoes';
 import RotaPermissao from './components/RotaPermissao';
 import RotaModuloCanal from './components/RotaModuloCanal';
@@ -707,6 +709,14 @@ export default function App() {
                   <RotaAuditoria>
                     <AuditoriaPage />
                   </RotaAuditoria>
+                }
+              />
+              <Route
+                path="tickets"
+                element={
+                  <RotaTicketsTi>
+                    <TicketsTiPage />
+                  </RotaTicketsTi>
                 }
               />
               <Route

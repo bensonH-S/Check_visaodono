@@ -8,6 +8,8 @@ import { useTheme } from '@mui/material/styles';
 import { toAppPath } from '../config/paths';
 import { getUsuario } from '../lib/auth';
 import FinanceIdiomaToggle from '../financeiro/FinanceIdiomaToggle';
+import PortalSino from '../components/PortalSino';
+import AbrirChamadoTiDialog from '../components/AbrirChamadoTiDialog';
 import { FIN_BG, FIN_BORDER, FIN_MUTED, FIN_SURFACE, FIN_TEXT } from '../financeiro/temaFinanceiroEscuro';
 import { getConfigNavSections, itemConfigAtivo } from '../pages/configuracoes/configNav';
 
@@ -62,6 +64,8 @@ export default function ConfiguracoesLayout() {
           <Typography sx={{ fontSize: 14, fontWeight: 700, color: FIN_TEXT, letterSpacing: '-0.01em', flex: 1 }}>
             Configuração
           </Typography>
+          <PortalSino variante="portal" />
+          <AbrirChamadoTiDialog variante="portal" />
           {fin ? <FinanceIdiomaToggle size="tiny" /> : null}
         </Box>
 
