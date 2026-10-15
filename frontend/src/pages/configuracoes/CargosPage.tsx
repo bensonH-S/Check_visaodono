@@ -215,12 +215,13 @@ export default function CargosPage() {
   function abrirEditar(cargo: Cargo) {
     setNovo(false);
     setSelecionado(cargo);
+    const ativos = new Set(tiposCatalogo.map((t) => t.codigo));
     setForm({
       nome: cargo.nome,
       descricao: cargo.descricao || '',
       aprovador: !!cargo.aprovador,
       ativo: cargo.ativo !== false,
-      tipos_checklist: (cargo.tipos_checklist || []).map((t) => t.codigo),
+      tipos_checklist: (cargo.tipos_checklist || []).map((t) => t.codigo).filter((c) => ativos.has(c)),
       permissoes: [...(cargo.permissoes || [])],
     });
     setErro('');
@@ -255,12 +256,13 @@ export default function CargosPage() {
     setSalvando(true);
     setErro('');
     try {
+      const ativos = new Set(tiposCatalogo.map((t) => t.codigo));
       const body = {
         nome: form.nome.trim(),
         descricao: form.descricao.trim() || null,
         aprovador: form.aprovador,
         ativo: form.ativo,
-        tipos_checklist: form.tipos_checklist,
+        tipos_checklist: form.tipos_checklist.filter((c) => ativos.has(c)),
         permissoes: form.permissoes,
       };
       const salvo = selecionado

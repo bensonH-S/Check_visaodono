@@ -112,6 +112,7 @@ export async function listarTiposChecklistDoCargo(cargoCodigo) {
      FROM tipos_checklist t
      JOIN cargo_checklist cc ON cc.id_tipo_checklist = t.id_tipo_checklist
      WHERE cc.cargo_codigo = $1
+       AND t.ativo = TRUE
      ORDER BY t.ordem, t.nome`,
     [cargoCodigo],
   );
@@ -126,6 +127,7 @@ export async function mapaTiposChecklistPorCargos(codigosCargos) {
      FROM cargo_checklist cc
      JOIN tipos_checklist t ON t.id_tipo_checklist = cc.id_tipo_checklist
      WHERE cc.cargo_codigo = ANY($1::text[])
+       AND t.ativo = TRUE
      ORDER BY t.ordem, t.nome`,
     [codigos],
   );
@@ -148,15 +150,17 @@ export async function syncCargoChecklist(cargoCodigo, codigosTipos) {
     await pool.query('DELETE FROM cargo_checklist WHERE cargo_codigo = $1', [cargoCodigo]);
     return [];
   }
-  const { rows } = await pool.query(
-    `SELECT id_tipo_checklist, codigo FROM tipos_checklist
-     WHERE codigo = ANY($1::text[]) AND ativo = TRUE`,
+  const { rows: existentes } = await pool.query(
+    `SELECT id_tipo_checklist, codigo, ativo FROM tipos_checklist
+     WHERE codigo = ANY($1::text[])`,
     [codigos],
   );
-  const invalidos = codigos.filter((c) => !rows.some((r) => r.codigo === c));
-  if (invalidos.length) {
-    return { error: `Tipo(s) de checklist inválido(s): ${invalidos.join(', ')}` };
+  // Só rejeita código que não existe; tipo desativado (ex.: time_de_campo) é ignorado.
+  const desconhecidos = codigos.filter((c) => !existentes.some((r) => r.codigo === c));
+  if (desconhecidos.length) {
+    return { error: `Tipo(s) de checklist inválido(s): ${desconhecidos.join(', ')}` };
   }
+  const rows = existentes.filter((r) => r.ativo);
   await pool.query('DELETE FROM cargo_checklist WHERE cargo_codigo = $1', [cargoCodigo]);
   for (const row of rows) {
     await pool.query(
