@@ -632,7 +632,16 @@ export function ConciliacaoPage() {
         onClose={() => setListaAberta(false)}
         maxWidth="md"
         fullWidth
-        PaperProps={{ sx: { ...finPaperSx, height: { xs: '90vh', md: '80vh' }, display: 'flex', flexDirection: 'column' } }}
+        slotProps={{
+          paper: {
+            sx: {
+              ...finPaperSx,
+              height: { xs: '90vh', md: '80vh' },
+              display: 'flex',
+              flexDirection: 'column',
+            },
+          },
+        }}
       >
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 1, py: 1.25, borderBottom: `1px solid ${FIN_BORDER}` }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -672,19 +681,21 @@ export function ConciliacaoPage() {
               placeholder={t('Buscar aluguel, fornecedor, valor…', 'Search rent, vendor, amount…')}
               value={listaBusca}
               onChange={(ev) => setListaBusca(ev.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ fontSize: 18, color: FIN_MUTED }} />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ fontSize: 18, color: FIN_MUTED }} />
+                    </InputAdornment>
+                  ),
+                },
               }}
               sx={{ maxWidth: 420 }}
             />
           </Stack>
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', px: 2, py: 1.5 }}>
             {carregarLista ? (
-              <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={28} /></Stack>
+              <Stack sx={{ py: 6, alignItems: 'center' }}><CircularProgress size={28} /></Stack>
             ) : itensLista.length === 0 ? (
               <Typography sx={{ py: 5, textAlign: 'center', color: FIN_MUTED, fontSize: 13 }}>
                 {listaAba === 'abertos'
