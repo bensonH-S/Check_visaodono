@@ -41,6 +41,8 @@ type Props = {
   temaEscuro?: boolean;
   /** Rótulos do campo (padrão PT). */
   idioma?: 'pt' | 'en';
+  /** Agenda/Inbox: permite escolher dias depois de hoje. */
+  permitirFuturo?: boolean;
 };
 
 function isoParaDayjs(iso: string): Dayjs | null {
@@ -126,6 +128,7 @@ export default function FiltroIntervaloDatasFrota({
   variante = 'campo',
   temaEscuro = false,
   idioma = 'pt',
+  permitirFuturo = false,
 }: Props) {
   const { mode } = useAppTheme();
   const escuro = temaEscuro || mode === 'dark';
@@ -143,6 +146,7 @@ export default function FiltroIntervaloDatasFrota({
   const [escolhendoFim, setEscolhendoFim] = useState(false);
   const aberto = Boolean(anchorEl);
   const hoje = dataHojeBrasilia();
+  const maxDate = permitirFuturo ? undefined : (isoParaDayjs(hoje) ?? dayjs());
   const rotuloPeriodo = idioma === 'en' ? 'Period' : 'Período';
   const placeholderPeriodo = idioma === 'en'
     ? (compacto ? 'Dates' : 'Click to select')
@@ -330,7 +334,7 @@ export default function FiltroIntervaloDatasFrota({
               <DateCalendar
                 value={fimDayjs ?? inicioDayjs}
                 onChange={selecionarDia}
-                maxDate={isoParaDayjs(hoje) ?? dayjs()}
+                maxDate={maxDate}
                 reduceAnimations
                 sx={{
                   width: '100%',

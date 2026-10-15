@@ -55,4 +55,20 @@ backend/scripts/diag-*.mjs
 backend/scripts/dump-*.mjs
 backend/scripts/aplicar-*.mjs
 backend/scripts/validar-etapa5*.mjs
+backend/scripts/_check_*.mjs
+backend/scripts/_preview_*.mjs
+backend/scripts/_styles_*.mjs
+backend/scripts/_test_*.mjs
 backend/migrations/168_mateus_sudoeste_nao_lago_sul.sql
+
+# Segredos e material local (nunca versionar)
+Certificados/
+*.pfx
+API ITAU/
+
+# Relatórios gerados / PDFs soltos
+relatorios/
+frontend/contagem-mensal-*.pdf
+
+# Scripts one-off de busca/diagnóstico
+scripts/find-*.mjs

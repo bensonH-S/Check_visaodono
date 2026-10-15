@@ -698,6 +698,7 @@ export function InboxDdaPage() {
           <FiltroIntervaloDatasFrota
             compacto
             idioma={idioma}
+            permitirFuturo
             dataInicio={aba === 1 ? deNf : de}
             dataFim={aba === 1 ? ateNf : ate}
             onChangeInicio={aba === 1 ? setDeNf : setDe}

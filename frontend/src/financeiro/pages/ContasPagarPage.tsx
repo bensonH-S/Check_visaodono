@@ -273,6 +273,7 @@ export function ContasPagarPage() {
           <FiltroIntervaloDatasFrota
             compacto
             idioma={idioma}
+            permitirFuturo
             dataInicio={de}
             dataFim={ate}
             onChangeInicio={setDe}
