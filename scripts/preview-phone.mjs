@@ -1,11 +1,17 @@
 /**
- * Abre o Meridian num recorte de iPhone ao lado do IDE.
+ * Abre o Meridian como se fosse no celular (Chrome em modo app + UA mobile).
+ * Sem moldura fake — a janela é o próprio aparelho.
  *
  *   npm run preview:phone
- *   npm run preview:phone -- estoque
- *   npm run preview:phone -- escalas
+ *   npm run preview:phone -- chamados
+ *   npm run preview:phone -- android estoque
+ *   npm run preview:phone -- iphone frota
  *
- * Precisa do Vite no ar (`npm run dev`). A janela recarrega sozinha.
+ * Precisa do Vite no ar (`npm run pro` / `npm run dev`).
+ *
+ * Pra apresentação no projetor com aparelho físico (Android):
+ *   winget install Genymobile.scrcpy
+ *   scrcpy --max-size 1024
  */
 import { spawn } from 'child_process';
 import fs from 'fs';
@@ -17,8 +23,21 @@ import { fileURLToPath } from 'url';
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HOST = '127.0.0.1';
 const PORT = 5173;
-const WIDTH = 390;
-const HEIGHT = 844;
+
+const DEVICES = {
+  iphone: {
+    label: 'iPhone 15',
+    width: 393,
+    height: 852,
+    ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
+  },
+  android: {
+    label: 'Pixel 8',
+    width: 412,
+    height: 915,
+    ua: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36',
+  },
+};
 
 const ATALHOS = {
   login: '/auditoria/login/mobile',
@@ -28,9 +47,22 @@ const ATALHOS = {
   chamados: '/auditoria/chamados/mobile',
   checklist: '/auditoria/checklist/mobile',
   frota: '/auditoria/frota/mobile',
+  energia: '/auditoria/energia/mobile',
+  metas: '/auditoria/metas/mobile',
 };
 
-const arg = process.argv.slice(2).find((a) => !a.startsWith('-')) || 'login';
+const args = process.argv.slice(2).filter((a) => !a.startsWith('-'));
+let deviceKey = 'iphone';
+const rest = [];
+for (const a of args) {
+  const n = a.toLowerCase();
+  if (n === 'iphone' || n === 'ios' || n === 'apple') deviceKey = 'iphone';
+  else if (n === 'android' || n === 'pixel' || n === 'samsung') deviceKey = 'android';
+  else rest.push(a);
+}
+
+const device = DEVICES[deviceKey];
+const arg = rest[0] || 'login';
 const rota = arg.startsWith('/')
   ? arg.startsWith('/auditoria')
     ? arg
@@ -49,7 +81,7 @@ function waitPort(host, port, ms = 45000) {
       socket.on('error', () => {
         socket.destroy();
         if (Date.now() - start > ms) {
-          reject(new Error(`Vite não subiu em ${host}:${port}. Rode npm run dev.`));
+          reject(new Error(`Vite não subiu em ${host}:${port}. Rode npm run pro ou npm run dev.`));
           return;
         }
         setTimeout(tryOnce, 400);
@@ -60,7 +92,6 @@ function waitPort(host, port, ms = 45000) {
 }
 
 function chromeLike() {
-  const home = os.homedir();
   const candidatos = [
     process.env.CHROME_PATH,
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -78,25 +109,36 @@ function chromeLike() {
 
 const exe = chromeLike();
 if (!exe) {
-  console.error('Chrome ou Edge não encontrado. Instala um dos dois para o preview de celular.');
+  console.error('Chrome ou Edge não encontrado.');
   process.exit(1);
 }
 
-const profile = path.join(ROOT, '.preview-phone-profile');
+const profile = path.join(ROOT, '.preview-phone-profile', deviceKey);
 fs.mkdirSync(profile, { recursive: true });
 
 await waitPort(HOST, PORT);
-console.log(`Celular ${WIDTH}×${HEIGHT} → ${url}`);
+
+// Janela um pouco maior que o CSS viewport (barra de título do SO).
+const winW = device.width;
+const winH = device.height + 40;
+
+console.log(`${device.label} ${device.width}×${device.height}`);
+console.log(`→ ${url}`);
+console.log('');
+console.log('Dica apresentação: celular Android na USB → scrcpy (espelha o aparelho no projetor).');
 
 const child = spawn(
   exe,
   [
     `--app=${url}`,
-    `--window-size=${WIDTH},${HEIGHT}`,
-    '--window-position=1420,48',
+    `--user-agent=${device.ua}`,
+    `--window-size=${winW},${winH}`,
+    '--window-position=1400,40',
     `--user-data-dir=${profile}`,
     '--no-first-run',
     '--no-default-browser-check',
+    // Força densidade “mobile” no Chromium (ajuda layout rem/px)
+    '--force-device-scale-factor=1',
   ],
   { detached: true, stdio: 'ignore' },
 );
