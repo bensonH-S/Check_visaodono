@@ -229,7 +229,7 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
                       </Button>
                     ) : null}
                     {t.avaliacao ? (
-                      <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
+                      <Typography variant="caption" sx={{ mt: 0.5, display: 'block' }}>
                         Sua avaliação: {t.avaliacao}/5
                       </Typography>
                     ) : null}
