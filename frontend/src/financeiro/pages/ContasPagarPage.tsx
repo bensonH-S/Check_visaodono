@@ -1332,7 +1332,11 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   onSalvou: (mensagem: string, criado?: { vencimento: string | null }) => void
 }) {
   const { t } = usePrefs()
-  const lojas = empresas.filter((e) => e.tipo === 'loja')
+  /** Lojas + holdings (KING / SUPER KING / Alvim Participações pagam despesas também). */
+  const lojas = useMemo(
+    () => ordenarEmpresas(empresas.filter((e) => e.tipo === 'loja' || e.tipo === 'holding')),
+    [empresas],
+  )
   const primeiraLoja = lojas[0]?.id || ''
   const faceInicial = inicial ? Number(inicial.valor_face ?? inicial.valor) : null
   const [descricao, setDescricao] = useState(() => inicial?.descricao || '')
@@ -1591,10 +1595,22 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
             renderInput={(params) => (
               <TextField
                 {...params}
-                label={t('Loja', 'Store')}
+                label={t('Empresa', 'Company')}
                 error={erroCampos.origem}
                 sx={[finCampoSx, erroCampos.origem ? finCampoErroSx : null]}
               />
+            )}
+            renderOption={(props, e) => (
+              <li {...props} key={e.id}>
+                <Box sx={{ display: 'flex', width: '100%', alignItems: 'center', gap: 1 }}>
+                  <Box component="span" sx={{ flex: 1 }}>{e.apelido}</Box>
+                  {e.tipo === 'holding' ? (
+                    <Typography component="span" sx={{ fontSize: 10, color: 'text.secondary' }}>
+                      holding
+                    </Typography>
+                  ) : null}
+                </Box>
+              </li>
             )}
           />
           <Autocomplete

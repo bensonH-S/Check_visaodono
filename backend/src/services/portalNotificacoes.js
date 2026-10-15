@@ -49,6 +49,7 @@ function mapNotif(r) {
     tipo: r.tipo,
     titulo: r.titulo,
     mensagem: r.mensagem || '',
+    resumo: r.resumo || null,
     link: r.link || null,
     ref_tipo: r.ref_tipo || null,
     ref_id: r.ref_id || null,
@@ -89,25 +90,34 @@ async function listarPagamentosProximos(user) {
          AND d.vencimento IS NOT NULL
          AND d.vencimento::date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '2 days')
        ORDER BY d.vencimento ASC, d.valor DESC NULLS LAST
-       LIMIT 15`,
+       LIMIT 8`,
     );
+    const hoje = new Date();
+    const hojeIso = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-${String(hoje.getDate()).padStart(2, '0')}`;
     return rows.map((r) => {
       const venc = r.vencimento;
-      const hoje = new Date().toISOString().slice(0, 10);
-      const urgente = venc <= hoje;
+      const urgente = venc <= hojeIso;
       const valor = r.valor != null ? Number(r.valor) : null;
       const valorTxt =
         valor != null
           ? valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
           : '';
+      const desc = String(r.descricao || '').trim();
+      const descCurta = desc.length > 42 ? `${desc.slice(0, 40)}…` : desc;
+      const vencFmt = venc
+        ? (() => {
+            const [y, m, d] = String(venc).slice(0, 10).split('-');
+            return d && m ? `${d}/${m}` : venc;
+          })()
+        : '';
+      const quando = urgente ? 'Hoje' : vencFmt ? `Vence ${vencFmt}` : 'Próximo';
       return {
         id_notificacao: `pag-${r.id}`,
         id_usuario: Number(user.sub),
         tipo: urgente ? 'pagamento_hoje' : 'pagamento_proximo',
-        titulo: urgente ? 'Pagamento hoje' : 'Pagamento próximo',
-        mensagem: [r.empresa, r.descricao, valorTxt, venc ? `venc. ${venc}` : null]
-          .filter(Boolean)
-          .join(' · '),
+        titulo: String(r.empresa || 'Pagamento').trim(),
+        mensagem: [descCurta, valorTxt].filter(Boolean).join(' · '),
+        resumo: quando,
         link: '/financeiro',
         ref_tipo: 'despesa',
         ref_id: r.id,

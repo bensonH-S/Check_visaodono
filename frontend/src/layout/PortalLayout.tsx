@@ -50,6 +50,7 @@ import NotificacoesSino from '../components/NotificacoesSino';
 import SobreSistemaButton from '../components/SobreSistemaButton';
 import AbrirChamadoTiDialog from '../components/AbrirChamadoTiDialog';
 import PortalSino from '../components/PortalSino';
+import AnotacoesTiDialog from '../components/AnotacoesTiDialog';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import { podeGerenciarTicketsTi } from '../lib/auth';
 import AtivarPushHeaderButton from '../components/AtivarPushHeaderButton';
@@ -490,6 +491,7 @@ function PortalLayoutInner() {
               {mostraIdiomaFinanceiro ? <FinanceIdiomaToggle /> : null}
               <PortalSino variante="portal" />
               <AbrirChamadoTiDialog variante="portal" />
+              <AnotacoesTiDialog variante="portal" />
               {podeConfig ? (
                 <Tooltip title={mostraIdiomaFinanceiro && finEn ? 'Settings' : 'Configurações'}>
                   <IconButton
@@ -540,6 +542,7 @@ function PortalLayoutInner() {
           <SobreSistemaButton variante="portal" />
           <PortalSino variante="icone" />
           <AbrirChamadoTiDialog variante="icone" />
+          <AnotacoesTiDialog variante="icone" />
           <AtivarGpsHeaderButton gpsAtivo={appConfig.gpsTecnicosEnabled !== false} />
           {/* Tema escuro oculto no mobile por enquanto — só claro. */}
           {mostraIdiomaFinanceiro || path.startsWith('/configuracoes/financeiro') ? (

@@ -18,9 +18,9 @@ import { NOTIFICACOES_REFRESH } from '../utils/notificacoesEvent';
 const POLL_MS = 8000;
 
 function iconeTipo(tipo: string) {
-  if (tipo.startsWith('pagamento')) return <CreditCard size={16} strokeWidth={2} />;
-  if (tipo.startsWith('ti_')) return <Ticket size={16} strokeWidth={2} />;
-  return <Bell size={16} strokeWidth={2} />;
+  if (tipo.startsWith('pagamento')) return <CreditCard size={15} strokeWidth={2} />;
+  if (tipo.startsWith('ti_')) return <Ticket size={15} strokeWidth={2} />;
+  return <Bell size={15} strokeWidth={2} />;
 }
 
 function corTipo(tipo: string) {
@@ -29,6 +29,14 @@ function corTipo(tipo: string) {
   if (tipo === 'ti_atribuicao_enviada') return '#16a34a';
   if (tipo.startsWith('ti_')) return '#2563eb';
   return colors.navy;
+}
+
+function rotuloTipo(tipo: string) {
+  if (tipo === 'pagamento_hoje') return 'Pagamento';
+  if (tipo === 'pagamento_proximo') return 'Agenda';
+  if (tipo === 'ti_atribuicao_enviada') return 'Ticket';
+  if (tipo.startsWith('ti_')) return 'Ticket';
+  return 'Alerta';
 }
 
 type Props = { variante?: 'portal' | 'icone' };
@@ -86,10 +94,10 @@ export default function PortalSino({ variante = 'portal' }: Props) {
 
   return (
     <>
-      <Tooltip title="Notificações">
+      <Tooltip title="Alertas">
         <IconButton
           size="small"
-          aria-label="Notificações"
+          aria-label="Alertas"
           onClick={(e) => setAnchor(e.currentTarget)}
           sx={{
             color: colors.textSecondary,
@@ -116,8 +124,8 @@ export default function PortalSino({ variante = 'portal' }: Props) {
         slotProps={{
           paper: {
             sx: {
-              width: 360,
-              maxWidth: 'calcin(100vw - 24px)',
+              width: 340,
+              maxWidth: 'calc(100vw - 24px)',
               mt: 1,
               borderRadius: 2,
               border: `1px solid ${colors.border}`,
@@ -128,7 +136,7 @@ export default function PortalSino({ variante = 'portal' }: Props) {
         }}
       >
         <Stack direction="row" sx={{ px: 1.75, py: 1.25, alignItems: 'center', gap: 1 }}>
-          <Typography sx={{ fontWeight: 700, fontSize: 14, flex: 1 }}>Notificações</Typography>
+          <Typography sx={{ fontWeight: 700, fontSize: 14, flex: 1 }}>Alertas</Typography>
           {naoLidas > 0 ? (
             <Button
               size="small"
@@ -141,80 +149,107 @@ export default function PortalSino({ variante = 'portal' }: Props) {
           ) : null}
         </Stack>
         <Divider />
-        <Box sx={{ maxHeight: 420, overflowY: 'auto' }}>
+        <Box sx={{ maxHeight: 400, overflowY: 'auto' }}>
           {items.length === 0 ? (
             <Typography sx={{ p: 2.5, fontSize: 13, color: 'text.secondary', textAlign: 'center' }}>
-              Nenhuma notificação no momento.
+              Nenhum alerta no momento.
             </Typography>
           ) : (
-            items.map((n) => (
-              <Box
-                key={String(n.id_notificacao)}
-                onClick={() => void abrirItem(n)}
-                sx={{
-                  px: 1.75,
-                  py: 1.25,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  gap: 1.25,
-                  bgcolor: n.lida ? 'transparent' : 'rgba(37,99,235,0.06)',
-                  borderBottom: `1px solid ${colors.border}`,
-                  '&:hover': { bgcolor: 'rgba(15,23,42,0.04)' },
-                }}
-              >
+            items.map((n) => {
+              const cor = corTipo(n.tipo);
+              return (
                 <Box
+                  key={String(n.id_notificacao)}
+                  onClick={() => void abrirItem(n)}
                   sx={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '10px',
-                    bgcolor: `${corTipo(n.tipo)}14`,
-                    color: corTipo(n.tipo),
-                    display: 'grid',
-                    placeItems: 'center',
-                    flexShrink: 0,
-                    mt: 0.15,
+                    px: 1.5,
+                    py: 1.1,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    gap: 1.1,
+                    alignItems: 'flex-start',
+                    bgcolor: n.lida ? 'transparent' : `${cor}0A`,
+                    borderBottom: `1px solid ${colors.border}`,
+                    '&:hover': { bgcolor: 'rgba(15,23,42,0.04)' },
                   }}
                 >
-                  {iconeTipo(n.tipo)}
-                </Box>
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <Typography sx={{ fontSize: 13, fontWeight: n.lida ? 500 : 700, lineHeight: 1.3 }}>
-                    {n.titulo}
-                  </Typography>
-                  {n.mensagem ? (
-                    <Typography
-                      sx={{
-                        fontSize: 12,
-                        color: 'text.secondary',
-                        mt: 0.25,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                      }}
-                    >
-                      {n.mensagem}
-                    </Typography>
-                  ) : null}
-                  <Typography sx={{ fontSize: 10.5, color: 'text.disabled', mt: 0.4 }}>
-                    {formatDataHoraBrasilia(n.created_at)}
-                  </Typography>
-                </Box>
-                {!n.lida ? (
                   <Box
                     sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: '50%',
-                      bgcolor: corTipo(n.tipo),
-                      mt: 0.75,
+                      width: 30,
+                      height: 30,
+                      borderRadius: '9px',
+                      bgcolor: `${cor}14`,
+                      color: cor,
+                      display: 'grid',
+                      placeItems: 'center',
                       flexShrink: 0,
+                      mt: 0.1,
                     }}
-                  />
-                ) : null}
-              </Box>
-            ))
+                  >
+                    {iconeTipo(n.tipo)}
+                  </Box>
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Stack direction="row" sx={{ alignItems: 'center', gap: 0.75, mb: 0.15 }}>
+                      <Typography
+                        sx={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          letterSpacing: '0.04em',
+                          textTransform: 'uppercase',
+                          color: cor,
+                        }}
+                      >
+                        {rotuloTipo(n.tipo)}
+                      </Typography>
+                      {n.resumo ? (
+                        <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>{n.resumo}</Typography>
+                      ) : null}
+                      <Box sx={{ flex: 1 }} />
+                      {!n.lida ? (
+                        <Box
+                          sx={{
+                            width: 7,
+                            height: 7,
+                            borderRadius: '50%',
+                            bgcolor: cor,
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : null}
+                    </Stack>
+                    <Typography
+                      sx={{
+                        fontSize: 13,
+                        fontWeight: n.lida ? 550 : 700,
+                        lineHeight: 1.3,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {n.titulo}
+                    </Typography>
+                    {n.mensagem ? (
+                      <Typography
+                        sx={{
+                          fontSize: 12,
+                          color: 'text.secondary',
+                          mt: 0.15,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {n.mensagem}
+                      </Typography>
+                    ) : null}
+                    <Typography sx={{ fontSize: 10.5, color: 'text.disabled', mt: 0.35 }}>
+                      {formatDataHoraBrasilia(n.created_at)}
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })
           )}
         </Box>
       </Popover>

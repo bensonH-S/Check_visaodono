@@ -4220,6 +4220,8 @@ export interface PortalNotificacao {
   tipo: string;
   titulo: string;
   mensagem: string;
+  /** Linha curta extra (ex.: "Hoje", "Vence 16/10"). */
+  resumo?: string | null;
   link: string | null;
   ref_tipo: string | null;
   ref_id: string | null;
@@ -4244,6 +4246,8 @@ export interface TiNota {
   titulo: string;
   corpo: string;
   ordem?: number;
+  id_usuario?: number | null;
+  dono_nome?: string | null;
   atualizado_por: number | null;
   atualizado_por_nome: string | null;
   created_at: string;

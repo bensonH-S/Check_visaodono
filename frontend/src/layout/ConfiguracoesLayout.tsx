@@ -10,6 +10,7 @@ import { getUsuario } from '../lib/auth';
 import FinanceIdiomaToggle from '../financeiro/FinanceIdiomaToggle';
 import PortalSino from '../components/PortalSino';
 import AbrirChamadoTiDialog from '../components/AbrirChamadoTiDialog';
+import AnotacoesTiDialog from '../components/AnotacoesTiDialog';
 import { FIN_BG, FIN_BORDER, FIN_MUTED, FIN_SURFACE, FIN_TEXT } from '../financeiro/temaFinanceiroEscuro';
 import { getConfigNavSections, itemConfigAtivo } from '../pages/configuracoes/configNav';
 
@@ -66,6 +67,7 @@ export default function ConfiguracoesLayout() {
           </Typography>
           <PortalSino variante="portal" />
           <AbrirChamadoTiDialog variante="portal" />
+          <AnotacoesTiDialog variante="portal" />
           {fin ? <FinanceIdiomaToggle size="tiny" /> : null}
         </Box>
 

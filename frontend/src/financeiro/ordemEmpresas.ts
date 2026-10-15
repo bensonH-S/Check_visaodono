@@ -27,7 +27,7 @@ const ORDEM: string[][] = [
   ['KING ASSESSORIA', 'KING'],
   ['SUPER KING'],
   ['ALVIM GESTAO'],
-  ['ALVIM PARTICIPACOES'],
+  ['ALVIM PARTICIPACOES', 'ALVIM PARTICIPAÇÕES', 'ALVIM INVESTIMENTOS'],
 ]
 
 function normalizar(nome: string) {

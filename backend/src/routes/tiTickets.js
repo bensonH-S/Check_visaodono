@@ -114,42 +114,49 @@ router.get('/board', requireGerenciar, async (req, res, next) => {
   }
 });
 
-router.get('/notas', requireGerenciar, async (req, res, next) => {
+router.get('/notas', requireAbrir, async (req, res, next) => {
   try {
-    res.json(await listarNotas());
+    res.json(await listarNotas(req.user));
   } catch (e) {
     next(e);
   }
 });
 
-router.post('/notas', requireGerenciar, async (req, res, next) => {
+router.post('/notas', requireAbrir, async (req, res, next) => {
   try {
+    const isTi = await usuarioPodeGerenciarTickets(req.user);
     const nota = await criarNota(
       { titulo: req.body?.titulo, corpo: req.body?.corpo },
       req.user.sub,
+      { isTi },
     );
     res.status(201).json(nota);
   } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);
   }
 });
 
-router.put('/notas/:id', requireGerenciar, async (req, res, next) => {
+router.put('/notas/:id', requireAbrir, async (req, res, next) => {
   try {
-    const nota = await salvarNota(Number(req.params.id), req.body || {}, req.user.sub);
+    const isTi = await usuarioPodeGerenciarTickets(req.user);
+    const nota = await salvarNota(Number(req.params.id), req.body || {}, req.user.sub, { isTi });
     if (!nota) return res.status(404).json({ error: 'Lista não encontrada' });
     res.json(nota);
   } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);
   }
 });
 
-router.delete('/notas/:id', requireGerenciar, async (req, res, next) => {
+router.delete('/notas/:id', requireAbrir, async (req, res, next) => {
   try {
-    const ok = await excluirNota(Number(req.params.id));
+    const isTi = await usuarioPodeGerenciarTickets(req.user);
+    const ok = await excluirNota(Number(req.params.id), req.user.sub, { isTi });
     if (!ok) return res.status(404).json({ error: 'Lista não encontrada' });
     res.json({ ok: true });
   } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);
   }
 });

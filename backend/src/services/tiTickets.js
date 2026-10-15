@@ -98,15 +98,20 @@ async function notificarAtribuicao(ticket, atribuidoPorId) {
     const { criarPortalNotificacao } = await import('./portalNotificacoes.js');
     const quem = await pool.query(`SELECT nome FROM usuarios WHERE id_usuario = $1`, [atribuidoPorId]);
     const nomeQuem = quem.rows[0]?.nome || 'TI';
-    const prazoTxt = ticket.prazo ? ` · prazo ${ticket.prazo}` : '';
+    const prazoFmt = ticket.prazo
+      ? (() => {
+          const [y, m, d] = String(ticket.prazo).slice(0, 10).split('-');
+          return d && m ? `${d}/${m}` : ticket.prazo;
+        })()
+      : '';
 
     // Destinatário (responsável)
     if (Number(ticket.responsavel_id) !== Number(atribuidoPorId)) {
       await criarPortalNotificacao({
         idUsuario: ticket.responsavel_id,
         tipo: 'ti_atribuicao',
-        titulo: 'Ticket atribuído a você',
-        mensagem: `${nomeQuem} atribuiu: ${ticket.titulo}${prazoTxt}`,
+        titulo: ticket.titulo,
+        mensagem: [nomeQuem, prazoFmt ? `Prazo ${prazoFmt}` : null].filter(Boolean).join(' · '),
         link: '/configuracoes/tickets',
         refTipo: 'ti_ticket',
         refId: ticket.id_ticket,
@@ -118,8 +123,8 @@ async function notificarAtribuicao(ticket, atribuidoPorId) {
       await criarPortalNotificacao({
         idUsuario: atribuidoPorId,
         tipo: 'ti_atribuicao_enviada',
-        titulo: 'Atribuição enviada',
-        mensagem: `Você atribuiu a ${ticket.responsavel_nome || 'responsável'}: ${ticket.titulo}${prazoTxt}`,
+        titulo: ticket.titulo,
+        mensagem: `Para ${ticket.responsavel_nome || 'responsável'}`,
         link: '/configuracoes/tickets',
         refTipo: 'ti_ticket',
         refId: ticket.id_ticket,
@@ -387,6 +392,8 @@ export async function avaliarTicket(id, idUsuario, { avaliacao, comentario }) {
   return obterTicket(id);
 }
 
+const MAX_NOTAS_COLABORADOR = 2;
+
 function mapNota(row) {
   if (!row) return null;
   return {
@@ -394,6 +401,8 @@ function mapNota(row) {
     titulo: row.titulo || 'Sem título',
     corpo: row.corpo || '',
     ordem: Number(row.ordem) || 0,
+    id_usuario: row.id_usuario != null ? Number(row.id_usuario) : null,
+    dono_nome: row.dono_nome || null,
     atualizado_por: row.atualizado_por != null ? Number(row.atualizado_por) : null,
     atualizado_por_nome: row.atualizado_por_nome || null,
     created_at: row.created_at,
@@ -401,60 +410,93 @@ function mapNota(row) {
   };
 }
 
-export async function obterNota(idNota) {
-  const { rows } = await pool.query(
-    `SELECT n.id_nota, n.titulo, n.corpo, n.ordem, n.atualizado_por, n.created_at, n.updated_at,
-            u.nome AS atualizado_por_nome
+const SQL_NOTA = `SELECT n.id_nota, n.titulo, n.corpo, n.ordem, n.id_usuario, n.atualizado_por,
+            n.created_at, n.updated_at,
+            u.nome AS atualizado_por_nome,
+            d.nome AS dono_nome
      FROM ti_notas n
      LEFT JOIN usuarios u ON u.id_usuario = n.atualizado_por
-     WHERE n.id_nota = $1`,
-    [idNota],
-  );
+     LEFT JOIN usuarios d ON d.id_usuario = n.id_usuario`;
+
+export async function obterNota(idNota) {
+  const { rows } = await pool.query(`${SQL_NOTA} WHERE n.id_nota = $1`, [idNota]);
   return mapNota(rows[0]);
 }
 
-export async function listarNotas() {
-  const { rows } = await pool.query(
-    `SELECT n.id_nota, n.titulo, n.corpo, n.ordem, n.atualizado_por, n.created_at, n.updated_at,
-            u.nome AS atualizado_por_nome
-     FROM ti_notas n
-     LEFT JOIN usuarios u ON u.id_usuario = n.atualizado_por
-     ORDER BY n.ordem ASC, n.id_nota ASC`,
-  );
-  if (!rows.length) {
-    const criada = await criarNota({ titulo: 'Anotações de reunião', corpo: '' }, null);
+export async function listarNotas(user) {
+  const ti = user ? await usuarioPodeGerenciarTickets(user) : false;
+  const uid = Number(user?.sub);
+  let rows;
+  if (ti) {
+    ({ rows } = await pool.query(`${SQL_NOTA} ORDER BY n.ordem ASC, n.id_nota ASC`));
+  } else if (Number.isFinite(uid)) {
+    ({ rows } = await pool.query(
+      `${SQL_NOTA}
+       WHERE n.id_usuario = $1
+       ORDER BY n.ordem ASC, n.id_nota ASC`,
+      [uid],
+    ));
+  } else {
+    rows = [];
+  }
+  if (!rows.length && Number.isFinite(uid)) {
+    const criada = await criarNota({ titulo: 'Minhas anotações', corpo: '' }, uid, { forcar: true });
     return [criada];
   }
   return rows.map(mapNota);
 }
 
 /** @deprecated use listarNotas */
-export async function obterNotaPrincipal() {
-  const lista = await listarNotas();
+export async function obterNotaPrincipal(user) {
+  const lista = await listarNotas(user);
   return lista[0];
 }
 
-export async function criarNota({ titulo, corpo = '' } = {}, idUsuario = null) {
+export async function criarNota(
+  { titulo, corpo = '' } = {},
+  idUsuario = null,
+  { forcar = false, isTi = false } = {},
+) {
+  const uid = idUsuario != null ? Number(idUsuario) : null;
+  if (Number.isFinite(uid) && !forcar && !isTi) {
+    const { rows: cnt } = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM ti_notas WHERE id_usuario = $1`,
+      [uid],
+    );
+    if ((cnt[0]?.n || 0) >= MAX_NOTAS_COLABORADOR) {
+      const err = new Error(`Você pode ter no máximo ${MAX_NOTAS_COLABORADOR} anotações`);
+      err.status = 400;
+      throw err;
+    }
+  }
+
   const { rows: ord } = await pool.query(
     `SELECT COALESCE(MAX(ordem), 0) + 1 AS prox FROM ti_notas`,
   );
   const { rows } = await pool.query(
-    `INSERT INTO ti_notas (titulo, corpo, ordem, atualizado_por)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO ti_notas (titulo, corpo, ordem, atualizado_por, id_usuario)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING id_nota`,
     [
       String(titulo || 'Nova lista').trim().slice(0, 200) || 'Nova lista',
       corpo != null ? String(corpo) : '',
       Number(ord[0]?.prox) || 1,
-      idUsuario,
+      uid,
+      uid,
     ],
   );
   return obterNota(rows[0].id_nota);
 }
 
-export async function salvarNota(idNota, { titulo, corpo }, idUsuario) {
+export async function salvarNota(idNota, { titulo, corpo }, idUsuario, { isTi = false } = {}) {
   const atual = await obterNota(idNota);
   if (!atual) return null;
+  const uid = Number(idUsuario);
+  if (!isTi && atual.id_usuario != null && atual.id_usuario !== uid) {
+    const err = new Error('Sem permissão para editar esta anotação');
+    err.status = 403;
+    throw err;
+  }
   await pool.query(
     `UPDATE ti_notas SET
        titulo = COALESCE($2, titulo),
@@ -466,13 +508,21 @@ export async function salvarNota(idNota, { titulo, corpo }, idUsuario) {
       idNota,
       titulo != null ? String(titulo).trim().slice(0, 200) : null,
       corpo != null ? String(corpo) : null,
-      idUsuario,
+      uid,
     ],
   );
   return obterNota(idNota);
 }
 
-export async function excluirNota(idNota) {
+export async function excluirNota(idNota, idUsuario, { isTi = false } = {}) {
+  const atual = await obterNota(idNota);
+  if (!atual) return false;
+  const uid = Number(idUsuario);
+  if (!isTi && atual.id_usuario != null && atual.id_usuario !== uid) {
+    const err = new Error('Sem permissão para excluir esta anotação');
+    err.status = 403;
+    throw err;
+  }
   const { rowCount } = await pool.query(`DELETE FROM ti_notas WHERE id_nota = $1`, [idNota]);
   return rowCount > 0;
 }
