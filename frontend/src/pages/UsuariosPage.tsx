@@ -22,7 +22,6 @@ import Alert from '@mui/material/Alert';
 import Checkbox from '@mui/material/Checkbox';
 import ListItemText from '@mui/material/ListItemText';
 import FormControlLabel from '@mui/material/FormControlLabel';
-import FormGroup from '@mui/material/FormGroup';
 import Stack from '@mui/material/Stack';
 import PageLoading from '../components/PageLoading';
 import Switch from '@mui/material/Switch';
@@ -37,8 +36,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import { Link as RouterLink } from 'react-router-dom';
-import { api, type UsuarioGestao, type Loja, type PermissaoCatalogo, type Cargo, type TipoChecklist } from '../api/client';
-import { atualizarUsuarioSessao, getToken, getUsuario, iniciaisUsuario, temPermissao } from '../lib/auth';
+import { api, type UsuarioGestao, type Loja, type Cargo } from '../api/client';
+import { atualizarUsuarioSessao, getToken, getUsuario, iniciaisUsuario } from '../lib/auth';
 import { redimensionarFotoPerfil } from '../utils/fotoPerfil';
 import { tableContainerSx, tableSx } from '../utils/tablePageLayout';
 import { useToast } from '../hooks/useToast';
@@ -97,9 +96,6 @@ type FormUsuarioProps = {
   usuario: UsuarioGestao | null;
   cargos: Cargo[];
   lojas: Loja[];
-  catalogoPorGrupo: [string, PermissaoCatalogo[]][];
-  tiposCatalogo: TipoChecklist[];
-  podeEditarChecklistsCargo: boolean;
   idSessao?: number;
   onFechar: () => void;
   onSalvo: () => void;
@@ -107,14 +103,31 @@ type FormUsuarioProps = {
   showToast: (msg: string) => void;
 };
 
+function resumoAcessosPerfil(cargo: Cargo | undefined): string[] {
+  const perms = cargo?.permissoes || [];
+  if (!perms.length) return [];
+  const grupos: { titulo: string; codigos: string[] }[] = [
+    { titulo: 'Command Center', codigos: ['portal.dashboard.ver'] },
+    { titulo: 'Financeiro', codigos: ['financeiro.ver'] },
+    { titulo: 'AutoREV', codigos: ['checklist.ver', 'checklist.executar'] },
+    { titulo: 'Chamados', codigos: ['chamados.ver', 'chamados.abrir', 'chamados.assumir', 'chamados.aprovar'] },
+    { titulo: 'Energia', codigos: ['energia.ver', 'energia.abrir'] },
+    { titulo: 'Frota', codigos: ['frota.usar', 'frota.mapa.ver', 'frota.gerenciar'] },
+    { titulo: 'Planejamento', codigos: ['escalas.visitas.ver', 'escalas.visitas.gerenciar'] },
+    { titulo: 'Visitas', codigos: ['portal.visitas.ver', 'portal.visitas.apagar', 'portal.visitas.reabrir'] },
+    { titulo: 'Estoque', codigos: ['estoque.produtos', 'estoque.conferencia', 'estoque.operacional'] },
+    { titulo: 'Metas', codigos: ['metas.ver', 'metas.gerenciar'] },
+    { titulo: 'Tickets TI', codigos: ['ti.tickets.abrir', 'ti.tickets.gerenciar'] },
+    { titulo: 'Configurações', codigos: ['configuracoes.ver', 'usuarios.gerenciar', 'configuracoes.auditoria'] },
+  ];
+  return grupos.filter((g) => g.codigos.some((c) => perms.includes(c))).map((g) => g.titulo);
+}
+
 /** Monta só quando aberto — mesmo fluxo da Conta bancária. */
 function FormUsuario({
   usuario,
   cargos,
   lojas,
-  catalogoPorGrupo,
-  tiposCatalogo,
-  podeEditarChecklistsCargo,
   idSessao,
   onFechar,
   onSalvo,
@@ -135,12 +148,12 @@ function FormUsuario({
           telefone_whatsapp: usuario.telefone_whatsapp || '',
           notifica_whatsapp: usuario.notifica_whatsapp !== false,
         }
-      : { ...emptyForm, cargo_aprovacao: codigoInicial },
+      : {
+          ...emptyForm,
+          cargo_aprovacao: codigoInicial,
+          permissoes: cargos.find((c) => c.codigo === codigoInicial)?.permissoes || [],
+        },
   );
-  const [cargoTiposChecklist, setCargoTiposChecklist] = useState(() => {
-    const cargo = cargos.find((c) => c.codigo === codigoInicial);
-    return (cargo?.tipos_checklist || []).map((t) => t.codigo);
-  });
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
@@ -148,13 +161,6 @@ function FormUsuario({
   const [avatarDraft, setAvatarDraft] = useState<string | null>(usuario?.avatar_url ?? null);
   const [avatarTouched, setAvatarTouched] = useState(false);
   const inputFotoRef = useRef<HTMLInputElement>(null);
-  /** Lista pesada de permissões entra depois do slide — evita tranco. */
-  const [detalhePronto, setDetalhePronto] = useState(false);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => setDetalhePronto(true), 180);
-    return () => window.clearTimeout(t);
-  }, []);
 
   useEffect(() => {
     if (!usuario?.id_usuario || usuario.avatar_url) return;
@@ -179,39 +185,28 @@ function FormUsuario({
     }
   }
 
-  const todasLojas = form.permissoes.includes('lojas.todas');
-  const exigeCargoAprovador = form.permissoes.includes('chamados.aprovar');
-
   function cargoSelecionado(codigo: string) {
     return cargos.find((c) => c.codigo === codigo);
   }
 
-  function sincronizarTiposDoCargo(codigo: string) {
-    const cargo = cargos.find((c) => c.codigo === codigo);
-    setCargoTiposChecklist((cargo?.tipos_checklist || []).map((t) => t.codigo));
-  }
+  const cargoAtual = cargoSelecionado(form.cargo_aprovacao);
+  const permsPerfil = cargoAtual?.permissoes?.length
+    ? cargoAtual.permissoes
+    : form.permissoes;
+  const todasLojas = permsPerfil.includes('lojas.todas');
+  const acessosMenu = resumoAcessosPerfil(
+    cargoAtual ? { ...cargoAtual, permissoes: permsPerfil } : undefined,
+  );
 
-  function tiposChecklistAlterados(codigo: string) {
+  function aplicarPerfil(codigo: string) {
     const cargo = cargos.find((c) => c.codigo === codigo);
-    const orig = (cargo?.tipos_checklist || []).map((t) => t.codigo).sort().join(',');
-    const novo = [...cargoTiposChecklist].sort().join(',');
-    return orig !== novo;
-  }
-
-  function togglePermissao(codigo: string) {
-    setForm((f) => {
-      const tem = f.permissoes.includes(codigo);
-      const permissoes = tem ? f.permissoes.filter((c) => c !== codigo) : [...f.permissoes, codigo];
-      const lojas_ids = codigo === 'lojas.todas' && !tem ? [] : f.lojas_ids;
-      let cargo_aprovacao = f.cargo_aprovacao;
-      if (codigo === 'chamados.aprovar' && !tem) {
-        const atual = cargoSelecionado(cargo_aprovacao);
-        if (!atual?.aprovador) {
-          cargo_aprovacao = cargos.find((c) => c.aprovador)?.codigo || cargo_aprovacao;
-        }
-      }
-      return { ...f, permissoes, lojas_ids, cargo_aprovacao };
-    });
+    const perms = cargo?.permissoes || [];
+    setForm((f) => ({
+      ...f,
+      cargo_aprovacao: codigo,
+      permissoes: perms,
+      lojas_ids: perms.includes('lojas.todas') ? [] : f.lojas_ids,
+    }));
   }
 
   async function salvar() {
@@ -223,18 +218,11 @@ function FormUsuario({
         setSalvando(false);
         return;
       }
-      const cargo = cargoSelecionado(form.cargo_aprovacao);
-      if (exigeCargoAprovador && !cargo?.aprovador) {
-        setErro('Para aprovar orçamentos, escolha um perfil Financeiro ou Diretor.');
-        setSalvando(false);
-        return;
-      }
       const body = {
         nome: form.nome.trim(),
         email: form.email.trim(),
         cargo_aprovacao: form.cargo_aprovacao,
         lojas_ids: todasLojas ? [] : form.lojas_ids,
-        permissoes: form.permissoes,
         ativo: form.ativo,
         telefone_whatsapp: form.telefone_whatsapp.trim() || null,
         notifica_whatsapp: form.notifica_whatsapp,
@@ -244,7 +232,7 @@ function FormUsuario({
           : {}),
       };
       if (!todasLojas && !body.lojas_ids.length) {
-        setErro('Selecione ao menos uma loja ou marque "Acesso a todas as lojas".');
+        setErro('Selecione ao menos uma loja (ou use um perfil com acesso a todas as lojas).');
         setSalvando(false);
         return;
       }
@@ -261,10 +249,6 @@ function FormUsuario({
         const criado = await api.usuarioGestaoCriar({ ...body, senha: form.senha });
         salvoId = criado.id_usuario;
         showToast('Usuário criado com sucesso!');
-      }
-      if (podeEditarChecklistsCargo && form.cargo_aprovacao && tiposChecklistAlterados(form.cargo_aprovacao)) {
-        const c = cargoSelecionado(form.cargo_aprovacao);
-        if (c) await api.cargoGestaoAtualizar(c.id_cargo, { tipos_checklist: cargoTiposChecklist });
       }
       if (salvoId && idSessao && salvoId === idSessao && avatarTouched) {
         const token = getToken();
@@ -321,7 +305,7 @@ function FormUsuario({
               {usuario ? 'Editar usuário' : 'Novo usuário'}
             </Typography>
             <Typography sx={{ fontSize: 12, color: FIN_MUTED, mt: 0.25 }}>
-              Perfil, lojas e o que a pessoa pode fazer no sistema.
+              Conta, perfil e lojas. O que aparece no menu vem do perfil.
             </Typography>
           </Box>
           <FormControlLabel
@@ -412,16 +396,21 @@ function FormUsuario({
               label="Perfil"
               required
               value={form.cargo_aprovacao}
-              onChange={(e) => {
-                const codigo = e.target.value;
-                setForm((f) => ({ ...f, cargo_aprovacao: codigo }));
-                sincronizarTiposDoCargo(codigo);
-              }}
+              onChange={(e) => aplicarPerfil(e.target.value)}
+              helperText={
+                <>
+                  Menus e ações definidos em{' '}
+                  <RouterLink to="/configuracoes/cargos" style={{ color: '#1B6EF3', fontWeight: 600 }}>
+                    Permissões
+                  </RouterLink>
+                </>
+              }
               sx={campoSx}
             >
               {cargos.map((c) => (
                 <MenuItem key={c.codigo} value={c.codigo} dense>
                   {c.nome}
+                  {c.aprovador ? ' · aprovador' : ''}
                 </MenuItem>
               ))}
             </TextField>
@@ -452,49 +441,42 @@ function FormUsuario({
           {form.cargo_aprovacao ? (
             <Stack spacing={1}>
               <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: FIN_MUTED }}>
-                Checklists do perfil
+                Acesso deste perfil
               </Typography>
-              {podeEditarChecklistsCargo && tiposCatalogo.length > 0 ? (
-                <>
-                  <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
-                    Vale para todos com o perfil{' '}
-                    <Box component="span" sx={{ fontWeight: 600, color: FIN_TEXT }}>
-                      {cargoSelecionado(form.cargo_aprovacao)?.nome || form.cargo_aprovacao}
-                    </Box>
-                    . Também em{' '}
-                    <RouterLink to="/configuracoes/cargos" style={{ color: '#1B6EF3', fontWeight: 600 }}>
-                      Permissões
-                    </RouterLink>
-                    .
-                  </Typography>
-                  <FormGroup>
-                    {tiposCatalogo.map((t) => (
-                      <FormControlLabel
-                        key={t.codigo}
-                        control={
-                          <Checkbox
-                            size="small"
-                            checked={cargoTiposChecklist.includes(t.codigo)}
-                            onChange={() =>
-                              setCargoTiposChecklist((atual) =>
-                                atual.includes(t.codigo) ? atual.filter((c) => c !== t.codigo) : [...atual, t.codigo],
-                              )
-                            }
-                          />
-                        }
-                        label={<Typography sx={{ fontSize: 13 }}>{t.nome}</Typography>}
-                        sx={{ m: 0 }}
-                      />
-                    ))}
-                  </FormGroup>
-                </>
+              {acessosMenu.length ? (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                  {acessosMenu.map((titulo) => (
+                    <Chip
+                      key={titulo}
+                      size="small"
+                      label={titulo}
+                      sx={{
+                        height: 24,
+                        fontSize: 11,
+                        fontWeight: 500,
+                        bgcolor: 'rgba(27,110,243,0.08)',
+                        color: FIN_TEXT,
+                        border: `1px solid ${FIN_BORDER}`,
+                      }}
+                    />
+                  ))}
+                </Box>
               ) : (
-                <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
-                  {cargoTiposChecklist.length
-                    ? cargoTiposChecklist.map((c) => tiposCatalogo.find((t) => t.codigo === c)?.nome || c).join(' · ')
-                    : 'Nenhum checklist vinculado a este perfil.'}
-                </Typography>
+                <Alert severity="warning">
+                  Este perfil ainda não tem telas liberadas. Configure em{' '}
+                  <RouterLink to="/configuracoes/cargos" style={{ fontWeight: 600 }}>
+                    Permissões
+                  </RouterLink>
+                  .
+                </Alert>
               )}
+              <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
+                {permsPerfil.length} permissão{permsPerfil.length === 1 ? '' : 'ões'}
+                {cargoAtual?.aprovador ? ' · pode aprovar orçamentos' : ''}
+                {(cargoAtual?.tipos_checklist || []).length
+                  ? ` · ${(cargoAtual?.tipos_checklist || []).map((t) => t.nome).join(', ')}`
+                  : ''}
+              </Typography>
             </Stack>
           ) : null}
 
@@ -525,44 +507,15 @@ function FormUsuario({
             />
           </Stack>
 
-          {!cargos.length ? <Alert severity="warning">Nenhum perfil cadastrado. Vá em Configurações → Permissões.</Alert> : null}
-          {exigeCargoAprovador && cargoSelecionado(form.cargo_aprovacao) && !cargoSelecionado(form.cargo_aprovacao)?.aprovador ? (
-            <Alert severity="warning">Para aprovar orçamentos, use o perfil Financeiro ou Diretor.</Alert>
+          {!cargos.length ? (
+            <Alert severity="warning">
+              Nenhum perfil cadastrado. Vá em Configurações →{' '}
+              <RouterLink to="/configuracoes/cargos" style={{ fontWeight: 600 }}>
+                Permissões
+              </RouterLink>
+              .
+            </Alert>
           ) : null}
-
-          <Stack spacing={1.25}>
-            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: FIN_MUTED }}>
-              Permissões
-            </Typography>
-            {!detalhePronto ? (
-              <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>Carregando permissões…</Typography>
-            ) : (
-              catalogoPorGrupo.map(([grupo, itens]) => (
-                <Box key={grupo}>
-                  <Typography sx={{ fontSize: 11, fontWeight: 650, color: FIN_MUTED, mb: 0.5 }}>{grupo}</Typography>
-                  <FormGroup>
-                    {itens.map((p) => (
-                      <FormControlLabel
-                        key={p.codigo}
-                        control={
-                          <Checkbox
-                            size="small"
-                            checked={form.permissoes.includes(p.codigo)}
-                            onChange={() => togglePermissao(p.codigo)}
-                          />
-                        }
-                        label={<Typography sx={{ fontSize: 13, lineHeight: 1.35 }}>{p.nome}</Typography>}
-                        sx={{ m: 0, alignItems: 'flex-start', '& .MuiCheckbox-root': { pt: 0.15 } }}
-                      />
-                    ))}
-                  </FormGroup>
-                </Box>
-              ))
-            )}
-            {detalhePronto && !form.permissoes.length ? (
-              <Alert severity="warning">Sem permissões, a pessoa não vê menus nem usa o sistema.</Alert>
-            ) : null}
-          </Stack>
 
           <Stack spacing={1.25}>
             <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: FIN_MUTED }}>
@@ -645,8 +598,6 @@ export default function UsuariosPage() {
   const [lista, setLista] = useState<UsuarioGestao[]>([]);
   const [lojas, setLojas] = useState<Loja[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
-  const [catalogo, setCatalogo] = useState<PermissaoCatalogo[]>([]);
-  const [tiposCatalogo, setTiposCatalogo] = useState<TipoChecklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [erroLista, setErroLista] = useState('');
   /** Igual Contas: um setState e o painel monta pronto. */
@@ -658,18 +609,6 @@ export default function UsuariosPage() {
 
   const sessao = getUsuario();
   const ativos = lista.filter((u) => u.ativo).length;
-  const podeEditarChecklistsCargo =
-    temPermissao('configuracoes.ver', sessao) || temPermissao('usuarios.gerenciar', sessao);
-
-  const catalogoPorGrupo = useMemo(() => {
-    const map = new Map<string, PermissaoCatalogo[]>();
-    for (const p of catalogo) {
-      const g = map.get(p.grupo) || [];
-      g.push(p);
-      map.set(p.grupo, g);
-    }
-    return [...map.entries()].sort((a, b) => (a[1][0]?.ordem ?? 0) - (b[1][0]?.ordem ?? 0));
-  }, [catalogo]);
 
   function nomePerfilUsuario(u: UsuarioGestao) {
     if (u.cargo_nome) return u.cargo_nome;
@@ -694,18 +633,14 @@ export default function UsuariosPage() {
   async function carregar() {
     setLoading(true);
     try {
-      const [u, l, cat, cargosLista, tipos] = await Promise.all([
+      const [u, l, cargosLista] = await Promise.all([
         api.usuariosGestao(),
         api.lojas({ ativas: true }),
-        api.permissoesCatalogo(),
         api.cargos(),
-        podeEditarChecklistsCargo ? api.checklistTiposCatalogo().catch(() => []) : Promise.resolve([]),
       ]);
       setLista(u);
       setLojas(l);
-      setCatalogo(cat);
       setCargos(cargosLista);
-      setTiposCatalogo(tipos);
       setErroLista('');
     } catch (e) {
       setErroLista(e instanceof Error ? e.message : 'Erro ao carregar');
@@ -791,7 +726,7 @@ export default function UsuariosPage() {
           <Table size="small" stickyHeader sx={tableSx}>
             <TableHead>
               <TableRow>
-                {['Nome', 'E-mail', 'Perfil', 'WhatsApp', 'Permissões', 'Lojas', 'Status', ''].map((h) => (
+                {['Nome', 'E-mail', 'Perfil', 'WhatsApp', 'Acessos', 'Lojas', 'Status', ''].map((h) => (
                   <TableCell key={h || 'acoes'}>{h}</TableCell>
                 ))}
               </TableRow>
@@ -869,9 +804,6 @@ export default function UsuariosPage() {
           usuario={editando === 'novo' ? null : editando}
           cargos={cargos}
           lojas={lojas}
-          catalogoPorGrupo={catalogoPorGrupo}
-          tiposCatalogo={tiposCatalogo}
-          podeEditarChecklistsCargo={podeEditarChecklistsCargo}
           idSessao={sessao?.id_usuario}
           onFechar={() => setEditando(null)}
           onSalvo={() => {

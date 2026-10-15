@@ -60,7 +60,7 @@ const CONFIG_NAV: ConfigNavSection[] = [
       {
         to: '/configuracoes/cargos',
         label: 'Permissões',
-        descricao: 'Cargos e o que cada um pode fazer.',
+        descricao: 'Perfis: menus, telas e ações de cada um.',
         icon: <BadgeIcon fontSize="small" />,
         permissoes: ['usuarios.gerenciar', 'configuracoes.ver'],
       },

@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
-import { requirePermissao } from '../permissoes.js';
+import {
+  requirePermissao,
+  carregarPermissoesCargo,
+  syncCargoPermissoes,
+  listarCatalogoPermissoes,
+} from '../permissoes.js';
 import { auditar } from '../auditoriaHelpers.js';
 import { mapaTiposChecklistPorCargos, syncCargoChecklist } from '../checklistTipos.js';
 
@@ -48,10 +53,14 @@ router.get('/', async (req, res, next) => {
 
 async function anexarTiposChecklist(cargos) {
   const mapa = await mapaTiposChecklistPorCargos(cargos.map((c) => c.codigo));
-  return cargos.map((c) => ({
-    ...c,
-    tipos_checklist: mapa.get(c.codigo) || [],
-  }));
+  const comPerms = await Promise.all(
+    cargos.map(async (c) => ({
+      ...c,
+      tipos_checklist: mapa.get(c.codigo) || [],
+      permissoes: await carregarPermissoesCargo(c.codigo),
+    })),
+  );
+  return comPerms;
 }
 
 router.get('/gestao', requirePermissao('configuracoes.ver', 'usuarios.gerenciar'), async (_req, res, next) => {
@@ -66,6 +75,18 @@ router.get('/gestao', requirePermissao('configuracoes.ver', 'usuarios.gerenciar'
     next(e);
   }
 });
+
+router.get(
+  '/gestao/catalogo-permissoes',
+  requirePermissao('configuracoes.ver', 'usuarios.gerenciar'),
+  async (_req, res, next) => {
+    try {
+      res.json(await listarCatalogoPermissoes());
+    } catch (e) {
+      next(e);
+    }
+  },
+);
 
 router.post('/gestao', requirePermissao('configuracoes.ver'), async (req, res, next) => {
   try {
@@ -97,6 +118,10 @@ router.post('/gestao', requirePermissao('configuracoes.ver'), async (req, res, n
       if (sync.error) return res.status(400).json({ error: sync.error });
       tiposChecklist = sync;
     }
+    let permissoes = [];
+    if (Array.isArray(req.body?.permissoes)) {
+      permissoes = await syncCargoPermissoes(rows[0].codigo, req.body.permissoes);
+    }
     await auditar(req, {
       modulo: 'cargos',
       acao: 'criar',
@@ -104,7 +129,7 @@ router.post('/gestao', requirePermissao('configuracoes.ver'), async (req, res, n
       idReferencia: rows[0].id_cargo,
       descricao: `Cargo criado: ${rows[0].nome} (${rows[0].codigo})`,
     });
-    res.status(201).json({ ...rows[0], tipos_checklist: tiposChecklist });
+    res.status(201).json({ ...rows[0], tipos_checklist: tiposChecklist, permissoes });
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Já existe um cargo com este código' });
     next(e);
@@ -145,7 +170,11 @@ router.patch('/gestao/:id', requirePermissao('configuracoes.ver', 'usuarios.gere
       vals.push(!!ativo);
     }
 
-    if (!sets.length && !Array.isArray(req.body?.tipos_checklist)) {
+    if (
+      !sets.length &&
+      !Array.isArray(req.body?.tipos_checklist) &&
+      !Array.isArray(req.body?.permissoes)
+    ) {
       return res.status(400).json({ error: 'Nada para atualizar' });
     }
 
@@ -170,6 +199,13 @@ router.patch('/gestao/:id', requirePermissao('configuracoes.ver', 'usuarios.gere
       tiposChecklist = comTipos.tipos_checklist;
     }
 
+    let permissoes;
+    if (Array.isArray(req.body?.permissoes)) {
+      permissoes = await syncCargoPermissoes(cargo.codigo, req.body.permissoes);
+    } else {
+      permissoes = await carregarPermissoesCargo(cargo.codigo);
+    }
+
     await auditar(req, {
       modulo: 'cargos',
       acao: 'atualizar',
@@ -177,7 +213,7 @@ router.patch('/gestao/:id', requirePermissao('configuracoes.ver', 'usuarios.gere
       idReferencia: id,
       descricao: `Cargo atualizado: ${cargo.nome}`,
     });
-    res.json({ ...cargo, tipos_checklist: tiposChecklist });
+    res.json({ ...cargo, tipos_checklist: tiposChecklist, permissoes });
   } catch (e) {
     next(e);
   }

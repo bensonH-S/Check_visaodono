@@ -100,16 +100,75 @@ export async function listarCatalogoPermissoes() {
   return rows.length ? rows : [...CATALOGO_PERMISSOES];
 }
 
-export async function carregarPermissoesUsuario(idUsuario) {
-  const { rows } = await pool.query(
-    `SELECT up.codigo
-     FROM usuario_permissoes up
-     JOIN permissoes p ON p.codigo = up.codigo
-     WHERE up.id_usuario = $1
-     ORDER BY p.ordem`,
-    [idUsuario],
+export async function carregarPermissoesCargo(codigoCargo) {
+  if (!codigoCargo) return [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT cp.codigo
+       FROM cargo_permissoes cp
+       JOIN permissoes p ON p.codigo = cp.codigo
+       WHERE cp.codigo_cargo = $1
+       ORDER BY p.ordem`,
+      [codigoCargo],
+    );
+    return rows.map((r) => r.codigo);
+  } catch {
+    return [];
+  }
+}
+
+export async function syncCargoPermissoes(codigoCargo, codigos) {
+  await ensureCatalogoPermissoes();
+  const lista = await normalizarPermissoes(codigos);
+  await pool.query(`DELETE FROM cargo_permissoes WHERE codigo_cargo = $1`, [codigoCargo]);
+  for (const codigo of lista) {
+    await pool.query(
+      `INSERT INTO cargo_permissoes (codigo_cargo, codigo) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [codigoCargo, codigo],
+    );
+  }
+  // Espelha nos usuários do perfil (compat + login imediato)
+  const { rows: users } = await pool.query(
+    `SELECT id_usuario FROM usuarios WHERE cargo_aprovacao = $1`,
+    [codigoCargo],
   );
-  const perms = rows.map((r) => r.codigo);
+  for (const u of users) {
+    await syncUsuarioPermissoes(u.id_usuario, lista);
+  }
+  return lista;
+}
+
+export async function carregarPermissoesUsuario(idUsuario) {
+  // Fonte principal: permissões do perfil (cargo)
+  let perms = [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT cp.codigo
+       FROM usuarios u
+       JOIN cargo_permissoes cp ON cp.codigo_cargo = u.cargo_aprovacao
+       JOIN permissoes p ON p.codigo = cp.codigo
+       WHERE u.id_usuario = $1
+       ORDER BY p.ordem`,
+      [idUsuario],
+    );
+    perms = rows.map((r) => r.codigo);
+  } catch {
+    /* cargo_permissoes ainda não migrada */
+  }
+
+  // Fallback legado: usuario_permissoes se o perfil ainda não tem matriz
+  if (!perms.length) {
+    const { rows } = await pool.query(
+      `SELECT up.codigo
+       FROM usuario_permissoes up
+       JOIN permissoes p ON p.codigo = up.codigo
+       WHERE up.id_usuario = $1
+       ORDER BY p.ordem`,
+      [idUsuario],
+    );
+    perms = rows.map((r) => r.codigo);
+  }
+
   try {
     const { rows: acc } = await pool.query(
       `SELECT 1 FROM ti_ticket_acessos

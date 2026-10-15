@@ -1906,6 +1906,7 @@ export interface Cargo {
   ativo: boolean;
   created_at?: string;
   tipos_checklist?: TipoChecklistResumo[];
+  permissoes?: string[];
 }
 
 export interface CargoInput {
@@ -1914,6 +1915,7 @@ export interface CargoInput {
   aprovador?: boolean;
   ativo?: boolean;
   tipos_checklist?: string[];
+  permissoes?: string[];
 }
 
 export interface PermissaoCatalogo {

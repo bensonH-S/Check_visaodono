@@ -231,13 +231,15 @@ export function Secao({ titulo, children }: { titulo: string; children: ReactNod
   )
 }
 
-export function PainelLateral({ aberto, titulo, subtitulo, onFechar, rodape, children }: {
+export function PainelLateral({ aberto, titulo, subtitulo, onFechar, rodape, children, largura = 460 }: {
   aberto: boolean
   titulo: ReactNode
   subtitulo?: ReactNode
   onFechar: () => void
   rodape?: ReactNode
   children: ReactNode
+  /** Largura do painel no desktop (sm+). */
+  largura?: number
 }) {
   return (
     <Drawer
@@ -247,7 +249,7 @@ export function PainelLateral({ aberto, titulo, subtitulo, onFechar, rodape, chi
       slotProps={{
         paper: {
           sx: {
-            width: { xs: '100%', sm: 460 },
+            width: { xs: '100%', sm: largura },
             bgcolor: FIN_SURFACE_ALT,
             color: FIN_TEXT,
             borderLeft: `1px solid ${FIN_BORDER}`,

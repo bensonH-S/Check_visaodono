@@ -5,6 +5,7 @@ import { syncUsuarioLojas, carregarLojasDetalhe } from '../lojasUsuario.js';
 import {
   acessoTodasLojas,
   carregarPermissoesUsuario,
+  carregarPermissoesCargo,
   requirePermissao,
   resolverPermissoesUsuario,
   syncUsuarioPermissoes,
@@ -221,11 +222,12 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
       return res.status(400).json({ error: 'Nome, e-mail e senha (mín. 6) são obrigatórios' });
     }
 
-    const permsProv = await resolverPermissoesUsuario('gerente', permissoes);
-    const cargoRes = await resolverCargoUsuario(cargo_aprovacao, permsProv, { obrigatorio: true });
+    const permsDoCargo = await carregarPermissoesCargo(cargo_aprovacao);
+    const cargoRes = await resolverCargoUsuario(cargo_aprovacao, permsDoCargo, { obrigatorio: true });
     if (cargoRes.error) return res.status(400).json({ error: cargoRes.error });
 
-    const perms = await resolverPermissoesUsuario(cargoRes.perfil, permissoes);
+    // Permissões vêm só do perfil (aba Permissões)
+    const perms = await carregarPermissoesCargo(cargoRes.codigo);
     const errLojas = validarLojas(perms, lojas_ids);
     if (errLojas) return res.status(400).json({ error: errLojas });
 
@@ -319,12 +321,21 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
     const perfilEfetivo = cargoCodigoEfetivo
       ? perfilInternoDoCargo(cargoCodigoEfetivo)
       : atual.rows[0].perfil;
-    const permsAtuais =
-      permissoes !== undefined
-        ? await resolverPermissoesUsuario(perfilEfetivo, permissoes)
-        : await carregarPermissoesUsuario(id);
+    // Fonte de verdade: matriz do perfil. Sem cargo, mantém legado por usuário.
+    let permsAtuais;
+    let deveSyncPerms = false;
+    if (cargoCodigoEfetivo) {
+      permsAtuais = await carregarPermissoesCargo(cargoCodigoEfetivo);
+      // Sempre espelha o perfil (mesmo vazio) para o menu bater com a aba Permissões
+      deveSyncPerms = true;
+    } else if (permissoes !== undefined) {
+      permsAtuais = await resolverPermissoesUsuario(perfilEfetivo, permissoes);
+      deveSyncPerms = true;
+    } else {
+      permsAtuais = await carregarPermissoesUsuario(id);
+    }
 
-    if (lojas_ids !== undefined || permissoes !== undefined) {
+    if (lojas_ids !== undefined || deveSyncPerms) {
       let idsValidar = lojas_ids;
       if (idsValidar === undefined) {
         const { rows: atuais } = await pool.query(
@@ -405,11 +416,11 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       await pool.query(`UPDATE usuarios SET ${sets.join(', ')} WHERE id_usuario = $${i}`, vals);
     }
 
-    if (permissoes !== undefined) {
+    if (deveSyncPerms) {
       await syncUsuarioPermissoes(id, permsAtuais);
     }
 
-    if (lojas_ids !== undefined || permissoes !== undefined) {
+    if (lojas_ids !== undefined || deveSyncPerms) {
       const perms = permsAtuais;
       let idsLoja = lojas_ids;
       if (idsLoja === undefined) {

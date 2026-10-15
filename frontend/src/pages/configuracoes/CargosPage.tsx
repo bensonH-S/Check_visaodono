@@ -1,109 +1,255 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Box from '@mui/material/Box';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
-import Table from '@mui/material/Table';
-import TableBody from '@mui/material/TableBody';
-import TableCell from '@mui/material/TableCell';
-import TableHead from '@mui/material/TableHead';
-import TableRow from '@mui/material/TableRow';
-import TableContainer from '@mui/material/TableContainer';
-import Chip from '@mui/material/Chip';
 import Button from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import TextField from '@mui/material/TextField';
-import Alert from '@mui/material/Alert';
-import LinearProgress from '@mui/material/LinearProgress';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Switch from '@mui/material/Switch';
-import FormGroup from '@mui/material/FormGroup';
 import Checkbox from '@mui/material/Checkbox';
-import FormLabel from '@mui/material/FormLabel';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
+import Stack from '@mui/material/Stack';
+import Switch from '@mui/material/Switch';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
-import BadgeIcon from '@mui/icons-material/Badge';
-import { api } from '../../api/client';
-import type { Cargo, TipoChecklist } from '../../api/client';
-import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
-import { tableContainerSx, tableSx } from '../../utils/tablePageLayout';
-import { configPageSx, configPaperSx } from './configPageSx';
-import { useToast } from '../../hooks/useToast';
-import { colors } from '../../theme/tokens';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
+import {
+  api,
+  type Cargo,
+  type PermissaoCatalogo,
+  type TipoChecklist,
+} from '../../api/client';
+import {
+  Barra,
+  Erro,
+  PainelLateral,
+  Resumo,
+  Resumos,
+  Secao,
+  Selo,
+  TabelaConfig,
+  Titulo,
+  type Coluna,
+} from '../../financeiro/components/ConfigUi';
+import { PrefsProvider } from '../../financeiro/prefs';
+import { finCampoSx, FIN_BORDER, FIN_MUTED, FIN_SURFACE_ALT, FIN_TEXT } from '../../financeiro/temaFinanceiroEscuro';
+import { configPageSx } from './configPageSx';
 
-const emptyForm = {
+/** Agrupa o catálogo em “o que aparece no menu” + ações. */
+const MENUS_SISTEMA: { titulo: string; descricao: string; codigos: string[] }[] = [
+  {
+    titulo: 'Command Center',
+    descricao: 'Dashboard, ranking e NCs',
+    codigos: ['portal.dashboard.ver'],
+  },
+  {
+    titulo: 'Financeiro',
+    descricao: 'Inbox, agenda, conciliação e caixa',
+    codigos: ['financeiro.ver'],
+  },
+  {
+    titulo: 'AutoREV / Checklist',
+    descricao: 'Acesso e execução em loja',
+    codigos: ['checklist.ver', 'checklist.executar'],
+  },
+  {
+    titulo: 'Chamados de manutenção',
+    descricao: 'Ver, abrir, assumir e aprovar',
+    codigos: ['chamados.ver', 'chamados.abrir', 'chamados.assumir', 'chamados.aprovar'],
+  },
+  {
+    titulo: 'Energia',
+    descricao: 'Ocorrências e protocolos',
+    codigos: ['energia.ver', 'energia.abrir'],
+  },
+  {
+    titulo: 'Frota',
+    descricao: 'Veículos, mapa e débitos',
+    codigos: [
+      'frota.usar',
+      'frota.mapa.ver',
+      'frota.gerenciar',
+      'frota.regioes',
+      'frota.multas.sync',
+      'frota.debitos.ver',
+      'frota.debitos.sync',
+    ],
+  },
+  {
+    titulo: 'Escalas / Planejamento',
+    descricao: 'Escala de visitas e gestores',
+    codigos: [
+      'escalas.visitas.ver',
+      'escalas.visitas.gerenciar',
+      'escalas.visitas.editar_regiao',
+      'escalas.visitas.editar_delivery',
+    ],
+  },
+  {
+    titulo: 'Visitas',
+    descricao: 'Histórico e gestão de relatórios',
+    codigos: ['portal.visitas.ver', 'portal.visitas.apagar', 'portal.visitas.reabrir'],
+  },
+  {
+    titulo: 'Estoque & CMV',
+    descricao: 'Insumos, contagem e operacional',
+    codigos: [
+      'estoque.produtos',
+      'estoque.conferencia',
+      'estoque.conferencia.reabrir',
+      'estoque.operacional',
+      'estoque.break',
+    ],
+  },
+  {
+    titulo: 'Metas',
+    descricao: 'Indicadores e metas',
+    codigos: ['metas.ver', 'metas.gerenciar'],
+  },
+  {
+    titulo: 'Tickets TI',
+    descricao: 'Abrir e gerenciar board de TI',
+    codigos: ['ti.tickets.abrir', 'ti.tickets.gerenciar'],
+  },
+  {
+    titulo: 'Configurações',
+    descricao: 'Cadastros, auditoria e canais',
+    codigos: [
+      'configuracoes.ver',
+      'configuracoes.perguntas',
+      'configuracoes.notificacoes',
+      'configuracoes.auditoria',
+      'portal.lojas.ver',
+      'usuarios.listar',
+      'usuarios.gerenciar',
+      'lojas.todas',
+      'sistema.backup',
+    ],
+  },
+  {
+    titulo: 'Não conformidades',
+    descricao: 'Ver e resolver NCs',
+    codigos: ['ncs.ver', 'ncs.resolver'],
+  },
+  {
+    titulo: 'Freelancers',
+    descricao: 'Aprovar turnos',
+    codigos: ['freelancers.aprovar'],
+  },
+];
+
+type FormCargo = {
+  nome: string;
+  descricao: string;
+  aprovador: boolean;
+  ativo: boolean;
+  tipos_checklist: string[];
+  permissoes: string[];
+};
+
+const emptyForm: FormCargo = {
   nome: '',
   descricao: '',
   aprovador: false,
   ativo: true,
-  tipos_checklist: [] as string[],
+  tipos_checklist: [],
+  permissoes: [],
 };
 
 export default function CargosPage() {
   const [lista, setLista] = useState<Cargo[]>([]);
+  const [catalogo, setCatalogo] = useState<PermissaoCatalogo[]>([]);
   const [tiposCatalogo, setTiposCatalogo] = useState<TipoChecklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
-  const [dialog, setDialog] = useState(false);
-  const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState(emptyForm);
+  const [busca, setBusca] = useState('');
+  const [selecionado, setSelecionado] = useState<Cargo | null>(null);
+  const [form, setForm] = useState<FormCargo>(emptyForm);
+  const [novo, setNovo] = useState(false);
   const [salvando, setSalvando] = useState(false);
-  const [excluirAlvo, setExcluirAlvo] = useState<Cargo | null>(null);
-  const [excluindo, setExcluindo] = useState(false);
-  const { showToast, ToastSnackbar } = useToast();
 
-  async function carregar() {
+  const carregar = useCallback(async () => {
     setLoading(true);
+    setErro('');
     try {
-      const [cargos, tipos] = await Promise.all([api.cargosGestao(), api.checklistTiposCatalogo()]);
+      const [cargos, tipos, cat] = await Promise.all([
+        api.cargosGestao(),
+        api.checklistTiposCatalogo(),
+        api.permissoesCatalogo(),
+      ]);
       setLista(cargos);
       setTiposCatalogo(tipos);
-      setErro('');
+      setCatalogo(cat);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar');
     } finally {
       setLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
     void carregar();
-  }, []);
+  }, [carregar]);
+
+  const filtrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return lista;
+    return lista.filter(
+      (c) =>
+        c.nome.toLowerCase().includes(q) ||
+        c.codigo.toLowerCase().includes(q) ||
+        (c.descricao || '').toLowerCase().includes(q),
+    );
+  }, [lista, busca]);
+
+  const mapaNome = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of catalogo) m.set(p.codigo, p.nome);
+    return m;
+  }, [catalogo]);
 
   function abrirNovo() {
-    setEditId(null);
+    setNovo(true);
+    setSelecionado(null);
     setForm(emptyForm);
     setErro('');
-    setDialog(true);
   }
 
   function abrirEditar(cargo: Cargo) {
-    setEditId(cargo.id_cargo);
+    setNovo(false);
+    setSelecionado(cargo);
     setForm({
       nome: cargo.nome,
       descricao: cargo.descricao || '',
       aprovador: !!cargo.aprovador,
       ativo: cargo.ativo !== false,
       tipos_checklist: (cargo.tipos_checklist || []).map((t) => t.codigo),
+      permissoes: [...(cargo.permissoes || [])],
     });
     setErro('');
-    setDialog(true);
   }
 
-  function alternarTipoChecklist(codigo: string) {
+  function togglePerm(codigo: string) {
     setForm((f) => {
-      const atual = new Set(f.tipos_checklist);
-      if (atual.has(codigo)) atual.delete(codigo);
-      else atual.add(codigo);
-      return { ...f, tipos_checklist: [...atual] };
+      const tem = f.permissoes.includes(codigo);
+      return {
+        ...f,
+        permissoes: tem ? f.permissoes.filter((c) => c !== codigo) : [...f.permissoes, codigo],
+      };
+    });
+  }
+
+  function marcarGrupo(codigos: string[], ligar: boolean) {
+    setForm((f) => {
+      const set = new Set(f.permissoes);
+      for (const c of codigos) {
+        if (ligar) set.add(c);
+        else set.delete(c);
+      }
+      return { ...f, permissoes: [...set] };
     });
   }
 
   async function salvar() {
     if (!form.nome.trim()) {
-      setErro('Informe o nome do cargo.');
+      setErro('Informe o nome do perfil.');
       return;
     }
     setSalvando(true);
@@ -115,12 +261,22 @@ export default function CargosPage() {
         aprovador: form.aprovador,
         ativo: form.ativo,
         tipos_checklist: form.tipos_checklist,
+        permissoes: form.permissoes,
       };
-      if (editId) await api.cargoGestaoAtualizar(editId, body);
-      else await api.cargoGestaoCriar(body);
-      setDialog(false);
-      showToast(editId ? 'Cargo atualizado!' : 'Cargo criado!');
+      const salvo = selecionado
+        ? await api.cargoGestaoAtualizar(selecionado.id_cargo, body)
+        : await api.cargoGestaoCriar(body);
       await carregar();
+      setNovo(false);
+      setSelecionado(salvo);
+      setForm({
+        nome: salvo.nome,
+        descricao: salvo.descricao || '',
+        aprovador: !!salvo.aprovador,
+        ativo: salvo.ativo !== false,
+        tipos_checklist: (salvo.tipos_checklist || []).map((t) => t.codigo),
+        permissoes: [...(salvo.permissoes || [])],
+      });
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao salvar');
     } finally {
@@ -128,240 +284,306 @@ export default function CargosPage() {
     }
   }
 
-  async function confirmarExclusao() {
-    if (!excluirAlvo) return;
-    setExcluindo(true);
-    setErro('');
+  async function excluir() {
+    if (!selecionado) return;
+    if (!window.confirm(`Excluir o perfil “${selecionado.nome}”?`)) return;
     try {
-      await api.cargoGestaoExcluir(excluirAlvo.id_cargo);
-      setExcluirAlvo(null);
-      showToast('Cargo excluído!');
+      await api.cargoGestaoExcluir(selecionado.id_cargo);
+      setSelecionado(null);
+      setNovo(false);
+      setForm(emptyForm);
       await carregar();
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao excluir');
-    } finally {
-      setExcluindo(false);
     }
   }
 
+  const colunas: Coluna<Cargo>[] = [
+    {
+      titulo: 'Perfil',
+      render: (c) => (
+        <Box>
+          <Typography sx={{ fontWeight: 650, fontSize: 13 }}>{c.nome}</Typography>
+          <Typography sx={{ fontSize: 11, color: FIN_MUTED }}>{c.codigo}</Typography>
+        </Box>
+      ),
+    },
+    {
+      titulo: 'Acessos',
+      largura: 100,
+      render: (c) => (
+        <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{(c.permissoes || []).length}</Typography>
+      ),
+    },
+    {
+      titulo: 'Status',
+      largura: 110,
+      render: (c) => (
+        <Selo
+          texto={c.ativo === false ? 'Inativo' : c.aprovador ? 'Aprovador' : 'Ativo'}
+          tom={c.ativo === false ? 'neutro' : c.aprovador ? 'info' : 'ok'}
+        />
+      ),
+    },
+  ];
+
+  const painelAberto = novo || Boolean(selecionado);
+  const ativos = lista.filter((c) => c.ativo !== false).length;
+
+  const outrosCodigos = useMemo(() => {
+    const usados = new Set(MENUS_SISTEMA.flatMap((m) => m.codigos));
+    return catalogo.filter((p) => !usados.has(p.codigo));
+  }, [catalogo]);
+
   return (
-    <Box sx={configPageSx}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-        <Typography variant="body2" color="text.secondary">
-          Perfis usados em usuários, aprovações e permissões do sistema
-        </Typography>
-        <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={abrirNovo}>
-          Novo cargo
-        </Button>
-      </Box>
+    <PrefsProvider>
+      <Box sx={configPageSx}>
+        <Stack spacing={2} sx={{ flex: 1, minHeight: 0 }}>
+        <Titulo
+          texto="Permissões por perfil"
+          sub="Defina o que cada perfil vê no menu e pode fazer. No usuário basta escolher o perfil."
+        />
 
-      {loading && <LinearProgress sx={{ flexShrink: 0 }} />}
-      {erro && !dialog && !excluirAlvo && <Alert severity="error" sx={{ flexShrink: 0 }}>{erro}</Alert>}
+        <Resumos>
+          <Resumo rotulo="Perfis" valor={String(lista.length)} detalhe={`${ativos} ativos`} />
+          <Resumo
+            rotulo="Com acesso"
+            valor={String(lista.filter((c) => (c.permissoes || []).length > 0).length)}
+            detalhe="com telas liberadas"
+          />
+          <Resumo
+            rotulo="Aprovadores"
+            valor={String(lista.filter((c) => c.aprovador).length)}
+            detalhe="orçamentos"
+          />
+        </Resumos>
 
-      <Paper elevation={0} sx={configPaperSx}>
-        <TableContainer sx={tableContainerSx}>
-          <Table size="small" stickyHeader sx={tableSx}>
-          <TableHead>
-            <TableRow>
-              <TableCell>Nome</TableCell>
-              <TableCell>Descrição</TableCell>
-              <TableCell>Código</TableCell>
-              <TableCell>Checklists</TableCell>
-              <TableCell>Aprovador</TableCell>
-              <TableCell>Status</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {lista.map((c) => (
-              <TableRow key={c.id_cargo} hover onClick={() => abrirEditar(c)} sx={{ cursor: 'pointer' }}>
-                <TableCell
-                  sx={{
-                    fontWeight: 600,
-                    color: (theme: any) => (theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy),
-                    whiteSpace: 'nowrap',
-                  }}
+        <Barra busca={busca} onBusca={setBusca} placeholder="Buscar perfil…">
+          <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={abrirNovo}>
+            Novo perfil
+          </Button>
+        </Barra>
+
+        <Erro erro={erro} />
+
+        <TabelaConfig
+          colunas={colunas}
+          linhas={loading ? [] : filtrados}
+          chave={(c) => String(c.id_cargo)}
+          vazio={loading ? 'Carregando…' : 'Nenhum perfil cadastrado.'}
+          onLinha={(c) => abrirEditar(c)}
+        />
+
+        <PainelLateral
+          aberto={painelAberto}
+          largura={520}
+          titulo={novo ? 'Novo perfil' : selecionado?.nome || 'Perfil'}
+          subtitulo="Menus, ações e checklists deste perfil"
+          onFechar={() => {
+            setSelecionado(null);
+            setNovo(false);
+          }}
+          rodape={
+            <>
+              {selecionado ? (
+                <Button
+                  size="small"
+                  color="error"
+                  startIcon={<DeleteOutlineIcon />}
+                  onClick={() => void excluir()}
                 >
-                  {c.nome}
-                </TableCell>
-                <TableCell sx={{ maxWidth: 360 }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'normal', lineHeight: 1.4 }}>
-                    {c.descricao || '—'}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Typography variant="body2" color="text.secondary">
-                    {c.codigo}
-                  </Typography>
-                </TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                    {(c.tipos_checklist || []).length ? (
-                      c.tipos_checklist!.map((t) => (
-                        <Chip key={t.codigo} label={t.nome} size="small" variant="outlined" />
-                      ))
-                    ) : (
-                      <Typography variant="body2" color="text.secondary">
-                        —
-                      </Typography>
-                    )}
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={c.aprovador ? 'Sim' : 'Não'}
+                  Excluir
+                </Button>
+              ) : (
+                <Box sx={{ flex: 1 }} />
+              )}
+              <Box sx={{ flex: 1 }} />
+              <Button size="small" onClick={() => { setSelecionado(null); setNovo(false); }}>
+                Fechar
+              </Button>
+              <Button size="small" variant="contained" disabled={salvando} onClick={() => void salvar()}>
+                {salvando ? 'Salvando…' : 'Salvar'}
+              </Button>
+            </>
+          }
+        >
+              <Secao titulo="Dados">
+                <Stack spacing={1.25}>
+                  <TextField
                     size="small"
-                    color={c.aprovador ? 'primary' : 'default'}
-                    variant="outlined"
+                    label="Nome do perfil"
+                    value={form.nome}
+                    onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
+                    sx={finCampoSx}
                   />
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={c.ativo ? 'Ativo' : 'Inativo'}
+                  <TextField
                     size="small"
-                    color={c.ativo ? 'success' : 'default'}
+                    label="Descrição"
+                    multiline
+                    minRows={2}
+                    value={form.descricao}
+                    onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
+                    placeholder="Ex.: vê financeiro e aprova orçamentos"
+                    sx={{
+                      ...finCampoSx,
+                      '& .MuiOutlinedInput-root': { height: 'auto', minHeight: 64 },
+                      '& .MuiInputBase-input': { height: 'auto', py: 1 },
+                    }}
                   />
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && !lista.length && (
-              <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                  Nenhum cargo cadastrado.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-
-      <Dialog open={dialog} onClose={() => !salvando && setDialog(false)} fullWidth maxWidth="sm">
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <BadgeIcon
-            sx={{
-              color: (theme: any) => (theme.palette.mode === 'dark' ? colors.orange : colors.navy),
-            }}
-          />
-          {editId ? 'Editar cargo' : 'Novo cargo'}
-        </DialogTitle>
-        <DialogContent dividers sx={dialogContentSx}>
-          <TextField
-            {...dialogFieldProps}
-            label="Nome do cargo"
-            required
-            value={form.nome}
-            onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
-            placeholder="Ex.: Financeiro, Diretor, Supervisor"
-          />
-          <TextField
-            {...dialogFieldProps}
-            label="Descrição do perfil"
-            value={form.descricao}
-            onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
-            placeholder="Explique o papel e as responsabilidades deste cargo no sistema"
-            multiline
-            minRows={3}
-            helperText="Aparece na listagem de cargos e orienta quem configura usuários e permissões."
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={form.aprovador}
-                onChange={(e) => setForm((f) => ({ ...f, aprovador: e.target.checked }))}
-              />
-            }
-            label="Aprovador de orçamentos"
-          />
-          <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
-            Cargos aprovadores aparecem ao pedir aprovação de orçamento e na tela de Aprovações.
-          </Typography>
-          <FormControlLabel
-            control={
-              <Switch
-                checked={form.ativo}
-                onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
-              />
-            }
-            label="Cargo ativo"
-          />
-          {tiposCatalogo.length > 0 && (
-            <Box>
-              <FormLabel component="legend" sx={{ fontSize: '0.875rem', color: 'text.secondary', mb: 0.5 }}>
-                Tipos de checklist
-              </FormLabel>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                Define quais checklists usuários deste cargo podem executar no app.
-              </Typography>
-              <FormGroup>
-                {tiposCatalogo.map((t) => (
                   <FormControlLabel
-                    key={t.codigo}
                     control={
-                      <Checkbox
-                        checked={form.tipos_checklist.includes(t.codigo)}
-                        onChange={() => alternarTipoChecklist(t.codigo)}
+                      <Switch
+                        size="small"
+                        checked={form.ativo}
+                        onChange={(e) => setForm((f) => ({ ...f, ativo: e.target.checked }))}
                       />
                     }
-                    label={t.nome}
+                    label={<Typography sx={{ fontSize: 13 }}>Perfil ativo</Typography>}
                   />
-                ))}
-              </FormGroup>
-            </Box>
-          )}
-          {erro && dialog && <Alert severity="error">{erro}</Alert>}
-        </DialogContent>
-        <DialogActions sx={{ justifyContent: 'space-between', px: 3, py: 2 }}>
-          {editId ? (
-            <Button
-              color="error"
-              startIcon={<DeleteIcon />}
-              onClick={() => {
-                const alvo = lista.find((c) => c.id_cargo === editId);
-                if (alvo) {
-                  setErro('');
-                  setExcluirAlvo(alvo);
-                }
-              }}
-            >
-              Excluir
-            </Button>
-          ) : (
-            <span />
-          )}
-          <Box className="flex gap-1">
-            <Button onClick={() => setDialog(false)} disabled={salvando}>
-              Cancelar
-            </Button>
-            <Button variant="contained" onClick={() => void salvar()} disabled={salvando}>
-              {salvando ? 'Salvando...' : 'Salvar'}
-            </Button>
-          </Box>
-        </DialogActions>
-      </Dialog>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        size="small"
+                        checked={form.aprovador}
+                        onChange={(e) => setForm((f) => ({ ...f, aprovador: e.target.checked }))}
+                      />
+                    }
+                    label={<Typography sx={{ fontSize: 13 }}>Pode aprovar orçamentos</Typography>}
+                  />
+                </Stack>
+              </Secao>
 
-      <Dialog open={!!excluirAlvo} onClose={() => !excluindo && setExcluirAlvo(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Excluir cargo</DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <Typography variant="body2">
-            Excluir o cargo <strong>{excluirAlvo?.nome}</strong>? Usuários e chamados vinculados impedem a exclusão.
-          </Typography>
-          {erro && excluirAlvo && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              {erro}
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setExcluirAlvo(null)} disabled={excluindo}>
-            Cancelar
-          </Button>
-          <Button color="error" variant="contained" onClick={() => void confirmarExclusao()} disabled={excluindo}>
-            {excluindo ? 'Excluindo...' : 'Excluir'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+              <Secao titulo="Telas e menus">
+                <Typography sx={{ fontSize: 12, color: FIN_MUTED, mb: 1.25 }}>
+                  Marque o que quem tem este perfil vê no menu e pode usar. Sem marcar, a aba some.
+                </Typography>
+                <Stack spacing={1.5}>
+                  {MENUS_SISTEMA.map((grupo) => {
+                    const disponiveis = grupo.codigos.filter((c) => mapaNome.has(c) || catalogo.some((p) => p.codigo === c));
+                    if (!disponiveis.length) return null;
+                    const todas = disponiveis.every((c) => form.permissoes.includes(c));
+                    const algumas = !todas && disponiveis.some((c) => form.permissoes.includes(c));
+                    return (
+                      <Box
+                        key={grupo.titulo}
+                        sx={{
+                          p: 1.25,
+                          borderRadius: 1.5,
+                          border: `1px solid ${FIN_BORDER}`,
+                          bgcolor: FIN_SURFACE_ALT,
+                        }}
+                      >
+                        <Stack direction="row" sx={{ alignItems: 'flex-start', gap: 1, mb: 0.75 }}>
+                          <Checkbox
+                            size="small"
+                            checked={todas}
+                            indeterminate={algumas}
+                            onChange={(e) => marcarGrupo(disponiveis, e.target.checked)}
+                            sx={{ p: 0.25, mt: 0.1 }}
+                          />
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography sx={{ fontSize: 13, fontWeight: 700, color: FIN_TEXT }}>
+                              {grupo.titulo}
+                            </Typography>
+                            <Typography sx={{ fontSize: 11, color: FIN_MUTED }}>{grupo.descricao}</Typography>
+                          </Box>
+                        </Stack>
+                        <FormGroup sx={{ pl: 3.5 }}>
+                          {disponiveis.map((codigo) => (
+                            <FormControlLabel
+                              key={codigo}
+                              control={
+                                <Checkbox
+                                  size="small"
+                                  checked={form.permissoes.includes(codigo)}
+                                  onChange={() => togglePerm(codigo)}
+                                />
+                              }
+                              label={
+                                <Typography sx={{ fontSize: 12.5, lineHeight: 1.35 }}>
+                                  {mapaNome.get(codigo) || codigo}
+                                </Typography>
+                              }
+                              sx={{ m: 0, alignItems: 'flex-start', '& .MuiCheckbox-root': { pt: 0.1 } }}
+                            />
+                          ))}
+                        </FormGroup>
+                      </Box>
+                    );
+                  })}
 
-      <ToastSnackbar />
-    </Box>
+                  {outrosCodigos.length > 0 ? (
+                    <Box
+                      sx={{
+                        p: 1.25,
+                        borderRadius: 1.5,
+                        border: `1px solid ${FIN_BORDER}`,
+                        bgcolor: FIN_SURFACE_ALT,
+                      }}
+                    >
+                      <Typography sx={{ fontSize: 13, fontWeight: 700, mb: 0.75 }}>Outras ações</Typography>
+                      <FormGroup>
+                        {outrosCodigos.map((p) => (
+                          <FormControlLabel
+                            key={p.codigo}
+                            control={
+                              <Checkbox
+                                size="small"
+                                checked={form.permissoes.includes(p.codigo)}
+                                onChange={() => togglePerm(p.codigo)}
+                              />
+                            }
+                            label={
+                              <Typography sx={{ fontSize: 12.5 }}>
+                                {p.nome}
+                                <Typography component="span" sx={{ color: FIN_MUTED, fontSize: 11 }}>
+                                  {' '}
+                                  · {p.grupo}
+                                </Typography>
+                              </Typography>
+                            }
+                            sx={{ m: 0 }}
+                          />
+                        ))}
+                      </FormGroup>
+                    </Box>
+                  ) : null}
+                </Stack>
+              </Secao>
+
+              {tiposCatalogo.length > 0 ? (
+                <Secao titulo="Checklists AutoREV">
+                  <Typography sx={{ fontSize: 12, color: FIN_MUTED, mb: 1 }}>
+                    Quais checklists este perfil pode executar no app.
+                  </Typography>
+                  <FormGroup>
+                    {tiposCatalogo.map((t) => (
+                      <FormControlLabel
+                        key={t.codigo}
+                        control={
+                          <Checkbox
+                            size="small"
+                            checked={form.tipos_checklist.includes(t.codigo)}
+                            onChange={() =>
+                              setForm((f) => ({
+                                ...f,
+                                tipos_checklist: f.tipos_checklist.includes(t.codigo)
+                                  ? f.tipos_checklist.filter((c) => c !== t.codigo)
+                                  : [...f.tipos_checklist, t.codigo],
+                              }))
+                            }
+                          />
+                        }
+                        label={<Typography sx={{ fontSize: 13 }}>{t.nome}</Typography>}
+                        sx={{ m: 0 }}
+                      />
+                    ))}
+                  </FormGroup>
+                </Secao>
+              ) : null}
+        </PainelLateral>
+        </Stack>
+      </Box>
+    </PrefsProvider>
   );
 }
