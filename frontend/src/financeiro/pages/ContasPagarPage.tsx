@@ -1365,6 +1365,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   const [erroCampos, setErroCampos] = useState({ descricao: false, valor: false, origem: false })
   const [abrindoNota, setAbrindoNota] = useState(false)
   const [abrindoBoleto, setAbrindoBoleto] = useState(false)
+  const [salvando, setSalvando] = useState(false)
 
   const pedeCodigo = forma === 'boleto' || forma === 'chave_pix'
   const taxa = (texto: string) => {
@@ -1420,6 +1421,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   }
 
   const salvar = async () => {
+    if (salvando) return
     const face = parseMoeda(valor)
     const totalNum = modo === 'taxas'
       ? totalTaxas
@@ -1438,6 +1440,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
       return
     }
     setErroCampos({ descricao: false, valor: false, origem: false })
+    setSalvando(true)
     try {
       const corpo = {
         descricao: descricao.trim(),
@@ -1476,6 +1479,8 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
           origem: /origem|loja|store/i.test(msg) || /obrigat/i.test(msg),
         })
       }
+    } finally {
+      setSalvando(false)
     }
   }
 
@@ -1714,9 +1719,13 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
           ) : null}
         </Stack>
         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', px: 3, py: 2, borderTop: `1px solid ${FIN_BORDER}`, bgcolor: FIN_SURFACE }}>
-          <Button onClick={onFechar} sx={{ color: FIN_MUTED }}>{t('Cancelar', 'Cancel')}</Button>
-          <Button variant="contained" onClick={salvar} sx={finBtnContainedSx}>
-            {inicial ? t('Salvar', 'Save') : t('Criar no inbox', 'Create in inbox')}
+          <Button onClick={onFechar} disabled={salvando} sx={{ color: FIN_MUTED }}>{t('Cancelar', 'Cancel')}</Button>
+          <Button variant="contained" onClick={() => void salvar()} disabled={salvando} sx={finBtnContainedSx}>
+            {salvando
+              ? t('Salvando…', 'Saving…')
+              : inicial
+                ? t('Salvar', 'Save')
+                : t('Criar no inbox', 'Create in inbox')}
           </Button>
         </Stack>
       </Stack>

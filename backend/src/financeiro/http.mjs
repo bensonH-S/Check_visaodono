@@ -1160,6 +1160,31 @@ export async function handleFinance(req, res) {
       if (body.forma_pagamento && !FORMAS.has(body.forma_pagamento)) {
         return send(res, 400, JSON.stringify({ erro: 'Forma de pagamento inválida.' }))
       }
+      // Idempotência: clique duplo no "Criar" em poucos segundos não gera 2ª despesa.
+      const recent = await pool.query(`
+        select id::text as id, status
+        from despesas
+        where fonte = 'manual'
+          and status <> 'cancelada'
+          and empresa_origem_id = $1
+          and coalesce(fornecedor_id::text, '') = coalesce($2::text, '')
+          and btrim(descricao) = btrim($3)
+          and valor = $4::numeric
+          and coalesce(vencimento::date, '1900-01-01'::date)
+              = coalesce($5::date, '1900-01-01'::date)
+          and created_at > now() - interval '15 seconds'
+        order by created_at desc
+        limit 1
+      `, [
+        body.empresa_origem_id,
+        body.fornecedor_id || null,
+        String(body.descricao).trim(),
+        acrescimo.total,
+        acrescimo.vencimento,
+      ])
+      if (recent.rowCount) {
+        return send(res, 200, JSON.stringify(recent.rows[0]))
+      }
       let status = 'rascunho'
       if (body.documento_ref) {
         const dup = await pool.query(`
