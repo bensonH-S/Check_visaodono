@@ -23,6 +23,31 @@ function documentoPessoa(valor) {
   return ''
 }
 
+/** Raiz do CNPJ (8 dígitos) — mesma empresa, filiais diferentes. */
+function raizCnpj(valor) {
+  const doc = documentoPessoa(valor)
+  return doc.length === 14 ? doc.slice(0, 8) : ''
+}
+
+function mesmoCnpjEmpresa(a, b) {
+  const da = documentoPessoa(a)
+  const db = documentoPessoa(b)
+  if (!da || !db) return false
+  if (da === db) return true
+  if (da.length === 14 && db.length === 14) return da.slice(0, 8) === db.slice(0, 8)
+  return false
+}
+
+/** CNPJ do lançamento: campo dedicado, documento_ref ou texto do histórico (MEMO do OFX). */
+function documentosDoLancamento(lancamento) {
+  const docs = [
+    ...cnpjsNoTexto(lancamento?.historico),
+    ...cnpjsNoTexto(lancamento?.documento_ref),
+    documentoPessoa(lancamento?.documento_ref),
+  ].filter((d) => d.length === 14)
+  return [...new Set(docs)]
+}
+
 function centavos(valor) {
   const n = Number(valor)
   if (!Number.isFinite(n)) return null
@@ -214,6 +239,9 @@ export function lerOfx(buffer) {
     const tipo = campoOfx(bloco, 'TRNTYPE').toUpperCase()
     const operacao = valorNum < 0 || /DEBIT|PAYMENT|DEPBIT/i.test(tipo) ? 'D' : 'C'
     const historico = campoOfx(bloco, 'MEMO') || campoOfx(bloco, 'NAME') || campoOfx(bloco, 'CHECKNUM') || tipo
+    // OFX brasileiro traz o CNPJ no MEMO; CHECKNUM costuma ser só o FITID do banco.
+    const cnpjMemo = cnpjsNoTexto(historico)[0] || ''
+    const checknum = digitos(campoOfx(bloco, 'CHECKNUM')).slice(0, 48)
     linhas.push({
       evento_id: fitid.slice(0, 120),
       operacao,
@@ -222,7 +250,7 @@ export function lerOfx(buffer) {
       data_evento: data,
       valor: dinheiro(Math.abs(valorNum)),
       historico: historico.slice(0, 240),
-      documento_ref: digitos(campoOfx(bloco, 'CHECKNUM')).slice(0, 48) || null,
+      documento_ref: cnpjMemo || checknum || null,
     })
   }
   if (!linhas.length) throw new Error('Nenhum lançamento no OFX.')
@@ -484,9 +512,10 @@ function nomeParece(lancamento, despesa) {
 }
 
 function mesmoDocumento(lancamento, despesa) {
-  const doc = documentoPessoa(lancamento.documento_ref)
-  if (!doc) return false
-  return documentoPessoa(despesa.cpf_cnpj) === doc || documentoPessoa(despesa.documento_ref) === doc
+  const docsLanc = documentosDoLancamento(lancamento)
+  if (!docsLanc.length) return false
+  const alvos = [despesa.cpf_cnpj, despesa.documento_ref].filter(Boolean)
+  return docsLanc.some((doc) => alvos.some((alvo) => mesmoCnpjEmpresa(doc, alvo)))
 }
 
 function noDia(data, despesa) {
@@ -519,18 +548,17 @@ export function pareceNaoTitulo(lancamento, { cnpjsGrupo } = {}) {
   if (!h) return false
   if (/^(TARIFA|IOF|JUROS|ANUIDADE|ENCARGOS|APL|APLIC)\b/.test(h)
     || /\b(TARIFA|IOF|PACOTE DE SERVICOS|MENSALIDADE|APLICACAO|APLIC AUT|RESGATE|RENDIMENTO|CDB|FUNDO)\b/.test(h)
+    || /\b(SISPAG|FOLHA DE PAGAMENTO|SALARIOS)\b/.test(h)
     || /\b(TRANSF|TED|PIX)\b.*\b(MESMA TITULARIDADE|ENTRE CONTAS|CONTAS PROPRIAS)\b/.test(h)) {
     return true
   }
 
   const grupo = new Set((cnpjsGrupo || []).map((c) => documentoPessoa(c)).filter((c) => c.length === 14))
+  const raizesGrupo = new Set([...grupo].map((c) => c.slice(0, 8)))
   if (!grupo.size) return false
 
-  const docs = [
-    ...cnpjsNoTexto(historico),
-    ...cnpjsNoTexto(lancamento.documento_ref),
-  ]
-  const paraOGrupo = docs.some((doc) => grupo.has(doc))
+  const docs = documentosDoLancamento(lancamento)
+  const paraOGrupo = docs.some((doc) => grupo.has(doc) || raizesGrupo.has(doc.slice(0, 8)))
   if (!paraOGrupo) return false
 
   // PIX/TED/DOC enviado ao CNPJ de loja do grupo = transferência interna.
@@ -539,9 +567,29 @@ export function pareceNaoTitulo(lancamento, { cnpjsGrupo } = {}) {
     || /\b(BURGER KING|POPEYES|ALVIM)\b/.test(h)
 }
 
+function prioridadeStatus(status) {
+  const s = String(status || '')
+  if (s === 'pronta' || s === 'paga' || s === 'agendada') return 0
+  if (s === 'classificada') return 1
+  if (s === 'rascunho') return 2
+  if (s === 'conciliada') return 3
+  return 4
+}
+
+function escolherEntre(candidatos, data, folgaDias) {
+  if (!candidatos.length) return null
+  if (candidatos.length === 1) return candidatos[0]
+  const ordenados = [...candidatos].sort((a, b) => prioridadeStatus(a.status) - prioridadeStatus(b.status))
+  return unico(ordenados.filter((item) => noDia(data, item)))
+    || unico(ordenados.filter((item) => naFolga(data, item, folgaDias)))
+    || unico(ordenados.filter((item) => prioridadeStatus(item.status) <= 1))
+    || null
+}
+
 /**
  * Casa sozinho o que for óbvio — o usuário só mexe no que sobrar ambíguo.
- * Ordem: código de barras → CNPJ → mesmo dia → folga → nome → valor único no período.
+ * Ordem: código de barras → CNPJ (MEMO/filial) → nome → mesmo dia → folga → valor único.
+ * Aceita despesa já "conciliada" sem vínculo no extrato (religa o banco).
  */
 export function escolherConciliacaoAutomatica(lancamento, despesas, folgaDias = FOLGA_AUTO, opts = {}) {
   if (lancamento.operacao !== 'D' || lancamento.estorno || lancamento.despesa_id) return null
@@ -552,7 +600,7 @@ export function escolherConciliacaoAutomatica(lancamento, despesas, folgaDias = 
   const data = String(lancamento.data_contabil || lancamento.data_evento || '').slice(0, 10)
   const mesmos = despesas.filter((item) => {
     if (item.empresa_origem_id && lancamento.empresa_id && item.empresa_origem_id !== lancamento.empresa_id) return false
-    if (['cancelada', 'conciliada', 'faltou'].includes(item.status)) return false
+    if (['cancelada', 'faltou'].includes(item.status)) return false
     return centavos(item.valor) === valor
   })
   if (!mesmos.length) return null
@@ -560,33 +608,29 @@ export function escolherConciliacaoAutomatica(lancamento, despesas, folgaDias = 
   const codigo = digitos(lancamento.documento_ref)
   if (codigo.length >= 44) {
     const porCodigo = mesmos.filter((item) => digitos(item.documento_ref) === codigo)
-    const unicoCodigo = unico(porCodigo)
+    const unicoCodigo = escolherEntre(porCodigo, data, folgaDias) || unico(porCodigo)
     if (unicoCodigo) return unicoCodigo
   }
 
-  const doc = documentoPessoa(lancamento.documento_ref)
-  if (doc) {
+  if (documentosDoLancamento(lancamento).length) {
     const porDoc = mesmos.filter((item) => mesmoDocumento(lancamento, item))
-    if (porDoc.length === 1) return porDoc[0]
-    if (porDoc.length > 1) {
-      return unico(porDoc.filter((item) => noDia(data, item)))
-        || unico(porDoc.filter((item) => naFolga(data, item, folgaDias)))
-        || unico(porDoc.filter((item) => nomeParece(lancamento, item)))
-    }
+    const escolhidoDoc = escolherEntre(porDoc, data, folgaDias)
+      || (porDoc.length === 1 ? porDoc[0] : null)
+      || escolherEntre(porDoc.filter((item) => nomeParece(lancamento, item)), data, folgaDias)
+    if (escolhidoDoc) return escolhidoDoc
   }
 
   const peloNome = mesmos.filter((item) => nomeParece(lancamento, item))
-  if (peloNome.length === 1) return peloNome[0]
-  if (peloNome.length > 1) {
-    return unico(peloNome.filter((item) => noDia(data, item)))
-      || unico(peloNome.filter((item) => naFolga(data, item, folgaDias)))
-  }
+  const escolhidoNome = escolherEntre(peloNome, data, folgaDias) || (peloNome.length === 1 ? peloNome[0] : null)
+  if (escolhidoNome) return escolhidoNome
 
   const doDia = mesmos.filter((item) => noDia(data, item))
-  if (doDia.length === 1) return doDia[0]
+  const escolhidoDia = escolherEntre(doDia, data, folgaDias) || (doDia.length === 1 ? doDia[0] : null)
+  if (escolhidoDia) return escolhidoDia
 
   const perto = mesmos.filter((item) => naFolga(data, item, folgaDias))
-  if (perto.length === 1) return perto[0]
+  const escolhidoPerto = escolherEntre(perto, data, folgaDias) || (perto.length === 1 ? perto[0] : null)
+  if (escolhidoPerto) return escolhidoPerto
 
   // Valor único na loja no período: fecha sem ficar pedindo casamento manual.
   if (mesmos.length === 1) return mesmos[0]
@@ -738,26 +782,72 @@ export async function conciliarAutomatico(pool, { contaId, empresaId, de, ate })
     from despesas d
     left join fornecedores f on f.id = d.fornecedor_id
     where d.empresa_origem_id = $1::uuid
-      and d.status not in ('cancelada', 'conciliada', 'faltou')
+      and d.status not in ('cancelada', 'faltou')
       and d.vencimento between ($2::date - ${FOLGA_AUTO}) and ($3::date + ${FOLGA_AUTO})
-      and ${inboxSql()}
+      and (
+        -- títulos da agenda (inclui DDA classificado: o banco confirma o boleto)
+        (
+          d.status <> 'conciliada'
+          and not (
+            d.status in ('rascunho', 'bloqueada_duplicata')
+            and (
+              d.fonte = 'dda'
+              or (coalesce(d.fonte, 'manual') = 'manual' and coalesce(d.pendente_inbox, false))
+            )
+          )
+        )
+        -- já marcada conciliada na agenda, mas sem linha de extrato ligada
+        or (
+          d.status = 'conciliada'
+          and not exists (
+            select 1 from extrato_lancamentos x where x.despesa_id = d.id
+          )
+        )
+      )
   `, [empresaId, de, ate])
+  const jaLigadas = await pool.query(`
+    select d.id::text as id,
+           d.empresa_origem_id::text as empresa_origem_id,
+           d.descricao,
+           d.valor::float8 as valor,
+           to_char(d.vencimento, 'YYYY-MM-DD') as vencimento,
+           d.status,
+           d.documento_ref,
+           f.nome as fornecedor,
+           f.razao_social,
+           f.cpf_cnpj
+    from despesas d
+    left join fornecedores f on f.id = d.fornecedor_id
+    where d.empresa_origem_id = $1::uuid
+      and d.status = 'conciliada'
+      and d.vencimento between ($2::date - ${FOLGA_AUTO}) and ($3::date + ${FOLGA_AUTO})
+      and exists (select 1 from extrato_lancamentos x where x.despesa_id = d.id)
+  `, [empresaId, de, ate])
+
   const ocupadas = new Set()
   let conciliadas = 0
   for (const linha of abertas) {
-    const despesa = escolherConciliacaoAutomatica(
-      linha,
-      despesas.rows.filter((d) => !ocupadas.has(d.id)),
-      FOLGA_AUTO,
-      opts,
-    )
-    if (!despesa) continue
+    const livres = despesas.rows.filter((d) => !ocupadas.has(d.id))
+    const despesa = escolherConciliacaoAutomatica(linha, livres, FOLGA_AUTO, opts)
+    if (despesa) {
+      try {
+        await confirmarConciliacao(pool, { lancamentoId: linha.id, despesaId: despesa.id })
+        ocupadas.add(despesa.id)
+        conciliadas += 1
+        continue
+      } catch {
+        // valor ou vínculo divergente — tenta detectar duplicata abaixo
+      }
+    }
+
+    // Mesmo pagamento já baixado em outra conta/linha → não fica “falso aberto”.
+    const duplicata = escolherConciliacaoAutomatica(linha, jaLigadas.rows, FOLGA_AUTO, opts)
+    if (!duplicata) continue
     try {
-      await confirmarConciliacao(pool, { lancamentoId: linha.id, despesaId: despesa.id })
-      ocupadas.add(despesa.id)
-      conciliadas += 1
+      await marcarSemPar(pool, { lancamentoId: linha.id })
+      semPar += 1
     } catch {
-      // valor ou vínculo divergente: deixa a linha em aberto
+      // ignore
     }
   }
   return conciliadas + semPar
@@ -1276,12 +1366,16 @@ export async function diaConciliacao(pool, { empresaId, data }) {
            d.numero_nf,
            d.forma_pagamento,
            d.empresa_origem_id::text as empresa_origem_id,
-           eo.apelido as loja
+           eo.apelido as loja,
+           f.nome as fornecedor,
+           f.razao_social,
+           f.cpf_cnpj
     from despesas d
     join empresas eo on eo.id = d.empresa_origem_id
+    left join fornecedores f on f.id = d.fornecedor_id
     where ($1::uuid is null or d.empresa_origem_id = $1::uuid)
-      and d.status <> 'cancelada'
-      and d.vencimento between ($2::date - 3) and ($2::date + 3)
+      and d.status not in ('cancelada', 'faltou')
+      and d.vencimento between ($2::date - ${FOLGA_AUTO}) and ($2::date + ${FOLGA_AUTO})
       and ${inboxSql()}
     order by d.valor desc, d.descricao
   `, [empresa, data])
@@ -1290,7 +1384,7 @@ export async function diaConciliacao(pool, { empresaId, data }) {
   const cnpjsGrupo = await cnpjsDoGrupo(pool)
   const optsNaoTitulo = { cnpjsGrupo }
   const abertas = extrato.rows.filter((l) => !l.despesa_id && l.status !== 'sem_par' && l.status !== 'conciliado')
-  const despesasLivres = sistema.rows.filter((d) => !['conciliada', 'faltou'].includes(d.status))
+  const despesasLivres = sistema.rows.filter((d) => d.status !== 'faltou')
   const ocupadas = new Set(extrato.rows.map((l) => l.despesa_id).filter(Boolean))
   for (const linha of abertas) {
     if (pareceNaoTitulo(linha, optsNaoTitulo)) {
@@ -1352,12 +1446,16 @@ export async function diaConciliacao(pool, { empresaId, data }) {
            d.numero_nf,
            d.forma_pagamento,
            d.empresa_origem_id::text as empresa_origem_id,
-           eo.apelido as loja
+           eo.apelido as loja,
+           f.nome as fornecedor,
+           f.razao_social,
+           f.cpf_cnpj
     from despesas d
     join empresas eo on eo.id = d.empresa_origem_id
+    left join fornecedores f on f.id = d.fornecedor_id
     where ($1::uuid is null or d.empresa_origem_id = $1::uuid)
-      and d.status <> 'cancelada'
-      and d.vencimento between ($2::date - 3) and ($2::date + 3)
+      and d.status not in ('cancelada', 'faltou')
+      and d.vencimento between ($2::date - ${FOLGA_AUTO}) and ($2::date + ${FOLGA_AUTO})
       and ${inboxSql()}
     order by
       case when d.status = 'conciliada' then 1 else 0 end,
@@ -1366,7 +1464,7 @@ export async function diaConciliacao(pool, { empresaId, data }) {
 
   const sugestoes = sugerirPagar(
     extratoFinal.rows,
-    sistemaFinal.rows.filter((d) => !['conciliada', 'faltou'].includes(d.status)),
+    sistemaFinal.rows.filter((d) => d.status !== 'faltou'),
     FOLGA_AUTO,
     optsNaoTitulo,
   )
@@ -1431,6 +1529,7 @@ export async function confirmarConciliacao(pool, { lancamentoId, despesaId }) {
     await cliente.query(`
       update despesas
       set status = 'conciliada',
+          pendente_inbox = false,
           conta_saida_id = coalesce(conta_saida_id, $2)
       where id = $1
     `, [despesaId, linha.conta_id])
@@ -1488,4 +1587,130 @@ export async function marcarSemPar(pool, { lancamentoId }) {
   `, [lancamentoId])
   if (!rowCount) throw new Error('Lançamento não encontrado ou já conciliado.')
   return { ok: true, lancamento_id: lancamentoId }
+}
+
+/**
+ * Lista do período para a loja: conciliados + em aberto (banco e agenda).
+ * Roda a conciliação automática antes, para o OFX “fechar” o que der.
+ */
+export async function listaConciliacao(pool, { empresaId, de, ate }) {
+  const empresa = String(empresaId || '').trim()
+  if (!empresa) throw new Error('Informe a loja.')
+
+  const contas = await pool.query(`
+    select id::text as id from contas_bancarias
+    where empresa_id = $1::uuid and coalesce(ativa, true)
+  `, [empresa])
+  for (const c of contas.rows) {
+    await conciliarAutomatico(pool, { contaId: c.id, empresaId: empresa, de, ate })
+  }
+
+  const cnpjsGrupo = await cnpjsDoGrupo(pool)
+  const opts = { cnpjsGrupo }
+
+  const extrato = await pool.query(`
+    select l.id::text as id,
+           l.operacao,
+           l.estorno,
+           l.valor::float8 as valor,
+           to_char(l.data_contabil, 'YYYY-MM-DD') as data,
+           l.historico,
+           l.documento_ref,
+           l.status,
+           l.despesa_id::text as despesa_id,
+           d.descricao as despesa_descricao,
+           f.nome as fornecedor
+    from extrato_lancamentos l
+    left join despesas d on d.id = l.despesa_id
+    left join fornecedores f on f.id = d.fornecedor_id
+    where l.empresa_id = $1::uuid
+      and l.data_contabil between $2::date and $3::date
+      and l.operacao = 'D'
+      and not l.estorno
+    order by l.data_contabil, l.valor desc
+  `, [empresa, de, ate])
+
+  const sistema = await pool.query(`
+    select d.id::text as id,
+           d.descricao,
+           d.valor::float8 as valor,
+           to_char(d.vencimento, 'YYYY-MM-DD') as data,
+           d.status,
+           d.documento_ref,
+           f.nome as fornecedor,
+           f.cpf_cnpj,
+           exists(
+             select 1 from extrato_lancamentos x where x.despesa_id = d.id
+           ) as ligada_extrato
+    from despesas d
+    left join fornecedores f on f.id = d.fornecedor_id
+    where d.empresa_origem_id = $1::uuid
+      and d.status not in ('cancelada', 'faltou')
+      and d.vencimento between $2::date and $3::date
+      and ${inboxSql()}
+    order by d.vencimento, d.valor desc
+  `, [empresa, de, ate])
+
+  const conciliados = []
+  const abertosBanco = []
+  for (const l of extrato.rows) {
+    if (l.despesa_id || l.status === 'conciliado') {
+      conciliados.push({
+        tipo: 'conciliado',
+        id: l.id,
+        data: l.data,
+        valor: l.valor,
+        banco: l.historico,
+        agenda: l.despesa_descricao || l.fornecedor || '—',
+        status: 'conciliado',
+      })
+    } else if (l.status === 'sem_par' || pareceNaoTitulo(l, opts)) {
+      conciliados.push({
+        tipo: 'sem_par',
+        id: l.id,
+        data: l.data,
+        valor: l.valor,
+        banco: l.historico,
+        agenda: 'Sem título (tarifa/aplicação/folha/transferência)',
+        status: 'sem_par',
+      })
+    } else {
+      abertosBanco.push({
+        tipo: 'banco',
+        id: l.id,
+        data: l.data,
+        valor: l.valor,
+        banco: l.historico,
+        agenda: null,
+        status: l.status,
+      })
+    }
+  }
+
+  const ligadas = new Set(extrato.rows.map((l) => l.despesa_id).filter(Boolean))
+  const abertosAgenda = sistema.rows
+    .filter((d) => d.status !== 'conciliada' && !ligadas.has(d.id) && !d.ligada_extrato)
+    .map((d) => ({
+      tipo: 'agenda',
+      id: d.id,
+      data: d.data,
+      valor: d.valor,
+      banco: null,
+      agenda: d.descricao || d.fornecedor || '—',
+      status: d.status,
+    }))
+
+  return {
+    de,
+    ate,
+    empresa_id: empresa,
+    resumo: {
+      conciliados: conciliados.filter((i) => i.tipo === 'conciliado').length,
+      sem_par: conciliados.filter((i) => i.tipo === 'sem_par').length,
+      abertos_banco: abertosBanco.length,
+      abertos_agenda: abertosAgenda.length,
+    },
+    conciliados,
+    abertos: [...abertosBanco, ...abertosAgenda].sort((a, b) => String(a.data).localeCompare(String(b.data)) || b.valor - a.valor),
+  }
 }

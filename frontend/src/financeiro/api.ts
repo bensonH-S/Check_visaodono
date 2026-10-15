@@ -110,6 +110,28 @@ export type ConciliacaoDia = {
   sistema: ConciliacaoDespesa[]
   sugestoes: Array<{ lancamento_id: string; despesa_id: string }>
 }
+export type ConciliacaoListaItem = {
+  tipo: 'conciliado' | 'sem_par' | 'banco' | 'agenda'
+  id: string
+  data: string
+  valor: number
+  banco: string | null
+  agenda: string | null
+  status: string
+}
+export type ConciliacaoLista = {
+  de: string
+  ate: string
+  empresa_id: string
+  resumo: {
+    conciliados: number
+    sem_par: number
+    abertos_banco: number
+    abertos_agenda: number
+  }
+  conciliados: ConciliacaoListaItem[]
+  abertos: ConciliacaoListaItem[]
+}
 export type Plano = { id: string; nome: string }
 export type PlanoCompleto = {
   id: string
@@ -532,6 +554,8 @@ export const api = {
     get<ConciliacaoSemana>(`${apiRoot}/conciliacao/semana?${new URLSearchParams({ empresa, de, ate })}`),
   conciliacaoDia: (empresa: string, data: string) =>
     get<ConciliacaoDia>(`${apiRoot}/conciliacao/dia?${new URLSearchParams({ empresa, data })}`),
+  conciliacaoLista: (empresa: string, de: string, ate: string) =>
+    get<ConciliacaoLista>(`${apiRoot}/conciliacao/lista?${new URLSearchParams({ empresa, de, ate })}`),
   uploadExtrato: async (nome: string, base64: string, contaId?: string, empresaId?: string) => {
     const res = await financeFetch(`${apiRoot}/conciliacao/upload`, {
       method: 'POST',

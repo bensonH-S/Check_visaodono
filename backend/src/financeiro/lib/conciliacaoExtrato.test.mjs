@@ -102,6 +102,65 @@ DATA:OFXSGML
       [{ id: 'd1', empresa_origem_id: 'e1', valor: 100.5, vencimento: '2026-10-12', status: 'pronta' }],
     )
     assert.deepEqual(sugestoes, [{ lancamento_id: 'l1', despesa_id: 'd1' }])
+
+    // CNPJ no MEMO do OFX (não no CHECKNUM) + mesma raiz de filial
+    const porCnpjMemo = escolherConciliacaoAutomatica(
+      {
+        operacao: 'D',
+        estorno: false,
+        valor: 1800,
+        data_contabil: '2026-10-13',
+        empresa_id: 'e1',
+        historico: 'PIX ENVIADO SYBRA 02.496.994/0001-04',
+        documento_ref: '20261013002',
+      },
+      [{
+        id: 'sybra',
+        empresa_origem_id: 'e1',
+        valor: 1800,
+        vencimento: '2026-10-13',
+        status: 'conciliada',
+        descricao: 'SYBRA',
+        fornecedor: 'SYBRA',
+        cpf_cnpj: '02496994000104',
+      }],
+    )
+    assert.equal(porCnpjMemo?.id, 'sybra')
+
+    const porRaizFilial = escolherConciliacaoAutomatica(
+      {
+        operacao: 'D',
+        estorno: false,
+        valor: 1078.74,
+        data_contabil: '2026-10-13',
+        empresa_id: 'e1',
+        historico: 'BOLETO PAGO SUPRICORP SU SUPRICORP SUPRIMENTOS LTDA 54.651.716/0001-88',
+      },
+      [{
+        id: 'gimba',
+        empresa_origem_id: 'e1',
+        valor: 1078.74,
+        vencimento: '2026-10-12',
+        status: 'pronta',
+        descricao: 'GIMBA',
+        fornecedor: 'GIMBA',
+        cpf_cnpj: '54651716001150',
+      }],
+    )
+    assert.equal(porRaizFilial?.id, 'gimba')
+
+    assert.equal(pareceNaoTitulo({ operacao: 'D', historico: 'SISPAG SALARIOS' }), true)
+
+    const ofxCnpj = lerOfx(Buffer.from(`OFXHEADER:100
+<OFX><STMTTRN>
+<TRNTYPE>DEBIT
+<DTPOSTED>20261013
+<TRNAMT>-1800.00
+<FITID>20261013002
+<CHECKNUM>20261013002
+<MEMO>PIX ENVIADO SYBRA 02.496.994/0001-04
+</STMTTRN></OFX>`))
+    assert.equal(ofxCnpj[0].documento_ref, '02496994000104')
   })
 
   it('resume entradas, saídas e o que ainda está em aberto', () => {

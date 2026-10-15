@@ -390,7 +390,7 @@ export default function AuditoriaPage() {
                         </Typography>
                       ) : null}
                     </Box>
-                  ),
+                  )
                 )}
               </Stack>
             )}
@@ -401,6 +401,7 @@ export default function AuditoriaPage() {
     </PrefsProvider>
   );
 }
+
 
 function LinhaDetalhe({ rotulo, valor }: { rotulo: string; valor: string }) {
   return (

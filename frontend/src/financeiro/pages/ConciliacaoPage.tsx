@@ -14,7 +14,13 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import CloseIcon from '@mui/icons-material/Close'
 import LinkOffOutlinedIcon from '@mui/icons-material/LinkOffOutlined'
+import ListAltOutlinedIcon from '@mui/icons-material/ListAltOutlined'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
+import TextField from '@mui/material/TextField'
+import InputAdornment from '@mui/material/InputAdornment'
+import SearchIcon from '@mui/icons-material/Search'
 import {
   api,
   emCache,
@@ -25,6 +31,8 @@ import {
   type ConciliacaoDia,
   type ConciliacaoDiaResumo,
   type ConciliacaoLancamento,
+  type ConciliacaoLista,
+  type ConciliacaoListaItem,
   type ConciliacaoSemana,
   type ContaExtrato,
   ContaNaoIdentificada,
@@ -156,6 +164,11 @@ export function ConciliacaoPage() {
   const [ocupado, setOcupado] = useState(false)
   const [carregarDia, setCarregarDia] = useState(false)
   const [escolherConta, setEscolherConta] = useState<{ file: File; mensagem: string; contas: ContaExtrato[] } | null>(null)
+  const [listaAberta, setListaAberta] = useState(false)
+  const [listaDados, setListaDados] = useState<ConciliacaoLista | null>(null)
+  const [listaAba, setListaAba] = useState<'abertos' | 'conciliados'>('abertos')
+  const [listaBusca, setListaBusca] = useState('')
+  const [carregarLista, setCarregarLista] = useState(false)
 
   const lojas = useMemo(() => ordenarEmpresas(empresas.filter((e) => e.tipo === 'loja')), [empresas])
   const hoje = hojeIso()
@@ -315,6 +328,51 @@ export function ConciliacaoPage() {
     }
   }
 
+  const abrirLista = async (aba: 'abertos' | 'conciliados' = 'abertos') => {
+    if (!empresaId) return
+    setListaAba(aba)
+    setListaAberta(true)
+    setCarregarLista(true)
+    setListaBusca('')
+    try {
+      const dados = await api.conciliacaoLista(empresaId, de, ate)
+      setListaDados(dados)
+      await carregarMes()
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : t('Não carregou a lista.', 'Could not load the list.'))
+      setListaAberta(false)
+    } finally {
+      setCarregarLista(false)
+    }
+  }
+
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      const alvo = ev.target as HTMLElement | null
+      const digitando = alvo && (alvo.tagName === 'INPUT' || alvo.tagName === 'TEXTAREA' || alvo.isContentEditable)
+      if (digitando) return
+      if (ev.key === 'l' || ev.key === 'L') {
+        if (diaAberto || escolherConta) return
+        ev.preventDefault()
+        void abrirLista(ev.shiftKey ? 'conciliados' : 'abertos')
+      }
+      if (ev.key === 'Escape' && listaAberta) setListaAberta(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [empresaId, de, ate, diaAberto, escolherConta, listaAberta])
+
+  const itensLista = useMemo(() => {
+    if (!listaDados) return [] as ConciliacaoListaItem[]
+    const base = listaAba === 'abertos' ? listaDados.abertos : listaDados.conciliados
+    const termo = listaBusca.trim().toLowerCase()
+    if (!termo) return base
+    return base.filter((i) => {
+      const alvo = `${i.banco || ''} ${i.agenda || ''} ${i.data} ${i.valor}`.toLowerCase()
+      return alvo.includes(termo)
+    })
+  }, [listaDados, listaAba, listaBusca])
+
   const dataPainel = selecionado
     ? new Date(`${selecionado}T12:00:00`).toLocaleDateString(idioma === 'en' ? 'en-US' : 'pt-BR', {
       day: '2-digit', month: 'short', year: 'numeric',
@@ -354,6 +412,17 @@ export function ConciliacaoPage() {
           }}
         />
         <Box sx={{ flex: 1 }} />
+        <Button
+          size="small"
+          variant="outlined"
+          disabled={!empresaId || carregarLista}
+          startIcon={carregarLista ? <CircularProgress size={14} /> : <ListAltOutlinedIcon sx={{ fontSize: 16 }} />}
+          onClick={() => void abrirLista('abertos')}
+          sx={{ ...finBtnOutlinedSx, height: 34, textTransform: 'none', fontWeight: 650 }}
+          title={t('Atalho: L (Shift+L = conciliados)', 'Shortcut: L (Shift+L = matched)')}
+        >
+          {t('Lista · L', 'List · L')}
+        </Button>
         <input
           ref={inputRef}
           type="file"
@@ -555,6 +624,129 @@ export function ConciliacaoPage() {
               t={t}
             />
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={listaAberta}
+        onClose={() => setListaAberta(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { ...finPaperSx, height: { xs: '90vh', md: '80vh' }, display: 'flex', flexDirection: 'column' } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 1, py: 1.25, borderBottom: `1px solid ${FIN_BORDER}` }}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontSize: 16, fontWeight: 650 }}>
+              {t('Lista do mês', 'Month list')} · {lojaAtual?.apelido || '—'}
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
+              {t('Atalho L = abertos · Shift+L = conciliados', 'Shortcut L = open · Shift+L = matched')}
+              {listaDados
+                ? ` · ${listaDados.resumo.abertos_banco + listaDados.resumo.abertos_agenda} ${t('em aberto', 'open')} · ${listaDados.resumo.conciliados} ${t('conciliados', 'matched')}`
+                : ''}
+            </Typography>
+          </Box>
+          <IconButton size="small" onClick={() => setListaAberta(false)}><CloseIcon fontSize="small" /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: '0 !important', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          <Stack spacing={1.25} sx={{ px: 2, pt: 1.5, pb: 1, borderBottom: `1px solid ${FIN_BORDER}` }}>
+            <Tabs
+              value={listaAba}
+              onChange={(_, v: 'abertos' | 'conciliados') => setListaAba(v)}
+              sx={{ minHeight: 36, '& .MuiTab-root': { minHeight: 36, textTransform: 'none', fontWeight: 650 } }}
+            >
+              <Tab
+                value="abertos"
+                label={t(
+                  `Em aberto (${(listaDados?.resumo.abertos_banco || 0) + (listaDados?.resumo.abertos_agenda || 0)})`,
+                  `Open (${(listaDados?.resumo.abertos_banco || 0) + (listaDados?.resumo.abertos_agenda || 0)})`,
+                )}
+              />
+              <Tab
+                value="conciliados"
+                label={t(`Conciliados (${listaDados?.resumo.conciliados || 0})`, `Matched (${listaDados?.resumo.conciliados || 0})`)}
+              />
+            </Tabs>
+            <TextField
+              size="small"
+              placeholder={t('Buscar aluguel, fornecedor, valor…', 'Search rent, vendor, amount…')}
+              value={listaBusca}
+              onChange={(ev) => setListaBusca(ev.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ fontSize: 18, color: FIN_MUTED }} />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ maxWidth: 420 }}
+            />
+          </Stack>
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', px: 2, py: 1.5 }}>
+            {carregarLista ? (
+              <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress size={28} /></Stack>
+            ) : itensLista.length === 0 ? (
+              <Typography sx={{ py: 5, textAlign: 'center', color: FIN_MUTED, fontSize: 13 }}>
+                {listaAba === 'abertos'
+                  ? t('Nada em aberto neste mês.', 'Nothing open this month.')
+                  : t('Nenhum item conciliado neste mês.', 'No matched items this month.')}
+              </Typography>
+            ) : (
+              <Stack spacing={1}>
+                {itensLista.map((item) => (
+                  <Box
+                    key={`${item.tipo}-${item.id}`}
+                    onClick={() => {
+                      setListaAberta(false)
+                      void abrirDia(item.data)
+                    }}
+                    sx={{
+                      p: 1.25,
+                      borderRadius: '10px',
+                      border: `1px solid ${FIN_BORDER}`,
+                      bgcolor: FIN_SURFACE,
+                      cursor: 'pointer',
+                      '&:hover': { borderColor: 'primary.main' },
+                    }}
+                  >
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
+                      <Chip
+                        size="small"
+                        label={
+                          item.tipo === 'banco' ? t('Banco', 'Bank')
+                            : item.tipo === 'agenda' ? t('Agenda', 'Agenda')
+                              : item.tipo === 'sem_par' ? t('Sem título', 'No bill')
+                                : t('Conciliado', 'Matched')
+                        }
+                        sx={{
+                          height: 22,
+                          fontSize: 11,
+                          fontWeight: 650,
+                          bgcolor: item.tipo === 'conciliado' || item.tipo === 'sem_par'
+                            ? 'rgba(16,185,129,0.12)'
+                            : 'rgba(245,158,11,0.12)',
+                          color: item.tipo === 'conciliado' || item.tipo === 'sem_par' ? '#047857' : '#B45309',
+                        }}
+                      />
+                      <Typography sx={{ fontSize: 12, color: FIN_MUTED, fontVariantNumeric: 'tabular-nums' }}>
+                        {dataBr(item.data)}
+                      </Typography>
+                      <Box sx={{ flex: 1 }} />
+                      <Typography sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums' }}>
+                        {brl(item.valor)}
+                      </Typography>
+                    </Stack>
+                    {item.agenda ? (
+                      <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{item.agenda}</Typography>
+                    ) : null}
+                    {item.banco ? (
+                      <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>{item.banco}</Typography>
+                    ) : null}
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </Box>
         </DialogContent>
       </Dialog>
 

@@ -46,6 +46,7 @@ import {
   diaConciliacao,
   garantirSchemaConciliacao,
   importarExtrato,
+  listaConciliacao,
   marcarSemPar,
   painelConciliacao,
   periodoConciliacao,
@@ -871,6 +872,23 @@ export async function handleFinance(req, res) {
       }
       await garantirSchemaConciliacao(pool)
       return send(res, 200, JSON.stringify(await semanaConciliacao(pool, { empresaId, de, ate })))
+    }
+    if (req.method === 'GET' && url.pathname === '/api/conciliacao/lista') {
+      const empresaId = String(url.searchParams.get('empresa') || '').trim()
+      const de = String(url.searchParams.get('de') || '').slice(0, 10)
+      const ate = String(url.searchParams.get('ate') || '').slice(0, 10)
+      if (!empresaId) return send(res, 400, JSON.stringify({ erro: 'Informe a loja.' }))
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(de) || !/^\d{4}-\d{2}-\d{2}$/.test(ate) || de > ate) {
+        return send(res, 400, JSON.stringify({ erro: 'Informe o período.' }))
+      }
+      const dias = Math.round((Date.parse(`${ate}T00:00:00Z`) - Date.parse(`${de}T00:00:00Z`)) / 86400000)
+      if (dias > 62) return send(res, 400, JSON.stringify({ erro: 'O período máximo é de 62 dias.' }))
+      await garantirSchemaConciliacao(pool)
+      try {
+        return send(res, 200, JSON.stringify(await listaConciliacao(pool, { empresaId, de, ate })))
+      } catch (err) {
+        return send(res, 400, JSON.stringify({ erro: err.message || 'Não carregou a lista.' }))
+      }
     }
     if (req.method === 'GET' && url.pathname === '/api/conciliacao/dia') {
       const empresaId = String(url.searchParams.get('empresa') || '').trim()
