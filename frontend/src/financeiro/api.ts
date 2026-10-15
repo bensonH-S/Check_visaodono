@@ -118,11 +118,12 @@ export type ConciliacaoListaItem = {
   banco: string | null
   agenda: string | null
   status: string
+  loja?: string | null
 }
 export type ConciliacaoLista = {
   de: string
   ate: string
-  empresa_id: string
+  empresa_id: string | null
   resumo: {
     conciliados: number
     sem_par: number

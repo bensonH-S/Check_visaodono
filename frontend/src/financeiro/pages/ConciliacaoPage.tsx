@@ -9,6 +9,7 @@ import DialogActions from '@mui/material/DialogActions'
 import DialogContent from '@mui/material/DialogContent'
 import DialogTitle from '@mui/material/DialogTitle'
 import IconButton from '@mui/material/IconButton'
+import LinearProgress from '@mui/material/LinearProgress'
 import Paper from '@mui/material/Paper'
 import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
@@ -169,28 +170,61 @@ export function ConciliacaoPage() {
   const [listaAba, setListaAba] = useState<'abertos' | 'conciliados'>('abertos')
   const [listaBusca, setListaBusca] = useState('')
   const [carregarLista, setCarregarLista] = useState(false)
+  const [importando, setImportando] = useState<{
+    ativo: boolean
+    atual: number
+    total: number
+    arquivo: string
+    ok: number
+    falha: number
+  } | null>(null)
+  const filaExtratos = useRef<File[]>([])
+  const progressoLote = useRef<{
+    ok: number
+    falha: number
+    total: number
+    erros: Array<{ arquivo: string; mensagem: string }>
+  }>({ ok: 0, falha: 0, total: 0, erros: [] })
+
+  const atualizarImportando = (arquivo: string) => {
+    const { ok, falha, total } = progressoLote.current
+    setImportando({
+      ativo: true,
+      atual: Math.min(ok + falha + 1, total),
+      total,
+      arquivo,
+      ok,
+      falha,
+    })
+  }
+
+  const registrarFalha = (arquivo: string, mensagem: string) => {
+    progressoLote.current.falha += 1
+    progressoLote.current.erros.push({ arquivo, mensagem })
+  }
 
   const lojas = useMemo(() => ordenarEmpresas(empresas.filter((e) => e.tipo === 'loja')), [empresas])
   const hoje = hojeIso()
   const { de, ate } = limitesMes(mes)
   const lojaAtual = lojas.find((l) => l.id === empresaId)
+  const todasLojas = !empresaId
 
   useEffect(() => {
     api.empresas().then((lista) => {
       setEmpresas(lista)
       setEmpresaId((atual) => {
-        if (atual && lista.some((e) => e.id === atual)) return atual
-        const loja = lista.find((e) => e.tipo === 'loja')
-        return loja?.id || ''
+        if (!atual) return ''
+        if (lista.some((e) => e.id === atual)) return atual
+        return ''
       })
     }).catch((err: unknown) => setErro(err instanceof Error ? err.message : t('Não carregou as lojas', 'Could not load stores')))
   }, [])
 
   const carregarMes = async () => {
-    if (!empresaId || !mes) return
+    if (!mes) return
     setCarregando(true)
     try {
-      const dados = await api.conciliacaoSemana(empresaId, de, ate)
+      const dados = await api.conciliacaoSemana(empresaId || '', de, ate)
       setMesDados(dados)
       setErro('')
       setSelecionado((atual) => {
@@ -260,30 +294,158 @@ export function ConciliacaoPage() {
     await carregarMes()
   }
 
-  const subirArquivo = async (file: File, contaUpload?: string) => {
-    setOcupado(true)
-    setAviso('')
-    setEscolherConta(null)
-    try {
-      const base64 = arquivoBase64(await file.arrayBuffer())
-      const r = await api.uploadExtrato(file.name, base64, contaUpload, empresaId || undefined)
+  const finalizarLote = async () => {
+    const { ok, falha, total, erros } = progressoLote.current
+    filaExtratos.current = []
+    progressoLote.current = { ok: 0, falha: 0, total: 0, erros: [] }
+    setImportando(null)
+    if (inputRef.current) inputRef.current.value = ''
+    if (total <= 1) {
+      /* aviso/erro já setado no upload único */
+    } else if (falha) {
+      setAviso(t(
+        `${ok} extrato(s) importado(s), ${falha} com erro.`,
+        `${ok} statement(s) imported, ${falha} failed.`,
+      ))
+      const detalhe = erros
+        .slice(0, 8)
+        .map((e) => `• ${e.arquivo}: ${e.mensagem}`)
+        .join('\n')
+      const resto = erros.length > 8
+        ? `\n(+${erros.length - 8} ${t('outro(s)', 'more')})`
+        : ''
+      setErro(detalhe + resto || t('Falha na importação.', 'Import failed.'))
+    } else {
+      setAviso(t(
+        `${ok} extrato(s) importado(s).`,
+        `${ok} statement(s) imported.`,
+      ))
+      setErro('')
+    }
+    await carregarMes()
+    setOcupado(false)
+  }
+
+  const importarUmArquivo = async (file: File, contaUpload?: string) => {
+    atualizarImportando(file.name)
+    const base64 = arquivoBase64(await file.arrayBuffer())
+    const r = await api.uploadExtrato(file.name, base64, contaUpload, empresaId || undefined)
+    progressoLote.current.ok += 1
+    atualizarImportando(file.name)
+    if (progressoLote.current.total <= 1) {
       setAviso(
         r.ja_importado
           ? t(`${r.conta}: extrato já estava importado.`, `${r.conta}: statement already imported.`)
           : t(`${r.conta}: ${r.criadas} lançamento(s).`, `${r.conta}: ${r.criadas} entr${r.criadas === 1 ? 'y' : 'ies'}.`),
       )
-      if (r.empresa_id) setEmpresaId(r.empresa_id)
-      if (r.de) setMes(r.de.slice(0, 7))
-      await carregarMes()
-    } catch (err) {
-      if (err instanceof ContaNaoIdentificada) {
-        setEscolherConta({ file, mensagem: err.message, contas: err.contas })
-      } else {
-        setErro(err instanceof Error ? err.message : t('Não importou o extrato.', 'Could not import the statement.'))
+    }
+    if (r.empresa_id && empresaId) setEmpresaId(r.empresa_id)
+    if (r.de && progressoLote.current.total <= 1) setMes(r.de.slice(0, 7))
+    return r
+  }
+
+  /** Lote em paralelo (até 3). Arquivos que pedem conta ficam no fim, um a um. */
+  const processarLoteParalelo = async () => {
+    setOcupado(true)
+    setEscolherConta(null)
+    const CONCORRENCIA = 3
+    const pendentesConta: Array<{ file: File; mensagem: string; contas: ContaExtrato[] }> = []
+
+    const trabalhar = async () => {
+      while (filaExtratos.current.length) {
+        const file = filaExtratos.current.shift()
+        if (!file) return
+        try {
+          await importarUmArquivo(file)
+        } catch (err) {
+          if (err instanceof ContaNaoIdentificada) {
+            pendentesConta.push({ file, mensagem: err.message, contas: err.contas })
+            atualizarImportando(file.name)
+            continue
+          }
+          const msg = err instanceof Error ? err.message : t('Não importou o extrato.', 'Could not import the statement.')
+          registrarFalha(file.name, msg)
+          atualizarImportando(file.name)
+          if (progressoLote.current.total <= 1) setErro(msg)
+        }
       }
-    } finally {
+    }
+
+    await Promise.all(Array.from({ length: Math.min(CONCORRENCIA, Math.max(progressoLote.current.total, 1)) }, () => trabalhar()))
+
+    if (pendentesConta.length) {
+      filaExtratos.current = pendentesConta.map((p) => p.file)
+      const primeiro = pendentesConta[0]
+      atualizarImportando(primeiro.file.name)
+      setEscolherConta(primeiro)
       setOcupado(false)
-      if (inputRef.current) inputRef.current.value = ''
+      return
+    }
+    await finalizarLote()
+  }
+
+  const processarFilaExtratos = async (contaUpload?: string) => {
+    setOcupado(true)
+    setEscolherConta(null)
+    let contaParaProximo = contaUpload
+    while (filaExtratos.current.length) {
+      const file = filaExtratos.current[0]
+      try {
+        await importarUmArquivo(file, contaParaProximo)
+        contaParaProximo = undefined
+        filaExtratos.current.shift()
+      } catch (err) {
+        if (err instanceof ContaNaoIdentificada) {
+          atualizarImportando(file.name)
+          setEscolherConta({ file, mensagem: err.message, contas: err.contas })
+          setOcupado(false)
+          return
+        }
+        contaParaProximo = undefined
+        filaExtratos.current.shift()
+        const msg = err instanceof Error ? err.message : t('Não importou o extrato.', 'Could not import the statement.')
+        registrarFalha(file.name, msg)
+        atualizarImportando(filaExtratos.current[0]?.name || file.name)
+        if (progressoLote.current.total <= 1) setErro(msg)
+      }
+    }
+    await finalizarLote()
+  }
+
+  const subirArquivos = (files: File[]) => {
+    const lista = files.filter(Boolean)
+    if (!lista.length) return
+    setAviso('')
+    setErro('')
+    filaExtratos.current = lista
+    progressoLote.current = { ok: 0, falha: 0, total: lista.length, erros: [] }
+    setImportando({
+      ativo: true,
+      atual: 1,
+      total: lista.length,
+      arquivo: lista[0].name,
+      ok: 0,
+      falha: 0,
+    })
+    if (lista.length === 1) void processarFilaExtratos()
+    else void processarLoteParalelo()
+  }
+
+  const continuarComConta = (contaId: string) => {
+    void processarFilaExtratos(contaId)
+  }
+
+  const cancelarEscolhaConta = () => {
+    const file = escolherConta?.file
+    setEscolherConta(null)
+    if (filaExtratos.current.length) {
+      filaExtratos.current.shift()
+      registrarFalha(
+        file?.name || t('arquivo', 'file'),
+        t('Conta não escolhida — arquivo pulado.', 'Account not chosen — file skipped.'),
+      )
+      if (filaExtratos.current.length) void processarFilaExtratos()
+      else void finalizarLote()
     }
   }
 
@@ -329,13 +491,12 @@ export function ConciliacaoPage() {
   }
 
   const abrirLista = async (aba: 'abertos' | 'conciliados' = 'abertos') => {
-    if (!empresaId) return
     setListaAba(aba)
     setListaAberta(true)
     setCarregarLista(true)
     setListaBusca('')
     try {
-      const dados = await api.conciliacaoLista(empresaId, de, ate)
+      const dados = await api.conciliacaoLista(empresaId || '', de, ate)
       setListaDados(dados)
       await carregarMes()
     } catch (err) {
@@ -368,7 +529,7 @@ export function ConciliacaoPage() {
     const termo = listaBusca.trim().toLowerCase()
     if (!termo) return base
     return base.filter((i) => {
-      const alvo = `${i.banco || ''} ${i.agenda || ''} ${i.data} ${i.valor}`.toLowerCase()
+      const alvo = `${i.banco || ''} ${i.agenda || ''} ${i.loja || ''} ${i.data} ${i.valor}`.toLowerCase()
       return alvo.includes(termo)
     })
   }, [listaDados, listaAba, listaBusca])
@@ -387,6 +548,8 @@ export function ConciliacaoPage() {
           value={empresaId}
           label={t('Loja', 'Store')}
           width={{ xs: '100%', md: 240 }}
+          incluirTodas
+          todasLabel={t('Todas as lojas', 'All stores')}
           onChange={setEmpresaId}
         />
         <FiltroMesFinanceiro
@@ -415,7 +578,7 @@ export function ConciliacaoPage() {
         <Button
           size="small"
           variant="outlined"
-          disabled={!empresaId || carregarLista}
+          disabled={carregarLista}
           startIcon={carregarLista ? <CircularProgress size={14} /> : <ListAltOutlinedIcon sx={{ fontSize: 16 }} />}
           onClick={() => void abrirLista('abertos')}
           sx={{ ...finBtnOutlinedSx, height: 34, textTransform: 'none', fontWeight: 650 }}
@@ -427,26 +590,109 @@ export function ConciliacaoPage() {
           ref={inputRef}
           type="file"
           accept=".ofx,.qfx,.csv,.txt,.xlsx"
+          multiple
           hidden
           onChange={(ev) => {
-            const file = ev.target.files?.[0]
-            if (file) void subirArquivo(file)
+            const files = ev.target.files ? Array.from(ev.target.files) : []
+            if (files.length) subirArquivos(files)
           }}
         />
         <Button
           size="small"
           variant="contained"
-          disabled={ocupado}
-          startIcon={ocupado ? <CircularProgress size={14} color="inherit" /> : <UploadFileOutlinedIcon sx={{ fontSize: 16 }} />}
+          disabled={ocupado || !!importando?.ativo}
+          startIcon={importando?.ativo
+            ? <CircularProgress size={14} color="inherit" />
+            : <UploadFileOutlinedIcon sx={{ fontSize: 16 }} />}
           onClick={() => inputRef.current?.click()}
           sx={{ ...finBtnContainedSx, height: 34, textTransform: 'none', fontWeight: 650 }}
+          title={t('Selecione um ou vários arquivos OFX/CSV', 'Select one or more OFX/CSV files')}
         >
-          {t('Importar extrato', 'Import statement')}
+          {importando?.ativo
+            ? t(
+              `Importando ${importando.atual}/${importando.total}`,
+              `Importing ${importando.atual}/${importando.total}`,
+            )
+            : t('Importar extratos', 'Import statements')}
         </Button>
       </Stack>
 
-      {erro ? <Alert severity="error" onClose={() => setErro('')}>{erro}</Alert> : null}
-      {aviso ? <Alert severity="success" onClose={() => setAviso('')}>{aviso}</Alert> : null}
+      {importando?.ativo ? (
+        <Paper
+          variant="outlined"
+          sx={{
+            ...finPaperSx,
+            px: 1.75,
+            py: 1.25,
+            borderColor: 'rgba(27,110,243,0.35)',
+            bgcolor: 'rgba(27,110,243,0.06)',
+          }}
+        >
+          <Stack direction="row" spacing={1.25} sx={{ alignItems: 'center', mb: 0.85 }}>
+            <CircularProgress size={18} thickness={5} />
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, color: FIN_TEXT }}>
+                {importando.total > 1
+                  ? t(
+                    `Processando extratos · ${importando.atual} de ${importando.total}`,
+                    `Processing statements · ${importando.atual} of ${importando.total}`,
+                  )
+                  : t('Processando extrato…', 'Processing statement…')}
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: 12,
+                  color: FIN_MUTED,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+                title={importando.arquivo}
+              >
+                {escolherConta
+                  ? t('Aguardando escolha da conta…', 'Waiting for account selection…')
+                  : importando.arquivo}
+                {!escolherConta && (importando.ok || importando.falha)
+                  ? ` · ${importando.ok} ok${importando.falha ? `, ${importando.falha} ${t('erro(s)', 'failed')}` : ''}`
+                  : ''}
+              </Typography>
+            </Box>
+            {importando.total > 1 ? (
+              <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#1B6EF3', fontVariantNumeric: 'tabular-nums' }}>
+                {Math.round(((importando.ok + importando.falha) / Math.max(importando.total, 1)) * 100)}%
+              </Typography>
+            ) : null}
+          </Stack>
+          <LinearProgress
+            variant={importando.total > 1 && !escolherConta ? 'determinate' : 'indeterminate'}
+            value={((importando.ok + importando.falha) / Math.max(importando.total, 1)) * 100}
+            sx={{
+              height: 6,
+              borderRadius: 999,
+              bgcolor: 'rgba(27,110,243,0.12)',
+              '& .MuiLinearProgress-bar': { borderRadius: 999, bgcolor: '#1B6EF3' },
+            }}
+          />
+        </Paper>
+      ) : null}
+
+      {erro && !importando?.ativo ? (
+        <Alert
+          severity="error"
+          onClose={() => setErro('')}
+          sx={{ alignItems: 'flex-start', whiteSpace: 'pre-wrap', '& .MuiAlert-message': { width: '100%' } }}
+        >
+          {erro}
+        </Alert>
+      ) : null}
+      {aviso && !importando?.ativo ? (
+        <Alert
+          severity={erro ? 'warning' : 'success'}
+          onClose={() => setAviso('')}
+        >
+          {aviso}
+        </Alert>
+      ) : null}
 
       <Box sx={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 360px' }, gap: 2 }}>
         <Paper variant="outlined" sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', ...finPaperSx }}>
@@ -595,7 +841,7 @@ export function ConciliacaoPage() {
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography sx={{ fontSize: 15, fontWeight: 700, color: FIN_TEXT }}>
               {t('Conciliação do dia', 'Day reconciliation')}
-              {lojaAtual ? ` · ${lojaAtual.apelido}` : ''}
+              {lojaAtual ? ` · ${lojaAtual.apelido}` : todasLojas ? ` · ${t('Todas as lojas', 'All stores')}` : ''}
             </Typography>
             <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
               {selecionado ? dataBr(selecionado) : ''} · {t('Agenda × extrato bancário', 'Agenda × bank statement')}
@@ -613,6 +859,7 @@ export function ConciliacaoPage() {
           ) : (
             <PainelDia
               dados={diaDados}
+              mostrarLoja={todasLojas}
               selBanco={selBanco}
               selTitulo={selTitulo}
               onSelBanco={setSelBanco}
@@ -646,7 +893,7 @@ export function ConciliacaoPage() {
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 1, py: 1.25, borderBottom: `1px solid ${FIN_BORDER}` }}>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography sx={{ fontSize: 16, fontWeight: 650 }}>
-              {t('Lista do mês', 'Month list')} · {lojaAtual?.apelido || '—'}
+              {t('Lista do mês', 'Month list')} · {lojaAtual?.apelido || (todasLojas ? t('Todas as lojas', 'All stores') : '—')}
             </Typography>
             <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
               {t('Atalho L = abertos · Shift+L = conciliados', 'Shortcut L = open · Shift+L = matched')}
@@ -753,6 +1000,9 @@ export function ConciliacaoPage() {
                     {item.banco ? (
                       <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>{item.banco}</Typography>
                     ) : null}
+                    {todasLojas && item.loja ? (
+                      <Typography sx={{ fontSize: 11.5, color: FIN_MUTED, mt: 0.25 }}>{item.loja}</Typography>
+                    ) : null}
                   </Box>
                 ))}
               </Stack>
@@ -761,11 +1011,17 @@ export function ConciliacaoPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!escolherConta} onClose={() => setEscolherConta(null)} maxWidth="xs" fullWidth>
+      <Dialog open={!!escolherConta} onClose={cancelarEscolhaConta} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontSize: 16, fontWeight: 650 }}>
           {t('De qual conta é esse extrato?', 'Which account is this statement from?')}
         </DialogTitle>
         <DialogContent>
+          <Typography sx={{ fontSize: 12.5, color: FIN_MUTED, mb: 0.75 }}>
+            {escolherConta?.file.name}
+            {progressoLote.current.total > 1
+              ? ` · ${progressoLote.current.ok + progressoLote.current.falha + 1}/${progressoLote.current.total}`
+              : ''}
+          </Typography>
           <Typography sx={{ fontSize: 12.5, color: FIN_MUTED, mb: 1.5 }}>{escolherConta?.mensagem}</Typography>
           <Stack spacing={0.75}>
             {(escolherConta?.contas || []).map((c) => (
@@ -773,7 +1029,7 @@ export function ConciliacaoPage() {
                 key={c.id}
                 variant="outlined"
                 disabled={ocupado}
-                onClick={() => escolherConta && void subirArquivo(escolherConta.file, c.id)}
+                onClick={() => continuarComConta(c.id)}
                 sx={{ ...finBtnOutlinedSx, justifyContent: 'space-between', textTransform: 'none' }}
               >
                 <span>{c.rotulo}</span>
@@ -782,6 +1038,11 @@ export function ConciliacaoPage() {
             ))}
           </Stack>
         </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelarEscolhaConta} sx={{ textTransform: 'none' }}>
+            {t('Pular este arquivo', 'Skip this file')}
+          </Button>
+        </DialogActions>
       </Dialog>
     </Stack>
   )
@@ -800,6 +1061,7 @@ function Metrica({ rotulo, valor, alerta }: { rotulo: string; valor: string; ale
 
 function PainelDia({
   dados,
+  mostrarLoja,
   selBanco,
   selTitulo,
   onSelBanco,
@@ -811,6 +1073,7 @@ function PainelDia({
   t,
 }: {
   dados: ConciliacaoDia
+  mostrarLoja?: boolean
   selBanco: string | null
   selTitulo: string | null
   onSelBanco: (id: string | null) => void
@@ -918,7 +1181,11 @@ function PainelDia({
                 status={aberto ? (mesmo ? 'par' : 'aberto') : 'ok'}
                 data={dataBr(item.vencimento)}
                 nome={item.descricao}
-                detalhe={[item.numero_nf && `NF ${item.numero_nf}`, item.forma_pagamento].filter(Boolean).join(' · ') || undefined}
+                detalhe={[
+                  mostrarLoja && item.loja,
+                  item.numero_nf && `NF ${item.numero_nf}`,
+                  item.forma_pagamento,
+                ].filter(Boolean).join(' · ') || undefined}
                 valor={brl(item.valor)}
                 onClick={() => {
                   if (!aberto) return
@@ -966,12 +1233,16 @@ function PainelDia({
                 nome={item.historico || '—'}
                 detalhe={
                   !aberto
-                    ? (item.status === 'sem_par'
-                      ? t('Ignorado (não é título)', 'Ignored (not a bill)')
-                      : `${t('Casado com', 'Matched to')}: ${item.despesa_descricao || '—'}`)
-                    : sug
-                      ? `${t('Mesmo valor que', 'Same amount as')}: ${sug.descricao}`
-                      : undefined
+                    ? [
+                      mostrarLoja && item.loja,
+                      item.status === 'sem_par'
+                        ? t('Ignorado (não é título)', 'Ignored (not a bill)')
+                        : `${t('Casado com', 'Matched to')}: ${item.despesa_descricao || '—'}`,
+                    ].filter(Boolean).join(' · ')
+                    : [
+                      mostrarLoja && item.loja,
+                      sug ? `${t('Mesmo valor que', 'Same amount as')}: ${sug.descricao}` : null,
+                    ].filter(Boolean).join(' · ') || undefined
                 }
                 valor={brl(item.valor)}
                 onClick={() => {

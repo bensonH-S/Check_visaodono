@@ -877,7 +877,6 @@ export async function handleFinance(req, res) {
       const empresaId = String(url.searchParams.get('empresa') || '').trim()
       const de = String(url.searchParams.get('de') || '').slice(0, 10)
       const ate = String(url.searchParams.get('ate') || '').slice(0, 10)
-      if (!empresaId) return send(res, 400, JSON.stringify({ erro: 'Informe a loja.' }))
       if (!/^\d{4}-\d{2}-\d{2}$/.test(de) || !/^\d{4}-\d{2}-\d{2}$/.test(ate) || de > ate) {
         return send(res, 400, JSON.stringify({ erro: 'Informe o período.' }))
       }

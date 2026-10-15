@@ -688,8 +688,11 @@ export function resumoExtrato(linhas) {
   }
 }
 
+let schemaConciliacaoOk = false
 export async function garantirSchemaConciliacao(pool) {
+  if (schemaConciliacaoOk) return
   await pool.query(fs.readFileSync(schemaPath, 'utf8'))
+  schemaConciliacaoOk = true
 }
 
 function inboxSql() {
@@ -888,12 +891,7 @@ export async function importarExtrato(pool, { contaId, empresaId, nome, base64 }
       conta: rotuloConta(conta),
       conta_id: conta.id,
       empresa_id: conta.empresa_id,
-      conciliadas: await conciliarAutomatico(pool, {
-        contaId: conta.id,
-        empresaId: conta.empresa_id,
-        de: ja.rows[0].de,
-        ate: ja.rows[0].ate,
-      }),
+      conciliadas: 0,
     }
   }
   const datas = linhas.map((l) => l.data_contabil).sort()
@@ -904,34 +902,43 @@ export async function importarExtrato(pool, { contaId, empresaId, nome, base64 }
     values ($1, $2, $3, $4, $5::date, $6::date, $7)
     returning id
   `, [conta.id, texto(nome).slice(0, 180) || 'extrato.ofx', formato, hash, de, ate, linhas.length])
+  const arquivoId = arquivo.rows[0].id
   let criadas = 0
   let repetidas = 0
-  for (const linha of linhas) {
+  const LOTE = 80
+  for (let i = 0; i < linhas.length; i += LOTE) {
+    const fatia = linhas.slice(i, i + LOTE)
+    const params = []
+    const values = fatia.map((linha, idx) => {
+      const b = idx * 11
+      params.push(
+        conta.id,
+        conta.empresa_id,
+        arquivoId,
+        linha.evento_id,
+        linha.operacao,
+        !!linha.estorno,
+        linha.data_contabil,
+        linha.data_evento || linha.data_contabil,
+        linha.valor,
+        linha.historico,
+        linha.documento_ref,
+      )
+      return `($${b + 1}, $${b + 2}, $${b + 3}, $${b + 4}, $${b + 5}, $${b + 6}, $${b + 7}::date, $${b + 8}::date, $${b + 9}, $${b + 10}, $${b + 11})`
+    })
     const r = await pool.query(`
       insert into extrato_lancamentos (
         conta_id, empresa_id, arquivo_id, evento_id, operacao, estorno,
         data_contabil, data_evento, valor, historico, documento_ref
-      ) values ($1, $2, $3, $4, $5, $6, $7::date, $8::date, $9, $10, $11)
+      ) values ${values.join(',\n')}
       on conflict (conta_id, evento_id) do nothing
       returning id
-    `, [
-      conta.id,
-      conta.empresa_id,
-      arquivo.rows[0].id,
-      linha.evento_id,
-      linha.operacao,
-      !!linha.estorno,
-      linha.data_contabil,
-      linha.data_evento || linha.data_contabil,
-      linha.valor,
-      linha.historico,
-      linha.documento_ref,
-    ])
-    if (r.rowCount) criadas += 1
-    else repetidas += 1
+    `, params)
+    criadas += r.rowCount || 0
+    repetidas += fatia.length - (r.rowCount || 0)
   }
   return {
-    arquivo_id: arquivo.rows[0].id,
+    arquivo_id: arquivoId,
     criadas,
     repetidas,
     de,
@@ -1310,25 +1317,23 @@ export async function semanaConciliacao(pool, { empresaId, de, ate }) {
 
 export async function diaConciliacao(pool, { empresaId, data }) {
   const empresa = empresaId || null
-  if (empresa) {
-    const contas = await pool.query(`
-      select distinct conta_id::text as conta_id
-      from extrato_lancamentos
-      where empresa_id = $1::uuid
-        and data_contabil = $2::date
-        and operacao = 'D'
-        and not estorno
-        and despesa_id is null
-        and status in ('pendente', 'sugerido')
-    `, [empresa, data])
-    for (const row of contas.rows) {
-      await conciliarAutomatico(pool, {
-        contaId: row.conta_id,
-        empresaId: empresa,
-        de: data,
-        ate: data,
-      })
-    }
+  const contas = await pool.query(`
+    select distinct conta_id::text as conta_id, empresa_id::text as empresa_id
+    from extrato_lancamentos
+    where ($1::uuid is null or empresa_id = $1::uuid)
+      and data_contabil = $2::date
+      and operacao = 'D'
+      and not estorno
+      and despesa_id is null
+      and status in ('pendente', 'sugerido')
+  `, [empresa, data])
+  for (const row of contas.rows) {
+    await conciliarAutomatico(pool, {
+      contaId: row.conta_id,
+      empresaId: row.empresa_id,
+      de: data,
+      ate: data,
+    })
   }
   const extrato = await pool.query(`
     select l.id::text as id,
@@ -1594,15 +1599,16 @@ export async function marcarSemPar(pool, { lancamentoId }) {
  * Roda a conciliação automática antes, para o OFX “fechar” o que der.
  */
 export async function listaConciliacao(pool, { empresaId, de, ate }) {
-  const empresa = String(empresaId || '').trim()
-  if (!empresa) throw new Error('Informe a loja.')
+  const empresa = String(empresaId || '').trim() || null
 
   const contas = await pool.query(`
-    select id::text as id from contas_bancarias
-    where empresa_id = $1::uuid and coalesce(ativa, true)
+    select id::text as id, empresa_id::text as empresa_id
+    from contas_bancarias
+    where coalesce(ativa, true)
+      and ($1::uuid is null or empresa_id = $1::uuid)
   `, [empresa])
   for (const c of contas.rows) {
-    await conciliarAutomatico(pool, { contaId: c.id, empresaId: empresa, de, ate })
+    await conciliarAutomatico(pool, { contaId: c.id, empresaId: c.empresa_id, de, ate })
   }
 
   const cnpjsGrupo = await cnpjsDoGrupo(pool)
@@ -1619,11 +1625,13 @@ export async function listaConciliacao(pool, { empresaId, de, ate }) {
            l.status,
            l.despesa_id::text as despesa_id,
            d.descricao as despesa_descricao,
-           f.nome as fornecedor
+           f.nome as fornecedor,
+           e.apelido as loja
     from extrato_lancamentos l
+    join empresas e on e.id = l.empresa_id
     left join despesas d on d.id = l.despesa_id
     left join fornecedores f on f.id = d.fornecedor_id
-    where l.empresa_id = $1::uuid
+    where ($1::uuid is null or l.empresa_id = $1::uuid)
       and l.data_contabil between $2::date and $3::date
       and l.operacao = 'D'
       and not l.estorno
@@ -1639,12 +1647,14 @@ export async function listaConciliacao(pool, { empresaId, de, ate }) {
            d.documento_ref,
            f.nome as fornecedor,
            f.cpf_cnpj,
+           eo.apelido as loja,
            exists(
              select 1 from extrato_lancamentos x where x.despesa_id = d.id
            ) as ligada_extrato
     from despesas d
+    join empresas eo on eo.id = d.empresa_origem_id
     left join fornecedores f on f.id = d.fornecedor_id
-    where d.empresa_origem_id = $1::uuid
+    where ($1::uuid is null or d.empresa_origem_id = $1::uuid)
       and d.status not in ('cancelada', 'faltou')
       and d.vencimento between $2::date and $3::date
       and ${inboxSql()}
@@ -1663,6 +1673,7 @@ export async function listaConciliacao(pool, { empresaId, de, ate }) {
         banco: l.historico,
         agenda: l.despesa_descricao || l.fornecedor || '—',
         status: 'conciliado',
+        loja: l.loja || null,
       })
     } else if (l.status === 'sem_par' || pareceNaoTitulo(l, opts)) {
       conciliados.push({
@@ -1673,6 +1684,7 @@ export async function listaConciliacao(pool, { empresaId, de, ate }) {
         banco: l.historico,
         agenda: 'Sem título (tarifa/aplicação/folha/transferência)',
         status: 'sem_par',
+        loja: l.loja || null,
       })
     } else {
       abertosBanco.push({
@@ -1683,6 +1695,7 @@ export async function listaConciliacao(pool, { empresaId, de, ate }) {
         banco: l.historico,
         agenda: null,
         status: l.status,
+        loja: l.loja || null,
       })
     }
   }
@@ -1698,6 +1711,7 @@ export async function listaConciliacao(pool, { empresaId, de, ate }) {
       banco: null,
       agenda: d.descricao || d.fornecedor || '—',
       status: d.status,
+      loja: d.loja || null,
     }))
 
   return {
