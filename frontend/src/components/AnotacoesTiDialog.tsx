@@ -25,23 +25,11 @@ import {
   FIN_SURFACE_ALT,
   FIN_TEXT,
 } from '../financeiro/temaFinanceiroEscuro';
+import NotaEditor, { sanitizarNotaHtml } from './NotaEditor';
 
 type Props = { variante?: 'portal' | 'icone' };
 
 const MAX_COLAB = 2;
-
-const campoMultilineSx = {
-  ...finCampoSx,
-  '& .MuiOutlinedInput-root': {
-    height: 'auto',
-    alignItems: 'flex-start',
-    py: 1,
-  },
-  '& .MuiInputBase-input': {
-    height: 'auto !important',
-    py: 0.5,
-  },
-};
 
 export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
   const user = getUsuario();
@@ -90,7 +78,7 @@ export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
     try {
       const n = await api.tiNotaSalvar(notaAtivaId, {
         titulo: tituloDraft.trim() || 'Sem título',
-        corpo: corpoDraft,
+        corpo: sanitizarNotaHtml(corpoDraft),
       });
       setNotas((prev) => prev.map((x) => (x.id_nota === n.id_nota ? n : x)));
       selecionar(n);
@@ -158,9 +146,9 @@ export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
         slotProps={{
           paper: {
             sx: {
-              bgcolor: FIN_SURFACE,
+              bgcolor: FIN_SURFACE_ALT,
               color: FIN_TEXT,
-              minHeight: '72vh',
+              height: { xs: '100%', md: '88vh' },
               maxHeight: '88vh',
               display: 'flex',
               flexDirection: 'column',
@@ -168,11 +156,11 @@ export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
           },
         }}
       >
-        <DialogTitle sx={{ textAlign: 'center', pb: 0.5 }}>
+        <DialogTitle sx={{ pb: 1, bgcolor: FIN_SURFACE, borderBottom: `1px solid ${FIN_BORDER}` }}>
           Anotações
           <Typography sx={{ fontSize: 12, color: FIN_MUTED, fontWeight: 400, mt: 0.25 }}>
             {isTi
-              ? 'TI: todas as listas'
+              ? 'TI: todas as listas · negrito e marca-texto no editor'
               : `Até ${MAX_COLAB} listas · ${minhas}/${MAX_COLAB}`}
           </Typography>
         </DialogTitle>
@@ -180,8 +168,8 @@ export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
           sx={{
             display: 'flex',
             flexDirection: { xs: 'column', md: 'row' },
-            gap: 1.5,
-            pt: '8px !important',
+            gap: 0,
+            p: '0 !important',
             flex: 1,
             minHeight: 0,
             overflow: 'hidden',
@@ -189,13 +177,14 @@ export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
         >
           <Box
             sx={{
-              width: { xs: '100%', md: 240 },
+              width: { xs: '100%', md: 220 },
               flexShrink: 0,
               display: 'flex',
               flexDirection: 'column',
               gap: 1,
               borderRight: { md: `1px solid ${FIN_BORDER}` },
-              pr: { md: 1.25 },
+              bgcolor: FIN_SURFACE,
+              p: 1.5,
               minHeight: 0,
             }}
           >
@@ -273,8 +262,9 @@ export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
               minHeight: 0,
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
               gap: 1.25,
+              p: 2,
+              overflow: 'hidden',
             }}
           >
             {notaAtivaId ? (
@@ -284,26 +274,16 @@ export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
                   fullWidth
                   value={tituloDraft}
                   onChange={(e) => setTituloDraft(e.target.value)}
-                  sx={{ ...finCampoSx, maxWidth: 720 }}
+                  sx={{ ...finCampoSx, flexShrink: 0, maxWidth: 760, alignSelf: 'center', width: '100%' }}
                 />
-                <TextField
-                  fullWidth
-                  multiline
-                  minRows={14}
-                  value={corpoDraft}
-                  onChange={(e) => setCorpoDraft(e.target.value)}
-                  placeholder="Anote aqui…"
-                  sx={{
-                    ...campoMultilineSx,
-                    maxWidth: 720,
-                    flex: 1,
-                    '& .MuiOutlinedInput-root': {
-                      ...campoMultilineSx['& .MuiOutlinedInput-root'],
-                      minHeight: 320,
-                      height: '100%',
-                    },
-                  }}
-                />
+                <Box sx={{ flex: 1, minHeight: 0, display: 'flex', justifyContent: 'center' }}>
+                  <NotaEditor
+                    key={notaAtivaId}
+                    value={corpoDraft}
+                    onChange={setCorpoDraft}
+                    placeholder={'Ex.:\n1. Login\n2. Permissões\n3. Senha\n\nSelecione um trecho e use Negrito ou Marcar.'}
+                  />
+                </Box>
               </>
             ) : (
               <Typography sx={{ color: FIN_MUTED, mt: 6, textAlign: 'center' }}>
@@ -315,7 +295,7 @@ export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
             ) : null}
           </Box>
         </DialogContent>
-        <DialogActions sx={{ justifyContent: 'center', gap: 1 }}>
+        <DialogActions sx={{ px: 2.5, py: 1.5, bgcolor: FIN_SURFACE, borderTop: `1px solid ${FIN_BORDER}` }}>
           <Button onClick={() => setAberto(false)}>Fechar</Button>
           <Button variant="contained" disabled={salvando || !notaAtivaId} onClick={() => void salvar()}>
             {salvando ? 'Salvando…' : 'Salvar'}
