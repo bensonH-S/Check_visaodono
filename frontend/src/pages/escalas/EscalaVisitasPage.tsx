@@ -361,7 +361,10 @@ export default function EscalaVisitasPage() {
   const ehGestorOnly = !podeVerVisitas && podeVerGestoresTab;
   const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
-  const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(null);
+  /** Regional só vê/monta a própria escala (não a de Igor/Renato/outros na grade). */
+  const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(() =>
+    ehRegional && idEu != null ? Number(idEu) : null,
+  );
   const [idEnvio, setIdEnvio] = useState<number | null>(null);
   const [grade, setGrade] = useState<EscalaVisitasGrade | null>(null);
   const [loading, setLoading] = useState(true);
@@ -508,11 +511,15 @@ export default function EscalaVisitasPage() {
     if (ehDeliveryOnly) setAba('delivery');
   }, [ehDeliveryOnly]);
 
+  useEffect(() => {
+    if (ehRegional && idEu != null) setIdUsuarioFiltro(Number(idEu));
+  }, [ehRegional, idEu, grade?.id_semana, idRegiao]);
+
   function abrirAba(proxima: 'visitas' | 'delivery' | 'gestores' | 'manutencao') {
     setAba(proxima);
     if (proxima === 'delivery') {
       setIdEnvio(null);
-      setIdUsuarioFiltro(null);
+      setIdUsuarioFiltro(ehRegional && idEu != null ? Number(idEu) : null);
     }
   }
 
@@ -820,6 +827,12 @@ export default function EscalaVisitasPage() {
   }
 
   function alternarFiltroPessoa(idUsuario: number) {
+    if (ehRegional) {
+      // Supervisor regional: trava na própria escala.
+      if (idEu != null) setIdUsuarioFiltro(Number(idEu));
+      setIdEnvio(null);
+      return;
+    }
     if (idUsuarioFiltro === idUsuario) {
       setIdUsuarioFiltro(null);
       setIdEnvio(null);
@@ -1948,8 +1961,12 @@ export default function EscalaVisitasPage() {
         {grade && grade.regionais.length > 0 && aba === 'visitas' && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
             {regionaisAgrupados.flatMap((grupo, indexGrupo) => {
+              const itens = ehRegional && idEu != null
+                ? grupo.items.filter((r) => Number(r.id_usuario) === Number(idEu))
+                : grupo.items;
+              if (!itens.length) return [];
               const bloco: ReactNode[] = [];
-              if (indexGrupo > 0) {
+              if (indexGrupo > 0 && !ehRegional) {
                 bloco.push(
                   <Box
                     key={`sep-${indexGrupo}`}
@@ -1965,14 +1982,16 @@ export default function EscalaVisitasPage() {
                   />,
                 );
               }
-              for (const r of grupo.items) {
+              for (const r of itens) {
                 bloco.push(
                   <Chip
                     key={r.id_usuario}
                     size="small"
-                    clickable
+                    clickable={!ehRegional}
                     label={primeiroNome(r.nome)}
-                    title={`Ver só a escala de ${primeiroNome(r.nome)}`}
+                    title={ehRegional
+                      ? `Sua escala · ${primeiroNome(r.nome)}`
+                      : `Ver só a escala de ${primeiroNome(r.nome)}`}
                     onClick={() => alternarFiltroPessoa(r.id_usuario)}
                     sx={{
                       bgcolor: `${r.cor}22`,

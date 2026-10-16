@@ -293,7 +293,10 @@ export default function EscalaVisitasMobileView() {
 
   const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
-  const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(null);
+  /** Regional só vê a própria escala (não a de outros na grade). */
+  const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(() =>
+    ehRegional && idEu != null ? Number(idEu) : null,
+  );
   const [idEnvio, setIdEnvio] = useState<number | null>(null);
   const [modo, setModo] = useState<ModoVisualizacao>(
     ehGestorOnly ? 'gestores' : 'minhas',
@@ -875,9 +878,13 @@ export default function EscalaVisitasMobileView() {
 
   function voltarVisaoGeral() {
     setIdRegiao('');
-    setIdUsuarioFiltro(null);
+    setIdUsuarioFiltro(ehRegional && idEu != null ? Number(idEu) : null);
     setIdEnvio(null);
   }
+
+  useEffect(() => {
+    if (ehRegional && idEu != null) setIdUsuarioFiltro(Number(idEu));
+  }, [ehRegional, idEu, grade?.id_semana, idRegiao]);
 
   /** Abre só a escala de quem montou o card. */
   function abrirEscalaDoCard(card: {
@@ -904,6 +911,11 @@ export default function EscalaVisitasMobileView() {
   }
 
   function alternarFiltroPessoa(idUsuario: number) {
+    if (ehRegional) {
+      if (idEu != null) setIdUsuarioFiltro(Number(idEu));
+      setIdEnvio(null);
+      return;
+    }
     if (idUsuarioFiltro === idUsuario) {
       setIdUsuarioFiltro(null);
       setIdEnvio(null);

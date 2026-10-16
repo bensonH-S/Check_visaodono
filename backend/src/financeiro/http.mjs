@@ -24,7 +24,7 @@ import {
   salvarAcessoBb,
 } from './lib/bbDda.mjs'
 import { removerCadastro, salvarCadastro, usoDe } from './lib/cadastros.mjs'
-import { garantirSchemaCaixa, lerComprovante, mesFechamentos, receberHeartbeat, receberIngestao, salvarFechamento } from './lib/fechamentoCaixa.mjs'
+import { garantirSchemaCaixa, lerComprovante, mesFechamentos, receberHeartbeat, receberIngestao, resumoCanaisPeriodo, salvarFechamento } from './lib/fechamentoCaixa.mjs'
 import { gerarDanfe } from './lib/danfe.mjs'
 import { baixarBoletoDaDespesa, baixarNotaDaDespesa } from './lib/boletoEsupri.mjs'
 import { cruzarNotas } from './lib/nfEntrada.mjs'
@@ -591,13 +591,116 @@ function sincronizarNotasEmFundo() {
   })().finally(() => { sincronizandoNotas = null })
 }
 
-async function listarDespesas(empresaId) {
+async function empresaIdsPorLojas(lojaIds) {
+  const ids = [...new Set((lojaIds || []).map(Number).filter((n) => n > 0))]
+  if (!ids.length) return []
+
+  // Lojas ficam no banco do portal; empresas no schema finance — cruza por BK/CNPJ/nome.
+  let lojasPortal = []
+  try {
+    const { pool: portalPool } = await import('../db.js')
+    const { rows } = await portalPool.query(
+      `
+      select id_loja, name, cnpj, bk_number::text as bk_number
+      from lojas
+      where id_loja = any($1::int[])
+      `,
+      [ids],
+    )
+    lojasPortal = rows
+  } catch {
+    lojasPortal = []
+  }
+
+  const bks = [...new Set(
+    lojasPortal
+      .map((l) => String(l.bk_number || '').replace(/\D/g, ''))
+      .filter((b) => b.length > 0),
+  )]
+  const cnpjs = [...new Set(
+    lojasPortal
+      .map((l) => String(l.cnpj || '').replace(/\D/g, ''))
+      .filter((c) => c.length === 14),
+  )]
+  const nomes = [...new Set(
+    lojasPortal
+      .map((l) => String(l.name || '').trim())
+      .filter(Boolean),
+  )]
+
+  if (!bks.length && !cnpjs.length && !nomes.length) {
+    // Fallback: se o finance tiver tabela lojas, tenta o join antigo.
+    try {
+      const { rows } = await pool.query(
+        `
+        select distinct e.id::text as id
+        from empresas e
+        join lojas l on l.id_loja = any($1::int[])
+        where e.ativo
+          and (
+            (
+              nullif(btrim(coalesce(e.bk_number, '')), '') is not null
+              and regexp_replace(e.bk_number::text, '\\D', '', 'g')
+                = regexp_replace(l.bk_number::text, '\\D', '', 'g')
+            )
+            or (
+              length(regexp_replace(coalesce(e.cnpj, ''), '\\D', '', 'g')) = 14
+              and regexp_replace(coalesce(e.cnpj, ''), '\\D', '', 'g')
+                = regexp_replace(coalesce(l.cnpj, ''), '\\D', '', 'g')
+            )
+          )
+        `,
+        [ids],
+      )
+      return rows.map((r) => r.id)
+    } catch {
+      return []
+    }
+  }
+
+  const { rows } = await pool.query(
+    `
+    select e.id::text as id, e.apelido, e.cnpj, e.bk_number
+    from empresas e
+    where e.ativo
+    `,
+  )
+  const achados = new Set()
+  for (const e of rows) {
+    const eBk = String(e.bk_number || '').replace(/\D/g, '')
+    const eCnpj = String(e.cnpj || '').replace(/\D/g, '')
+    const eNome = String(e.apelido || '').toUpperCase()
+    if (eBk && bks.includes(eBk)) {
+      achados.add(e.id)
+      continue
+    }
+    if (eCnpj.length === 14 && cnpjs.includes(eCnpj)) {
+      achados.add(e.id)
+      continue
+    }
+    if (eNome && nomes.some((n) => {
+      const u = n.toUpperCase()
+      return u === eNome || u.includes(eNome) || eNome.includes(u.split(' - ').pop() || u)
+    })) {
+      achados.add(e.id)
+    }
+  }
+  return [...achados]
+}
+
+async function listarDespesas(empresaId, { empresaIds = null } = {}) {
   const params = []
-  let where = ''
+  const wheres = []
   if (empresaId) {
     params.push(empresaId)
-    where = 'where d.empresa_origem_id = $1'
+    wheres.push(`d.empresa_origem_id = $${params.length}`)
   }
+  if (Array.isArray(empresaIds)) {
+    if (!empresaIds.length) return []
+    params.push(empresaIds)
+    wheres.push(`d.empresa_origem_id::text = any($${params.length}::text[])`)
+  }
+  const where = wheres.length ? `where ${wheres.join(' and ')}` : ''
   const { rows } = await pool.query(`
     select d.id,
            coalesce(nullif(btrim(d.descricao), ''), nullif(btrim(f.nome), ''),
@@ -771,7 +874,16 @@ export async function handleFinance(req, res) {
       return send(res, 200, JSON.stringify({ ...rows[0], banco: financeDb, schema: 'finance' }))
     }
     if (req.method === 'GET' && url.pathname === '/api/despesas') {
-      return send(res, 200, JSON.stringify(await listarDespesas(url.searchParams.get('empresa') || '')))
+      const { temPermissao, acessoTodasLojas } = await import('../permissoes.js')
+      const user = req.user
+      const soResumo = user
+        && temPermissao(user, 'financeiro.resumo.ver')
+        && !temPermissao(user, 'financeiro.ver')
+      let empresaIds = null
+      if (soResumo && !acessoTodasLojas(user)) {
+        empresaIds = await empresaIdsPorLojas(user.lojas_ids || [])
+      }
+      return send(res, 200, JSON.stringify(await listarDespesas(url.searchParams.get('empresa') || '', { empresaIds })))
     }
     if (req.method === 'GET' && url.pathname === '/api/despesas/planilha-banco') {
       const de = String(url.searchParams.get('de') || '').slice(0, 10)
@@ -811,7 +923,7 @@ export async function handleFinance(req, res) {
           where meio = 'pix' and chave_pix is not null and chave_pix <> ''
           order by fornecedor_id
         ) pix on pix.fornecedor_id = d.fornecedor_id
-        where d.status <> 'cancelada'
+        where d.status not in ('cancelada', 'paga', 'conciliada')
           and d.vencimento between $1::date and $2::date
           and not (
             d.status in ('rascunho', 'classificada', 'bloqueada_duplicata')
@@ -991,9 +1103,25 @@ export async function handleFinance(req, res) {
       return enviarPdf(res, arquivo.pdf, `BOLETO-${String(arquivo.nota || 'nota').replace(/[^\w.-]+/g, '_')}.pdf`)
     }
     if (req.method === 'GET' && url.pathname === '/api/empresas') {
+      const { temPermissao, acessoTodasLojas } = await import('../permissoes.js')
+      const user = req.user
+      const soResumo = user
+        && temPermissao(user, 'financeiro.resumo.ver')
+        && !temPermissao(user, 'financeiro.ver')
+      let idsFiltro = null
+      if (soResumo && !acessoTodasLojas(user)) {
+        idsFiltro = await empresaIdsPorLojas(user.lojas_ids || [])
+        if (!idsFiltro.length) {
+          return send(res, 200, JSON.stringify([]))
+        }
+      }
       const { rows } = await pool.query(`
-        select id, apelido, razao_social, tipo, cnpj, bk_number from empresas where ativo order by tipo, apelido
-      `)
+        select id, apelido, razao_social, tipo, cnpj, bk_number
+        from empresas
+        where ativo
+          ${idsFiltro ? 'and id::text = any($1::text[])' : ''}
+        order by tipo, apelido
+      `, idsFiltro ? [idsFiltro] : [])
       return send(res, 200, JSON.stringify(rows))
     }
     if (req.method === 'GET' && url.pathname === '/api/contas') {
@@ -1350,6 +1478,27 @@ export async function handleFinance(req, res) {
         })))
       } catch (err) {
         return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não carregou o fechamento.' }))
+      }
+    }
+    if (req.method === 'GET' && url.pathname === '/api/caixa/canais') {
+      try {
+        const { temPermissao, acessoTodasLojas } = await import('../permissoes.js')
+        const user = req.user
+        const soResumo = user
+          && temPermissao(user, 'financeiro.resumo.ver')
+          && !temPermissao(user, 'financeiro.ver')
+        let empresaIds = null
+        const empresa = String(url.searchParams.get('empresa') || '').trim()
+        if (empresa) {
+          empresaIds = [empresa]
+        } else if (soResumo && !acessoTodasLojas(user)) {
+          empresaIds = await empresaIdsPorLojas(user.lojas_ids || [])
+        }
+        const de = url.searchParams.get('de') || ''
+        const ate = url.searchParams.get('ate') || ''
+        return send(res, 200, JSON.stringify(await resumoCanaisPeriodo(pool, { de, ate, empresaIds })))
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não carregou os canais.' }))
       }
     }
     if (req.method === 'GET' && /^\/api\/caixa\/lancamentos\/[^/]+\/comprovante$/.test(url.pathname)) {

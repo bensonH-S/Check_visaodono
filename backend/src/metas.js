@@ -1,5 +1,5 @@
 import { pool } from './db.js';
-import { temPermissao } from './permissoes.js';
+import { acessoTodasLojas, temPermissao } from './permissoes.js';
 
 export function podeGerenciarMetas(user) {
   return temPermissao(user, 'metas.gerenciar');
@@ -7,6 +7,14 @@ export function podeGerenciarMetas(user) {
 
 export function podeVerMetas(user) {
   return podeGerenciarMetas(user) || temPermissao(user, 'metas.ver');
+}
+
+/** Sem lojas.todas / gerenciar: só lojas da região (lojas_ids). null = sem filtro. */
+function idsLojasMetas(user) {
+  if (!user) return null;
+  if (podeGerenciarMetas(user) || acessoTodasLojas(user)) return null;
+  const ids = (user.lojas_ids || []).map(Number).filter((n) => n > 0);
+  return ids;
 }
 
 const NOMES_MES = [
@@ -169,7 +177,7 @@ export async function criarPeriodoMetas(user, { ano, mes, titulo, id_periodo_bas
   }
 }
 
-async function carregarPaineis(idPeriodo) {
+async function carregarPaineis(idPeriodo, filtroLojas = null) {
   const { rows: paineis } = await pool.query(
     `SELECT id_painel, codigo, titulo, tipo, ordem
      FROM metas_paineis
@@ -180,6 +188,21 @@ async function carregarPaineis(idPeriodo) {
 
   const resultado = [];
   for (const painel of paineis) {
+    const lojaParams = [painel.id_painel];
+    let filtroSql = '';
+    if (Array.isArray(filtroLojas)) {
+      if (!filtroLojas.length) {
+        resultado.push({
+          ...painel,
+          subtotal_peso: 0,
+          lojas: [],
+          indicadores: [],
+        });
+        continue;
+      }
+      lojaParams.push(filtroLojas);
+      filtroSql = ` AND pl.id_loja = ANY($${lojaParams.length}::int[])`;
+    }
     const [indicadores, lojas, realizados] = await Promise.all([
       pool.query(
         `SELECT i.id_indicador, i.codigo, i.nome, i.tipo_valor, pi.peso, pi.ordem
@@ -194,14 +217,18 @@ async function carregarPaineis(idPeriodo) {
          FROM metas_painel_lojas pl
          JOIN lojas l ON l.id_loja = pl.id_loja
          WHERE pl.id_painel = $1
+         ${filtroSql}
          ORDER BY pl.ordem, l.name`,
-        [painel.id_painel],
+        lojaParams,
       ),
       pool.query(
         `SELECT r.id_indicador, r.id_loja, r.valor_texto, r.valor_numero, r.atingiu, r.pontos_obtidos
          FROM metas_realizados r
-         WHERE r.id_painel = $1`,
-        [painel.id_painel],
+         WHERE r.id_painel = $1
+         ${Array.isArray(filtroLojas) && filtroLojas.length ? 'AND r.id_loja = ANY($2::int[])' : ''}`,
+        Array.isArray(filtroLojas) && filtroLojas.length
+          ? [painel.id_painel, filtroLojas]
+          : [painel.id_painel],
       ),
     ]);
 
@@ -247,7 +274,7 @@ async function carregarPaineis(idPeriodo) {
   return resultado;
 }
 
-async function carregarRankings(idPeriodo) {
+async function carregarRankings(idPeriodo, filtroLojas = null) {
   const { rows: indicadores } = await pool.query(
     `SELECT DISTINCT i.id_indicador, i.codigo, i.nome, i.meta_minima, i.ordem
      FROM metas_rankings r
@@ -259,6 +286,22 @@ async function carregarRankings(idPeriodo) {
 
   const grupos = [];
   for (const ind of indicadores) {
+    const params = [idPeriodo, ind.id_indicador];
+    let filtroSql = '';
+    if (Array.isArray(filtroLojas)) {
+      if (!filtroLojas.length) {
+        grupos.push({
+          id_indicador: ind.id_indicador,
+          codigo: ind.codigo,
+          nome: ind.nome,
+          meta_minima: ind.meta_minima != null ? Number(ind.meta_minima) : null,
+          linhas: [],
+        });
+        continue;
+      }
+      params.push(filtroLojas);
+      filtroSql = ` AND (r.id_loja IS NULL OR r.id_loja = ANY($${params.length}::int[]))`;
+    }
     const { rows } = await pool.query(
       `SELECT r.id_ranking, r.posicao, r.valor_numero, r.valor_texto, r.pontos, r.classe, r.destaque, r.critico,
               r.nome_gestor, r.id_gestor, r.nome_loja_planilha, r.ordem_linha,
@@ -268,8 +311,9 @@ async function carregarRankings(idPeriodo) {
        LEFT JOIN lojas l ON l.id_loja = r.id_loja
        LEFT JOIN usuarios u ON u.id_usuario = r.id_gestor
        WHERE r.id_periodo = $1 AND r.id_indicador = $2
+       ${filtroSql}
        ORDER BY COALESCE(r.ordem_linha, 9999), COALESCE(r.posicao, 9999), r.id_ranking`,
-      [idPeriodo, ind.id_indicador],
+      params,
     );
     grupos.push({
       id_indicador: ind.id_indicador,
@@ -485,9 +529,10 @@ export async function carregarMetasPeriodo(idPeriodo, user) {
   );
   if (!rows[0]) throw new Error('Período não encontrado');
 
+  const filtroLojas = idsLojasMetas(user);
   const [paineis, rankings, premios] = await Promise.all([
-    carregarPaineis(idPeriodo),
-    carregarRankings(idPeriodo),
+    carregarPaineis(idPeriodo, filtroLojas),
+    carregarRankings(idPeriodo, filtroLojas),
     carregarPremios(idPeriodo),
   ]);
 

@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import HistoryIcon from '@mui/icons-material/History';
 import StoreIcon from '@mui/icons-material/Store';
@@ -31,6 +30,7 @@ import TimelineIcon from '@mui/icons-material/Timeline';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import LanguageIcon from '@mui/icons-material/Language';
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
+import PointOfSaleOutlinedIcon from '@mui/icons-material/PointOfSaleOutlined';
 import SupportAgentOutlinedIcon from '@mui/icons-material/SupportAgentOutlined';
 
 import { colors } from '../theme/tokens';
@@ -46,9 +46,14 @@ export type PageTitleConfig = {
 };
 
 export const PAGE_TITLES: Record<string, PageTitleConfig> = {
-  '/dashboard': { title: 'Command Center', subtitle: 'Caixa da semana, canais e contagem da rede', icon: <DashboardIcon sx={iconSx} /> },
-  '/': { title: 'Command Center', subtitle: 'Finanças, contagem e estoque da rede', icon: <DashboardIcon sx={iconSx} /> },
-  '/ranking': { title: 'Ranking de Lojas', icon: <EmojiEventsIcon sx={iconSx} /> },
+  '/dashboard': { title: 'Command Center', subtitle: 'Vendas, CMV por loja, canais e estimativa', icon: <DashboardIcon sx={iconSx} /> },
+  '/': { title: 'Command Center', subtitle: 'Vendas, CMV por loja, canais e estimativa', icon: <DashboardIcon sx={iconSx} /> },
+  '/ranking': { title: 'Command Center', subtitle: 'Vendas, CMV por loja, canais e estimativa', icon: <DashboardIcon sx={iconSx} /> },
+  '/indicadores': { title: 'Command Center', subtitle: 'Vendas, CMV por loja, canais e estimativa', icon: <DashboardIcon sx={iconSx} /> },
+  '/vendas': { title: 'Vendas', subtitle: 'Números, sync e baixa de estoque', icon: <PointOfSaleOutlinedIcon sx={iconSx} /> },
+  '/vendas/vendas': { title: 'Vendas', icon: <PointOfSaleOutlinedIcon sx={iconSx} /> },
+  '/vendas/rede': { title: 'Vendas · Sync', icon: <PointOfSaleOutlinedIcon sx={iconSx} /> },
+  '/vendas/piloto': { title: 'Vendas · Baixa', icon: <PointOfSaleOutlinedIcon sx={iconSx} /> },
   '/inicio/mobile': { title: 'Início', icon: <DashboardIcon sx={iconSx} /> },
   '/checklist': { title: 'AutoREV', icon: <AssignmentIcon sx={iconSx} /> },
   '/visitas': { title: 'Histórico de Visitas', icon: <HistoryIcon sx={iconSx} /> },
@@ -192,6 +197,9 @@ export function resolvePageTitle(path: string, idioma: 'pt' | 'en' = 'pt'): Page
       return { title: idioma === 'en' ? 'Stock. Count' : 'Estoque. Conferência', icon: <Inventory2Icon sx={iconSx} /> };
     }
     return comIdioma(PAGE_TITLES[path] ?? PAGE_TITLES['/estoque'], idioma);
+  }
+  if (path === '/vendas' || path.startsWith('/vendas/')) {
+    return comIdioma(PAGE_TITLES[path] ?? PAGE_TITLES['/vendas'], idioma);
   }
   return { title: 'Portal Grupo Alvim', icon: <DashboardIcon sx={iconSx} /> };
 }

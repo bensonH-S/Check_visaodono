@@ -48,6 +48,7 @@ import { usePrefs } from '../prefs'
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota'
 import { showToast } from '../../utils/toast'
 import CampoDataFinanceiro from '../CampoDataFinanceiro'
+import { getUsuario, podeVerFinanceiro } from '../../lib/auth'
 import SeletorLojaFinanceiro from '../SeletorLojaFinanceiro'
 import {
   FIN_BORDER,
@@ -156,6 +157,9 @@ export function ContasPagarPage() {
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const { t, idioma } = usePrefs()
+  const user = getUsuario()
+  /** Sem financeiro.ver: só visualiza (abre detalhe sem salvar/excluir/importar). */
+  const somenteLeitura = !podeVerFinanceiro(user)
   const [empresas, setEmpresas] = useState<Empresa[]>(() => emCache<Empresa[]>(urlEmpresas()) ?? [])
   const [despesas, setDespesas] = useState<Despesa[]>(() => emCache<Despesa[]>(urlDespesas(params.get('loja') || undefined)) ?? [])
   const [loja, setLoja] = useState(() => params.get('loja') || '')
@@ -194,8 +198,8 @@ export function ContasPagarPage() {
     setErroBanco('')
   }).catch(() => {
     setErroBanco(t(
-      'Não carregou o financeiro. Confira a permissão financeiro.ver.',
-      'Could not load finance. Check the financeiro.ver permission.',
+      'Não carregou o financeiro. Confira a permissão (financeiro.ver ou financeiro.resumo.ver).',
+      'Could not load finance. Check financeiro.ver or financeiro.resumo.ver.',
     ))
   })
 
@@ -205,17 +209,22 @@ export function ContasPagarPage() {
       if (rows.length) setErroBanco('')
     }).catch(() => {
       setErroBanco(t(
-        'Não carregou o financeiro. Confira a permissão financeiro.ver.',
-        'Could not load finance. Check the financeiro.ver permission.',
+        'Não carregou o financeiro. Confira a permissão (financeiro.ver ou financeiro.resumo.ver).',
+        'Could not load finance. Check financeiro.ver or financeiro.resumo.ver.',
       ))
     })
     carregar(params.get('loja') || '')
   }, [])
 
-  /** Agenda banco: DDA e despesa manual nova só depois da confirmação no Inbox. */
+  /**
+   * Agenda banco: só o que ainda falta tratar na semana.
+   * Paga/conciliada saem daqui (e do Inbox) — ficam só em Conciliadas.
+   * DDA/manual nova só depois da confirmação no Inbox.
+   */
   const naAgenda = useMemo(() => despesas.filter((e) => {
     if (estaNoInbox(e)) return false
-    if (e.fonte === 'dda') return ['pronta', 'autorizada', 'enviada', 'paga', 'conciliada'].includes(e.status)
+    if (e.status === 'paga' || e.status === 'conciliada' || e.status === 'cancelada') return false
+    if (e.fonte === 'dda') return ['pronta', 'autorizada', 'enviada'].includes(e.status)
     return true
   }), [despesas])
 
@@ -226,6 +235,16 @@ export function ContasPagarPage() {
     if (ate && vencimento > ate) return false
     return true
   }), [naAgenda, de, ate])
+
+  /** Total já baixado no período (não lista na tabela — só o card + Conciliadas). */
+  const pagoNoPeriodo = useMemo(() => despesas.filter((e) => {
+    if (e.status !== 'paga' && e.status !== 'conciliada') return false
+    const vencimento = (e.vencimento || '').slice(0, 10)
+    if (!vencimento) return !de && !ate
+    if (de && vencimento < de) return false
+    if (ate && vencimento > ate) return false
+    return true
+  }).reduce((a, e) => a + Number(e.valor), 0), [despesas, de, ate])
 
   const linhas = useMemo(() => {
     const filtradas = noPeriodo.filter((e) => {
@@ -248,7 +267,10 @@ export function ContasPagarPage() {
 
   // Cards seguem o filtro ativo (ex.: Free Control = só o consolidado BANCO), não o total da agenda.
   const soma = (pred: (e: Despesa) => boolean) => linhas.filter(pred).reduce((a, e) => a + Number(e.valor), 0)
-  const lojas = useMemo(() => ordenarEmpresas(empresas), [empresas])
+  const lojas = useMemo(
+    () => ordenarEmpresas(empresas.filter((e) => e.tipo === 'loja' || e.tipo === 'holding')),
+    [empresas],
+  )
   const vencida = soma((e) => aberta(e) && !!e.vencimento && e.vencimento < hoje)
 
   return (
@@ -292,7 +314,15 @@ export function ContasPagarPage() {
           }}
         />
         <Box sx={{ flex: 1 }} />
-        <Button type="button" size="small" variant="outlined" onClick={() => navigate('/financeiro/inbox')} sx={finBtnOutlinedSx}>{t('Inbox', 'Inbox')}</Button>
+        {somenteLeitura ? (
+          <Chip
+            size="small"
+            label={t('Somente visualização', 'View only')}
+            sx={{ fontWeight: 600, bgcolor: 'rgba(27,110,243,0.1)', color: '#1B6EF3', border: '1px solid rgba(27,110,243,0.28)' }}
+          />
+        ) : (
+          <Button type="button" size="small" variant="outlined" onClick={() => navigate('/financeiro/inbox')} sx={finBtnOutlinedSx}>{t('Inbox', 'Inbox')}</Button>
+        )}
         <Button
           type="button"
           size="small"
@@ -304,16 +334,18 @@ export function ContasPagarPage() {
         >
           {t('Excel', 'Excel')}
         </Button>
-        <Button
-          type="button"
-          size="small"
-          variant="outlined"
-          startIcon={<UploadFileOutlinedIcon sx={{ fontSize: 16 }} />}
-          onClick={() => setImportarAberto(true)}
-          sx={finBtnOutlinedSx}
-        >
-          {t('Importar', 'Import')}
-        </Button>
+        {!somenteLeitura && (
+          <Button
+            type="button"
+            size="small"
+            variant="outlined"
+            startIcon={<UploadFileOutlinedIcon sx={{ fontSize: 16 }} />}
+            onClick={() => setImportarAberto(true)}
+            sx={finBtnOutlinedSx}
+          >
+            {t('Importar', 'Import')}
+          </Button>
+        )}
       </Stack>
 
       <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap' }}>
@@ -323,12 +355,18 @@ export function ContasPagarPage() {
           valor={brl(soma((e) => aberta(e) && !(e.vencimento && e.vencimento < hoje)))}
           detalhe={t('no prazo', 'on time')}
         />
-        <Resumo
-          cor="#10B981"
-          rotulo={t('Pago', 'Paid')}
-          valor={brl(soma((e) => e.status === 'paga' || e.status === 'conciliada'))}
-          detalhe={t('já baixadas', 'already settled')}
-        />
+        <Box
+          onClick={() => navigate('/financeiro/conciliacao')}
+          sx={{ cursor: 'pointer' }}
+          title={t('Ver em Conciliadas', 'See in Reconciled')}
+        >
+          <Resumo
+            cor="#10B981"
+            rotulo={t('Pago', 'Paid')}
+            valor={brl(pagoNoPeriodo)}
+            detalhe={t('só em Conciliadas', 'only in Reconciled')}
+          />
+        </Box>
         <Resumo
           cor="#EF4444"
           rotulo={t('Vencida', 'Overdue')}
@@ -509,26 +547,28 @@ export function ContasPagarPage() {
                 </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle', width: 72, px: 0.5 }}>
                   <Stack direction="row" spacing={0.25} sx={{ justifyContent: 'center' }}>
-                    <Tooltip title={t('Abrir', 'Open')}>
+                    <Tooltip title={somenteLeitura ? t('Ver', 'View') : t('Abrir', 'Open')}>
                       <IconButton
                         size="small"
                         onClick={() => setEditando(e)}
-                        aria-label={t('Abrir', 'Open')}
+                        aria-label={somenteLeitura ? t('Ver', 'View') : t('Abrir', 'Open')}
                         sx={{ p: 0.35, color: FIN_MUTED, '&:hover': { color: '#1B6EF3', bgcolor: 'rgba(27,110,243,0.08)' } }}
                       >
                         <OpenInNewIcon sx={{ fontSize: 18 }} />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title={t('Excluir', 'Delete')}>
-                      <IconButton
-                        size="small"
-                        onClick={() => { setErroExcluir(''); setExcluir(e) }}
-                        aria-label={t('Excluir', 'Delete')}
-                        sx={{ p: 0.35, color: FIN_MUTED, '&:hover': { color: '#B91C1C', bgcolor: 'rgba(239,68,68,0.08)' } }}
-                      >
-                        <DeleteOutlineIcon sx={{ fontSize: 18 }} />
-                      </IconButton>
-                    </Tooltip>
+                    {!somenteLeitura && (
+                      <Tooltip title={t('Excluir', 'Delete')}>
+                        <IconButton
+                          size="small"
+                          onClick={() => { setErroExcluir(''); setExcluir(e) }}
+                          aria-label={t('Excluir', 'Delete')}
+                          sx={{ p: 0.35, color: FIN_MUTED, '&:hover': { color: '#B91C1C', bgcolor: 'rgba(239,68,68,0.08)' } }}
+                        >
+                          <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </Stack>
                 </TableCell>
               </TableRow>
@@ -617,18 +657,21 @@ export function ContasPagarPage() {
           aberto
           inicial={editando}
           empresas={empresas}
+          somenteLeitura={somenteLeitura}
           onFechar={() => setEditando(null)}
           onSalvou={(mensagem) => { setEditando(null); carregar(); setAviso(mensagem) }}
         />
       ) : null}
-      <ImportarArquivosDialog
-        aberto={importarAberto}
-        onFechar={() => setImportarAberto(false)}
-        onImportou={(mensagem) => {
-          carregar()
-          setAviso(mensagem)
-        }}
-      />
+      {!somenteLeitura && (
+        <ImportarArquivosDialog
+          aberto={importarAberto}
+          onFechar={() => setImportarAberto(false)}
+          onImportou={(mensagem) => {
+            carregar()
+            setAviso(mensagem)
+          }}
+        />
+      )}
       <Snackbar open={!!aviso} autoHideDuration={3200} onClose={() => setAviso('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity="success" variant="filled" onClose={() => setAviso('')}>{aviso}</Alert>
       </Snackbar>
@@ -1324,12 +1367,13 @@ function centavos(n: number) {
   return Math.round(n * 100) / 100
 }
 
-export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
+export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou, somenteLeitura = false }: {
   aberto: boolean
   inicial: Despesa | null
   empresas: Empresa[]
   onFechar: () => void
   onSalvou: (mensagem: string, criado?: { vencimento: string | null }) => void
+  somenteLeitura?: boolean
 }) {
   const { t } = usePrefs()
   /** Lojas + holdings (KING / SUPER KING / Alvim Participações pagam despesas também). */
@@ -1421,7 +1465,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
   }
 
   const salvar = async () => {
-    if (salvando) return
+    if (somenteLeitura || salvando) return
     const face = parseMoeda(valor)
     const totalNum = modo === 'taxas'
       ? totalTaxas
@@ -1520,7 +1564,11 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
             <AddIcon sx={{ fontSize: 22 }} />
           </Box>
           <Typography sx={{ flex: 1, fontSize: 16, fontWeight: 650, letterSpacing: '-0.02em', color: FIN_TEXT }}>
-            {inicial ? t('Editar despesa', 'Edit expense') : t('Nova despesa', 'New expense')}
+            {somenteLeitura
+              ? t('Ver despesa', 'View expense')
+              : inicial
+                ? t('Editar despesa', 'Edit expense')
+                : t('Nova despesa', 'New expense')}
           </Typography>
           <IconButton size="small" onClick={onFechar} sx={{ color: FIN_MUTED }} aria-label={t('Fechar', 'Close')}>
             <CloseIcon fontSize="small" />
@@ -1530,9 +1578,10 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
           <TextField
             label={t('Descrição', 'Description')}
             size="small"
-            autoFocus={!inicial}
+            autoFocus={!inicial && !somenteLeitura}
             value={descricao}
             error={erroCampos.descricao}
+            disabled={somenteLeitura}
             onChange={(ev) => {
               setDescricao(ev.target.value)
               if (erroCampos.descricao) setErroCampos((e) => ({ ...e, descricao: false }))
@@ -1543,6 +1592,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
             label={t('Valor', 'Amount')}
             value={valor}
             error={erroCampos.valor}
+            disabled={somenteLeitura}
             onChange={(texto) => {
               aoMudarValor(texto)
               if (erroCampos.valor) setErroCampos((e) => ({ ...e, valor: false }))
@@ -1551,39 +1601,45 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
           <RadioGroup
             row
             value={modo}
-            onChange={(ev) => aoMudarModo(ev.target.value === 'taxas' ? 'taxas' : 'total')}
+            onChange={(ev) => {
+              if (somenteLeitura) return
+              aoMudarModo(ev.target.value === 'taxas' ? 'taxas' : 'total')
+            }}
             sx={{ px: 0.5, '& .MuiFormControlLabel-label': { fontSize: 13, color: FIN_TEXT } }}
           >
-            <FormControlLabel value="total" control={<Radio size="small" sx={{ color: FIN_MUTED, '&.Mui-checked': { color: '#1B6EF3' } }} />} label={t('Informar Total', 'Enter total')} />
-            <FormControlLabel value="taxas" control={<Radio size="small" sx={{ color: FIN_MUTED, '&.Mui-checked': { color: '#1B6EF3' } }} />} label={t('Informar Taxas', 'Enter fees')} />
+            <FormControlLabel disabled={somenteLeitura} value="total" control={<Radio size="small" sx={{ color: FIN_MUTED, '&.Mui-checked': { color: '#1B6EF3' } }} />} label={t('Informar Total', 'Enter total')} />
+            <FormControlLabel disabled={somenteLeitura} value="taxas" control={<Radio size="small" sx={{ color: FIN_MUTED, '&.Mui-checked': { color: '#1B6EF3' } }} />} label={t('Informar Taxas', 'Enter fees')} />
           </RadioGroup>
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-            <CampoMoeda label={t('Multa', 'Fine')} value={modo === 'taxas' ? multa : 'R$ 0,00'} disabled={modo !== 'taxas'} onChange={setMulta} />
-            <CampoMoeda label={t('Juros', 'Interest')} value={modo === 'taxas' ? juros : 'R$ 0,00'} disabled={modo !== 'taxas'} onChange={setJuros} />
-            <CampoMoeda label={t('Outras taxas', 'Other fees')} value={modo === 'taxas' ? outras : 'R$ 0,00'} disabled={modo !== 'taxas'} onChange={setOutras} />
-            <CampoMoeda label={t('Desconto', 'Discount')} value={modo === 'taxas' ? desconto : 'R$ 0,00'} disabled={modo !== 'taxas'} onChange={setDesconto} />
+            <CampoMoeda label={t('Multa', 'Fine')} value={modo === 'taxas' ? multa : 'R$ 0,00'} disabled={somenteLeitura || modo !== 'taxas'} onChange={setMulta} />
+            <CampoMoeda label={t('Juros', 'Interest')} value={modo === 'taxas' ? juros : 'R$ 0,00'} disabled={somenteLeitura || modo !== 'taxas'} onChange={setJuros} />
+            <CampoMoeda label={t('Outras taxas', 'Other fees')} value={modo === 'taxas' ? outras : 'R$ 0,00'} disabled={somenteLeitura || modo !== 'taxas'} onChange={setOutras} />
+            <CampoMoeda label={t('Desconto', 'Discount')} value={modo === 'taxas' ? desconto : 'R$ 0,00'} disabled={somenteLeitura || modo !== 'taxas'} onChange={setDesconto} />
           </Box>
           <CampoMoeda
             label={t('Total', 'Total')}
             value={totalExibido}
-            disabled={modo === 'taxas'}
+            disabled={somenteLeitura || modo === 'taxas'}
             error={modo === 'taxas' && totalTaxas < 0}
             onChange={modo === 'total' ? setTotal : undefined}
           />
           <CampoDataFinanceiro
             label={t('Vencimento', 'Due date')}
             value={vencimentoOriginal}
+            disabled={somenteLeitura}
             onChange={setVencimentoOriginal}
           />
           <CampoDataFinanceiro
             label={t('Pagar em', 'Pay on')}
             value={pagarEm}
+            disabled={somenteLeitura}
             onChange={setPagarEm}
           />
           <TextField
             label={t('Documento', 'Document')}
             size="small"
             value={documento}
+            disabled={somenteLeitura}
             onChange={(ev) => setDocumento(ev.target.value)}
             sx={finCampoSx}
           />
@@ -1592,6 +1648,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
             options={lojas}
             getOptionLabel={(e) => e.apelido}
             value={lojas.find((e) => e.id === origem) || null}
+            disabled={somenteLeitura}
             onChange={(_, item) => {
               setOrigem(item?.id || '')
               if (erroCampos.origem) setErroCampos((e) => ({ ...e, origem: false }))
@@ -1626,8 +1683,9 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
             filterOptions={(opcoes) => opcoes}
             inputValue={buscaFor}
             value={fornecedor}
-            onOpen={() => { void carregarFornecedores() }}
-            onInputChange={(_, texto, motivo) => { if (motivo === 'input') void buscar(texto) }}
+            disabled={somenteLeitura}
+            onOpen={() => { if (!somenteLeitura) void carregarFornecedores() }}
+            onInputChange={(_, texto, motivo) => { if (motivo === 'input' && !somenteLeitura) void buscar(texto) }}
             onChange={(_, item) => escolherFornecedor(item)}
             noOptionsText={t('Nenhum fornecedor', 'No suppliers')}
             loadingText={t('Buscando…', 'Searching…')}
@@ -1649,6 +1707,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
             label={t('Forma de pagamento', 'Payment method')}
             size="small"
             value={forma}
+            disabled={somenteLeitura}
             onChange={(ev) => setForma(ev.target.value)}
             sx={finCampoSx}
             slotProps={{ select: finSelectMenu }}
@@ -1660,8 +1719,26 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
               label={forma === 'boleto' ? t('Código de barras do boleto', 'Boleto barcode') : t('Chave PIX', 'PIX key')}
               size="small"
               value={pagamento}
+              disabled={somenteLeitura}
               onChange={(ev) => setPagamento(ev.target.value)}
               placeholder={t('Para copiar na hora de pagar', 'Copy this when paying')}
+              InputProps={somenteLeitura && pagamento ? {
+                endAdornment: (
+                  <IconButton
+                    size="small"
+                    aria-label={t('Copiar', 'Copy')}
+                    onClick={() => {
+                      void navigator.clipboard.writeText(pagamento).then(
+                        () => showToast(t('Copiado.', 'Copied.'), 'success'),
+                        () => showToast(t('Não copiou', 'Could not copy'), 'error'),
+                      )
+                    }}
+                    sx={{ color: FIN_MUTED }}
+                  >
+                    <ContentCopyIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                ),
+              } : undefined}
               sx={finCampoSx}
             />
           )}
@@ -1719,14 +1796,18 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou }: {
           ) : null}
         </Stack>
         <Stack direction="row" spacing={1} sx={{ justifyContent: 'flex-end', px: 3, py: 2, borderTop: `1px solid ${FIN_BORDER}`, bgcolor: FIN_SURFACE }}>
-          <Button onClick={onFechar} disabled={salvando} sx={{ color: FIN_MUTED }}>{t('Cancelar', 'Cancel')}</Button>
-          <Button variant="contained" onClick={() => void salvar()} disabled={salvando} sx={finBtnContainedSx}>
-            {salvando
-              ? t('Salvando…', 'Saving…')
-              : inicial
-                ? t('Salvar', 'Save')
-                : t('Criar no inbox', 'Create in inbox')}
+          <Button onClick={onFechar} disabled={salvando} sx={{ color: FIN_MUTED }}>
+            {somenteLeitura ? t('Fechar', 'Close') : t('Cancelar', 'Cancel')}
           </Button>
+          {!somenteLeitura && (
+            <Button variant="contained" onClick={() => void salvar()} disabled={salvando} sx={finBtnContainedSx}>
+              {salvando
+                ? t('Salvando…', 'Saving…')
+                : inicial
+                  ? t('Salvar', 'Save')
+                  : t('Criar no inbox', 'Create in inbox')}
+            </Button>
+          )}
         </Stack>
       </Stack>
     </Drawer>

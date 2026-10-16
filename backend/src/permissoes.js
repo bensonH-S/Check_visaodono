@@ -42,6 +42,7 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'energia.ver', nome: 'Ver chamados de energia e relatórios', grupo: 'Energia', ordem: 175 },
   { codigo: 'energia.abrir', nome: 'Registrar protocolo e fotos de ocorrência de energia', grupo: 'Energia', ordem: 176 },
   { codigo: 'financeiro.ver', nome: 'Ver módulo Financeiro (contas a pagar, caixa, DDA)', grupo: 'Financeiro', ordem: 185 },
+  { codigo: 'financeiro.resumo.ver', nome: 'Ver gastos e pagamentos no Command Center', grupo: 'Financeiro', ordem: 186 },
   { codigo: 'freelancers.aprovar', nome: 'Aprovar turnos de freelancers (ponto) na região', grupo: 'Freelancers', ordem: 180 },
   { codigo: 'sistema.backup', nome: 'Gerar e baixar dump do banco (TI)', grupo: 'Sistema', ordem: 190 },
   { codigo: 'ti.tickets.abrir', nome: 'Abrir chamado para o TI', grupo: 'TI / Tickets', ordem: 200 },
@@ -121,19 +122,59 @@ export async function syncCargoPermissoes(codigoCargo, codigos) {
   await ensureCatalogoPermissoes();
   const lista = await normalizarPermissoes(codigos);
   await pool.query(`DELETE FROM cargo_permissoes WHERE codigo_cargo = $1`, [codigoCargo]);
-  for (const codigo of lista) {
+  if (lista.length) {
     await pool.query(
-      `INSERT INTO cargo_permissoes (codigo_cargo, codigo) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [codigoCargo, codigo],
+      `INSERT INTO cargo_permissoes (codigo_cargo, codigo)
+       SELECT $1, unnest($2::text[])
+       ON CONFLICT DO NOTHING`,
+      [codigoCargo, lista],
     );
   }
-  // Espelha nos usuários do perfil (compat + login imediato)
+  // Espelha em lote nos usuários do perfil (compat + login imediato)
   const { rows: users } = await pool.query(
     `SELECT id_usuario FROM usuarios WHERE cargo_aprovacao = $1`,
     [codigoCargo],
   );
-  for (const u of users) {
-    await syncUsuarioPermissoes(u.id_usuario, lista);
+  if (users.length) {
+    const ids = users.map((u) => u.id_usuario);
+    // Preserva override de rede (Igor/Clemerson e quem já tinha lojas.todas)
+    const { rows: comTodas } = await pool.query(
+      `SELECT DISTINCT up.id_usuario
+       FROM usuario_permissoes up
+       JOIN usuarios u ON u.id_usuario = up.id_usuario
+       WHERE up.id_usuario = ANY($1::int[])
+         AND (
+           up.codigo = 'lojas.todas'
+           OR lower(u.nome) ~* '(^| )igor( |$)'
+           OR lower(coalesce(u.email, '')) LIKE '%igor%'
+           OR lower(u.nome) ~* 'clemerson'
+           OR lower(coalesce(u.email, '')) LIKE '%clemerson%'
+         )`,
+      [ids],
+    );
+    const idsTodas = new Set(comTodas.map((r) => r.id_usuario));
+    await pool.query(
+      `DELETE FROM usuario_permissoes WHERE id_usuario = ANY($1::int[])`,
+      [ids],
+    );
+    if (lista.length) {
+      await pool.query(
+        `INSERT INTO usuario_permissoes (id_usuario, codigo)
+         SELECT u.id, p.codigo
+         FROM unnest($1::int[]) AS u(id)
+         CROSS JOIN unnest($2::text[]) AS p(codigo)
+         ON CONFLICT DO NOTHING`,
+        [ids, lista],
+      );
+    }
+    if (idsTodas.size) {
+      await pool.query(
+        `INSERT INTO usuario_permissoes (id_usuario, codigo)
+         SELECT unnest($1::int[]), 'lojas.todas'
+         ON CONFLICT DO NOTHING`,
+        [[...idsTodas]],
+      );
+    }
   }
   return lista;
 }
@@ -202,10 +243,12 @@ export async function syncUsuarioPermissoes(idUsuario, codigos) {
   await ensureCatalogoPermissoes();
   const lista = await normalizarPermissoes(codigos);
   await pool.query('DELETE FROM usuario_permissoes WHERE id_usuario = $1', [idUsuario]);
-  for (const codigo of lista) {
+  if (lista.length) {
     await pool.query(
-      `INSERT INTO usuario_permissoes (id_usuario, codigo) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-      [idUsuario, codigo],
+      `INSERT INTO usuario_permissoes (id_usuario, codigo)
+       SELECT $1, unnest($2::text[])
+       ON CONFLICT DO NOTHING`,
+      [idUsuario, lista],
     );
   }
   return lista;

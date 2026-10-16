@@ -11,10 +11,13 @@ import { dataHojeBrasilia } from '../../../utils/dateBr';
 
 export type ItemZerado = { id_loja: number; loja: string; codigo: string };
 
+export type CcLojaRegiao = { nome: string; regiao: string };
+
 export type CcData = {
   fin: ResumoFinanceiro | null;
   despesas: Despesa[];
   contagem: EstoqueContagemRedeItem[];
+  lojasRegiao: CcLojaRegiao[];
   zerados: ItemZerado[];
   baixa: number;
   valorEstoque: number | null;
@@ -129,6 +132,7 @@ export function useCcData({ podeFinanceiro, data }: { podeFinanceiro: boolean; d
 
   const [despesas, setDespesas] = useState<Despesa[]>(() => (cacheDesp ?? []).filter((d) => !d.pendente_inbox));
   const [contagem, setContagem] = useState<EstoqueContagemRedeItem[]>(() => cacheCont ?? []);
+  const [lojasRegiao, setLojasRegiao] = useState<CcLojaRegiao[]>([]);
   const [loading, setLoading] = useState(() => podeFinanceiro && !cacheDesp);
   /** Só skeleton se não há nada pra mostrar. */
   const [loadingContagem, setLoadingContagem] = useState(() => !cacheCont);
@@ -192,6 +196,20 @@ export function useCcData({ podeFinanceiro, data }: { podeFinanceiro: boolean; d
         setLoadingContagem(false);
       });
 
+    api
+      .frotaRegiaoCatalogo()
+      .then((cat) => {
+        if (cancel) return;
+        setLojasRegiao(
+          (cat.lojas || [])
+            .filter((l) => l.nome_regiao)
+            .map((l) => ({ nome: l.name, regiao: String(l.nome_regiao) })),
+        );
+      })
+      .catch(() => {
+        if (!cancel) setLojasRegiao([]);
+      });
+
     return () => {
       cancel = true;
     };
@@ -201,6 +219,7 @@ export function useCcData({ podeFinanceiro, data }: { podeFinanceiro: boolean; d
     fin: null,
     despesas,
     contagem,
+    lojasRegiao,
     zerados: [],
     baixa: 0,
     valorEstoque: null,

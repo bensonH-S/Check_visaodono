@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -17,6 +18,7 @@ import {
   type TipoChecklist,
 } from '../../api/client';
 import {
+  Aviso,
   Barra,
   Erro,
   PainelLateral,
@@ -36,8 +38,8 @@ import { configPageSx } from './configPageSx';
 const MENUS_SISTEMA: { titulo: string; descricao: string; codigos: string[] }[] = [
   {
     titulo: 'Command Center',
-    descricao: 'Dashboard, ranking e NCs',
-    codigos: ['portal.dashboard.ver'],
+    descricao: 'Dashboard, ranking, NCs e resumo de gastos',
+    codigos: ['portal.dashboard.ver', 'financeiro.resumo.ver'],
   },
   {
     titulo: 'Financeiro',
@@ -159,14 +161,15 @@ export default function CargosPage() {
   const [tiposCatalogo, setTiposCatalogo] = useState<TipoChecklist[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState('');
+  const [ok, setOk] = useState('');
   const [busca, setBusca] = useState('');
   const [selecionado, setSelecionado] = useState<Cargo | null>(null);
   const [form, setForm] = useState<FormCargo>(emptyForm);
   const [novo, setNovo] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
-  const carregar = useCallback(async () => {
-    setLoading(true);
+  const carregar = useCallback(async (opts?: { silencioso?: boolean }) => {
+    if (!opts?.silencioso) setLoading(true);
     setErro('');
     try {
       const [cargos, tipos, cat] = await Promise.all([
@@ -177,10 +180,12 @@ export default function CargosPage() {
       setLista(cargos);
       setTiposCatalogo(tipos);
       setCatalogo(cat);
+      return cargos;
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao carregar');
+      return null;
     } finally {
-      setLoading(false);
+      if (!opts?.silencioso) setLoading(false);
     }
   }, []);
 
@@ -210,6 +215,7 @@ export default function CargosPage() {
     setSelecionado(null);
     setForm(emptyForm);
     setErro('');
+    setOk('');
   }
 
   function abrirEditar(cargo: Cargo) {
@@ -225,6 +231,7 @@ export default function CargosPage() {
       permissoes: [...(cargo.permissoes || [])],
     });
     setErro('');
+    setOk('');
   }
 
   function togglePerm(codigo: string) {
@@ -251,10 +258,12 @@ export default function CargosPage() {
   async function salvar() {
     if (!form.nome.trim()) {
       setErro('Informe o nome do perfil.');
+      setOk('');
       return;
     }
     setSalvando(true);
     setErro('');
+    setOk('');
     try {
       const ativos = new Set(tiposCatalogo.map((t) => t.codigo));
       const body = {
@@ -268,7 +277,6 @@ export default function CargosPage() {
       const salvo = selecionado
         ? await api.cargoGestaoAtualizar(selecionado.id_cargo, body)
         : await api.cargoGestaoCriar(body);
-      await carregar();
       setNovo(false);
       setSelecionado(salvo);
       setForm({
@@ -279,6 +287,8 @@ export default function CargosPage() {
         tipos_checklist: (salvo.tipos_checklist || []).map((t) => t.codigo),
         permissoes: [...(salvo.permissoes || [])],
       });
+      setOk('Perfil salvo.');
+      void carregar({ silencioso: true });
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao salvar');
     } finally {
@@ -366,7 +376,8 @@ export default function CargosPage() {
           </Button>
         </Barra>
 
-        <Erro erro={erro} />
+        {!painelAberto ? <Erro erro={erro} /> : null}
+        <Aviso texto={ok} onFechar={() => setOk('')} />
 
         <TabelaConfig
           colunas={colunas}
@@ -384,6 +395,7 @@ export default function CargosPage() {
           onFechar={() => {
             setSelecionado(null);
             setNovo(false);
+            setOk('');
           }}
           rodape={
             <>
@@ -392,6 +404,7 @@ export default function CargosPage() {
                   size="small"
                   color="error"
                   startIcon={<DeleteOutlineIcon />}
+                  disabled={salvando}
                   onClick={() => void excluir()}
                 >
                   Excluir
@@ -400,7 +413,7 @@ export default function CargosPage() {
                 <Box sx={{ flex: 1 }} />
               )}
               <Box sx={{ flex: 1 }} />
-              <Button size="small" onClick={() => { setSelecionado(null); setNovo(false); }}>
+              <Button size="small" disabled={salvando} onClick={() => { setSelecionado(null); setNovo(false); setOk(''); }}>
                 Fechar
               </Button>
               <Button size="small" variant="contained" disabled={salvando} onClick={() => void salvar()}>
@@ -409,6 +422,16 @@ export default function CargosPage() {
             </>
           }
         >
+              {erro ? (
+                <Alert severity="error" onClose={() => setErro('')} sx={{ mb: 1.5 }}>
+                  {erro}
+                </Alert>
+              ) : null}
+              {ok ? (
+                <Alert severity="success" onClose={() => setOk('')} sx={{ mb: 1.5 }}>
+                  {ok}
+                </Alert>
+              ) : null}
               <Secao titulo="Dados">
                 <Stack spacing={1.25}>
                   <TextField

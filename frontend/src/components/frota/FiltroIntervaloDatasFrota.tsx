@@ -256,12 +256,14 @@ export default function FiltroIntervaloDatasFrota({
         <TextField
           fullWidth={!compacto}
           size="small"
-          label={rotuloPeriodo}
+          /** Compacto: sem label flutuante — evita corte em containers com overflow hidden. */
+          label={compacto ? undefined : rotuloPeriodo}
+          aria-label={rotuloPeriodo}
           value={texto}
-          placeholder={placeholderPeriodo}
+          placeholder={compacto ? rotuloPeriodo : placeholderPeriodo}
           onClick={abrir}
           slotProps={{
-            inputLabel: compacto ? { shrink: true } : labelFixo.inputLabel,
+            inputLabel: compacto ? undefined : labelFixo.inputLabel,
             input: {
               readOnly: true,
               sx: { cursor: 'pointer' },
@@ -283,8 +285,8 @@ export default function FiltroIntervaloDatasFrota({
             mb: 0,
             '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
               borderRadius: compacto ? '10px' : '8px',
-              minHeight: compacto ? 32 : 40,
-              height: compacto ? 32 : 40,
+              minHeight: compacto ? 34 : 40,
+              height: compacto ? 34 : 40,
             },
             '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': {
               borderRadius: compacto ? '10px' : '8px',
@@ -292,7 +294,7 @@ export default function FiltroIntervaloDatasFrota({
             '& .MuiInputBase-input': {
               letterSpacing: '0.01em',
               ...(compacto
-                ? { height: 32, py: 0, boxSizing: 'border-box', fontSize: '0.8125rem' }
+                ? { height: 34, py: 0, boxSizing: 'border-box', fontSize: '0.8125rem' }
                 : {}),
             },
             '& .MuiInputBase-input::placeholder': {

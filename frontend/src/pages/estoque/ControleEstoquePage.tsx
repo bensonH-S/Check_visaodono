@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -271,6 +271,7 @@ function AbasControleEstoque({
   podeOperacional,
   podeBreak,
   idLoja,
+  moduloVendas,
 }: {
   value: AbaEstoque | false;
   onChange: (v: AbaEstoque) => void;
@@ -279,8 +280,14 @@ function AbasControleEstoque({
   podeOperacional: boolean;
   podeBreak: boolean;
   idLoja: number | '';
+  /** Módulo Vendas separado: só Números/Sync/Baixa (sem misturar com estoque). */
+  moduloVendas?: boolean;
 }) {
   const semLoja = !idLoja;
+
+  if (moduloVendas) {
+    return null;
+  }
 
   return (
     <Tabs
@@ -327,9 +334,6 @@ function AbasControleEstoque({
       {podeConferencia && (
         <Tab disableRipple value="conferencia" label="Conferência" disabled={semLoja} />
       )}
-      {podeOperacional && (
-        <Tab disableRipple value="vendas" label="Vendas" disabled={semLoja || bloqueiaOutrasAbas} />
-      )}
       {podeBreak && (
         <Tab disableRipple value="break" label="Break" disabled={semLoja || bloqueiaOutrasAbas} />
       )}
@@ -344,9 +348,11 @@ function AbasControleEstoque({
 }
 
 export default function ControleEstoquePage() {
-  usePageTitle('Estoque');
   const navigate = useNavigate();
+  const location = useLocation();
   const { aba: abaParam } = useParams<{ aba: string }>();
+  const moduloVendas = location.pathname.startsWith('/vendas');
+  usePageTitle(moduloVendas ? 'Vendas' : 'Estoque');
   const user = getUsuario();
   const podeProdutos = podeProdutosEstoque(user);
   const podeConferencia = podeConferenciaEstoque(user);
@@ -356,7 +362,16 @@ export default function ControleEstoquePage() {
   const podeExcluir = podeExcluirEstoque(user);
   const podeReabrir = podeReabrirContagemEstoque(user);
 
-  const aba: AbaEstoque = isAbaEstoque(abaParam) ? abaParam : abaInicialPermitida();
+  const abaRaw: AbaEstoque = isAbaEstoque(abaParam)
+    ? abaParam
+    : moduloVendas
+      ? 'vendas'
+      : abaInicialPermitida();
+  const aba: AbaEstoque = moduloVendas && !(ABAS_VENDAS as readonly string[]).includes(abaRaw)
+    ? 'vendas'
+    : !moduloVendas && (ABAS_VENDAS as readonly string[]).includes(abaRaw)
+      ? abaInicialPermitida()
+      : abaRaw;
 
   const [headerActions, setHeaderActions] = useState<React.ReactNode>(null);
 
@@ -364,6 +379,10 @@ export default function ControleEstoquePage() {
     (proxima: AbaEstoque) => {
       if (proxima === aba) return;
       setHeaderActions(null);
+      if ((ABAS_VENDAS as readonly string[]).includes(proxima)) {
+        navigate(`/vendas/${proxima}`);
+        return;
+      }
       navigate(`/estoque/${proxima}`);
     },
     [aba, navigate],
@@ -537,19 +556,38 @@ export default function ControleEstoquePage() {
   }, [carregarProdutos, idLoja, podeProdutos, podeOperacional, podeBreak]);
 
   useEffect(() => {
+    if (moduloVendas) {
+      if (!isAbaEstoque(abaParam) || !(ABAS_VENDAS as readonly string[]).includes(abaParam || '')) {
+        navigate('/vendas/vendas', { replace: true });
+        return;
+      }
+      if (!podeOperacional) {
+        navigate('/estoque/conferencia', { replace: true });
+      }
+      return;
+    }
     if (abaParam && REDIRECT_ABA[abaParam]) {
-      navigate(`/estoque/${REDIRECT_ABA[abaParam]}`, { replace: true });
+      const dest = REDIRECT_ABA[abaParam];
+      if ((ABAS_VENDAS as readonly string[]).includes(dest)) {
+        navigate(`/vendas/${dest}`, { replace: true });
+      } else {
+        navigate(`/estoque/${dest}`, { replace: true });
+      }
       return;
     }
     if (!isAbaEstoque(abaParam)) {
       navigate(`/estoque/${abaInicialPermitida()}`, { replace: true });
       return;
     }
+    if ((ABAS_VENDAS as readonly string[]).includes(abaParam || '')) {
+      navigate(`/vendas/${abaParam}`, { replace: true });
+      return;
+    }
     if (verDetalhe && contagem?.status === 'aberta' && aba !== 'conferencia') {
       navigate('/estoque/conferencia', { replace: true });
       return;
     }
-    const abasOp: AbaEstoque[] = ['saldo', 'fichas', 'vendas', 'rede', 'piloto'];
+    const abasOp: AbaEstoque[] = ['saldo', 'fichas'];
     let destino: AbaEstoque | null = null;
     if (aba === 'conferencia' && !podeConferencia) {
       destino = podeBreak ? 'break' : podeOperacional ? 'saldo' : 'fichas';
@@ -561,7 +599,7 @@ export default function ControleEstoquePage() {
     if (destino && destino !== aba) {
       navigate(`/estoque/${destino}`, { replace: true });
     }
-  }, [aba, abaParam, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, verDetalhe, contagem?.status]);
+  }, [aba, abaParam, moduloVendas, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, verDetalhe, contagem?.status]);
 
   const iniciarSabado = async (tipo: TipoContagemEstoque = 'diaria') => {
     if (!podeEditarConferencia || !idLoja) return;
@@ -855,7 +893,7 @@ export default function ControleEstoquePage() {
     aba === 'rede' ||
     aba === 'piloto' ||
     aba === 'break';
-  const noGrupoVendas = (ABAS_VENDAS as readonly string[]).includes(aba);
+  const noGrupoVendas = moduloVendas || (ABAS_VENDAS as readonly string[]).includes(aba);
 
   if (loadingLojas) {
     return <PageLoading label="Carregando lojas…" />;
@@ -1023,6 +1061,7 @@ export default function ControleEstoquePage() {
             podeOperacional={podeOperacional}
             podeBreak={podeBreak}
             idLoja={idLoja}
+            moduloVendas={moduloVendas}
           />
           {idLoja && podeOperacional && noGrupoVendas && !bloqueiaOutrasAbas ? (
             <ToggleButtonGroup

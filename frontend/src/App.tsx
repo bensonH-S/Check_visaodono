@@ -423,15 +423,16 @@ export default function App() {
                 }
               />
             </Route>
+            <Route path="ranking" element={<Navigate to="/dashboard" replace />} />
+            <Route path="indicadores" element={<Navigate to="/dashboard" replace />} />
             <Route
-              path="ranking"
+              path="ranking/legado"
               element={
                 <RotaPermissao permissoes={['portal.dashboard.ver']}>
                   <RankingPage />
                 </RotaPermissao>
               }
             />
-            <Route path="indicadores" element={<Navigate to="/ranking" replace />} />
             <Route
               path="checklist"
               element={
@@ -484,10 +485,25 @@ export default function App() {
               path="estoque"
               element={<Navigate to="/estoque/conferencia" replace />}
             />
+            <Route path="estoque/vendas" element={<Navigate to="/vendas" replace />} />
+            <Route path="estoque/rede" element={<Navigate to="/vendas/rede" replace />} />
+            <Route path="estoque/piloto" element={<Navigate to="/vendas/piloto" replace />} />
+            <Route path="estoque/cmv" element={<Navigate to="/ranking" replace />} />
+            <Route path="estoque/meta" element={<Navigate to="/vendas" replace />} />
+            <Route path="estoque/pedido" element={<Navigate to="/vendas" replace />} />
             <Route
               path="estoque/:aba"
               element={
                 <RotaPermissao permissoes={['estoque.produtos', 'estoque.conferencia', 'estoque.operacional', 'estoque.break']}>
+                  <ControleEstoquePage />
+                </RotaPermissao>
+              }
+            />
+            <Route path="vendas" element={<Navigate to="/vendas/vendas" replace />} />
+            <Route
+              path="vendas/:aba"
+              element={
+                <RotaPermissao permissoes={['estoque.operacional', 'estoque.conferencia', 'estoque.produtos']}>
                   <ControleEstoquePage />
                 </RotaPermissao>
               }
@@ -524,22 +540,71 @@ export default function App() {
                 </RotaEnergia>
               }
             />
-            <Route
-              path="financeiro"
-              element={
-                <RotaFinanceiro>
-                  <FinanceiroOutlet />
-                </RotaFinanceiro>
-              }
-            >
-              <Route index element={<ContasPagarPage />} />
-              <Route path="inbox" element={<InboxDdaPage />} />
-              <Route path="conciliacao" element={<ConciliacaoPage />} />
-              <Route path="receber" element={<FinanceiroModuloPage titulo="Contas a receber" />} />
-              <Route path="caixa" element={<FechamentoCaixaPage />} />
-              <Route path="movimento" element={<FinanceiroModuloPage titulo="Contas movimento" />} />
-              <Route path="dre" element={<FinanceiroModuloPage titulo="DRE" />} />
-              <Route path="vendas" element={<FinanceiroVendasPage />} />
+            <Route path="financeiro" element={<FinanceiroOutlet />}>
+              <Route
+                index
+                element={
+                  <RotaFinanceiro permitirResumo>
+                    <ContasPagarPage />
+                  </RotaFinanceiro>
+                }
+              />
+              <Route
+                path="inbox"
+                element={
+                  <RotaFinanceiro>
+                    <InboxDdaPage />
+                  </RotaFinanceiro>
+                }
+              />
+              <Route
+                path="conciliacao"
+                element={
+                  <RotaFinanceiro>
+                    <ConciliacaoPage />
+                  </RotaFinanceiro>
+                }
+              />
+              <Route
+                path="receber"
+                element={
+                  <RotaFinanceiro>
+                    <FinanceiroModuloPage titulo="Contas a receber" />
+                  </RotaFinanceiro>
+                }
+              />
+              <Route
+                path="caixa"
+                element={
+                  <RotaFinanceiro>
+                    <FechamentoCaixaPage />
+                  </RotaFinanceiro>
+                }
+              />
+              <Route
+                path="movimento"
+                element={
+                  <RotaFinanceiro>
+                    <FinanceiroModuloPage titulo="Contas movimento" />
+                  </RotaFinanceiro>
+                }
+              />
+              <Route
+                path="dre"
+                element={
+                  <RotaFinanceiro>
+                    <FinanceiroModuloPage titulo="DRE" />
+                  </RotaFinanceiro>
+                }
+              />
+              <Route
+                path="vendas"
+                element={
+                  <RotaFinanceiro>
+                    <FinanceiroVendasPage />
+                  </RotaFinanceiro>
+                }
+              />
               <Route path="integracoes" element={<Navigate to="/financeiro/inbox" replace />} />
               <Route path="configuracoes" element={<Navigate to="/configuracoes/financeiro" replace />} />
               <Route path="configuracoes/:secao" element={<RedirectConfigFinanceiroAntiga />} />

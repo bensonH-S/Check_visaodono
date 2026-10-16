@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { requirePermissao } from '../permissoes.js';
+import { requirePermissao, temPermissao } from '../permissoes.js';
 import { handleFinance, iniciarFinanceiro } from '../financeiro/http.mjs';
 
 const router = Router();
@@ -12,8 +12,30 @@ const semPermissaoDeTela = new Set([
   '/despesas/freecontrol-lote',
 ]);
 
+/** Leitura agregada do Command Center + Agenda em modo visualização (sem editar). */
+const leituraResumo = new Set([
+  '/despesas',
+  '/resumo',
+  '/empresas',
+  '/despesas/planilha-banco',
+  '/caixa/canais',
+]);
+
+function podeLeituraResumo(req) {
+  if (req.method !== 'GET') return false;
+  if (leituraResumo.has(req.path)) return true;
+  if (/^\/despesas\/[^/]+\/(nota|boleto)$/.test(req.path)) return true;
+  return false;
+}
+
 router.use((req, res, next) => {
   if (req.method === 'POST' && semPermissaoDeTela.has(req.path)) return next();
+  if (podeLeituraResumo(req)) {
+    if (temPermissao(req.user, 'financeiro.ver') || temPermissao(req.user, 'financeiro.resumo.ver')) {
+      return next();
+    }
+    return res.status(403).json({ error: 'Sem permissão para esta ação' });
+  }
   return requirePermissao('financeiro.ver')(req, res, next);
 });
 

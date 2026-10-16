@@ -153,6 +153,10 @@ export default defineConfig({
     /** Permite acesso via ngrok / túnel externo no dev */
     allowedHosts: true,
     open: `${APP_BASE}/`,
+    /** Evita ERR_CACHE_READ_FAILURE do Chrome em assets do Vite (theme.css, deps). */
+    headers: {
+      'Cache-Control': 'no-store',
+    },
     proxy: {
       '/ciga': {
         target: `http://localhost:${DEV_API_PORT}`,

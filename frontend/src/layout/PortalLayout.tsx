@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeVerEnergia, podeVerFinanceiro } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeOperacionalEstoque, podeVerEnergia, podeVerFinanceiro, podeVerResumoFinanceiro } from '../lib/auth';
 import { primeiraRotaPermitida } from '../config/navPermissions';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -36,7 +36,6 @@ import { api as financeApi, leituraPedida, urlDespesas } from '../financeiro/api
 import { aquecerContagemCc } from '../components/dashboard/commandCenter/useCcData';
 import MeridianRouteCurtain from '../brand/MeridianRouteCurtain';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
-import BarChartIcon from '@mui/icons-material/BarChart';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
 import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
@@ -149,7 +148,7 @@ function PortalLayoutInner() {
     if (!user) return;
     aquecerContagemCc(dataHojeBrasilia()).catch(() => undefined);
     const t = window.setTimeout(() => {
-      if (podeVerFinanceiro(user) && !leituraPedida(urlDespesas())) {
+      if (podeVerResumoFinanceiro(user) && !leituraPedida(urlDespesas())) {
         financeApi.despesas().catch(() => undefined);
       }
     }, 400);
@@ -367,12 +366,14 @@ function PortalLayoutInner() {
     { to: '/dashboard', label: 'Command Center', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
 
     // FINANCEIRO — Inbox (DDA/NF) → Agenda banco → caixa / integrações
+    // Agenda: financeiro.ver (editar) ou financeiro.resumo.ver (só visualizar).
+    // Inbox / conciliação / caixa: só módulo completo.
     { to: '/financeiro/inbox', label: 'Inbox', icon: <InboxOutlinedIcon fontSize="small" />, show: podeVerFinanceiro(user), section: secFin },
     {
       to: '/financeiro',
       label: finEn ? 'Bank schedule' : 'Agenda banco',
       icon: <AccountBalanceOutlinedIcon fontSize="small" />,
-      show: podeVerFinanceiro(user),
+      show: podeVerResumoFinanceiro(user),
       end: true,
       section: secFin,
     },
@@ -404,8 +405,14 @@ function PortalLayoutInner() {
     { to: '/visitas', label: 'Visitas', icon: <HistoryIcon fontSize="small" />, show: temPermissao('portal.visitas.ver', user), section: 'CAMPO' },
 
     // GESTÃO
-    { to: '/estoque', label: 'Estoque & CMV', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), section: 'GESTÃO' },
-    { to: '/ranking', label: 'Indicadores', icon: <BarChartIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), section: 'GESTÃO' },
+    { to: '/estoque', label: 'Estoque', icon: <Inventory2Icon fontSize="small" />, show: podeVerEstoque(user), section: 'GESTÃO' },
+    {
+      to: '/vendas',
+      label: 'Vendas',
+      icon: <PointOfSaleOutlinedIcon fontSize="small" />,
+      show: podeOperacionalEstoque(user),
+      section: 'GESTÃO',
+    },
     {
       to: '/configuracoes/tickets',
       label: 'Tickets TI',
@@ -450,7 +457,7 @@ function PortalLayoutInner() {
 
   return (
     <Box
-      className={`flex h-full ${colunaEstreita ? 'min-h-screen overflow-y-auto' : 'overflow-hidden'}${isDashboard ? ' cc-page' : ''}`}
+      className={`flex h-full ${colunaEstreita ? 'min-h-screen overflow-y-auto' : 'overflow-hidden'}`}
       sx={{ bgcolor: colors.canvas }}
     >
       {!hideSidebar && (
@@ -463,7 +470,7 @@ function PortalLayoutInner() {
       )}
 
       <Box
-        className="flex-1 flex flex-col min-w-0 min-h-0"
+        className={`flex-1 flex flex-col min-w-0 min-h-0${isDashboard ? ' cc-page' : ''}`}
         sx={{ bgcolor: isDashboard ? CC_BG : colors.canvas }}
       >
         {/* Topbar desktop — some em Configuração (já tem trilho próprio). */}
@@ -585,7 +592,7 @@ function PortalLayoutInner() {
               : scrollInterno
                 ? { xs: 1.25, md: 1.5 }
                 : isDashboard
-                  ? { xs: 1, md: 1 }
+                  ? { xs: 1.25, md: 1.5 }
                   : emConfiguracoes || emFrota
                     ? { xs: 1.5, md: 1.75 }
                     : { xs: 1.5, md: 2 },
@@ -594,7 +601,7 @@ function PortalLayoutInner() {
               : mobileTabsRodape.length > 0 && !isChamadoNovo
                 ? { xs: safeAreaBottomCalc(80), md: 2 }
                 : isDashboard
-                  ? { xs: 1, md: 1 }
+                  ? { xs: 1.25, md: 1.5 }
                   : 2,
             maxWidth: colunaEstreita ? { xs: 640, md: 'none' } : 'none',
             mx: colunaEstreita ? { xs: 'auto', md: 0 } : 0,
@@ -604,6 +611,8 @@ function PortalLayoutInner() {
               ? {
                   flex: 1,
                   minHeight: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
                 }
               : null),
           }}

@@ -324,6 +324,103 @@ export async function mesFechamentos(pool, { mes, empresaId }) {
   }
 }
 
+/**
+ * Agrega canais de venda (Pix, débito, crédito, iFood, 99…) no período.
+ * @param {import('pg').Pool} pool
+ * @param {{ de: string, ate: string, empresaIds?: string[] | null }} opts
+ */
+export async function resumoCanaisPeriodo(pool, { de, ate, empresaIds = null } = {}) {
+  await garantirSchemaCaixa(pool)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(de || '')) || !/^\d{4}-\d{2}-\d{2}$/.test(String(ate || ''))) {
+    throw erro('Informe o período (de/até) no formato AAAA-MM-DD.')
+  }
+  const params = [de, ate]
+  let filtroEmpresa = ''
+  if (Array.isArray(empresaIds)) {
+    if (!empresaIds.length) {
+      return {
+        de,
+        ate,
+        total: 0,
+        canais: [
+          { id: 'pix', rotulo: 'Pix', valor: 0 },
+          { id: 'debito', rotulo: 'Débito', valor: 0 },
+          { id: 'credito', rotulo: 'Crédito', valor: 0 },
+          { id: 'dinheiro', rotulo: 'Dinheiro', valor: 0 },
+          { id: 'ifood', rotulo: 'iFood', valor: 0 },
+          { id: 'food99', rotulo: '99Food', valor: 0 },
+          { id: 'cart_digital', rotulo: 'Cartão digital', valor: 0 },
+          { id: 'azul', rotulo: 'Azul', valor: 0 },
+          { id: 'rappi', rotulo: 'Rappi', valor: 0 },
+        ],
+      }
+    }
+    params.push(empresaIds)
+    filtroEmpresa = ` and f.empresa_id::text = any($${params.length}::text[])`
+  }
+  const { rows } = await pool.query(
+    `
+    select
+      coalesce(sum(f.pix), 0)::float8 as pix,
+      coalesce(sum(f.debito), 0)::float8 as debito,
+      coalesce(sum(f.credito), 0)::float8 as credito,
+      coalesce(sum(f.dinheiro), 0)::float8 as dinheiro,
+      coalesce(sum(f.ifood), 0)::float8 as ifood,
+      coalesce(sum(f.food99), 0)::float8 as food99,
+      coalesce(sum(f.cart_digital), 0)::float8 as cart_digital,
+      coalesce(sum(f.azul), 0)::float8 as azul,
+      coalesce(sum(f.rappi), 0)::float8 as rappi
+    from fechamento_caixa f
+    where f.data >= $1::date
+      and f.data <= $2::date
+      ${filtroEmpresa}
+    `,
+    params,
+  )
+  const r = rows[0] || {}
+  const canais = [
+    { id: 'pix', rotulo: 'Pix', valor: Number(r.pix) || 0 },
+    { id: 'debito', rotulo: 'Débito', valor: Number(r.debito) || 0 },
+    { id: 'credito', rotulo: 'Crédito', valor: Number(r.credito) || 0 },
+    { id: 'dinheiro', rotulo: 'Dinheiro', valor: Number(r.dinheiro) || 0 },
+    { id: 'ifood', rotulo: 'iFood', valor: Number(r.ifood) || 0 },
+    { id: 'food99', rotulo: '99Food', valor: Number(r.food99) || 0 },
+    { id: 'cart_digital', rotulo: 'Cartão digital', valor: Number(r.cart_digital) || 0 },
+    { id: 'azul', rotulo: 'Azul', valor: Number(r.azul) || 0 },
+    { id: 'rappi', rotulo: 'Rappi', valor: Number(r.rappi) || 0 },
+  ].map((c) => ({ ...c, valor: Math.round(c.valor * 100) / 100 }))
+  const total = Math.round(canais.reduce((s, c) => s + c.valor, 0) * 100) / 100
+
+  const { rows: porDia } = await pool.query(
+    `
+    select
+      f.data::text as dia,
+      coalesce(sum(f.credito + f.debito + f.azul), 0)::float8 as cartoes,
+      coalesce(sum(f.pix + f.cart_digital), 0)::float8 as digitais,
+      coalesce(sum(f.dinheiro), 0)::float8 as dinheiro,
+      coalesce(sum(f.ifood), 0)::float8 as ifood,
+      coalesce(sum(f.food99 + f.rappi), 0)::float8 as food99
+    from fechamento_caixa f
+    where f.data >= $1::date
+      and f.data <= $2::date
+      ${filtroEmpresa}
+    group by f.data
+    order by f.data
+    `,
+    params,
+  )
+  const serie = porDia.map((d) => ({
+    dia: d.dia,
+    cartoes: Math.round((Number(d.cartoes) || 0) * 100) / 100,
+    digitais: Math.round((Number(d.digitais) || 0) * 100) / 100,
+    dinheiro: Math.round((Number(d.dinheiro) || 0) * 100) / 100,
+    ifood: Math.round((Number(d.ifood) || 0) * 100) / 100,
+    food99: Math.round((Number(d.food99) || 0) * 100) / 100,
+  }))
+
+  return { de, ate, total, canais, serie }
+}
+
 function normalizarBandeiras(lista) {
   if (!Array.isArray(lista)) return []
   return lista.slice(0, 40).map((item) => ({

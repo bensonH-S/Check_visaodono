@@ -196,7 +196,9 @@ const ROTAS_PORTAL: Array<{ prefix: string; codigo: ModuloCanalCodigo }> = [
   { prefix: '/escalas/visitas', codigo: 'escala' },
   { prefix: '/visitas', codigo: 'visitas' },
   { prefix: '/estoque', codigo: 'estoque' },
+  { prefix: '/vendas', codigo: 'estoque' },
   { prefix: '/ranking', codigo: 'ranking' },
+  { prefix: '/indicadores', codigo: 'ranking' },
   { prefix: '/financeiro', codigo: 'financeiro' },
 ];
 

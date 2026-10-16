@@ -107,7 +107,7 @@ function resumoAcessosPerfil(cargo: Cargo | undefined): string[] {
   const perms = cargo?.permissoes || [];
   if (!perms.length) return [];
   const grupos: { titulo: string; codigos: string[] }[] = [
-    { titulo: 'Command Center', codigos: ['portal.dashboard.ver'] },
+    { titulo: 'Command Center', codigos: ['portal.dashboard.ver', 'financeiro.resumo.ver'] },
     { titulo: 'Financeiro', codigos: ['financeiro.ver'] },
     { titulo: 'AutoREV', codigos: ['checklist.ver', 'checklist.executar'] },
     { titulo: 'Chamados', codigos: ['chamados.ver', 'chamados.abrir', 'chamados.assumir', 'chamados.aprovar'] },

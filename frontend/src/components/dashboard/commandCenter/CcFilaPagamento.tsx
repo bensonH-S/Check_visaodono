@@ -37,12 +37,34 @@ const celulaSx = {
   borderColor: 'divider',
 } as const;
 
+function normalizaNome(s: string) {
+  return s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim();
+}
+
 /** Fila por loja: maior saldo em aberto primeiro. Linha única — não corta em zoom 100%. */
-export default function CcFilaPagamento({ despesas, loading, erro }: { despesas: Despesa[]; loading: boolean; erro: string }) {
+export default function CcFilaPagamento({
+  despesas,
+  loading,
+  erro,
+  lojasRegiao,
+  mostrarAgenda = true,
+}: {
+  despesas: Despesa[];
+  loading: boolean;
+  erro: string;
+  /** Catálogo frota: nome da loja → região (gasto por região). */
+  lojasRegiao?: Array<{ nome: string; regiao: string }>;
+  mostrarAgenda?: boolean;
+}) {
   const escuro = useTheme().palette.mode === 'dark';
   const hoje = hojeIso();
 
-  const { filas, totalRede, lojasComSaldo } = useMemo(() => {
+  const { filas, totalRede, lojasComSaldo, porRegiao } = useMemo(() => {
     const abertas = despesas.filter((d) => !FECHADAS.includes(d.status));
     const mapa = new Map<string, LojaFila>();
     for (const d of abertas) {
@@ -57,12 +79,40 @@ export default function CcFilaPagamento({ despesas, loading, erro }: { despesas:
       mapa.set(loja, cur);
     }
     const filas = [...mapa.values()].sort((a, b) => b.total - a.total || a.loja.localeCompare(b.loja, 'pt-BR'));
+
+    const regMap = new Map<string, string>();
+    for (const item of lojasRegiao || []) {
+      const chave = normalizaNome(item.nome);
+      if (chave) regMap.set(chave, item.regiao);
+      const curto = item.nome.split(' - ').slice(1).join(' - ');
+      if (curto) regMap.set(normalizaNome(curto), item.regiao);
+    }
+    const totReg = new Map<string, number>();
+    for (const f of filas) {
+      const n = normalizaNome(f.loja);
+      let regiao = regMap.get(n) || '';
+      if (!regiao) {
+        for (const [k, v] of regMap) {
+          if (n.includes(k) || k.includes(n)) {
+            regiao = v;
+            break;
+          }
+        }
+      }
+      const chave = regiao || 'Sem região';
+      totReg.set(chave, (totReg.get(chave) || 0) + f.total);
+    }
+    const porRegiao = [...totReg.entries()]
+      .map(([regiao, total]) => ({ regiao, total }))
+      .sort((a, b) => b.total - a.total);
+
     return {
       filas,
       totalRede: filas.reduce((s, l) => s + l.total, 0),
       lojasComSaldo: filas.length,
+      porRegiao,
     };
-  }, [despesas, hoje]);
+  }, [despesas, hoje, lojasRegiao]);
 
   const meta =
     !loading && !erro && filas.length
@@ -70,7 +120,12 @@ export default function CcFilaPagamento({ despesas, loading, erro }: { despesas:
       : undefined;
 
   return (
-    <CcCard title="A pagar por loja" meta={meta} action="Ver agenda" actionTo="/financeiro">
+    <CcCard
+      title="A pagar por loja"
+      meta={meta}
+      action={mostrarAgenda ? 'Ver agenda' : undefined}
+      actionTo={mostrarAgenda ? '/financeiro' : undefined}
+    >
       {loading ? (
         <Box sx={{ p: 1.5 }}>
           <Skeleton variant="rounded" height={200} />
@@ -81,6 +136,19 @@ export default function CcFilaPagamento({ despesas, loading, erro }: { despesas:
         <CcVazio>Nenhuma despesa em aberto.</CcVazio>
       ) : (
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          {porRegiao.length > 1 ? (
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, px: 1.5, pt: 1.25, pb: 0.5 }}>
+              {porRegiao.map((r) => (
+                <Chip
+                  key={r.regiao}
+                  size="small"
+                  variant="outlined"
+                  label={`${r.regiao}: ${fmtBrl(r.total)}`}
+                  sx={{ height: 24, fontSize: 11, fontWeight: 650 }}
+                />
+              ))}
+            </Box>
+          ) : null}
           <Table
             size="medium"
             stickyHeader

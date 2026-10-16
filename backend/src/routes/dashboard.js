@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { pool } from '../db.js';
 import { SQL_NC_CHECKLIST_FINALIZADO } from '../naoConformidadesChecklist.js';
-import { listarSaudeLojas } from '../services/dashboardSaudeLojas.js';
+import { indicadoresPeriodo, listarSaudeLojas } from '../services/dashboardSaudeLojas.js';
+import { filtroSqlLojas } from '../lojasUsuario.js';
 
 const router = Router();
 
@@ -310,6 +311,10 @@ router.get('/ranking', async (req, res, next) => {
     const idRegiao = idRegiaoFromQuery(req);
     const temRegiao = idRegiao != null;
     const params = temRegiao ? [idRegiao] : [];
+    const userEscopo = req.user?.lojas_ids_estoque?.length
+      ? { ...req.user, lojas_ids: req.user.lojas_ids_estoque }
+      : req.user;
+    const filtroLojas = filtroSqlLojas(userEscopo, 'r', 'id_loja', params);
     const { rows } = await pool.query(
       `
       SELECT r.*,
@@ -321,7 +326,7 @@ router.get('/ranking', async (req, res, next) => {
         ORDER BY data_registro DESC
         OFFSET 1 LIMIT 1
       ) hn ON TRUE
-      WHERE 1=1 ${filtroRegiao('r', 1, temRegiao)}
+      WHERE 1=1 ${filtroRegiao('r', 1, temRegiao)}${filtroLojas}
       ORDER BY r.posicao_ranking
       `,
       params,
@@ -335,7 +340,21 @@ router.get('/ranking', async (req, res, next) => {
 /** Ficha por loja: nota + NCs + chamados + CMV do mês (priorizado). */
 router.get('/saude-lojas', async (req, res, next) => {
   try {
-    const data = await listarSaudeLojas(req.query || {});
+    const data = await listarSaudeLojas(req.user);
+    res.json(data);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Indicadores: período × anterior, série diária, NCs novas. */
+router.get('/indicadores', async (req, res, next) => {
+  try {
+    const data = await indicadoresPeriodo(req.user, {
+      de: String(req.query.de || '').slice(0, 10),
+      ate: String(req.query.ate || '').slice(0, 10),
+      id_loja: req.query.id_loja,
+    });
     res.json(data);
   } catch (e) {
     next(e);

@@ -328,7 +328,7 @@ export function ConciliacaoPage() {
 
   const importarUmArquivo = async (file: File, contaUpload?: string) => {
     atualizarImportando(file.name)
-    const base64 = arquivoBase64(await file.arrayBuffer())
+      const base64 = arquivoBase64(await file.arrayBuffer())
     const r = await api.uploadExtrato(file.name, base64, contaUpload, empresaId || undefined)
     progressoLote.current.ok += 1
     atualizarImportando(file.name)
@@ -357,8 +357,8 @@ export function ConciliacaoPage() {
         if (!file) return
         try {
           await importarUmArquivo(file)
-        } catch (err) {
-          if (err instanceof ContaNaoIdentificada) {
+    } catch (err) {
+      if (err instanceof ContaNaoIdentificada) {
             pendentesConta.push({ file, mensagem: err.message, contas: err.contas })
             atualizarImportando(file.name)
             continue
@@ -560,7 +560,7 @@ export function ConciliacaoPage() {
           width={200}
         />
         <Chip
-          size="small"
+                size="small"
           variant="outlined"
           label={carregando
             ? t('Carregando…', 'Loading…')
@@ -586,25 +586,25 @@ export function ConciliacaoPage() {
         >
           {t('Lista · L', 'List · L')}
         </Button>
-        <input
-          ref={inputRef}
-          type="file"
+              <input
+                ref={inputRef}
+                type="file"
           accept=".ofx,.qfx,.csv,.txt,.xlsx"
           multiple
-          hidden
-          onChange={(ev) => {
+                hidden
+                onChange={(ev) => {
             const files = ev.target.files ? Array.from(ev.target.files) : []
             if (files.length) subirArquivos(files)
-          }}
-        />
-        <Button
-          size="small"
-          variant="contained"
+                }}
+              />
+              <Button
+                size="small"
+                variant="contained"
           disabled={ocupado || !!importando?.ativo}
           startIcon={importando?.ativo
             ? <CircularProgress size={14} color="inherit" />
             : <UploadFileOutlinedIcon sx={{ fontSize: 16 }} />}
-          onClick={() => inputRef.current?.click()}
+                onClick={() => inputRef.current?.click()}
           sx={{ ...finBtnContainedSx, height: 34, textTransform: 'none', fontWeight: 650 }}
           title={t('Selecione um ou vários arquivos OFX/CSV', 'Select one or more OFX/CSV files')}
         >
@@ -614,8 +614,8 @@ export function ConciliacaoPage() {
               `Importing ${importando.atual}/${importando.total}`,
             )
             : t('Importar extratos', 'Import statements')}
-        </Button>
-      </Stack>
+              </Button>
+            </Stack>
 
       {importando?.ativo ? (
         <Paper
@@ -723,7 +723,7 @@ export function ConciliacaoPage() {
                     <Box
                       key={dia.data}
                       onClick={() => void abrirDia(dia.data)}
-                      sx={{
+              sx={{
                         borderRight: '1px solid',
                         borderColor: FIN_BORDER,
                         px: 1.25,
@@ -782,15 +782,15 @@ export function ConciliacaoPage() {
               </Box>
             ))}
           </Box>
-        </Paper>
+      </Paper>
 
         <Paper variant="outlined" sx={{ ...finPaperSx, p: 2, minHeight: 280, display: 'flex', flexDirection: 'column' }}>
-          <Typography sx={{ fontSize: 15, fontWeight: 700, color: FIN_TEXT }}>
+            <Typography sx={{ fontSize: 15, fontWeight: 700, color: FIN_TEXT }}>
             {t('Resumo do dia', 'Day summary')}
-          </Typography>
+            </Typography>
           <Typography sx={{ fontSize: 12, color: FIN_MUTED, mt: 0.25 }}>
             {lojaAtual?.apelido || '—'} · {dataPainel || t('Selecione um dia', 'Pick a day')}
-          </Typography>
+            </Typography>
 
           {diaResumo ? (
             <Stack spacing={1.5} sx={{ mt: 2, flex: 1 }}>
@@ -821,7 +821,7 @@ export function ConciliacaoPage() {
               >
                 {t('Abrir conciliação do dia', 'Open day reconciliation')}
               </Button>
-            </Stack>
+          </Stack>
           ) : (
             <Typography sx={{ mt: 3, fontSize: 13, color: FIN_MUTED }}>
               {t('Clique num dia do calendário para conciliar.', 'Click a day on the calendar to reconcile.')}
@@ -894,14 +894,14 @@ export function ConciliacaoPage() {
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography sx={{ fontSize: 16, fontWeight: 650 }}>
               {t('Lista do mês', 'Month list')} · {lojaAtual?.apelido || (todasLojas ? t('Todas as lojas', 'All stores') : '—')}
-            </Typography>
+                  </Typography>
             <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
               {t('Atalho L = abertos · Shift+L = conciliados', 'Shortcut L = open · Shift+L = matched')}
               {listaDados
                 ? ` · ${listaDados.resumo.abertos_banco + listaDados.resumo.abertos_agenda} ${t('em aberto', 'open')} · ${listaDados.resumo.conciliados} ${t('conciliados', 'matched')}`
                 : ''}
-            </Typography>
-          </Box>
+                  </Typography>
+                </Box>
           <IconButton size="small" onClick={() => setListaAberta(false)}><CloseIcon fontSize="small" /></IconButton>
         </DialogTitle>
         <DialogContent sx={{ p: '0 !important', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
@@ -923,23 +923,23 @@ export function ConciliacaoPage() {
                 label={t(`Conciliados (${listaDados?.resumo.conciliados || 0})`, `Matched (${listaDados?.resumo.conciliados || 0})`)}
               />
             </Tabs>
-            <TextField
-              size="small"
+              <TextField
+                size="small"
               placeholder={t('Buscar aluguel, fornecedor, valor…', 'Search rent, vendor, amount…')}
               value={listaBusca}
               onChange={(ev) => setListaBusca(ev.target.value)}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
                       <SearchIcon sx={{ fontSize: 18, color: FIN_MUTED }} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
+                      </InputAdornment>
+                    ),
+                  },
+                }}
               sx={{ maxWidth: 420 }}
             />
-          </Stack>
+                </Stack>
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', px: 2, py: 1.5 }}>
             {carregarLista ? (
               <Stack sx={{ py: 6, alignItems: 'center' }}><CircularProgress size={28} /></Stack>
@@ -948,7 +948,7 @@ export function ConciliacaoPage() {
                 {listaAba === 'abertos'
                   ? t('Nada em aberto neste mês.', 'Nothing open this month.')
                   : t('Nenhum item conciliado neste mês.', 'No matched items this month.')}
-              </Typography>
+                  </Typography>
             ) : (
               <Stack spacing={1}>
                 {itensLista.map((item) => (
@@ -988,12 +988,12 @@ export function ConciliacaoPage() {
                       />
                       <Typography sx={{ fontSize: 12, color: FIN_MUTED, fontVariantNumeric: 'tabular-nums' }}>
                         {dataBr(item.data)}
-                      </Typography>
+                            </Typography>
                       <Box sx={{ flex: 1 }} />
                       <Typography sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums' }}>
                         {brl(item.valor)}
-                      </Typography>
-                    </Stack>
+                  </Typography>
+                </Stack>
                     {item.agenda ? (
                       <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{item.agenda}</Typography>
                     ) : null}
@@ -1006,8 +1006,8 @@ export function ConciliacaoPage() {
                   </Box>
                 ))}
               </Stack>
-            )}
-          </Box>
+              )}
+            </Box>
         </DialogContent>
       </Dialog>
 
@@ -1121,8 +1121,8 @@ function PainelDia({
             {t(
               `${bancoPendentes.length} no banco sem casar · ${agendaPendentes.length} na agenda sem extrato`,
               `${bancoPendentes.length} unmatched on bank · ${agendaPendentes.length} unmatched on agenda`,
-            )}
-          </Typography>
+                )}
+              </Typography>
           <Typography sx={{ fontSize: 11.5, color: FIN_MUTED, mt: 0.15 }}>
             {qtdFeitos
               ? t(`${qtdFeitos} já conciliado(s) automaticamente — escondidos abaixo.`, `${qtdFeitos} already auto-matched — hidden below.`)
@@ -1131,7 +1131,7 @@ function PainelDia({
         </Box>
         <Button size="small" variant="outlined" onClick={() => setVerFeitos((v) => !v)} sx={{ ...finBtnOutlinedSx, textTransform: 'none' }}>
           {verFeitos ? t('Só pendentes', 'Open only') : t('Ver conciliados', 'Show matched')}
-        </Button>
+                </Button>
         <Button
           size="small"
           variant="contained"
@@ -1151,9 +1151,9 @@ function PainelDia({
             sx={{ ...finBtnOutlinedSx, textTransform: 'none' }}
           >
             {t('Não é título', 'Not a bill')}
-          </Button>
-        )}
-      </Box>
+                </Button>
+              )}
+            </Box>
 
       <Box sx={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
         <Coluna
@@ -1213,7 +1213,7 @@ function PainelDia({
               {verFeitos
                 ? t('Nenhuma saída neste dia.', 'No outflows this day.')
                 : t('Nada pendente no banco neste dia.', 'Nothing open on the bank this day.')}
-            </Typography>
+                  </Typography>
           )}
           {listaBanco.map((item) => {
             const aberto = bancoAberto(item)
@@ -1254,7 +1254,7 @@ function PainelDia({
                 acao={!aberto && item.despesa_id ? (
                   <Button size="small" onClick={(ev) => { ev.stopPropagation(); void onDesfazer(item.id) }} sx={{ minWidth: 0, px: 0.5, fontSize: 11, textTransform: 'none', color: FIN_MUTED }}>
                     {t('Desfazer', 'Undo')}
-                  </Button>
+                    </Button>
                 ) : sug && aberto ? (
                   <Button
                     size="small"
@@ -1264,20 +1264,20 @@ function PainelDia({
                     sx={{ ...finBtnContainedSx, minWidth: 0, px: 1, fontSize: 11, textTransform: 'none', height: 26 }}
                   >
                     {t('Conciliar', 'Match')}
-                  </Button>
+                    </Button>
                 ) : null}
               />
             )
           })}
         </Coluna>
-      </Box>
+                </Box>
 
       <DialogActions sx={{ borderTop: `1px solid ${FIN_BORDER}`, px: 2, py: 1, justifyContent: 'space-between' }}>
         <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
           {t('Em aberto', 'Open')}: {t('agenda', 'agenda')} {brl(somaAgenda)} · {t('banco', 'bank')} {brl(somaBanco)}
-        </Typography>
+              </Typography>
         <Chip
-          size="small"
+                size="small"
           label={ativoLegenda(t)}
           variant="outlined"
           sx={{ height: 24, fontSize: 11, borderColor: FIN_BORDER, color: FIN_MUTED }}
@@ -1350,11 +1350,11 @@ function LinhaItem({
   return (
     <Box
       onClick={onClick}
-      sx={{
-        display: 'grid',
+                    sx={{
+                      display: 'grid',
         gridTemplateColumns: '76px 28px minmax(0, 1fr) auto',
         gap: 0.75,
-        alignItems: 'center',
+                      alignItems: 'center',
         px: 1.25,
         py: 0.9,
         borderBottom: `1px solid ${FIN_BORDER}`,
@@ -1384,22 +1384,22 @@ function LinhaItem({
       >
         {chip.label}
       </Box>
-      <Box sx={{ minWidth: 0 }}>
+                    <Box sx={{ minWidth: 0 }}>
         <Typography sx={{ fontSize: 12.5, fontWeight: ativo ? 700 : 550, color: FIN_TEXT, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
           {nome}
-        </Typography>
+                      </Typography>
         {detalhe && (
           <Typography sx={{ fontSize: 11, color: FIN_MUTED, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {detalhe}
-          </Typography>
-        )}
-      </Box>
+                      </Typography>
+              )}
+            </Box>
       <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center' }}>
         {acao}
         <Typography sx={{ fontSize: 12.5, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: FIN_TEXT, whiteSpace: 'nowrap' }}>
           {valor}
         </Typography>
-      </Stack>
-    </Box>
+        </Stack>
+      </Box>
   )
 }

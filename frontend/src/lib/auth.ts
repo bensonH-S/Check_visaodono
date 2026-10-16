@@ -601,6 +601,14 @@ export function podeVerFinanceiro(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('financeiro.ver', usuario);
 }
 
+/** Gastos/pagamentos no Command Center (módulo Financeiro completo continua só com financeiro.ver). */
+export function podeVerResumoFinanceiro(usuario?: UsuarioSessao | null): boolean {
+  return (
+    temPermissao('financeiro.ver', usuario) ||
+    temPermissao('financeiro.resumo.ver', usuario)
+  );
+}
+
 export function podeGerenciarTicketsTi(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
   if (!u) return false;

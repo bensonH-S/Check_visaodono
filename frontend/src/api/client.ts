@@ -139,6 +139,11 @@ export const api = {
     return request<RankingLoja[]>(`/dashboard/ranking${q ? `?${q}` : ''}`);
   },
   dashboardSaudeLojas: () => request<DashboardSaudeLojasData>('/dashboard/saude-lojas'),
+  dashboardIndicadores: (de: string, ate: string, idLoja?: number | null) => {
+    const q = new URLSearchParams({ de, ate });
+    if (idLoja) q.set('id_loja', String(idLoja));
+    return request<DashboardIndicadoresData>(`/dashboard/indicadores?${q}`);
+  },
   lojas: (params?: { ativas?: boolean; operacionais?: boolean }) => {
     const q = new URLSearchParams();
     if (params?.ativas) q.set('ativas', '1');
@@ -2237,6 +2242,11 @@ export interface SaudeLoja {
   chamados_abertos: number;
   chamados_urgentes: number;
   chamados_sla_estourado: number;
+  venda_liquida?: number;
+  compras_valor?: number;
+  /** CMP = compras / vendas do mês (%). */
+  cmp_pct?: number | null;
+  custo_teorico?: number;
   cmv_teorico_pct: number | null;
   cmv_meta_pct: number;
   cmv_confiavel: boolean;
@@ -2261,11 +2271,76 @@ export interface DashboardSaudeLojasData {
     atencao: number;
     ok: number;
     com_nc: number;
+    sem_nc?: number;
     com_chamado: number;
     cmv_alto: number;
     metas_atrasadas: number;
+    venda_liquida?: number;
+    compras_valor?: number;
+    cmp_pct?: number | null;
+    cmv_medio_pct?: number | null;
+    cmp_medio_pct?: number | null;
   };
   lojas: SaudeLoja[];
+}
+
+export interface IndicadoresSerieDia {
+  dia: string;
+  venda: number;
+  compras: number;
+  gasto_cmv?: number;
+  cmv_pct: number | null;
+  cmp_pct: number | null;
+}
+
+export interface CmvPorFornecedor {
+  platlog: number;
+  ambev_coca: number;
+  gimba: number;
+  uniforme: number;
+}
+
+export interface DashboardIndicadoresData extends DashboardSaudeLojasData {
+  lojas: Array<SaudeLoja & {
+    ncs_novas?: number;
+    cmv_pct?: number | null;
+    cmv_gasto?: number;
+    cmv_nfs?: number;
+    cmv_por_fornecedor?: CmvPorFornecedor;
+    venda_acumulada?: number;
+    venda_estimada?: number;
+    venda_proj_simples?: number;
+    dias_decorridos?: number;
+    dias_mes?: number;
+    dias_restantes?: number;
+    media_dia?: number;
+  }>;
+  cmv_meta_pct?: number;
+  cmv_fornecedores?: string[];
+  anterior: {
+    periodo: { de: string; ate: string };
+    venda_liquida: number;
+    compras_valor: number;
+    cmp_pct: number | null;
+    cmv_medio_pct: number | null;
+    por_loja: Record<string, {
+      venda_liquida: number;
+      compras_valor: number;
+      cmv_teorico_pct: number | null;
+      cmv_pct?: number | null;
+      ncs_novas: number;
+    }>;
+  };
+  serie: IndicadoresSerieDia[];
+  projecao?: {
+    inicio_mes: string;
+    fim_mes: string;
+    venda_acumulada: number;
+    projecao_inteligente: number;
+    projecao_simples: number;
+    cmv_gasto: number;
+    cmv_pct: number | null;
+  };
 }
 
 export interface RankingLoja {

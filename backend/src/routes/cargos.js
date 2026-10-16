@@ -52,15 +52,28 @@ router.get('/', async (req, res, next) => {
 });
 
 async function anexarTiposChecklist(cargos) {
+  if (!cargos.length) return [];
   const mapa = await mapaTiposChecklistPorCargos(cargos.map((c) => c.codigo));
-  const comPerms = await Promise.all(
-    cargos.map(async (c) => ({
-      ...c,
-      tipos_checklist: mapa.get(c.codigo) || [],
-      permissoes: await carregarPermissoesCargo(c.codigo),
-    })),
-  );
-  return comPerms;
+  const codigos = cargos.map((c) => c.codigo);
+  let permsPorCargo = new Map();
+  try {
+    const { rows } = await pool.query(
+      `SELECT cp.codigo_cargo, array_agg(cp.codigo ORDER BY p.ordem) AS permissoes
+       FROM cargo_permissoes cp
+       JOIN permissoes p ON p.codigo = cp.codigo
+       WHERE cp.codigo_cargo = ANY($1::text[])
+       GROUP BY cp.codigo_cargo`,
+      [codigos],
+    );
+    permsPorCargo = new Map(rows.map((r) => [r.codigo_cargo, r.permissoes || []]));
+  } catch {
+    /* tabela ainda não migrada */
+  }
+  return cargos.map((c) => ({
+    ...c,
+    tipos_checklist: mapa.get(c.codigo) || [],
+    permissoes: permsPorCargo.get(c.codigo) || [],
+  }));
 }
 
 router.get('/gestao', requirePermissao('configuracoes.ver', 'usuarios.gerenciar'), async (_req, res, next) => {

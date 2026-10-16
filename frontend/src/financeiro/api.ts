@@ -234,6 +234,8 @@ const STATUS_INBOX = new Set(['rascunho', 'classificada', 'bloqueada_duplicata']
 
 /** Título que ainda espera confirmação no Inbox (DDA ou despesa manual nova). */
 export function estaNoInbox(e: Pick<Despesa, 'fonte' | 'status' | 'pendente_inbox'>) {
+  /** Paga/conciliada nunca voltam ao Inbox — só em Conciliadas. */
+  if (e.status === 'paga' || e.status === 'conciliada' || e.status === 'cancelada') return false
   if (!STATUS_INBOX.has(e.status)) return false
   if (e.fonte === 'dda') return true
   if (e.fonte === 'manual') return e.pendente_inbox === true
@@ -758,6 +760,18 @@ export const api = {
     return data as { linhas: LinhaDda[] }
   },
   vendas: (dia: string) => get<ResumoVendas>(`${apiRoot}/vendas?dia=${encodeURIComponent(dia)}`),
+  /** Canais do caixa no período (Pix, débito, crédito, iFood, 99…). */
+  caixaCanais: (de: string, ate: string, empresa?: string) => {
+    const q = new URLSearchParams({ de, ate })
+    if (empresa) q.set('empresa', empresa)
+    return get<{
+      de: string
+      ate: string
+      total: number
+      canais: Array<{ id: string; rotulo: string; valor: number }>
+      serie?: Array<{ dia: string; cartoes: number; digitais: number; dinheiro: number; ifood: number; food99: number }>
+    }>(`${apiRoot}/caixa/canais?${q}`)
+  },
   caixaMes: (mes: string, empresaId: string) =>
     get<MesFechamento>(urlCaixa(mes, empresaId)),
   salvarCaixa: async (body: Record<string, unknown>) => {

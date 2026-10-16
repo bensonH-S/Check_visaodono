@@ -101,8 +101,10 @@ export async function carregarLojasIds(user) {
     (temPermissao(user, 'chamados.assumir') || temPermissao(user, 'frota.regioes') || ehSupervisorRegiao(user)) &&
     !ehGestorLoja(user);
   if (escopoRegiao) {
-    // Técnico/supervisor de campo: escopo só pelas regiões vinculadas (não usuario_lojas).
-    return unirIdsLojas(await lojasRegiaoUsuario(user.sub));
+    // Técnico/supervisor: região primeiro; se não houver vínculo, cai em usuario_lojas.
+    const daRegiao = await lojasRegiaoUsuario(user.sub);
+    if (daRegiao.length) return daRegiao;
+    return lojasUsuarioBase(user.sub);
   }
   return lojasUsuarioBase(user.sub);
 }
