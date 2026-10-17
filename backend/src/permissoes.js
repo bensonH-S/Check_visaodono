@@ -139,16 +139,18 @@ export async function syncCargoPermissoes(codigoCargo, codigos) {
     const ids = users.map((u) => u.id_usuario);
     // Preserva override de rede (Igor/Clemerson e quem já tinha lojas.todas)
     const { rows: comTodas } = await pool.query(
-      `SELECT DISTINCT up.id_usuario
-       FROM usuario_permissoes up
-       JOIN usuarios u ON u.id_usuario = up.id_usuario
-       WHERE up.id_usuario = ANY($1::int[])
+      `SELECT u.id_usuario
+       FROM usuarios u
+       WHERE u.id_usuario = ANY($1::int[])
          AND (
-           up.codigo = 'lojas.todas'
-           OR lower(u.nome) ~* '(^| )igor( |$)'
+           lower(u.nome) ~* '(^| )igor( |$)'
            OR lower(coalesce(u.email, '')) LIKE '%igor%'
            OR lower(u.nome) ~* 'clemerson'
            OR lower(coalesce(u.email, '')) LIKE '%clemerson%'
+           OR EXISTS (
+             SELECT 1 FROM usuario_permissoes up
+             WHERE up.id_usuario = u.id_usuario AND up.codigo = 'lojas.todas'
+           )
          )`,
       [ids],
     );
@@ -208,6 +210,23 @@ export async function carregarPermissoesUsuario(idUsuario) {
       [idUsuario],
     );
     perms = rows.map((r) => r.codigo);
+  }
+
+  // Override individual (ex.: Igor/Clemerson com lojas.todas fora da matriz do cargo)
+  try {
+    const { rows: extras } = await pool.query(
+      `SELECT up.codigo
+       FROM usuario_permissoes up
+       JOIN permissoes p ON p.codigo = up.codigo
+       WHERE up.id_usuario = $1
+         AND up.codigo = 'lojas.todas'`,
+      [idUsuario],
+    );
+    for (const r of extras) {
+      if (!perms.includes(r.codigo)) perms.push(r.codigo);
+    }
+  } catch {
+    /* ignore */
   }
 
   try {

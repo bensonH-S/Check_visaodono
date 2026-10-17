@@ -79,4 +79,26 @@ WHERE coalesce(u.ativo, TRUE)
   )
 ON CONFLICT DO NOTHING;
 
+-- AutoREV no supervisor: ver/executar + tipo Auditoria Operacional
+INSERT INTO cargo_permissoes (codigo_cargo, codigo)
+SELECT 'supervisor_regional', x.codigo
+FROM (VALUES ('checklist.ver'), ('checklist.executar')) AS x(codigo)
+JOIN permissoes p ON p.codigo = x.codigo
+ON CONFLICT DO NOTHING;
+
+INSERT INTO usuario_permissoes (id_usuario, codigo)
+SELECT u.id_usuario, cp.codigo
+FROM usuarios u
+JOIN cargo_permissoes cp ON cp.codigo_cargo = u.cargo_aprovacao
+WHERE u.cargo_aprovacao = 'supervisor_regional'
+  AND coalesce(u.ativo, TRUE)
+  AND cp.codigo IN ('checklist.ver', 'checklist.executar')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO cargo_checklist (cargo_codigo, id_tipo_checklist)
+SELECT 'supervisor_regional', t.id_tipo_checklist
+FROM tipos_checklist t
+WHERE t.codigo = 'auditoria_operacional' AND t.ativo = TRUE
+ON CONFLICT DO NOTHING;
+
 COMMIT;
