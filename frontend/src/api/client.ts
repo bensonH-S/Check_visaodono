@@ -1123,6 +1123,71 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(body),
     }),
+  escalaGestorCadastrar: (body: {
+    semana_inicio?: string;
+    nome: string;
+    id_loja?: number | null;
+    bk_number?: string | null;
+    folga_padrao?: string | null;
+    grupo?: 'loja' | 'campo';
+  }) =>
+    request<EscalaGestoresGrade>('/escalas/visitas/gestores/cadastro', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  escalaGestorAtualizar: (
+    id: number,
+    body: {
+      semana_inicio?: string;
+      nome: string;
+      id_loja?: number | null;
+      bk_number?: string | null;
+      folga_padrao?: string | null;
+      grupo?: 'loja' | 'campo';
+    },
+  ) =>
+    request<EscalaGestoresGrade>(`/escalas/visitas/gestores/cadastro/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  escalaGestorDesativar: (id: number, semanaInicio?: string) => {
+    const q = semanaInicio ? `?semana_inicio=${encodeURIComponent(semanaInicio)}` : '';
+    return request<EscalaGestoresGrade>(`/escalas/visitas/gestores/cadastro/${id}${q}`, {
+      method: 'DELETE',
+    });
+  },
+  escalaPlanejamentoSemana: (params: { semana_inicio: string; id_loja?: number }) => {
+    const q = new URLSearchParams({ semana_inicio: params.semana_inicio });
+    if (params.id_loja) q.set('id_loja', String(params.id_loja));
+    return request<EscalaPlanejamentoGrade>(`/escalas/visitas/planejamento?${q}`);
+  },
+  escalaPlanejamentoCriar: (body: {
+    id_loja: number;
+    data: string;
+    tipo: EscalaPlanejamentoTipo;
+    observacao?: string;
+  }) =>
+    request<EscalaPlanejamentoGrade>('/escalas/visitas/planejamento', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  escalaPlanejamentoAtualizar: (
+    id: number,
+    body: Partial<{
+      id_loja: number;
+      data: string;
+      tipo: EscalaPlanejamentoTipo;
+      observacao: string;
+    }>,
+  ) =>
+    request<EscalaPlanejamentoGrade>(`/escalas/visitas/planejamento/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  escalaPlanejamentoExcluir: (id: number) =>
+    request<EscalaPlanejamentoGrade>(`/escalas/visitas/planejamento/${id}`, {
+      method: 'DELETE',
+    }),
   escalaManutencaoSemana: (semanaInicio: string) =>
     request<EscalaManutencaoGrade>(
       `/escalas/visitas/manutencao?semana_inicio=${encodeURIComponent(semanaInicio)}`,
@@ -3105,6 +3170,29 @@ export interface EscalaGestoresGrade {
   semana_fim: string;
   pode_editar: boolean;
   linhas: EscalaGestoresLinha[];
+}
+
+export type EscalaPlanejamentoTipo = 'audiencia' | 'reuniao' | 'congresso' | 'treinamento';
+
+export interface EscalaPlanejamentoEvento {
+  id_evento: number;
+  id_loja: number;
+  data: string;
+  tipo: EscalaPlanejamentoTipo;
+  observacao: string;
+  criado_por: number | null;
+  criado_por_nome?: string | null;
+  nome_loja?: string;
+  bk_number?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface EscalaPlanejamentoGrade {
+  semana_inicio: string;
+  semana_fim: string;
+  pode_editar: boolean;
+  eventos: EscalaPlanejamentoEvento[];
 }
 
 export interface EscalaManutencaoTecnico {

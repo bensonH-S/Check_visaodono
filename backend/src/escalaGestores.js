@@ -318,3 +318,82 @@ export async function salvarGradeGestores(user, body) {
   }
   return carregarGradeGestores(user, { semana_inicio: inicio });
 }
+
+export async function upsertGestorCadastro(user, body, { semana_inicio } = {}) {
+  if (!podeGerenciarEscalaVisitas(user)) {
+    throw Object.assign(new Error('Sem permissão para editar gestores'), { status: 403 });
+  }
+  await garantirSchemaGestores();
+  const idGestor = body?.id_gestor != null ? Number(body.id_gestor) : null;
+  const nome = String(body?.nome || '').trim().slice(0, 120);
+  const idLoja = body?.id_loja != null && body.id_loja !== '' ? Number(body.id_loja) : null;
+  const folgaPadrao =
+    body?.folga_padrao !== undefined
+      ? String(body.folga_padrao || '').trim() || null
+      : undefined;
+  const grupo = body?.grupo === 'campo' ? 'campo' : 'loja';
+  if (!nome) {
+    throw Object.assign(new Error('Informe o nome do gestor'), { status: 400 });
+  }
+
+  let bkNumber = body?.bk_number != null ? String(body.bk_number).trim() || null : null;
+  if (idLoja) {
+    const { rows } = await pool.query(
+      `SELECT id_loja, bk_number FROM lojas WHERE id_loja = $1 AND is_active = TRUE`,
+      [idLoja],
+    );
+    if (!rows[0]) {
+      throw Object.assign(new Error('Loja não encontrada'), { status: 404 });
+    }
+    bkNumber = rows[0].bk_number || bkNumber;
+  }
+
+  if (idGestor) {
+    const sets = ['nome = $2', 'id_loja = $3', 'bk_number = $4', 'grupo = $5'];
+    const params = [idGestor, nome, idLoja, bkNumber, grupo];
+    if (folgaPadrao !== undefined) {
+      params.push(folgaPadrao);
+      sets.push(`folga_padrao = $${params.length}`);
+    }
+    params.push(true);
+    sets.push(`ativo = $${params.length}`);
+    const { rowCount } = await pool.query(
+      `UPDATE escala_gestores SET ${sets.join(', ')} WHERE id_gestor = $1`,
+      params,
+    );
+    if (!rowCount) {
+      throw Object.assign(new Error('Gestor não encontrado'), { status: 404 });
+    }
+  } else {
+    const { rows: ord } = await pool.query(
+      `SELECT COALESCE(MAX(ordem), 0) + 1 AS prox FROM escala_gestores WHERE grupo = $1`,
+      [grupo],
+    );
+    await pool.query(
+      `INSERT INTO escala_gestores (id_loja, bk_number, nome, grupo, folga_padrao, ordem, ativo)
+       VALUES ($1, $2, $3, $4, $5, $6, TRUE)`,
+      [idLoja, bkNumber, nome, grupo, folgaPadrao ?? null, Number(ord[0]?.prox) || 1],
+    );
+  }
+
+  return carregarGradeGestores(user, { semana_inicio: semana_inicio || new Date() });
+}
+
+export async function desativarGestorCadastro(user, idGestor, { semana_inicio } = {}) {
+  if (!podeGerenciarEscalaVisitas(user)) {
+    throw Object.assign(new Error('Sem permissão para editar gestores'), { status: 403 });
+  }
+  await garantirSchemaGestores();
+  const id = Number(idGestor);
+  if (!id) {
+    throw Object.assign(new Error('Gestor inválido'), { status: 400 });
+  }
+  const { rowCount } = await pool.query(
+    `UPDATE escala_gestores SET ativo = FALSE WHERE id_gestor = $1`,
+    [id],
+  );
+  if (!rowCount) {
+    throw Object.assign(new Error('Gestor não encontrado'), { status: 404 });
+  }
+  return carregarGradeGestores(user, { semana_inicio: semana_inicio || new Date() });
+}

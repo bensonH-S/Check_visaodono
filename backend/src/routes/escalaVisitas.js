@@ -17,8 +17,19 @@ import {
   submeterEscalaDelivery,
   submeterEscalaRegiao,
 } from '../escalaVisitas.js';
-import { carregarGradeGestores, salvarGradeGestores } from '../escalaGestores.js';
+import {
+  carregarGradeGestores,
+  salvarGradeGestores,
+  upsertGestorCadastro,
+  desativarGestorCadastro,
+} from '../escalaGestores.js';
 import { carregarGradeManutencao, salvarGradeManutencao } from '../escalaManutencao.js';
+import {
+  listarPlanejamento,
+  criarEventoPlanejamento,
+  atualizarEventoPlanejamento,
+  excluirEventoPlanejamento,
+} from '../escalaPlanejamento.js';
 import { auditar } from '../auditoriaHelpers.js';
 
 const router = Router();
@@ -326,6 +337,113 @@ router.put('/gestores', async (req, res, next) => {
     });
     res.json(grade);
   } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/gestores/cadastro', async (req, res, next) => {
+  try {
+    const grade = await upsertGestorCadastro(req.user, req.body || {}, {
+      semana_inicio: req.body?.semana_inicio,
+    });
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'cadastrar_gestor_escala',
+      entidade: 'escala_gestores',
+      descricao: `Gestor ${req.body?.nome || ''} na escala`,
+    });
+    res.status(201).json(grade);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    return erroHttp(e, res, next);
+  }
+});
+
+router.patch('/gestores/cadastro/:id', async (req, res, next) => {
+  try {
+    const grade = await upsertGestorCadastro(
+      req.user,
+      { ...req.body, id_gestor: Number(req.params.id) },
+      { semana_inicio: req.body?.semana_inicio },
+    );
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'atualizar_gestor_escala',
+      entidade: 'escala_gestores',
+      idReferencia: Number(req.params.id),
+      descricao: `Gestor #${req.params.id} atualizado`,
+    });
+    res.json(grade);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    return erroHttp(e, res, next);
+  }
+});
+
+router.delete('/gestores/cadastro/:id', async (req, res, next) => {
+  try {
+    const grade = await desativarGestorCadastro(req.user, Number(req.params.id), {
+      semana_inicio: req.query.semana_inicio || req.body?.semana_inicio,
+    });
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'desativar_gestor_escala',
+      entidade: 'escala_gestores',
+      idReferencia: Number(req.params.id),
+      descricao: `Gestor #${req.params.id} desativado`,
+    });
+    res.json(grade);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    return erroHttp(e, res, next);
+  }
+});
+
+router.get('/planejamento', async (req, res, next) => {
+  try {
+    const semana_inicio = req.query.semana_inicio
+      ? segundaFeiraDaSemana(String(req.query.semana_inicio))
+      : segundaFeiraDaSemana(new Date());
+    const id_loja = req.query.id_loja ? Number(req.query.id_loja) : undefined;
+    res.json(await listarPlanejamento(req.user, { semana_inicio, id_loja }));
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/planejamento', async (req, res, next) => {
+  try {
+    const data = await criarEventoPlanejamento(req.user, req.body || {});
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'criar_evento_planejamento',
+      entidade: 'escala_planejamento_evento',
+      descricao: `Evento ${req.body?.tipo || ''} em ${req.body?.data || ''}`,
+    });
+    res.status(201).json(data);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    return erroHttp(e, res, next);
+  }
+});
+
+router.patch('/planejamento/:id', async (req, res, next) => {
+  try {
+    const data = await atualizarEventoPlanejamento(req.user, Number(req.params.id), req.body || {});
+    res.json(data);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    return erroHttp(e, res, next);
+  }
+});
+
+router.delete('/planejamento/:id', async (req, res, next) => {
+  try {
+    const data = await excluirEventoPlanejamento(req.user, Number(req.params.id));
+    res.json(data);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
     return erroHttp(e, res, next);
   }
 });

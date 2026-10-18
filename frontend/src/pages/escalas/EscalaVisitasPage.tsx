@@ -27,6 +27,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import SaveIcon from '@mui/icons-material/Save';
 import SendIcon from '@mui/icons-material/Send';
 import IosShareIcon from '@mui/icons-material/IosShare';
+import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
 import UndoIcon from '@mui/icons-material/Undo';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -40,6 +41,9 @@ import {
   type EscalaVisitasGrade,
   type EscalaVisitasLinha,
   type EscalaVisitasRegiaoStatusCodigo,
+  type EscalaPlanejamentoEvento,
+  type EscalaPlanejamentoTipo,
+  type Loja,
 } from '../../api/client';
 import { getUsuario, podeEditarEscalaDelivery, podeEditarEscalaRegiao, podeGerenciarEscalaVisitas, podeVerEscalaGestores, podeVerEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
@@ -53,9 +57,12 @@ import { agruparAgendaPorRegional, montarAgendaManutencao, montarAgendaPorPessoa
 import EscalaAgendaPessoas from '../../components/escalas/EscalaAgendaPessoas';
 import EscalaAgendaPorRegional from '../../components/escalas/EscalaAgendaPorRegional';
 import EscalaCelulaGrade from '../../components/escalas/EscalaCelulaGrade';
+import EscalaCelulaEvento from '../../components/escalas/EscalaCelulaEvento';
 import LojaBkMarca from '../../components/escalas/LojaBkMarca';
 import { gerarPngEscala } from '../../utils/gerarPngEscala';
 import { gerarPngEscalaGestores } from '../../utils/gerarPngEscalaGestores';
+import EscalaGestorCadastroDialog from '../../components/escalas/EscalaGestorCadastroDialog';
+import EscalaPlanejamentoPanel from '../../components/escalas/EscalaPlanejamentoPanel';
 import {
   addDaysIso,
   agruparRegionaisEscala,
@@ -371,11 +378,21 @@ export default function EscalaVisitasPage() {
   const [salvando, setSalvando] = useState(false);
   const [exportandoPdf, setExportandoPdf] = useState(false);
   const [pending, setPending] = useState<PendingMap>(new Map());
-  const [aba, setAba] = useState<'visitas' | 'delivery' | 'gestores' | 'manutencao'>(
+  const [aba, setAba] = useState<'visitas' | 'delivery' | 'gestores' | 'manutencao' | 'planejamento'>(
     ehGestorOnly ? 'gestores' : ehDeliveryOnly ? 'delivery' : 'visitas',
   );
   const [visaoVisitas, setVisaoVisitas] = useState<'agenda' | 'grade'>(ehDiretor ? 'agenda' : 'grade');
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
+  const [lojasGestores, setLojasGestores] = useState<Loja[]>([]);
+  const [gestorDialog, setGestorDialog] = useState<{
+    id_gestor?: number;
+    nome?: string;
+    id_loja?: number | null;
+    folga_padrao?: string | null;
+  } | null>(null);
+  const [eventosGrade, setEventosGrade] = useState<EscalaPlanejamentoEvento[]>([]);
+  const [podeEditarEventos, setPodeEditarEventos] = useState(false);
+  const [idLojaEventos, setIdLojaEventos] = useState<number | null>(null);
   const [manutencao, setManutencao] = useState<EscalaManutencaoGrade | null>(null);
   const [idTecnicoManut, setIdTecnicoManut] = useState<number | null>(null);
   const [idRegiaoManut, setIdRegiaoManut] = useState<number | 'sem' | null>(null);
@@ -480,6 +497,35 @@ export default function EscalaVisitasPage() {
     void carregarGestores();
   }, [carregarGestores]);
 
+  const carregarEventosGrade = useCallback(async () => {
+    if (!podeVerVisitas && !podeVerGestoresTab) return;
+    try {
+      const data = await api.escalaPlanejamentoSemana({ semana_inicio: semanaInicio });
+      setEventosGrade(data.eventos || []);
+      setPodeEditarEventos(Boolean(data.pode_editar));
+      const taquariEv = (data.eventos || []).find((e) => String(e.bk_number || '') === '34390');
+      if (taquariEv) setIdLojaEventos(taquariEv.id_loja);
+    } catch {
+      setEventosGrade([]);
+      setPodeEditarEventos(false);
+    }
+  }, [semanaInicio, podeVerVisitas, podeVerGestoresTab]);
+
+  useEffect(() => {
+    void carregarEventosGrade();
+  }, [carregarEventosGrade]);
+
+  useEffect(() => {
+    if (idLojaEventos != null) return;
+    const daLista = lojasGestores.find((l) => String(l.bk_number || '') === '34390');
+    if (daLista) {
+      setIdLojaEventos(daLista.id_loja);
+      return;
+    }
+    const daGrade = (grade?.linhas ?? []).find((l) => String(l.bk_number || '') === '34390');
+    if (daGrade) setIdLojaEventos(daGrade.id_loja);
+  }, [idLojaEventos, lojasGestores, grade?.linhas]);
+
   useEffect(() => {
     void carregarManutencao();
   }, [carregarManutencao]);
@@ -515,11 +561,104 @@ export default function EscalaVisitasPage() {
     if (ehRegional && idEu != null) setIdUsuarioFiltro(Number(idEu));
   }, [ehRegional, idEu, grade?.id_semana, idRegiao]);
 
-  function abrirAba(proxima: 'visitas' | 'delivery' | 'gestores' | 'manutencao') {
+  useEffect(() => {
+    if (aba !== 'gestores' && aba !== 'planejamento' && aba !== 'visitas') return;
+    void (async () => {
+      try {
+        const lista = await api.lojas({ ativas: true, operacionais: true });
+        setLojasGestores(Array.isArray(lista) ? lista : []);
+      } catch {
+        setLojasGestores([]);
+      }
+    })();
+  }, [aba]);
+
+  function abrirAba(proxima: 'visitas' | 'delivery' | 'gestores' | 'manutencao' | 'planejamento') {
     setAba(proxima);
     if (proxima === 'delivery') {
       setIdEnvio(null);
       setIdUsuarioFiltro(ehRegional && idEu != null ? Number(idEu) : null);
+    }
+  }
+
+  async function salvarCadastroGestor(payload: {
+    id_gestor?: number;
+    nome: string;
+    id_loja: number | null;
+    folga_padrao: string | null;
+  }) {
+    try {
+      const data = payload.id_gestor
+        ? await api.escalaGestorAtualizar(payload.id_gestor, {
+            semana_inicio: semanaInicio,
+            nome: payload.nome,
+            id_loja: payload.id_loja,
+            folga_padrao: payload.folga_padrao,
+          })
+        : await api.escalaGestorCadastrar({
+            semana_inicio: semanaInicio,
+            nome: payload.nome,
+            id_loja: payload.id_loja,
+            folga_padrao: payload.folga_padrao,
+          });
+      setGestores(data);
+      showToast(payload.id_gestor ? 'Gestor atualizado' : 'Gestor adicionado', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar gestor', 'error');
+      throw e;
+    }
+  }
+
+  async function desativarCadastroGestor(idGestor: number) {
+    try {
+      const data = await api.escalaGestorDesativar(idGestor, semanaInicio);
+      setGestores(data);
+      showToast('Gestor removido da escala', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao remover gestor', 'error');
+      throw e;
+    }
+  }
+
+  function tiposEventoDoDia(dia: number): EscalaPlanejamentoTipo[] {
+    const data = addDaysIso(semanaInicio, dia);
+    const set = new Set<EscalaPlanejamentoTipo>();
+    for (const ev of eventosGrade) {
+      if (String(ev.data).slice(0, 10) === data) set.add(ev.tipo);
+    }
+    return [...set];
+  }
+
+  async function alterarTiposEventoDia(dia: number, tipos: EscalaPlanejamentoTipo[]) {
+    if (!podeEditarEventos) return;
+    if (idLojaEventos == null) {
+      showToast('Cadastre a loja Taquari (BKN 34390) para lançar eventos', 'error');
+      return;
+    }
+    const data = addDaysIso(semanaInicio, dia);
+    const atuais = eventosGrade.filter((e) => String(e.data).slice(0, 10) === data);
+    const tiposAtuais = new Set(atuais.map((e) => e.tipo));
+    const desejados = new Set(tipos);
+
+    try {
+      for (const ev of atuais) {
+        if (!desejados.has(ev.tipo)) {
+          await api.escalaPlanejamentoExcluir(ev.id_evento);
+        }
+      }
+      for (const tipo of desejados) {
+        if (!tiposAtuais.has(tipo)) {
+          await api.escalaPlanejamentoCriar({
+            id_loja: idLojaEventos,
+            data,
+            tipo,
+          });
+        }
+      }
+      await carregarEventosGrade();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao salvar evento', 'error');
+      await carregarEventosGrade();
     }
   }
 
@@ -1201,7 +1340,7 @@ export default function EscalaVisitasPage() {
               exclusive
               size="small"
               value={aba}
-              onChange={(_, v: 'visitas' | 'delivery' | 'gestores' | 'manutencao' | null) => {
+              onChange={(_, v: 'visitas' | 'delivery' | 'gestores' | 'manutencao' | 'planejamento' | null) => {
                 if (v) abrirAba(v);
               }}
               sx={{
@@ -1230,6 +1369,9 @@ export default function EscalaVisitasPage() {
               {podeVerVisitas && !ehDeliveryOnly && <ToggleButton value="visitas">Visitas</ToggleButton>}
               {podeVerVisitas && <ToggleButton value="delivery">Delivery</ToggleButton>}
               {!ehDeliveryOnly && podeVerGestoresTab && <ToggleButton value="gestores">Gestores</ToggleButton>}
+              {!ehDeliveryOnly && podeVerGestoresTab && (
+                <ToggleButton value="planejamento">Eventos</ToggleButton>
+              )}
               {!ehDeliveryOnly && podeVerVisitas && <ToggleButton value="manutencao">Manutenção</ToggleButton>}
             </ToggleButtonGroup>
             {aba === 'visitas' && !ehDeliveryOnly && (
@@ -1355,32 +1497,44 @@ export default function EscalaVisitasPage() {
               </Button>
             )}
             {aba === 'gestores' && !ehDeliveryOnly && (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<IosShareIcon />}
-                disabled={exportandoPdf || !linhasGestores.length}
-                onClick={() => {
-                  void (async () => {
-                    if (!linhasGestores.length) return;
-                    setExportandoPdf(true);
-                    try {
-                      await gerarPngEscalaGestores({
-                        linhas: linhasGestores,
-                        semanaInicio,
-                        semanaLabel: grade?.semana_label,
-                        asShare: false,
-                      });
-                    } catch (e) {
-                      showToast(e instanceof Error ? e.message : 'Erro ao gerar imagem', 'error');
-                    } finally {
-                      setExportandoPdf(false);
-                    }
-                  })();
-                }}
-              >
-                {exportandoPdf ? 'Gerando…' : 'PNG'}
-              </Button>
+              <>
+                {gestores?.pode_editar ? (
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<AddIcon />}
+                    onClick={() => setGestorDialog({})}
+                  >
+                    Gestor
+                  </Button>
+                ) : null}
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<IosShareIcon />}
+                  disabled={exportandoPdf || !linhasGestores.length}
+                  onClick={() => {
+                    void (async () => {
+                      if (!linhasGestores.length) return;
+                      setExportandoPdf(true);
+                      try {
+                        await gerarPngEscalaGestores({
+                          linhas: linhasGestores,
+                          semanaInicio,
+                          semanaLabel: grade?.semana_label,
+                          asShare: false,
+                        });
+                      } catch (e) {
+                        showToast(e instanceof Error ? e.message : 'Erro ao gerar imagem', 'error');
+                      } finally {
+                        setExportandoPdf(false);
+                      }
+                    })();
+                  }}
+                >
+                  {exportandoPdf ? 'Gerando…' : 'PNG'}
+                </Button>
+              </>
             )}
             {aba === 'manutencao' && !ehDeliveryOnly && (
               <Button
@@ -2012,8 +2166,19 @@ export default function EscalaVisitasPage() {
 
       {(salvando || (loading && !!grade)) && <LinearProgress />}
 
-      {loading && !grade && aba !== 'gestores' && aba !== 'manutencao' ? (
+      {loading && !grade && aba !== 'gestores' && aba !== 'manutencao' && aba !== 'planejamento' ? (
         <PageLoading />
+      ) : aba === 'planejamento' ? (
+        <EscalaPlanejamentoPanel
+          semanaInicio={semanaInicio}
+          lojas={lojasGestores}
+          colors={{
+            surface: colors.surface,
+            border: colors.border,
+            textSecondary: colors.textSecondary,
+            canvasAlt: colors.canvasAlt,
+          }}
+        />
       ) : aba === 'gestores' ? (
         <Paper
           sx={{
@@ -2026,7 +2191,14 @@ export default function EscalaVisitasPage() {
         >
           {!linhasGestores.length ? (
             <Box sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary">Nenhum gestor cadastrado nesta escala.</Typography>
+              <Typography color="text.secondary" sx={{ mb: 1.5 }}>
+                Nenhum gestor cadastrado nesta escala.
+              </Typography>
+              {gestores?.pode_editar ? (
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => setGestorDialog({})}>
+                  Adicionar gestor
+                </Button>
+              ) : null}
             </Box>
           ) : (
             <TableContainer sx={{ ...tableContainerSx, flex: 1 }}>
@@ -2094,7 +2266,26 @@ export default function EscalaVisitasPage() {
                           borderBottom: `1px solid ${colors.border}`,
                         }}
                       >
-                        <Typography sx={{ fontWeight: 700, fontSize: '0.84rem', lineHeight: 1.2 }}>
+                        <Typography
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: '0.84rem',
+                            lineHeight: 1.2,
+                            cursor: gestores?.pode_editar ? 'pointer' : 'default',
+                            textDecoration: gestores?.pode_editar ? 'underline dotted' : 'none',
+                            textUnderlineOffset: 3,
+                          }}
+                          onClick={() => {
+                            if (!gestores?.pode_editar) return;
+                            setGestorDialog({
+                              id_gestor: linha.id_gestor,
+                              nome: linha.nome,
+                              id_loja: linha.id_loja,
+                              folga_padrao: linha.folga_padrao,
+                            });
+                          }}
+                          title={gestores?.pode_editar ? 'Clique para alterar o gestor' : undefined}
+                        >
                           {linha.nome}
                         </Typography>
                         {linha.nome_loja ? (
@@ -2210,7 +2401,8 @@ export default function EscalaVisitasPage() {
           )}
           {gestores?.pode_editar && linhasGestores.length > 0 && (
             <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
-              A seta ao lado do horário abre Folga, Férias, Atestado ou Falta. O turno continua numa linha só.
+              Clique no nome do gestor para alterar ou remover. Use + Gestor para incluir outro. A seta no horário abre
+              Folga, Férias, Atestado ou Falta.
             </Typography>
           )}
         </Paper>
@@ -2669,6 +2861,55 @@ export default function EscalaVisitasPage() {
                     </TableCell>
                   </TableRow>
                 ))}
+                {/* Linha virtual de Eventos — mesmo padrão de card da loja */}
+                {(linhasVisitasComTotais.length > 0 || podeEditarEventos) && (
+                  <TableRow
+                    sx={{
+                      bgcolor: escuro ? 'rgba(124, 58, 237, 0.08)' : 'rgba(124, 58, 237, 0.04)',
+                    }}
+                  >
+                    <TableCell
+                      sx={{
+                        fontWeight: 700,
+                        position: 'sticky',
+                        left: 0,
+                        bgcolor: 'inherit',
+                        zIndex: 1,
+                        color: colors.textSecondary,
+                        fontSize: '0.75rem',
+                      }}
+                    >
+                      —
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        position: 'sticky',
+                        left: COL_BKN_WIDTH,
+                        bgcolor: 'inherit',
+                        zIndex: 1,
+                      }}
+                    >
+                      <Typography sx={{ fontWeight: 800, fontSize: '0.88rem', lineHeight: 1.2 }}>
+                        Eventos
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        Audiência · Reunião · Congresso · Treinamento
+                      </Typography>
+                    </TableCell>
+                    {DIAS.map((_, dia) => (
+                      <TableCell key={`evento-${dia}`} align="center" sx={{ p: 0.5, verticalAlign: 'top' }}>
+                        <EscalaCelulaEvento
+                          tipos={tiposEventoDoDia(dia)}
+                          editavel={podeEditarEventos}
+                          onChange={(tipos) => void alterarTiposEventoDia(dia, tipos)}
+                        />
+                      </TableCell>
+                    ))}
+                    <TableCell align="center" sx={{ fontWeight: 700 }}>
+                      {eventosGrade.length || '—'}
+                    </TableCell>
+                  </TableRow>
+                )}
                 {!linhasVisitasComTotais.length && (
                   <TableRow>
                     <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
@@ -2696,7 +2937,7 @@ export default function EscalaVisitasPage() {
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           {visaoVisitas === 'agenda'
             ? 'Semana mostra quem visita cada loja. Use Por loja para editar a grade.'
-            : 'Clique na célula para atribuir. Salve quando terminar.'}
+            : 'Clique na célula para atribuir. Na última linha (Eventos), escolha o tipo no card. Salve quando terminar.'}
         </Typography>
       )}
       {!loading && ehDeliveryOnly && (
@@ -2709,6 +2950,15 @@ export default function EscalaVisitasPage() {
           Toque na célula para marcar sua visita. Só entram diretor, regionais e marketing.
         </Typography>
       )}
+      <EscalaGestorCadastroDialog
+        open={gestorDialog != null}
+        onClose={() => setGestorDialog(null)}
+        lojas={lojasGestores}
+        initial={gestorDialog}
+        onSalvar={salvarCadastroGestor}
+        onDesativar={desativarCadastroGestor}
+      />
+
       {!loading && aba === 'manutencao' && podeEditarTecnicoManut(idTecnicoManut) && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           {manutencao?.escopo === 'regiao'
