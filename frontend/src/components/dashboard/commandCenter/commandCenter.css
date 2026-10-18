@@ -2,8 +2,14 @@
 
 /* O Command Center usa o tema global do portal, igual às outras telas. */
 .cc-page .cc-page-main {
-  height: 100%;
+  flex: 1 1 auto;
   min-height: 0;
+}
+
+@media (min-width: 900px) {
+  .cc-page .cc-page-main {
+    overflow: hidden;
+  }
 }
 
 .cc-page .MuiTableCell-head {

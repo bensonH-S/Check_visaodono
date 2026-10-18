@@ -578,7 +578,7 @@ function PortalLayoutInner() {
 
         <Box
           component="main"
-          className={`flex-1 min-h-0 flex flex-col ${scrollInterno || emConfiguracoes ? 'overflow-hidden' : 'overflow-y-auto'}`}
+          className={`flex-1 min-h-0 flex flex-col ${isDashboard ? 'overflow-y-auto md:overflow-hidden' : scrollInterno || emConfiguracoes ? 'overflow-hidden' : 'overflow-y-auto'}`}
           sx={emConfiguracoes ? {
             p: 0,
             pb: mobileTabsRodape.length > 0 ? { xs: safeAreaBottomCalc(64), md: 0 } : 0,

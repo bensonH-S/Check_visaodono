@@ -2,8 +2,8 @@ import Box from '@mui/material/Box';
 import IndicadoresPage from './IndicadoresPage';
 
 /**
- * Command Center = painel de Indicadores (vendas, CMV por loja, canais, estimativa).
- * Preenche a altura do layout; o scroll fica dentro dos painéis quando a tela é baixa.
+ * Command Center = painel de Indicadores.
+ * Ocupa a área útil e não rola a página: a lista longa rola dentro do card.
  */
 export default function DashboardPage() {
   return (
@@ -11,12 +11,11 @@ export default function DashboardPage() {
       className="cc-page-main"
       sx={{
         width: '100%',
-        height: '100%',
-        minHeight: 0,
-        flex: 1,
+        flex: { xs: '0 0 auto', md: 1 },
+        minHeight: { md: 0 },
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden',
+        overflow: { xs: 'visible', md: 'hidden' },
       }}
     >
       <IndicadoresPage embedded />
