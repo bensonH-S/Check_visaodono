@@ -297,6 +297,7 @@ export const api = {
     status?: TiTicket['status'];
     origem?: TiTicket['origem'];
     responsavel_id?: number | null;
+    prazo?: string | null;
   }) =>
     request<TiTicket>('/ti-tickets', { method: 'POST', body: JSON.stringify(body) }),
   tiTicketAtualizar: (id: number, body: Partial<TiTicket>) =>
@@ -4273,6 +4274,8 @@ export interface TiTicket {
   status: 'chamado' | 'fazer' | 'pendente' | 'feito';
   prioridade: 'baixa' | 'media' | 'alta' | 'urgente';
   area: string;
+  categoria_label?: string;
+  sla_dias_uteis?: number;
   origem: 'colaborador' | 'mesa' | 'interno';
   criado_por: number | null;
   criado_por_nome: string | null;

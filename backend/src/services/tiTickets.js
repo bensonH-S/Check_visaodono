@@ -3,6 +3,41 @@ import { temPermissao } from '../permissoes.js';
 
 export const STATUS_TICKET = ['chamado', 'fazer', 'pendente', 'feito'];
 export const PRIORIDADES = ['baixa', 'media', 'alta', 'urgente'];
+export const CATEGORIAS_TICKET = [
+  { id: 'geral', label: 'Geral', slaDiasUteis: 3 },
+  { id: 'tecnologia', label: 'Tecnologia', slaDiasUteis: 2 },
+  { id: 'financeiro', label: 'Financeiro', slaDiasUteis: 2 },
+  { id: 'operacoes', label: 'Operações', slaDiasUteis: 1 },
+  { id: 'frota', label: 'Frota', slaDiasUteis: 2 },
+  { id: 'vendas', label: 'Vendas', slaDiasUteis: 2 },
+  { id: 'estoque', label: 'Estoque', slaDiasUteis: 1 },
+  { id: 'manutencao', label: 'Manutenção', slaDiasUteis: 2 },
+  { id: 'rh', label: 'Recursos Humanos', slaDiasUteis: 3 },
+];
+
+const CATEGORIA_POR_ID = new Map(CATEGORIAS_TICKET.map((categoria) => [categoria.id, categoria]));
+
+function normalizarCategoria(valor) {
+  const id = String(valor || 'geral').trim().toLowerCase();
+  return CATEGORIA_POR_ID.has(id) ? id : 'geral';
+}
+
+function adicionarDiasUteis(dataBase, quantidade) {
+  const data = new Date(dataBase);
+  data.setUTCHours(12, 0, 0, 0);
+  let adicionados = 0;
+  while (adicionados < quantidade) {
+    data.setUTCDate(data.getUTCDate() + 1);
+    const dia = data.getUTCDay();
+    if (dia !== 0 && dia !== 6) adicionados += 1;
+  }
+  return data.toISOString().slice(0, 10);
+}
+
+function calcularPrazoSla(categoria, dataBase = new Date()) {
+  const config = CATEGORIA_POR_ID.get(normalizarCategoria(categoria)) || CATEGORIA_POR_ID.get('geral');
+  return adicionarDiasUteis(dataBase, config.slaDiasUteis);
+}
 
 const TICKET_SELECT = `
   t.id_ticket,
@@ -62,6 +97,8 @@ export async function usuarioPodeAbrirTicket(user) {
 function mapTicket(row) {
   if (!row) return null;
   const status = row.status === 'backlog' ? 'chamado' : row.status;
+  const categoria = normalizarCategoria(row.area);
+  const categoriaConfig = CATEGORIA_POR_ID.get(categoria);
   const prazo =
     row.prazo == null
       ? null
@@ -74,7 +111,9 @@ function mapTicket(row) {
     descricao: row.descricao || '',
     status,
     prioridade: row.prioridade,
-    area: row.area,
+    area: categoria,
+    categoria_label: categoriaConfig?.label || 'Geral',
+    sla_dias_uteis: categoriaConfig?.slaDiasUteis || 3,
     origem: row.origem,
     criado_por: row.criado_por != null ? Number(row.criado_por) : null,
     criado_por_nome: row.criado_por_nome || null,
@@ -151,8 +190,9 @@ export async function listarBoard() {
          WHEN 'feito' THEN 3
          ELSE 9
        END,
+       CASE WHEN t.status IN ('chamado', 'backlog') THEN t.created_at END DESC,
        t.ordem ASC,
-       t.id_ticket ASC`,
+       t.id_ticket DESC`,
   );
   return rows.map(mapTicket);
 }
@@ -204,7 +244,8 @@ export async function criarTicket({
 }) {
   const st = STATUS_TICKET.includes(status) ? status : 'chamado';
   const pr = PRIORIDADES.includes(prioridade) ? prioridade : 'media';
-  const pz = normalizarPrazo(prazo) ?? null;
+  const categoria = normalizarCategoria(area);
+  const pz = normalizarPrazo(prazo) ?? calcularPrazoSla(categoria);
   const { rows: ord } = await pool.query(
     `SELECT COALESCE(MAX(ordem), 0) + 1 AS prox FROM ti_tickets WHERE status = $1`,
     [st],
@@ -220,7 +261,7 @@ export async function criarTicket({
       descricao != null ? String(descricao).trim() : null,
       st,
       pr,
-      String(area || 'geral').slice(0, 40),
+      categoria,
       origem,
       criado_por || null,
       responsavel_id || null,
@@ -244,7 +285,7 @@ export async function atualizarTicket(id, patch, { notificarPor } = {}) {
   const status = patch.status && STATUS_TICKET.includes(patch.status) ? patch.status : atual.status;
   const prioridade =
     patch.prioridade && PRIORIDADES.includes(patch.prioridade) ? patch.prioridade : atual.prioridade;
-  const area = patch.area != null ? String(patch.area).slice(0, 40) : atual.area;
+  const area = patch.area != null ? normalizarCategoria(patch.area) : atual.area;
   const responsavel_id =
     patch.responsavel_id !== undefined
       ? patch.responsavel_id == null

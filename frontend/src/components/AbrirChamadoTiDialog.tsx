@@ -17,21 +17,17 @@ import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import Tooltip from '@mui/material/Tooltip';
 import { api, type TiTicket } from '../api/client';
 import { getUsuario, podeAbrirTicketTi } from '../lib/auth';
-import { formatDataHoraBrasilia } from '../utils/dateBr';
+import { formatDataHoraBrasilia, formatDataSomenteData } from '../utils/dateBr';
+import {
+  calcularPrazoSlaTicket,
+  categoriaTicket,
+  TI_TICKET_CATEGORIAS,
+} from '../constants/tiTickets';
 
 type Props = {
   /** Só o botão do header; o dialog fica interno. */
   variante?: 'portal' | 'icone';
 };
-
-const AREAS = [
-  { value: 'geral', label: 'Geral' },
-  { value: 'tecnologia', label: 'Tecnologia' },
-  { value: 'financeiro', label: 'Financeiro' },
-  { value: 'operacoes', label: 'Operações' },
-  { value: 'manutencao', label: 'Manutenção' },
-  { value: 'rh', label: 'RH' },
-];
 
 export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
   const user = getUsuario();
@@ -49,6 +45,8 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
   const [avaliarId, setAvaliarId] = useState<number | null>(null);
   const [nota, setNota] = useState<number | null>(5);
   const [comentarioAval, setComentarioAval] = useState('');
+  const categoriaAtual = categoriaTicket(area);
+  const prazoPrevisto = calcularPrazoSlaTicket(area);
 
   const carregarMeus = useCallback(async () => {
     try {
@@ -79,7 +77,7 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
         area,
         prioridade: prioridade as TiTicket['prioridade'],
       });
-      setOk('Chamado enviado ao TI.');
+      setOk(`Ticket aberto com prazo previsto para ${formatDataSomenteData(prazoPrevisto)}.`);
       setTitulo('');
       setDescricao('');
       setArea('geral');
@@ -115,10 +113,10 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
 
   return (
     <>
-      <Tooltip title="Chamado TI">
+      <Tooltip title="Abrir ticket">
         <IconButton
           size="small"
-          aria-label="Abrir chamado TI"
+          aria-label="Abrir ticket"
           onClick={() => {
             setAberto(true);
             setErro('');
@@ -138,7 +136,7 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
       </Tooltip>
 
       <Dialog open={aberto} onClose={() => setAberto(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Chamado para o TI</DialogTitle>
+        <DialogTitle>Abrir ticket</DialogTitle>
         <DialogContent>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 1.5 }}>
             <Tab label="Abrir" />
@@ -148,7 +146,7 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
           {tab === 0 ? (
             <Stack spacing={1.5}>
               <Typography variant="body2" color="text.secondary">
-                Descreva o problema ou a demanda. O time de TI recebe na coluna Chamados.
+                Descreva a demanda e escolha a categoria. O prazo é calculado automaticamente pelo SLA.
               </Typography>
               <TextField
                 label="Título"
@@ -168,12 +166,12 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
               <Stack direction="row" spacing={1}>
                 <TextField
                   select
-                  label="Área"
+                  label="Categoria"
                   fullWidth
                   value={area}
                   onChange={(e) => setArea(e.target.value)}
                 >
-                  {AREAS.map((a) => (
+                  {TI_TICKET_CATEGORIAS.map((a) => (
                     <MenuItem key={a.value} value={a.value}>
                       {a.label}
                     </MenuItem>
@@ -192,6 +190,24 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
                   <MenuItem value="urgente">Urgente</MenuItem>
                 </TextField>
               </Stack>
+              <Box
+                sx={{
+                  px: 1.5,
+                  py: 1.25,
+                  borderRadius: 1.5,
+                  bgcolor: 'action.hover',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                }}
+              >
+                <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
+                  SLA · {categoriaAtual.slaDiasUteis}{' '}
+                  {categoriaAtual.slaDiasUteis === 1 ? 'dia útil' : 'dias úteis'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Prazo previsto para conclusão: {formatDataSomenteData(prazoPrevisto)}
+                </Typography>
+              </Box>
             </Stack>
           ) : (
             <Stack spacing={1}>
@@ -214,6 +230,11 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
                     <Typography variant="caption" color="text.secondary">
                       #{t.id_ticket} · {statusLabel[t.status] || t.status} ·{' '}
                       {formatDataHoraBrasilia(t.created_at)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      {t.categoria_label || categoriaTicket(t.area).label}
+                      {t.prazo ? ` · Prazo ${formatDataSomenteData(t.prazo)}` : ''}
+                      {t.concluido_em ? ` · Concluído em ${formatDataHoraBrasilia(t.concluido_em)}` : ''}
                     </Typography>
                     {t.status === 'feito' && !t.avaliacao ? (
                       <Button

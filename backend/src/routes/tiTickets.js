@@ -84,6 +84,7 @@ router.post('/', requireAbrir, async (req, res, next) => {
       origem: gerenciar && req.body?.origem ? req.body.origem : 'colaborador',
       criado_por: req.user.sub,
       responsavel_id: gerenciar ? req.body?.responsavel_id || null : null,
+      prazo: gerenciar ? req.body?.prazo || null : null,
     });
     res.status(201).json(ticket);
   } catch (e) {

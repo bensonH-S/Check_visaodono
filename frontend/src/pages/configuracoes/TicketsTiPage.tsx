@@ -19,6 +19,8 @@ import AddIcon from '@mui/icons-material/Add';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
+import NotificationsActiveRoundedIcon from '@mui/icons-material/NotificationsActiveRounded';
+import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded';
 import {
   api,
   type TiTicket,
@@ -31,6 +33,11 @@ import { configPageSx } from './configPageSx';
 import { formatDataHoraBrasilia, formatDataSomenteData } from '../../utils/dateBr';
 import { showToast } from '../../utils/toast';
 import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
+import {
+  calcularPrazoSlaTicket,
+  categoriaTicket,
+  TI_TICKET_CATEGORIAS,
+} from '../../constants/tiTickets';
 
 type UsuarioOpcao = {
   id_usuario: number;
@@ -83,23 +90,41 @@ function AvatarResp({
   );
 }
 
-function prazoInfo(prazo: string | null | undefined) {
-  if (!prazo) return null;
+function prazoInfo(ticket: TiTicket) {
+  if (ticket.status === 'feito') {
+    const foraDoSla =
+      Boolean(ticket.concluido_em && ticket.prazo) &&
+      new Date(ticket.concluido_em as string).getTime() >
+        new Date(`${ticket.prazo}T23:59:59`).getTime();
+    return {
+      tom: foraDoSla ? '#d97706' : '#16a34a',
+      label: ticket.concluido_em
+        ? `Concluído ${formatDataSomenteData(ticket.concluido_em)}${foraDoSla ? ' · fora do SLA' : ''}`
+        : 'Concluído',
+    };
+  }
+  if (!ticket.prazo) return null;
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
-  const d = new Date(`${prazo}T12:00:00`);
+  const d = new Date(`${ticket.prazo}T12:00:00`);
   const diff = Math.round((d.getTime() - hoje.getTime()) / 86400000);
-  if (diff < 0) return { tom: '#dc2626', label: `Atrasado · ${formatDataSomenteData(prazo)}` };
+  if (diff < 0) return { tom: '#dc2626', label: `Atrasado · ${formatDataSomenteData(ticket.prazo)}` };
   if (diff === 0) return { tom: '#d97706', label: 'Prazo hoje' };
-  if (diff <= 2) return { tom: '#d97706', label: formatDataSomenteData(prazo) };
-  return { tom: FIN_MUTED, label: formatDataSomenteData(prazo) };
+  if (diff <= 2) return { tom: '#d97706', label: formatDataSomenteData(ticket.prazo) };
+  return { tom: FIN_MUTED, label: formatDataSomenteData(ticket.prazo) };
+}
+
+function chamadoNovo(ticket: TiTicket) {
+  if (ticket.status !== 'chamado') return false;
+  const abertoEm = new Date(ticket.created_at).getTime();
+  return Number.isFinite(abertoEm) && Date.now() - abertoEm <= 24 * 60 * 60 * 1000;
 }
 
 const COLUNAS: { id: TiTicket['status']; label: string; cor: string }[] = [
   { id: 'chamado', label: 'Chamados', cor: '#f59e0b' },
-  { id: 'fazer', label: 'Pra fazer', cor: '#3b82f6' },
+  { id: 'fazer', label: 'Em andamento', cor: '#3b82f6' },
   { id: 'pendente', label: 'Pendentes', cor: '#a855f7' },
-  { id: 'feito', label: 'Feitos', cor: '#22c55e' },
+  { id: 'feito', label: 'Concluídos', cor: '#22c55e' },
 ];
 
 /** finCampoSx trava altura — multiline precisa soltar height/overflow. */
@@ -127,17 +152,20 @@ const PRIORIDADE_COR: Record<string, string> = {
   urgente: '#ef4444',
 };
 
-const AREAS = [
-  'geral',
-  'tecnologia',
-  'financeiro',
-  'operacoes',
-  'manutencao',
-  'rh',
-];
-
 function prioridadeLabel(p: string) {
   return ({ baixa: 'Baixa', media: 'Média', alta: 'Alta', urgente: 'Urgente' } as Record<string, string>)[p] || p;
+}
+
+function novoFormTicket() {
+  const area = 'tecnologia';
+  return {
+    titulo: '',
+    descricao: '',
+    prioridade: 'media',
+    area,
+    prazo: calcularPrazoSlaTicket(area),
+    status: 'chamado' as TiTicket['status'],
+  };
 }
 
 export default function TicketsTiPage() {
@@ -154,13 +182,7 @@ export default function TicketsTiPage() {
   const [usuarios, setUsuarios] = useState<UsuarioOpcao[]>([]);
   const [novoAcessoId, setNovoAcessoId] = useState('');
   const [criarAberto, setCriarAberto] = useState(false);
-  const [form, setForm] = useState({
-    titulo: '',
-    descricao: '',
-    prioridade: 'media',
-    area: 'tecnologia',
-    status: 'chamado' as TiTicket['status'],
-  });
+  const [form, setForm] = useState(novoFormTicket);
   const [dragId, setDragId] = useState<number | null>(null);
 
   const carregar = useCallback(async () => {
@@ -184,6 +206,13 @@ export default function TicketsTiPage() {
       .catch(() => setUsuarios([]));
   }, [carregar]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      api.tiTicketsBoard().then(setTickets).catch(() => undefined);
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return tickets.filter((t) => {
@@ -204,6 +233,14 @@ export default function TicketsTiPage() {
     for (const t of filtrados) {
       (map[t.status] || map.chamado).push(t);
     }
+    map.chamado.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    );
+    map.feito.sort(
+      (a, b) =>
+        new Date(b.concluido_em || b.updated_at).getTime() -
+        new Date(a.concluido_em || a.updated_at).getTime(),
+    );
     return map;
   }, [filtrados]);
 
@@ -225,6 +262,22 @@ export default function TicketsTiPage() {
       if (selecionado?.id_ticket === id) setSelecionado(atualizado);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao mover');
+    }
+  }
+
+  async function concluirSelecionado() {
+    if (!selecionado || selecionado.status === 'feito') return;
+    try {
+      const atualizado = await api.tiTicketMover(selecionado.id_ticket, { status: 'feito' });
+      setTickets((prev) => prev.map((t) => (t.id_ticket === atualizado.id_ticket ? atualizado : t)));
+      setSelecionado(null);
+      showToast(
+        `Ticket #${atualizado.id_ticket} concluído em ${formatDataHoraBrasilia(atualizado.concluido_em)}`,
+        'success',
+      );
+      dispararAtualizacaoNotificacoes();
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : 'Erro ao concluir ticket');
     }
   }
 
@@ -332,10 +385,12 @@ export default function TicketsTiPage() {
         area: form.area,
         status: form.status,
         origem: 'interno',
+        prazo: form.prazo,
       });
-      setTickets((prev) => [...prev, t]);
+      setTickets((prev) => [t, ...prev]);
       setCriarAberto(false);
-      setForm({ titulo: '', descricao: '', prioridade: 'media', area: 'tecnologia', status: 'chamado' });
+      setForm(novoFormTicket());
+      showToast(`Ticket #${t.id_ticket} criado`, 'success');
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao criar');
     }
@@ -356,7 +411,7 @@ export default function TicketsTiPage() {
           sx={{ alignItems: { md: 'center' }, flexShrink: 0 }}
         >
           <Typography sx={{ fontWeight: 700, fontSize: 18, flex: 1 }}>
-            Tickets TI
+            Central de Tickets
           </Typography>
           <TextField
             size="small"
@@ -368,15 +423,15 @@ export default function TicketsTiPage() {
           <TextField
             select
             size="small"
-            label="Área"
+            label="Categoria"
             value={filtroArea}
             onChange={(e) => setFiltroArea(e.target.value)}
             sx={{ ...finCampoSx, minWidth: 140 }}
           >
             <MenuItem value="">Todas</MenuItem>
-            {AREAS.map((a) => (
-              <MenuItem key={a} value={a}>
-                {a}
+            {TI_TICKET_CATEGORIAS.map((categoria) => (
+              <MenuItem key={categoria.value} value={categoria.value}>
+                {categoria.label}
               </MenuItem>
             ))}
           </TextField>
@@ -454,8 +509,9 @@ export default function TicketsTiPage() {
                     sx={{
                       p: 1.1,
                       borderRadius: 1.5,
-                      bgcolor: FIN_SURFACE_ALT,
-                      border: `1px solid ${FIN_BORDER}`,
+                      bgcolor: chamadoNovo(t) ? 'rgba(245,158,11,0.08)' : FIN_SURFACE_ALT,
+                      border: `1px solid ${chamadoNovo(t) ? 'rgba(245,158,11,0.55)' : FIN_BORDER}`,
+                      boxShadow: chamadoNovo(t) ? '0 0 0 1px rgba(245,158,11,0.08)' : 'none',
                       cursor: 'grab',
                       '&:hover': { borderColor: col.cor },
                     }}
@@ -470,7 +526,25 @@ export default function TicketsTiPage() {
                           flexShrink: 0,
                         }}
                       />
-                      <Typography sx={{ fontSize: 11, color: FIN_MUTED, flex: 1 }}>{t.area}</Typography>
+                      <Typography sx={{ fontSize: 11, color: FIN_MUTED, flex: 1 }}>
+                        {t.categoria_label || categoriaTicket(t.area).label} · aberto{' '}
+                        {formatDataSomenteData(t.created_at)}
+                      </Typography>
+                      {chamadoNovo(t) ? (
+                        <Chip
+                          size="small"
+                          icon={<NotificationsActiveRoundedIcon />}
+                          label="Novo"
+                          sx={{
+                            height: 20,
+                            fontSize: 10,
+                            fontWeight: 800,
+                            color: '#b45309',
+                            bgcolor: 'rgba(245,158,11,0.15)',
+                            '& .MuiChip-icon': { color: '#d97706', fontSize: 13 },
+                          }}
+                        />
+                      ) : null}
                       {t.origem === 'mesa' ? (
                         <Chip size="small" label="Mesa" sx={{ height: 18, fontSize: 10 }} />
                       ) : null}
@@ -505,7 +579,7 @@ export default function TicketsTiPage() {
                         <Typography sx={{ fontSize: 11, color: FIN_MUTED, flex: 1 }}>Sem responsável</Typography>
                       )}
                       {(() => {
-                        const p = prazoInfo(t.prazo);
+                        const p = prazoInfo(t);
                         if (!p) return null;
                         return (
                           <Stack direction="row" spacing={0.35} sx={{ alignItems: 'center', color: p.tom }}>
@@ -598,14 +672,21 @@ export default function TicketsTiPage() {
                     </TextField>
                     <TextField
                       select
-                      label="Área"
+                      label="Categoria"
                       value={selecionado.area}
-                      onChange={(e) => setSelecionado({ ...selecionado, area: e.target.value })}
+                      onChange={(e) =>
+                        setSelecionado({
+                          ...selecionado,
+                          area: e.target.value,
+                          prazo: calcularPrazoSlaTicket(e.target.value, selecionado.created_at),
+                        })
+                      }
                       sx={{ ...finCampoSx, flex: 1 }}
                     >
-                      {AREAS.map((a) => (
-                        <MenuItem key={a} value={a}>
-                          {a}
+                      {TI_TICKET_CATEGORIAS.map((categoria) => (
+                        <MenuItem key={categoria.value} value={categoria.value}>
+                          {categoria.label} · {categoria.slaDiasUteis}{' '}
+                          {categoria.slaDiasUteis === 1 ? 'dia útil' : 'dias úteis'}
                         </MenuItem>
                       ))}
                     </TextField>
@@ -700,10 +781,30 @@ export default function TicketsTiPage() {
                   <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
                     Aberto em {formatDataHoraBrasilia(selecionado.created_at)}
                     {selecionado.criado_por_nome ? ` · ${selecionado.criado_por_nome}` : ''}
-                    {selecionado.avaliacao
-                      ? ` · Avaliação: ${selecionado.avaliacao}/5`
-                      : ''}
                   </Typography>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={0.75}
+                    sx={{ color: FIN_MUTED, fontSize: 12 }}
+                  >
+                    <Typography sx={{ fontSize: 12, color: 'inherit' }}>
+                      SLA: {selecionado.sla_dias_uteis || categoriaTicket(selecionado.area).slaDiasUteis}{' '}
+                      dias úteis
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: 'inherit' }}>
+                      · Prazo: {selecionado.prazo ? formatDataSomenteData(selecionado.prazo) : 'não definido'}
+                    </Typography>
+                    {selecionado.concluido_em ? (
+                      <Typography sx={{ fontSize: 12, color: '#16a34a', fontWeight: 700 }}>
+                        · Concluído em {formatDataHoraBrasilia(selecionado.concluido_em)}
+                      </Typography>
+                    ) : null}
+                    {selecionado.avaliacao ? (
+                      <Typography sx={{ fontSize: 12, color: 'inherit' }}>
+                        · Avaliação: {selecionado.avaliacao}/5
+                      </Typography>
+                    ) : null}
+                  </Stack>
 
                   <Typography sx={{ fontWeight: 700, fontSize: 14, pt: 1 }}>Comentários</Typography>
                   <Box sx={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -759,6 +860,16 @@ export default function TicketsTiPage() {
               </DialogContent>
               <DialogActions>
                 <Button onClick={() => setSelecionado(null)}>Fechar</Button>
+                {selecionado.status !== 'feito' ? (
+                  <Button
+                    color="success"
+                    variant="outlined"
+                    startIcon={<TaskAltRoundedIcon />}
+                    onClick={() => void concluirSelecionado()}
+                  >
+                    Concluir ticket
+                  </Button>
+                ) : null}
                 <Button variant="contained" onClick={() => void salvarDetalhe()}>
                   Salvar
                 </Button>
@@ -822,6 +933,39 @@ export default function TicketsTiPage() {
                     </MenuItem>
                   ))}
                 </TextField>
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                <TextField
+                  select
+                  label="Categoria"
+                  value={form.area}
+                  onChange={(e) => {
+                    const area = e.target.value;
+                    setForm({
+                      ...form,
+                      area,
+                      prazo: calcularPrazoSlaTicket(area),
+                    });
+                  }}
+                  sx={{ ...finCampoSx, flex: 1 }}
+                >
+                  {TI_TICKET_CATEGORIAS.map((categoria) => (
+                    <MenuItem key={categoria.value} value={categoria.value}>
+                      {categoria.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Prazo para conclusão"
+                  type="date"
+                  value={form.prazo}
+                  onChange={(e) => setForm({ ...form, prazo: e.target.value })}
+                  slotProps={{ inputLabel: { shrink: true } }}
+                  helperText={`SLA padrão: ${categoriaTicket(form.area).slaDiasUteis} ${
+                    categoriaTicket(form.area).slaDiasUteis === 1 ? 'dia útil' : 'dias úteis'
+                  }`}
+                  sx={{ ...finCampoSx, flex: 1 }}
+                />
               </Stack>
             </Stack>
           </DialogContent>
