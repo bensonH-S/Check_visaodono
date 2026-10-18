@@ -383,6 +383,23 @@ export default function IndicadoresPage({ embedded = false }: Props) {
     setErro('');
     try {
       const rkP = api.ranking().catch(() => [] as RankingLoja[]);
+      const ant = periodoAnterior(de, ate);
+      const semCaixa = (): Caixa => ({ total: 0, canais: [], serie: [] });
+      /** Rede inteira: caixa em paralelo com indicadores (sem lookup de empresa). */
+      const caixaP =
+        podeCanais && idLoja === ''
+          ? Promise.all([
+              finApi
+                .caixaCanais(de, ate)
+                .then((r) => ({ total: r.total, canais: r.canais, serie: r.serie || [] }))
+                .catch(semCaixa),
+              finApi
+                .caixaCanais(ant.de, ant.ate)
+                .then((r) => ({ total: r.total, canais: r.canais, serie: r.serie || [] }))
+                .catch(semCaixa),
+            ])
+          : null;
+
       let ind: DashboardIndicadoresData;
       try {
         ind = await api.dashboardIndicadores(de, ate, idLoja === '' ? null : idLoja);
@@ -407,23 +424,33 @@ export default function IndicadoresPage({ embedded = false }: Props) {
       const rk = await rkP;
       setDados(ind);
       setRanking(rk);
+      setAtualizadoEm(new Date());
+      setLoading(false);
 
       if (podeCanais) {
-        const bk = idLoja === '' ? null : ind.lojas.find((l) => l.id_loja === idLoja)?.bk_number;
-        const empresa = idLoja === '' ? undefined : await empresaDaLoja(bk);
-        const ant = periodoAnterior(de, ate);
-        const semCaixa = (): Caixa => ({ total: 0, canais: [], serie: [] });
-        const [c, ca] = await Promise.all([
-          finApi.caixaCanais(de, ate, empresa).then((r) => ({ total: r.total, canais: r.canais, serie: r.serie || [] })).catch(semCaixa),
-          finApi.caixaCanais(ant.de, ant.ate, empresa).then((r) => ({ total: r.total, canais: r.canais, serie: r.serie || [] })).catch(semCaixa),
-        ]);
-        setCaixa(c);
-        setCaixaAnt(ca);
+        if (caixaP) {
+          const [c, ca] = await caixaP;
+          setCaixa(c);
+          setCaixaAnt(ca);
+        } else {
+          const bk = ind.lojas.find((l) => l.id_loja === idLoja)?.bk_number;
+          const empresa = await empresaDaLoja(bk);
+          const [c, ca] = await Promise.all([
+            finApi
+              .caixaCanais(de, ate, empresa)
+              .then((r) => ({ total: r.total, canais: r.canais, serie: r.serie || [] }))
+              .catch(semCaixa),
+            finApi
+              .caixaCanais(ant.de, ant.ate, empresa)
+              .then((r) => ({ total: r.total, canais: r.canais, serie: r.serie || [] }))
+              .catch(semCaixa),
+          ]);
+          setCaixa(c);
+          setCaixaAnt(ca);
+        }
       }
-      setAtualizadoEm(new Date());
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Não carregou os indicadores');
-    } finally {
       setLoading(false);
     }
   }

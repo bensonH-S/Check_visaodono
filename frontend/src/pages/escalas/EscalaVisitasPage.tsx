@@ -19,6 +19,7 @@ import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
+import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
@@ -34,6 +35,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlaceIcon from '@mui/icons-material/Place';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
+import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
 import {
   api,
   type EscalaGestoresGrade,
@@ -115,9 +117,9 @@ const DIAS = ['SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB', 'DOM'];
 const TIPOS_DIA_GESTOR = ['folga', 'ferias', 'ausencia', 'falta'] as const;
 /** Roxo da planilha Time de Campo para célula multi (ex.: I/R). */
 const COR_ESCALA_MULTI = '#7030A0';
-const COL_DIA_MIN_WIDTH = 108;
-const COL_LOJA_MIN_WIDTH = 228;
-const COL_BKN_WIDTH = 72;
+const COL_DIA_MIN_WIDTH = 92;
+const COL_LOJA_MIN_WIDTH = 200;
+const COL_BKN_WIDTH = 64;
 const SELECT_CELULA_SX = {
   width: '100%',
   maxWidth: 132,
@@ -381,7 +383,8 @@ export default function EscalaVisitasPage() {
   const [aba, setAba] = useState<'visitas' | 'delivery' | 'gestores' | 'manutencao' | 'planejamento'>(
     ehGestorOnly ? 'gestores' : ehDeliveryOnly ? 'delivery' : 'visitas',
   );
-  const [visaoVisitas, setVisaoVisitas] = useState<'agenda' | 'grade'>(ehDiretor ? 'agenda' : 'grade');
+  /** Tabela (Por loja) como vista principal — menos ruído que a agenda em cards. */
+  const [visaoVisitas, setVisaoVisitas] = useState<'agenda' | 'grade'>('grade');
   const [gestores, setGestores] = useState<EscalaGestoresGrade | null>(null);
   const [lojasGestores, setLojasGestores] = useState<Loja[]>([]);
   const [gestorDialog, setGestorDialog] = useState<{
@@ -494,8 +497,14 @@ export default function EscalaVisitasPage() {
   }, [carregar]);
 
   useEffect(() => {
+    if (aba !== 'gestores') return;
     void carregarGestores();
-  }, [carregarGestores]);
+  }, [aba, carregarGestores]);
+
+  useEffect(() => {
+    if (aba !== 'manutencao') return;
+    void carregarManutencao();
+  }, [aba, carregarManutencao]);
 
   const carregarEventosGrade = useCallback(async () => {
     if (!podeVerVisitas && !podeVerGestoresTab) return;
@@ -512,8 +521,10 @@ export default function EscalaVisitasPage() {
   }, [semanaInicio, podeVerVisitas, podeVerGestoresTab]);
 
   useEffect(() => {
+    /** Eventos só na grade Por loja (linha virtual) — evita request extra na agenda. */
+    if (aba !== 'visitas' || visaoVisitas !== 'grade') return;
     void carregarEventosGrade();
-  }, [carregarEventosGrade]);
+  }, [aba, visaoVisitas, carregarEventosGrade]);
 
   useEffect(() => {
     if (idLojaEventos != null) return;
@@ -526,9 +537,6 @@ export default function EscalaVisitasPage() {
     if (daGrade) setIdLojaEventos(daGrade.id_loja);
   }, [idLojaEventos, lojasGestores, grade?.linhas]);
 
-  useEffect(() => {
-    void carregarManutencao();
-  }, [carregarManutencao]);
 
   useEffect(() => {
     const ids = (manutencao?.tecnicos ?? []).map((t) => t.id_usuario);
@@ -1336,44 +1344,30 @@ export default function EscalaVisitasPage() {
             <IconButton size="small" onClick={() => setSemanaInicio(addDaysIso(semanaInicio, 7))} aria-label="Próxima semana">
               <ChevronRightIcon />
             </IconButton>
-            <ToggleButtonGroup
-              exclusive
+            <TextField
+              select
               size="small"
-              value={aba}
-              onChange={(_, v: 'visitas' | 'delivery' | 'gestores' | 'manutencao' | 'planejamento' | null) => {
-                if (v) abrirAba(v);
+              value={aba === 'planejamento' ? 'visitas' : aba}
+              onChange={(e) => {
+                const v = e.target.value as 'visitas' | 'delivery' | 'gestores' | 'manutencao';
+                abrirAba(v);
+                if (v === 'visitas') setVisaoVisitas('grade');
               }}
               sx={{
                 ml: { sm: 0.5 },
-                bgcolor: colors.canvasAlt,
-                '& .MuiToggleButton-root': {
-                  px: 1.75,
-                  py: 0.45,
+                minWidth: 140,
+                '& .MuiOutlinedInput-root': {
+                  bgcolor: colors.canvasAlt,
                   fontWeight: 700,
-                  textTransform: 'none',
-                  border: 'none',
                   fontSize: '0.82rem',
-                  color: colors.textSecondary,
-                },
-                '& .Mui-selected': {
-                  bgcolor: `${acento} !important`,
-                  color: '#fff !important',
-                  boxShadow: escuro ? '0 1px 4px rgba(0, 0, 0, 0.35)' : '0 1px 4px rgba(27, 42, 107, 0.22)',
-                },
-                '& .Mui-selected:hover': {
-                  bgcolor: `${acentoHover} !important`,
-                  color: '#fff !important',
                 },
               }}
             >
-              {podeVerVisitas && !ehDeliveryOnly && <ToggleButton value="visitas">Visitas</ToggleButton>}
-              {podeVerVisitas && <ToggleButton value="delivery">Delivery</ToggleButton>}
-              {!ehDeliveryOnly && podeVerGestoresTab && <ToggleButton value="gestores">Gestores</ToggleButton>}
-              {!ehDeliveryOnly && podeVerGestoresTab && (
-                <ToggleButton value="planejamento">Eventos</ToggleButton>
-              )}
-              {!ehDeliveryOnly && podeVerVisitas && <ToggleButton value="manutencao">Manutenção</ToggleButton>}
-            </ToggleButtonGroup>
+              {podeVerVisitas && !ehDeliveryOnly && <MenuItem value="visitas">Planejamento</MenuItem>}
+              {podeVerVisitas && <MenuItem value="delivery">Delivery</MenuItem>}
+              {!ehDeliveryOnly && podeVerGestoresTab && <MenuItem value="gestores">Gestores</MenuItem>}
+              {!ehDeliveryOnly && podeVerVisitas && <MenuItem value="manutencao">Manutenção</MenuItem>}
+            </TextField>
             {aba === 'visitas' && !ehDeliveryOnly && (
               <ToggleButtonGroup
                 exclusive
@@ -1394,14 +1388,14 @@ export default function EscalaVisitasPage() {
                     color: colors.textSecondary,
                   },
                   '& .Mui-selected': {
-                    bgcolor: `${colors.surface} !important`,
-                    color: `${colors.textPrimary} !important`,
+                    bgcolor: `${acento} !important`,
+                    color: `#fff !important`,
                     boxShadow: escuro ? '0 1px 3px rgba(0,0,0,0.35)' : '0 1px 3px rgba(27,42,107,0.12)',
                   },
                 }}
               >
-                <ToggleButton value="agenda">Semana</ToggleButton>
-                <ToggleButton value="grade">Por loja</ToggleButton>
+                <ToggleButton value="agenda">Agenda</ToggleButton>
+                <ToggleButton value="grade">Tabela</ToggleButton>
               </ToggleButtonGroup>
             )}
             {aba === 'manutencao' && !ehDeliveryOnly && (
@@ -1433,14 +1427,13 @@ export default function EscalaVisitasPage() {
                     color: colors.textSecondary,
                   },
                   '& .Mui-selected': {
-                    bgcolor: `${colors.surface} !important`,
-                    color: `${colors.textPrimary} !important`,
-                    boxShadow: escuro ? '0 1px 3px rgba(0,0,0,0.35)' : '0 1px 3px rgba(27,42,107,0.12)',
+                    bgcolor: `${acento} !important`,
+                    color: `#fff !important`,
                   },
                 }}
               >
-                <ToggleButton value="agenda">Semana</ToggleButton>
-                <ToggleButton value="grade">Por loja</ToggleButton>
+                <ToggleButton value="agenda">Agenda</ToggleButton>
+                <ToggleButton value="grade">Tabela</ToggleButton>
               </ToggleButtonGroup>
             )}
           </Box>
@@ -1701,8 +1694,10 @@ export default function EscalaVisitasPage() {
             >
               {!ehDeliveryOnly &&
                 aba === 'visitas' &&
-                cardsAprovacao.map((card) => {
-                  const pendente = card.status === 'pendente_aprovacao';
+                cardsAprovacao
+                  .filter((card) => card.status === 'pendente_aprovacao')
+                  .map((card) => {
+                  const pendente = true;
                   const montadaPor = card.montadaPor;
                   const acoesRecusar = grade?.pode_devolver &&
                     (card.ids_regiao_aprovar.length > 0 ||
@@ -1711,7 +1706,7 @@ export default function EscalaVisitasPage() {
                     (card.ids_regiao_aprovar.length > 0 ||
                       (card.status === 'aprovado' && card.ids_regiao.length > 0));
 
-                  if (card.status === 'aprovado') {
+                  if (false && card.status === 'aprovado') {
                     const rotulo = card.tipo === 'regiao' && montadaPor
                       ? `${card.titulo} · ${montadaPor}`
                       : card.titulo;
@@ -2112,7 +2107,11 @@ export default function EscalaVisitasPage() {
           </Box>
         )}
 
-        {grade && grade.regionais.length > 0 && aba === 'visitas' && (
+        {grade &&
+          grade.regionais.length > 0 &&
+          aba === 'visitas' &&
+          filtrandoEscala &&
+          !ehRegional && (
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, mt: 0.75 }}>
             {regionaisAgrupados.flatMap((grupo, indexGrupo) => {
               const itens = ehRegional && idEu != null
@@ -2785,10 +2784,23 @@ export default function EscalaVisitasPage() {
                     <TableCell sx={{ fontWeight: 600, position: 'sticky', left: 0, bgcolor: colors.surface, zIndex: 1 }}>
                       {linha.bk_number || '—'}
                     </TableCell>
-                    <TableCell sx={{ position: 'sticky', left: COL_BKN_WIDTH, bgcolor: colors.surface, zIndex: 1 }}>
-                      <LojaBkMarca bk={linha.bk_number} nome={linha.nome} />
+                    <TableCell
+                      sx={{
+                        position: 'sticky',
+                        left: COL_BKN_WIDTH,
+                        bgcolor: colors.surface,
+                        zIndex: 1,
+                        py: 0.5,
+                        '& .ck-loja-bk': { fontSize: '0.78rem', fontWeight: 700 },
+                      }}
+                    >
+                      <LojaBkMarca bk={linha.bk_number} nome={linha.nome} size={14} />
                       {linha.nome_regiao && (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          sx={{ display: 'block', fontSize: '0.65rem', lineHeight: 1.2 }}
+                        >
                           {linha.nome_regiao}
                         </Typography>
                       )}
@@ -2806,7 +2818,7 @@ export default function EscalaVisitasPage() {
                           : (grade?.regionais ?? []);
                       const cor = idsReg.length === 1 ? mapCorRegional.get(idsReg[0]) || '#64748B' : undefined;
                       return (
-                        <TableCell key={d.dia} align="center" sx={{ p: 0.5, verticalAlign: 'top' }}>
+                        <TableCell key={d.dia} align="center" sx={{ p: 0.35, verticalAlign: 'middle' }}>
                           {podeEditarGrade && ehRegional ? (
                             <Button
                               size="small"
@@ -2889,10 +2901,24 @@ export default function EscalaVisitasPage() {
                         zIndex: 1,
                       }}
                     >
-                      <Typography sx={{ fontWeight: 800, fontSize: '0.88rem', lineHeight: 1.2 }}>
+                      <Typography
+                        sx={{
+                          fontWeight: 800,
+                          fontSize: '0.78rem',
+                          lineHeight: 1.2,
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 0.4,
+                        }}
+                      >
+                        <EventOutlinedIcon sx={{ fontSize: 13, color: '#7C3AED' }} />
                         Eventos
                       </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: 'block', fontSize: '0.65rem', lineHeight: 1.2 }}
+                      >
                         Audiência · Reunião · Congresso · Treinamento
                       </Typography>
                     </TableCell>
@@ -2936,8 +2962,8 @@ export default function EscalaVisitasPage() {
       {ehDiretor && podeEditarGrade && aba === 'visitas' && (
         <Typography variant="caption" color="text.secondary" sx={{ px: 1, flexShrink: 0 }}>
           {visaoVisitas === 'agenda'
-            ? 'Semana mostra quem visita cada loja. Use Por loja para editar a grade.'
-            : 'Clique na célula para atribuir. Na última linha (Eventos), escolha o tipo no card. Salve quando terminar.'}
+            ? 'Agenda por pessoa. Use Tabela para editar a grade e lançar Eventos.'
+            : 'Clique na célula para atribuir. Na última linha (Eventos) escolha o tipo. Salve quando terminar.'}
         </Typography>
       )}
       {!loading && ehDeliveryOnly && (

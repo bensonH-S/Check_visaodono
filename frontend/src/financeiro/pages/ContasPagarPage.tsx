@@ -348,7 +348,7 @@ export function ContasPagarPage() {
         )}
       </Stack>
 
-      <Stack direction="row" spacing={1.25} sx={{ flexWrap: 'wrap' }}>
+      <Stack direction="row" spacing={1.25} sx={{ width: '100%', alignItems: 'stretch' }}>
         <Resumo
           cor="#1B6EF3"
           rotulo={t('A pagar', 'To pay')}
@@ -357,7 +357,7 @@ export function ContasPagarPage() {
         />
         <Box
           onClick={() => navigate('/financeiro/conciliacao')}
-          sx={{ cursor: 'pointer' }}
+          sx={{ flex: '1 1 0', minWidth: 0, display: 'flex', cursor: 'pointer' }}
           title={t('Ver em Conciliadas', 'See in Reconciled')}
         >
           <Resumo
@@ -1277,8 +1277,9 @@ function Resumo({
         px: 1.35,
         py: 0.75,
         pl: 1.6,
-        minWidth: 120,
-        flex: 1,
+        flex: '1 1 0',
+        minWidth: 0,
+        width: '100%',
         overflow: 'hidden',
         bgcolor: FIN_SURFACE,
         borderColor: FIN_BORDER,

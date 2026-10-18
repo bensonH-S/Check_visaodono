@@ -454,10 +454,16 @@ export async function listarSaudeLojas(user, opts = {}) {
 
   const ids = rows.map((r) => Number(r.id_loja));
 
+  /** `leve`: pula CMV teórico (ficha) — indicadores usam CMV por NF depois. */
+  const leve = Boolean(opts.leve);
   const [cmvMap, comprasMap, metasPack] = await Promise.all([
-    cmvMesPorLojas(ids, { de, ate, meta: META_CMV }).catch(() => new Map()),
-    comprasMesPorLojas(ids, { de, ate }).catch(() => new Map()),
-    metasPorLojas(ids),
+    leve
+      ? Promise.resolve(new Map())
+      : cmvMesPorLojas(ids, { de, ate, meta: META_CMV }).catch(() => new Map()),
+    leve
+      ? Promise.resolve(new Map())
+      : comprasMesPorLojas(ids, { de, ate }).catch(() => new Map()),
+    leve ? Promise.resolve({ periodo: null, map: new Map() }) : metasPorLojas(ids),
   ]);
 
   const lojas = rows.map((r) => {
@@ -898,7 +904,7 @@ function montarProjecoes(ids, vendasRows, inicioMes, ate, fimMes) {
  * Indicadores: período atual × anterior + CMV por NF confirmada + projeção de venda.
  */
 export async function indicadoresPeriodo(user, opts = {}) {
-  const atual = await listarSaudeLojas(user, opts);
+  const atual = await listarSaudeLojas(user, { ...opts, leve: true });
   const { de, ate } = atual.periodo;
   const dias = diasNoIntervalo(de, ate);
   const ateAnt = addDiasIso(de, -1);
