@@ -25,17 +25,25 @@ import {
   api,
   type TiTicket,
   type TiTicketAcesso,
+  type TiTicketAnexo,
   type TiTicketComentario,
 } from '../../api/client';
+import TiTicketAnexos from '../../components/TiTicketAnexos';
 import { finCampoSx, FIN_BORDER, FIN_MUTED, FIN_SURFACE, FIN_SURFACE_ALT, FIN_TEXT } from '../../financeiro/temaFinanceiroEscuro';
 import { PrefsProvider } from '../../financeiro/prefs';
 import { configPageSx } from './configPageSx';
 import { formatDataHoraBrasilia, formatDataSomenteData } from '../../utils/dateBr';
 import { showToast } from '../../utils/toast';
 import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
+import Alert from '@mui/material/Alert';
 import {
   calcularPrazoSlaTicket,
   categoriaTicket,
+  formatarSlaDuracao,
+  inputLocalParaPrazoIso,
+  prazoParaInputLocal,
+  textoAlertaSla,
+  textoPrazoRestante,
   TI_TICKET_CATEGORIAS,
 } from '../../constants/tiTickets';
 
@@ -92,26 +100,21 @@ function AvatarResp({
 
 function prazoInfo(ticket: TiTicket) {
   if (ticket.status === 'feito') {
-    const foraDoSla =
-      Boolean(ticket.concluido_em && ticket.prazo) &&
-      new Date(ticket.concluido_em as string).getTime() >
-        new Date(`${ticket.prazo}T23:59:59`).getTime();
+    const rest = textoPrazoRestante(ticket.prazo, ticket.concluido_em ? new Date(ticket.concluido_em) : new Date());
+    const foraDoSla = Boolean(rest?.atrasado);
     return {
       tom: foraDoSla ? '#d97706' : '#16a34a',
       label: ticket.concluido_em
-        ? `Concluído ${formatDataSomenteData(ticket.concluido_em)}${foraDoSla ? ' · fora do SLA' : ''}`
+        ? `Concluído ${formatDataHoraBrasilia(ticket.concluido_em)}${foraDoSla ? ' · fora do SLA' : ''}`
         : 'Concluído',
     };
   }
-  if (!ticket.prazo) return null;
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  const d = new Date(`${ticket.prazo}T12:00:00`);
-  const diff = Math.round((d.getTime() - hoje.getTime()) / 86400000);
-  if (diff < 0) return { tom: '#dc2626', label: `Atrasado · ${formatDataSomenteData(ticket.prazo)}` };
-  if (diff === 0) return { tom: '#d97706', label: 'Prazo hoje' };
-  if (diff <= 2) return { tom: '#d97706', label: formatDataSomenteData(ticket.prazo) };
-  return { tom: FIN_MUTED, label: formatDataSomenteData(ticket.prazo) };
+  const rest = textoPrazoRestante(ticket.prazo);
+  if (!rest) return null;
+  if (rest.atrasado) return { tom: '#dc2626', label: rest.label };
+  if (rest.minutos <= 60) return { tom: '#d97706', label: rest.label };
+  if (rest.minutos <= 24 * 60) return { tom: '#d97706', label: rest.label };
+  return { tom: FIN_MUTED, label: rest.label };
 }
 
 function chamadoNovo(ticket: TiTicket) {
@@ -174,8 +177,11 @@ export default function TicketsTiPage() {
   const [erro, setErro] = useState('');
   const [busca, setBusca] = useState('');
   const [filtroArea, setFiltroArea] = useState('');
+  const [filtroColaborador, setFiltroColaborador] = useState('');
   const [selecionado, setSelecionado] = useState<TiTicket | null>(null);
   const [comentarios, setComentarios] = useState<TiTicketComentario[]>([]);
+  const [anexos, setAnexos] = useState<TiTicketAnexo[]>([]);
+  const [anexosPendentes, setAnexosPendentes] = useState<{ nome: string; mime: string; dataUrl: string }[]>([]);
   const [novoComentario, setNovoComentario] = useState('');
   const [acessos, setAcessos] = useState<TiTicketAcesso[]>([]);
   const [acessoAberto, setAcessoAberto] = useState(false);
@@ -213,10 +219,30 @@ export default function TicketsTiPage() {
     return () => window.clearInterval(timer);
   }, []);
 
+  const opcoesFiltroColaborador = useMemo(() => {
+    const semResponsavel: UsuarioOpcao = {
+      id_usuario: -1,
+      nome: 'Sem responsável',
+      email: 'Tickets sem colaborador atribuído',
+    };
+    return [semResponsavel, ...usuarios];
+  }, [usuarios]);
+
+  const colaboradorFiltroSelecionado = useMemo(() => {
+    if (!filtroColaborador) return null;
+    if (filtroColaborador === 'sem') return opcoesFiltroColaborador[0] || null;
+    return usuarios.find((u) => String(u.id_usuario) === filtroColaborador) || null;
+  }, [filtroColaborador, opcoesFiltroColaborador, usuarios]);
+
   const filtrados = useMemo(() => {
     const q = busca.trim().toLowerCase();
     return tickets.filter((t) => {
       if (filtroArea && t.area !== filtroArea) return false;
+      if (filtroColaborador === 'sem') {
+        if (t.responsavel_id != null) return false;
+      } else if (filtroColaborador) {
+        if (Number(t.responsavel_id) !== Number(filtroColaborador)) return false;
+      }
       if (!q) return true;
       return (
         t.titulo.toLowerCase().includes(q) ||
@@ -225,7 +251,7 @@ export default function TicketsTiPage() {
         (t.responsavel_nome || '').toLowerCase().includes(q)
       );
     });
-  }, [tickets, busca, filtroArea]);
+  }, [tickets, busca, filtroArea, filtroColaborador]);
 
   const porStatus = useMemo(() => {
     const map: Record<string, TiTicket[]> = {};
@@ -246,12 +272,15 @@ export default function TicketsTiPage() {
 
   async function abrirDetalhe(t: TiTicket) {
     setSelecionado(t);
+    setAnexos([]);
     try {
       const full = await api.tiTicket(t.id_ticket);
       setSelecionado(full);
       setComentarios(full.comentarios || []);
+      setAnexos(full.anexos || []);
     } catch {
       setComentarios([]);
+      setAnexos([]);
     }
   }
 
@@ -387,9 +416,24 @@ export default function TicketsTiPage() {
         origem: 'interno',
         prazo: form.prazo,
       });
+      if (anexosPendentes.length) {
+        try {
+          await api.tiTicketAnexar(
+          t.id_ticket,
+          anexosPendentes.map((p) => ({
+            nome_arquivo: p.nome,
+            tipo_mime: p.mime,
+            data_url: p.dataUrl,
+          })),
+        );
+        } catch (err) {
+          showToast(err instanceof Error ? err.message : 'Ticket criado, mas falhou ao anexar', 'error');
+        }
+      }
       setTickets((prev) => [t, ...prev]);
       setCriarAberto(false);
       setForm(novoFormTicket());
+      setAnexosPendentes([]);
       showToast(`Ticket #${t.id_ticket} criado`, 'success');
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao criar');
@@ -435,6 +479,65 @@ export default function TicketsTiPage() {
               </MenuItem>
             ))}
           </TextField>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: { md: 260 } }}>
+            <AvatarResp
+              nome={colaboradorFiltroSelecionado?.nome}
+              inicial={colaboradorFiltroSelecionado?.avatar_inicial}
+              url={colaboradorFiltroSelecionado?.avatar_url}
+              size={30}
+            />
+            <Autocomplete
+              size="small"
+              fullWidth
+              options={opcoesFiltroColaborador}
+              value={colaboradorFiltroSelecionado}
+              onChange={(_, u) => {
+                if (!u) setFiltroColaborador('');
+                else if (u.id_usuario === -1) setFiltroColaborador('sem');
+                else setFiltroColaborador(String(u.id_usuario));
+              }}
+              getOptionLabel={(u) => u.nome}
+              isOptionEqualToValue={(a, b) => a.id_usuario === b.id_usuario}
+              noOptionsText="Nenhum colaborador"
+              slotProps={{
+                listbox: { sx: { maxHeight: 280 } },
+              }}
+              renderOption={(props, u) => {
+                const { key, ...rest } = props;
+                return (
+                  <Box
+                    component="li"
+                    key={key ?? u.id_usuario}
+                    {...rest}
+                    sx={{ display: 'flex !important', alignItems: 'center', gap: 1, py: 0.75 }}
+                  >
+                    <AvatarResp
+                      nome={u.nome}
+                      inicial={u.avatar_inicial}
+                      url={u.avatar_url}
+                      size={28}
+                    />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>
+                        {u.nome}
+                      </Typography>
+                      <Typography sx={{ fontSize: 11, color: FIN_MUTED, lineHeight: 1.2 }}>
+                        {u.email}
+                      </Typography>
+                    </Box>
+                  </Box>
+                );
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Colaborador"
+                  placeholder="Buscar colaborador…"
+                  sx={finCampoSx}
+                />
+              )}
+            />
+          </Box>
           <Button startIcon={<AddIcon />} variant="contained" size="small" onClick={() => setCriarAberto(true)}>
             Novo
           </Button>
@@ -601,7 +704,7 @@ export default function TicketsTiPage() {
         {/* Detalhe */}
         <Dialog
           open={Boolean(selecionado)}
-          onClose={() => setSelecionado(null)}
+          onClose={() => { setSelecionado(null); setAnexos([]); }}
           maxWidth="md"
           fullWidth
           slotProps={{ paper: { sx: { bgcolor: FIN_SURFACE, color: FIN_TEXT } } }}
@@ -674,23 +777,27 @@ export default function TicketsTiPage() {
                       select
                       label="Categoria"
                       value={selecionado.area}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const area = e.target.value;
                         setSelecionado({
                           ...selecionado,
-                          area: e.target.value,
-                          prazo: calcularPrazoSlaTicket(e.target.value, selecionado.created_at),
-                        })
-                      }
+                          area,
+                          prazo: calcularPrazoSlaTicket(area, selecionado.created_at),
+                        });
+                        showToast(textoAlertaSla(area), 'info');
+                      }}
                       sx={{ ...finCampoSx, flex: 1 }}
                     >
                       {TI_TICKET_CATEGORIAS.map((categoria) => (
                         <MenuItem key={categoria.value} value={categoria.value}>
-                          {categoria.label} · {categoria.slaDiasUteis}{' '}
-                          {categoria.slaDiasUteis === 1 ? 'dia útil' : 'dias úteis'}
+                          {categoria.label}
                         </MenuItem>
                       ))}
                     </TextField>
                   </Stack>
+                  <Alert severity="info" sx={{ py: 0.5 }}>
+                    {textoAlertaSla(selecionado.area)}
+                  </Alert>
 
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
@@ -767,14 +874,17 @@ export default function TicketsTiPage() {
                       />
                     </Stack>
                     <TextField
-                      label="Prazo"
-                      type="date"
-                      value={selecionado.prazo || ''}
+                      label="Responder até"
+                      type="datetime-local"
+                      value={prazoParaInputLocal(selecionado.prazo)}
                       onChange={(e) =>
-                        setSelecionado({ ...selecionado, prazo: e.target.value || null })
+                        setSelecionado({
+                          ...selecionado,
+                          prazo: inputLocalParaPrazoIso(e.target.value),
+                        })
                       }
                       slotProps={{ inputLabel: { shrink: true } }}
-                      sx={{ ...finCampoSx, minWidth: { sm: 170 } }}
+                      sx={{ ...finCampoSx, minWidth: { sm: 210 } }}
                     />
                   </Stack>
 
@@ -785,14 +895,19 @@ export default function TicketsTiPage() {
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={0.75}
-                    sx={{ color: FIN_MUTED, fontSize: 12 }}
+                    sx={{ color: FIN_MUTED, fontSize: 12, alignItems: { sm: 'center' } }}
                   >
                     <Typography sx={{ fontSize: 12, color: 'inherit' }}>
-                      SLA: {selecionado.sla_dias_uteis || categoriaTicket(selecionado.area).slaDiasUteis}{' '}
-                      dias úteis
+                      SLA: {selecionado.sla_label || formatarSlaDuracao(categoriaTicket(selecionado.area).slaMinutos)}
                     </Typography>
-                    <Typography sx={{ fontSize: 12, color: 'inherit' }}>
-                      · Prazo: {selecionado.prazo ? formatDataSomenteData(selecionado.prazo) : 'não definido'}
+                    <Typography
+                      sx={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: prazoInfo(selecionado)?.tom || 'inherit',
+                      }}
+                    >
+                      · {prazoInfo(selecionado)?.label || 'Prazo não definido'}
                     </Typography>
                     {selecionado.concluido_em ? (
                       <Typography sx={{ fontSize: 12, color: '#16a34a', fontWeight: 700 }}>
@@ -805,6 +920,12 @@ export default function TicketsTiPage() {
                       </Typography>
                     ) : null}
                   </Stack>
+
+                  <TiTicketAnexos
+                    idTicket={selecionado.id_ticket}
+                    anexos={anexos}
+                    onChange={setAnexos}
+                  />
 
                   <Typography sx={{ fontWeight: 700, fontSize: 14, pt: 1 }}>Comentários</Typography>
                   <Box sx={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -946,6 +1067,7 @@ export default function TicketsTiPage() {
                       area,
                       prazo: calcularPrazoSlaTicket(area),
                     });
+                    showToast(textoAlertaSla(area), 'info');
                   }}
                   sx={{ ...finCampoSx, flex: 1 }}
                 >
@@ -956,21 +1078,36 @@ export default function TicketsTiPage() {
                   ))}
                 </TextField>
                 <TextField
-                  label="Prazo para conclusão"
-                  type="date"
-                  value={form.prazo}
-                  onChange={(e) => setForm({ ...form, prazo: e.target.value })}
+                  label="Responder até"
+                  type="datetime-local"
+                  value={prazoParaInputLocal(form.prazo)}
+                  onChange={(e) =>
+                    setForm({ ...form, prazo: inputLocalParaPrazoIso(e.target.value) || '' })
+                  }
                   slotProps={{ inputLabel: { shrink: true } }}
-                  helperText={`SLA padrão: ${categoriaTicket(form.area).slaDiasUteis} ${
-                    categoriaTicket(form.area).slaDiasUteis === 1 ? 'dia útil' : 'dias úteis'
-                  }`}
                   sx={{ ...finCampoSx, flex: 1 }}
                 />
               </Stack>
+              <Alert severity="info" sx={{ py: 0.5 }}>
+                {textoAlertaSla(form.area)}
+              </Alert>
+              <TiTicketAnexos
+                anexos={[]}
+                onChange={() => undefined}
+                pendentesMeta={anexosPendentes}
+                onPendentesChange={setAnexosPendentes}
+              />
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setCriarAberto(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                setCriarAberto(false);
+                setAnexosPendentes([]);
+              }}
+            >
+              Cancelar
+            </Button>
             <Button variant="contained" onClick={() => void criarTicket()}>
               Criar
             </Button>

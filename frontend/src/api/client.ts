@@ -159,6 +159,7 @@ export const api = {
     request<PermissaoCatalogo[]>('/usuarios/permissoes/catalogo', { cache: 'no-store' }),
   usuariosGestao: () => request<UsuarioGestao[]>('/usuarios/gestao'),
   usuarioGestao: (id: number) => request<UsuarioGestao>(`/usuarios/gestao/${id}`),
+  usuarioGestaoRegioes: () => request<UsuarioGestaoRegiaoOpcao[]>('/usuarios/gestao/regioes'),
   usuarioGestaoCriar: (body: UsuarioGestaoInput) =>
     request<UsuarioGestao>('/usuarios/gestao', { method: 'POST', body: JSON.stringify(body) }),
   usuarioGestaoAtualizar: (id: number, body: Partial<UsuarioGestaoInput>) =>
@@ -341,6 +342,19 @@ export const api = {
     >('/ti-tickets/usuarios-acesso'),
   tiTicketComentarioExcluir: (idComentario: number) =>
     request<{ ok: boolean }>(`/ti-tickets/comentarios/${idComentario}`, { method: 'DELETE' }),
+  tiTicketAnexos: (id: number) => request<TiTicketAnexo[]>(`/ti-tickets/${id}/anexos`),
+  tiTicketAnexar: (
+    id: number,
+    anexos: Array<{ nome_arquivo: string; tipo_mime: string; data_url: string }>,
+  ) =>
+    request<{ anexos: TiTicketAnexo[]; criados: TiTicketAnexo[] }>(`/ti-tickets/${id}/anexos`, {
+      method: 'POST',
+      body: JSON.stringify({ anexos }),
+    }),
+  tiTicketAnexoExcluir: (idAnexo: number) =>
+    request<{ ok: boolean; anexos: TiTicketAnexo[] }>(`/ti-tickets/anexos/${idAnexo}`, {
+      method: 'DELETE',
+    }),
 
   portalNotificacoes: () =>
     request<{ items: PortalNotificacao[]; nao_lidas: number }>('/portal-notificacoes'),
@@ -1944,6 +1958,8 @@ export interface UsuarioGestao {
   perfil: string;
   lojas: LojaResumo[];
   lojas_ids: number[];
+  regioes?: { id_regiao: number; nome: string; nome_regional?: string | null }[];
+  regioes_ids?: number[];
   permissoes: string[];
   ativo: boolean;
   acesso_todas_lojas?: boolean;
@@ -1958,12 +1974,20 @@ export interface UsuarioGestaoInput {
   perfil?: string;
   cargo_aprovacao?: string | null;
   lojas_ids?: number[];
+  /** Regiões de atuação (supervisor regional). */
+  regioes_ids?: number[];
   permissoes?: string[];
   ativo?: boolean;
   telefone_whatsapp?: string | null;
   notifica_whatsapp?: boolean;
   /** Data URL da foto, ou null para remover. */
   avatar_base64?: string | null;
+}
+
+export interface UsuarioGestaoRegiaoOpcao {
+  id_regiao: number;
+  nome: string;
+  qtd_lojas: number;
 }
 
 export interface WppStatus {
@@ -4275,6 +4299,9 @@ export interface TiTicket {
   prioridade: 'baixa' | 'media' | 'alta' | 'urgente';
   area: string;
   categoria_label?: string;
+  sla_minutos?: number;
+  sla_label?: string;
+  /** @deprecated use sla_minutos */
   sla_dias_uteis?: number;
   origem: 'colaborador' | 'mesa' | 'interno';
   criado_por: number | null;
@@ -4317,7 +4344,22 @@ export interface TiTicketComentario {
   created_at: string;
 }
 
-export type TiTicketDetalhe = TiTicket & { comentarios?: TiTicketComentario[] };
+export interface TiTicketAnexo {
+  id_anexo: number;
+  id_ticket: number;
+  id_usuario: number | null;
+  usuario_nome?: string | null;
+  nome_arquivo: string;
+  tipo_mime: string;
+  tamanho_bytes?: number;
+  created_at: string;
+  media_url: string;
+}
+
+export type TiTicketDetalhe = TiTicket & {
+  comentarios?: TiTicketComentario[];
+  anexos?: TiTicketAnexo[];
+};
 
 export interface TiNota {
   id_nota: number;

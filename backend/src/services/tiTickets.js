@@ -1,18 +1,19 @@
 import { pool } from '../db.js';
 import { temPermissao } from '../permissoes.js';
+import { encryptAnexo, decryptAnexo } from '../fotos.js';
 
 export const STATUS_TICKET = ['chamado', 'fazer', 'pendente', 'feito'];
 export const PRIORIDADES = ['baixa', 'media', 'alta', 'urgente'];
 export const CATEGORIAS_TICKET = [
-  { id: 'geral', label: 'Geral', slaDiasUteis: 3 },
-  { id: 'tecnologia', label: 'Tecnologia', slaDiasUteis: 2 },
-  { id: 'financeiro', label: 'Financeiro', slaDiasUteis: 2 },
-  { id: 'operacoes', label: 'Operações', slaDiasUteis: 1 },
-  { id: 'frota', label: 'Frota', slaDiasUteis: 2 },
-  { id: 'vendas', label: 'Vendas', slaDiasUteis: 2 },
-  { id: 'estoque', label: 'Estoque', slaDiasUteis: 1 },
-  { id: 'manutencao', label: 'Manutenção', slaDiasUteis: 2 },
-  { id: 'rh', label: 'Recursos Humanos', slaDiasUteis: 3 },
+  { id: 'geral', label: 'Geral', slaMinutos: 72 * 60 },
+  { id: 'tecnologia', label: 'Tecnologia', slaMinutos: 24 * 60 },
+  { id: 'financeiro', label: 'Financeiro', slaMinutos: 30 },
+  { id: 'frota', label: 'Frota', slaMinutos: 24 * 60 },
+  { id: 'operacoes', label: 'Operações', slaMinutos: 24 * 60 },
+  { id: 'vendas', label: 'Vendas', slaMinutos: 30 },
+  { id: 'estoque', label: 'Estoque', slaMinutos: 30 },
+  { id: 'manutencao', label: 'Manutenção', slaMinutos: 24 * 60 },
+  { id: 'rh', label: 'Recursos Humanos', slaMinutos: 6 * 60 },
 ];
 
 const CATEGORIA_POR_ID = new Map(CATEGORIAS_TICKET.map((categoria) => [categoria.id, categoria]));
@@ -22,21 +23,19 @@ function normalizarCategoria(valor) {
   return CATEGORIA_POR_ID.has(id) ? id : 'geral';
 }
 
-function adicionarDiasUteis(dataBase, quantidade) {
-  const data = new Date(dataBase);
-  data.setUTCHours(12, 0, 0, 0);
-  let adicionados = 0;
-  while (adicionados < quantidade) {
-    data.setUTCDate(data.getUTCDate() + 1);
-    const dia = data.getUTCDay();
-    if (dia !== 0 && dia !== 6) adicionados += 1;
-  }
-  return data.toISOString().slice(0, 10);
+function formatarSlaDuracao(minutos) {
+  const m = Math.max(0, Math.round(Number(minutos) || 0));
+  if (m < 60) return `${m} ${m === 1 ? 'minuto' : 'minutos'}`;
+  const h = Math.round(m / 60);
+  if (m % 60 === 0) return `${h} ${h === 1 ? 'hora' : 'horas'}`;
+  return `${Math.floor(m / 60)}h ${m % 60}min`;
 }
 
 function calcularPrazoSla(categoria, dataBase = new Date()) {
   const config = CATEGORIA_POR_ID.get(normalizarCategoria(categoria)) || CATEGORIA_POR_ID.get('geral');
-  return adicionarDiasUteis(dataBase, config.slaDiasUteis);
+  const data = new Date(dataBase);
+  data.setMinutes(data.getMinutes() + (config.slaMinutos || 0));
+  return data.toISOString();
 }
 
 const TICKET_SELECT = `
@@ -103,8 +102,8 @@ function mapTicket(row) {
     row.prazo == null
       ? null
       : typeof row.prazo === 'string'
-        ? row.prazo.slice(0, 10)
-        : row.prazo.toISOString?.().slice(0, 10) || String(row.prazo).slice(0, 10);
+        ? row.prazo
+        : row.prazo.toISOString?.() || String(row.prazo);
   return {
     id_ticket: Number(row.id_ticket),
     titulo: row.titulo,
@@ -113,7 +112,8 @@ function mapTicket(row) {
     prioridade: row.prioridade,
     area: categoria,
     categoria_label: categoriaConfig?.label || 'Geral',
-    sla_dias_uteis: categoriaConfig?.slaDiasUteis || 3,
+    sla_minutos: categoriaConfig?.slaMinutos || 72 * 60,
+    sla_label: formatarSlaDuracao(categoriaConfig?.slaMinutos || 72 * 60),
     origem: row.origem,
     criado_por: row.criado_por != null ? Number(row.criado_por) : null,
     criado_por_nome: row.criado_por_nome || null,
@@ -226,8 +226,13 @@ export async function obterTicket(id) {
 function normalizarPrazo(valor) {
   if (valor === undefined) return undefined;
   if (valor === null || valor === '') return null;
-  const s = String(valor).slice(0, 10);
-  return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+  const raw = String(valor).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    return new Date(`${raw}T23:59:59`).toISOString();
+  }
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
 }
 
 export async function criarTicket({
@@ -292,8 +297,14 @@ export async function atualizarTicket(id, patch, { notificarPor } = {}) {
         ? null
         : Number(patch.responsavel_id)
       : atual.responsavel_id;
-  const prazo =
-    patch.prazo !== undefined ? normalizarPrazo(patch.prazo) : atual.prazo;
+  let prazo;
+  if (patch.prazo !== undefined) {
+    prazo = normalizarPrazo(patch.prazo);
+  } else if (patch.area != null && area !== atual.area) {
+    prazo = calcularPrazoSla(area, atual.created_at || new Date());
+  } else {
+    prazo = atual.prazo;
+  }
   const ordem = patch.ordem != null ? Number(patch.ordem) : atual.ordem;
   const concluido_em =
     status === 'feito' ? atual.concluido_em || new Date().toISOString() : status !== 'feito' ? null : atual.concluido_em;
@@ -621,3 +632,146 @@ export async function revogarAcesso(idUsuario) {
   );
   return listarAcessos();
 }
+
+const APP_BASE_PATH = '/auditoria';
+const MAX_ANEXOS_TICKET = 10;
+const MAX_ANEXO_BYTES = 12 * 1024 * 1024;
+const MIME_ANEXO_PERMITIDOS = new Set([
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+  'text/csv',
+]);
+
+export function mimeAnexoPermitido(mime) {
+  const m = String(mime || '').toLowerCase();
+  return m.startsWith('image/') || MIME_ANEXO_PERMITIDOS.has(m);
+}
+
+function midiaUrlTicketAnexo(idAnexo) {
+  return `${APP_BASE_PATH}/api/ti-tickets/anexos/${idAnexo}/media`;
+}
+
+function mapAnexo(row) {
+  if (!row) return null;
+  return {
+    id_anexo: Number(row.id_anexo),
+    id_ticket: Number(row.id_ticket),
+    id_usuario: row.id_usuario != null ? Number(row.id_usuario) : null,
+    usuario_nome: row.usuario_nome || null,
+    nome_arquivo: row.nome_arquivo,
+    tipo_mime: row.tipo_mime,
+    tamanho_bytes: Number(row.tamanho_bytes) || 0,
+    created_at: row.created_at,
+    media_url: midiaUrlTicketAnexo(row.id_anexo),
+  };
+}
+
+export async function listarAnexos(idTicket) {
+  const { rows } = await pool.query(
+    `SELECT a.id_anexo, a.id_ticket, a.id_usuario, a.nome_arquivo, a.tipo_mime,
+            a.tamanho_bytes, a.created_at, u.nome AS usuario_nome
+     FROM ti_ticket_anexos a
+     LEFT JOIN usuarios u ON u.id_usuario = a.id_usuario
+     WHERE a.id_ticket = $1
+     ORDER BY a.created_at ASC, a.id_anexo ASC`,
+    [idTicket],
+  );
+  return rows.map(mapAnexo);
+}
+
+export async function obterAnexoBinario(idAnexo) {
+  const { rows } = await pool.query(
+    `SELECT a.id_anexo, a.id_ticket, a.tipo_mime, a.nome_arquivo, a.arquivo_bytes,
+            t.criado_por, t.responsavel_id
+     FROM ti_ticket_anexos a
+     JOIN ti_tickets t ON t.id_ticket = a.id_ticket
+     WHERE a.id_anexo = $1`,
+    [idAnexo],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id_anexo: Number(row.id_anexo),
+    id_ticket: Number(row.id_ticket),
+    tipo_mime: row.tipo_mime,
+    nome_arquivo: row.nome_arquivo,
+    criado_por: row.criado_por != null ? Number(row.criado_por) : null,
+    responsavel_id: row.responsavel_id != null ? Number(row.responsavel_id) : null,
+    buffer: decryptAnexo(row.arquivo_bytes),
+  };
+}
+
+function parseDataUrlOuBase64(payload, mimeHint) {
+  if (payload == null) return null;
+  const raw = String(payload).trim();
+  if (!raw) return null;
+  const data = raw.match(/^data:([^;]+);base64,(.+)$/s);
+  if (data) {
+    return { mime: data[1], buffer: Buffer.from(data[2], 'base64') };
+  }
+  if (!mimeHint) return null;
+  return { mime: String(mimeHint), buffer: Buffer.from(raw, 'base64') };
+}
+
+export async function adicionarAnexo(idTicket, { nome_arquivo, tipo_mime, data_url, base64, id_usuario }) {
+  const ticket = await obterTicket(idTicket);
+  if (!ticket) {
+    const err = new Error('Ticket não encontrado');
+    err.status = 404;
+    throw err;
+  }
+
+  const { rows: cnt } = await pool.query(
+    `SELECT COUNT(*)::int AS n FROM ti_ticket_anexos WHERE id_ticket = $1`,
+    [idTicket],
+  );
+  if ((cnt[0]?.n || 0) >= MAX_ANEXOS_TICKET) {
+    const err = new Error(`Máximo de ${MAX_ANEXOS_TICKET} anexos por ticket`);
+    err.status = 400;
+    throw err;
+  }
+
+  const parsed = parseDataUrlOuBase64(data_url || base64, tipo_mime);
+  if (!parsed?.buffer?.length) {
+    const err = new Error('Arquivo inválido');
+    err.status = 400;
+    throw err;
+  }
+  if (parsed.buffer.length > MAX_ANEXO_BYTES) {
+    const err = new Error('Arquivo muito grande (máx. 12 MB)');
+    err.status = 400;
+    throw err;
+  }
+  const mime = String(tipo_mime || parsed.mime || '').toLowerCase();
+  if (!mimeAnexoPermitido(mime)) {
+    const err = new Error('Tipo de arquivo não permitido. Use imagem, PDF ou documento Office.');
+    err.status = 400;
+    throw err;
+  }
+
+  const nome = String(nome_arquivo || 'anexo').trim().slice(0, 255) || 'anexo';
+  const criptografado = encryptAnexo(parsed.buffer);
+  const { rows } = await pool.query(
+    `INSERT INTO ti_ticket_anexos (id_ticket, id_usuario, nome_arquivo, tipo_mime, arquivo_bytes, tamanho_bytes)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id_anexo`,
+    [idTicket, id_usuario || null, nome, mime, criptografado, parsed.buffer.length],
+  );
+  const lista = await listarAnexos(idTicket);
+  return lista.find((a) => a.id_anexo === Number(rows[0].id_anexo));
+}
+
+export async function excluirAnexo(idAnexo) {
+  const { rows } = await pool.query(
+    `SELECT id_anexo, id_ticket FROM ti_ticket_anexos WHERE id_anexo = $1`,
+    [idAnexo],
+  );
+  if (!rows[0]) return null;
+  await pool.query(`DELETE FROM ti_ticket_anexos WHERE id_anexo = $1`, [idAnexo]);
+  return { id_anexo: Number(rows[0].id_anexo), id_ticket: Number(rows[0].id_ticket) };
+}
+

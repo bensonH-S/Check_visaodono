@@ -16,11 +16,15 @@ import Typography from '@mui/material/Typography';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import Tooltip from '@mui/material/Tooltip';
 import { api, type TiTicket } from '../api/client';
+import TiTicketAnexos from './TiTicketAnexos';
 import { getUsuario, podeAbrirTicketTi } from '../lib/auth';
-import { formatDataHoraBrasilia, formatDataSomenteData } from '../utils/dateBr';
+import { formatDataHoraBrasilia } from '../utils/dateBr';
+import Alert from '@mui/material/Alert';
 import {
   calcularPrazoSlaTicket,
   categoriaTicket,
+  textoAlertaSla,
+  textoPrazoRestante,
   TI_TICKET_CATEGORIAS,
 } from '../constants/tiTickets';
 
@@ -45,7 +49,7 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
   const [avaliarId, setAvaliarId] = useState<number | null>(null);
   const [nota, setNota] = useState<number | null>(5);
   const [comentarioAval, setComentarioAval] = useState('');
-  const categoriaAtual = categoriaTicket(area);
+  const [anexosPendentes, setAnexosPendentes] = useState<{ nome: string; mime: string; dataUrl: string }[]>([]);
   const prazoPrevisto = calcularPrazoSlaTicket(area);
 
   const carregarMeus = useCallback(async () => {
@@ -71,17 +75,34 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
     setErro('');
     setOk('');
     try {
-      await api.tiTicketCriar({
+      const criado = await api.tiTicketCriar({
         titulo: titulo.trim(),
         descricao,
         area,
         prioridade: prioridade as TiTicket['prioridade'],
       });
-      setOk(`Ticket aberto com prazo previsto para ${formatDataSomenteData(prazoPrevisto)}.`);
+      if (anexosPendentes.length) {
+        try {
+          await api.tiTicketAnexar(
+          criado.id_ticket,
+          anexosPendentes.map((p) => ({
+            nome_arquivo: p.nome,
+            tipo_mime: p.mime,
+            data_url: p.dataUrl,
+          })),
+        );
+        } catch {
+          /* ticket já aberto; anexo falhou */
+        }
+      }
+      setOk(
+        `Ticket aberto. ${textoAlertaSla(area)} Responder até ${formatDataHoraBrasilia(prazoPrevisto)}.`,
+      );
       setTitulo('');
       setDescricao('');
       setArea('geral');
       setPrioridade('media');
+      setAnexosPendentes([]);
       setTab(1);
       await carregarMeus();
     } catch (e) {
@@ -190,24 +211,15 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
                   <MenuItem value="urgente">Urgente</MenuItem>
                 </TextField>
               </Stack>
-              <Box
-                sx={{
-                  px: 1.5,
-                  py: 1.25,
-                  borderRadius: 1.5,
-                  bgcolor: 'action.hover',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                }}
-              >
-                <Typography sx={{ fontSize: 13, fontWeight: 700 }}>
-                  SLA · {categoriaAtual.slaDiasUteis}{' '}
-                  {categoriaAtual.slaDiasUteis === 1 ? 'dia útil' : 'dias úteis'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Prazo previsto para conclusão: {formatDataSomenteData(prazoPrevisto)}
-                </Typography>
-              </Box>
+              <Alert severity="info" sx={{ py: 0.75 }}>
+                {textoAlertaSla(area)} Responder até {formatDataHoraBrasilia(prazoPrevisto)}.
+              </Alert>
+              <TiTicketAnexos
+                anexos={[]}
+                onChange={() => undefined}
+                pendentesMeta={anexosPendentes}
+                onPendentesChange={setAnexosPendentes}
+              />
             </Stack>
           ) : (
             <Stack spacing={1}>
@@ -233,7 +245,10 @@ export default function AbrirChamadoTiDialog({ variante = 'portal' }: Props) {
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                       {t.categoria_label || categoriaTicket(t.area).label}
-                      {t.prazo ? ` · Prazo ${formatDataSomenteData(t.prazo)}` : ''}
+                      {t.status !== 'feito' && textoPrazoRestante(t.prazo)
+                        ? ` · ${textoPrazoRestante(t.prazo)?.label}`
+                        : ''}
+                      {t.prazo ? ` · até ${formatDataHoraBrasilia(t.prazo)}` : ''}
                       {t.concluido_em ? ` · Concluído em ${formatDataHoraBrasilia(t.concluido_em)}` : ''}
                     </Typography>
                     {t.status === 'feito' && !t.avaliacao ? (

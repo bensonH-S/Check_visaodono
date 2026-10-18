@@ -20,6 +20,10 @@ import {
   revogarAcesso,
   usuarioPodeGerenciarTickets,
   usuarioPodeAbrirTicket,
+  listarAnexos,
+  adicionarAnexo,
+  excluirAnexo,
+  obterAnexoBinario,
   STATUS_TICKET,
 } from '../services/tiTickets.js';
 import { pool } from '../db.js';
@@ -221,12 +225,104 @@ router.get('/usuarios-acesso', requireGerenciar, async (req, res, next) => {
   }
 });
 
+router.get('/anexos/:idAnexo/media', async (req, res, next) => {
+  try {
+    const anexo = await obterAnexoBinario(Number(req.params.idAnexo));
+    if (!anexo) return res.status(404).json({ error: 'Anexo não encontrado' });
+    const gerenciar = await usuarioPodeGerenciarTickets(req.user);
+    const uid = Number(req.user?.sub);
+    const dono =
+      Number(anexo.criado_por) === uid || Number(anexo.responsavel_id) === uid;
+    if (!gerenciar && !dono) {
+      return res.status(403).json({ error: 'Sem permissão para ver este anexo' });
+    }
+    res.setHeader('Content-Type', anexo.tipo_mime || 'application/octet-stream');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${String(anexo.nome_arquivo || 'anexo').replace(/"/g, '')}"`,
+    );
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(anexo.buffer);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/:id/anexos', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const ticket = await obterTicket(id);
+    if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
+    const gerenciar = await usuarioPodeGerenciarTickets(req.user);
+    const uid = Number(req.user?.sub);
+    const dono =
+      Number(ticket.criado_por) === uid || Number(ticket.responsavel_id) === uid;
+    if (!gerenciar && !dono) {
+      return res.status(403).json({ error: 'Sem permissão' });
+    }
+    res.json(await listarAnexos(id));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:id/anexos', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const ticket = await obterTicket(id);
+    if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
+    const gerenciar = await usuarioPodeGerenciarTickets(req.user);
+    const uid = Number(req.user?.sub);
+    const dono = Number(ticket.criado_por) === uid;
+    if (!gerenciar && !dono) {
+      return res.status(403).json({ error: 'Sem permissão para anexar' });
+    }
+    const itens = Array.isArray(req.body?.anexos) ? req.body.anexos : [req.body];
+    const criados = [];
+    for (const item of itens) {
+      if (!item) continue;
+      const anexo = await adicionarAnexo(id, {
+        nome_arquivo: item.nome_arquivo || item.nome,
+        tipo_mime: item.tipo_mime || item.mime,
+        data_url: item.data_url || item.dataUrl,
+        base64: item.base64,
+        id_usuario: uid,
+      });
+      if (anexo) criados.push(anexo);
+    }
+    res.status(201).json({ anexos: await listarAnexos(id), criados });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.delete('/anexos/:idAnexo', async (req, res, next) => {
+  try {
+    const bin = await obterAnexoBinario(Number(req.params.idAnexo));
+    if (!bin) return res.status(404).json({ error: 'Anexo não encontrado' });
+    const gerenciar = await usuarioPodeGerenciarTickets(req.user);
+    const uid = Number(req.user?.sub);
+    const dono = Number(bin.criado_por) === uid;
+    if (!gerenciar && !dono) {
+      return res.status(403).json({ error: 'Sem permissão para excluir anexo' });
+    }
+    await excluirAnexo(bin.id_anexo);
+    res.json({ ok: true, anexos: await listarAnexos(bin.id_ticket) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/:id', requireGerenciar, async (req, res, next) => {
   try {
     const ticket = await obterTicket(Number(req.params.id));
     if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
-    const comentarios = await listarComentarios(ticket.id_ticket);
-    res.json({ ...ticket, comentarios });
+    const [comentarios, anexos] = await Promise.all([
+      listarComentarios(ticket.id_ticket),
+      listarAnexos(ticket.id_ticket),
+    ]);
+    res.json({ ...ticket, comentarios, anexos });
   } catch (e) {
     next(e);
   }
