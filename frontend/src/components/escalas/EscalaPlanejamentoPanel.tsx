@@ -166,7 +166,7 @@ export default function EscalaPlanejamentoPanel({ semanaInicio, lojas, colors }:
         <Typography sx={{ fontWeight: 800, fontSize: 15 }}>
           Eventos da semana · Audiência, Reunião, Congresso e Treinamento
         </Typography>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} useFlexGap flexWrap="wrap">
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
           {TIPOS_PLANEJAMENTO.map((t) => (
             <Chip
               key={t.value}
