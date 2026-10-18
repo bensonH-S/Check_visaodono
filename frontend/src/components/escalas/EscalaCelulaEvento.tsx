@@ -68,7 +68,7 @@ export default function EscalaCelulaEvento({ tipos, editavel, onChange }: Props)
             border: tipos.length ? `1px solid ${cor ?? '#7030A0'}` : '1px dashed #e5e7eb',
             fontSize: '0.68rem',
             fontWeight: 700,
-            minHeight: 28;
+            minHeight: 28,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
