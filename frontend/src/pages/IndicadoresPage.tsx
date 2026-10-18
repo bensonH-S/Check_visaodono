@@ -27,7 +27,6 @@ import {
   Cell,
   CartesianGrid,
   ComposedChart,
-  Legend,
   Line,
   Pie,
   PieChart,
@@ -231,7 +230,7 @@ function KpiCard({ icone, cor, titulo, sub, valor, delta, spark, sparkId }: {
         minWidth: 0,
       }}
     >
-      <Stack direction="row" spacing={1} alignItems="center">
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center' }}>
         <Box
           sx={{
             width: 32,
@@ -253,7 +252,7 @@ function KpiCard({ icone, cor, titulo, sub, valor, delta, spark, sparkId }: {
         </Box>
         {spark ? <Sparkline data={spark} cor={cor} id={sparkId} /> : null}
       </Stack>
-      <Stack direction="row" alignItems="baseline" justifyContent="space-between" spacing={1}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline', justifyContent: 'space-between' }}>
         <Typography
           sx={{
             fontSize: { xs: 20, lg: 22 },
@@ -293,8 +292,8 @@ function Painel({ icone, cor = AZUL, titulo, extra, children }: {
         overflow: 'hidden',
       }}
     >
-      <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 0.8, flexShrink: 0 }}>
-        <Stack direction="row" spacing={1.15} alignItems="center" sx={{ minWidth: 0 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 0.8, flexShrink: 0 }}>
+        <Stack direction="row" spacing={1.15} sx={{ alignItems: 'center', minWidth: 0 }}>
           <Box
             sx={{
               width: 36,
@@ -589,9 +588,8 @@ export default function IndicadoresPage({ embedded = false }: Props) {
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         spacing={1}
-        alignItems={{ md: 'center' }}
-        justifyContent="space-between"
-        sx={{ flexShrink: 0 }}
+        useFlexGap
+        sx={{ alignItems: { md: 'center' }, justifyContent: 'space-between', flexShrink: 0 }}
       >
         <Typography sx={{ fontSize: 14, fontWeight: 700, color: 'text.primary', letterSpacing: '-0.01em' }}>
           Vendas e CMV em tempo real
@@ -599,7 +597,7 @@ export default function IndicadoresPage({ embedded = false }: Props) {
             {idLoja === '' ? ` · ${todasLinhas.length} loja${todasLinhas.length === 1 ? '' : 's'}` : ''}
           </Typography>
         </Typography>
-        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ overflow: 'visible' }}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap', overflow: 'visible' }}>
           <Box sx={{ width: 250, flexShrink: 0, overflow: 'visible' }}>
             <FiltroIntervaloDatasFrota
               compacto
@@ -707,7 +705,7 @@ export default function IndicadoresPage({ embedded = false }: Props) {
       </Box>
 
       <Paper elevation={0} sx={{ ...portalPanelSx, px: 1.5, py: 1, flexShrink: 0 }}>
-        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+        <Stack direction="row" spacing={1.5} useFlexGap sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           <Box sx={{ minWidth: 0, mr: 0.5 }}>
             <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary', lineHeight: 1.2 }}>
               Fornecedores
@@ -727,7 +725,7 @@ export default function IndicadoresPage({ embedded = false }: Props) {
             const valor = fornTotais[f.key];
             const share = gastoCmv > 0 ? (valor / gastoCmv) * 100 : 0;
             return (
-              <Stack key={f.key} direction="row" spacing={0.6} alignItems="baseline" sx={{ minWidth: 0 }}>
+              <Stack key={f.key} direction="row" spacing={0.6} sx={{ alignItems: 'baseline', minWidth: 0 }}>
                 <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: f.cor, alignSelf: 'center', flexShrink: 0 }} />
                 <Typography sx={{ fontSize: 12, fontWeight: 700, color: f.cor }} noWrap>{f.label}</Typography>
                 <Typography sx={{ fontSize: 12.5, fontWeight: 800, fontVariantNumeric: 'tabular-nums' }} noWrap>{brl(valor)}</Typography>
@@ -788,9 +786,9 @@ export default function IndicadoresPage({ embedded = false }: Props) {
                     />
                     <RTooltip
                       {...tooltipStyle}
-                      formatter={(v: number, nome: string) => [
-                        nome === 'totalCanal' ? brl(v) : brl(v),
-                        nome === 'totalCanal' ? 'Total do dia' : CANAIS_SERIE.find((c) => c.key === nome)?.label || nome,
+                      formatter={(v, nome) => [
+                        brl(Number(v)),
+                        nome === 'totalCanal' ? 'Total do dia' : CANAIS_SERIE.find((c) => c.key === nome)?.label || String(nome),
                       ]}
                     />
                     {CANAIS_SERIE.map((c, i) => (
@@ -816,7 +814,7 @@ export default function IndicadoresPage({ embedded = false }: Props) {
                       <Pie data={mixCanais} dataKey="valor" nameKey="label" innerRadius="58%" outerRadius="86%" paddingAngle={2} stroke="none">
                         {mixCanais.map((canal) => <Cell key={canal.key} fill={canal.cor} />)}
                       </Pie>
-                      <RTooltip {...tooltipStyle} formatter={(v: number) => brl(v)} />
+                      <RTooltip {...tooltipStyle} formatter={(v) => brl(Number(v))} />
                     </PieChart>
                   </ResponsiveContainer>
                   <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeContent: 'center', textAlign: 'center', pointerEvents: 'none' }}>
@@ -848,7 +846,7 @@ export default function IndicadoresPage({ embedded = false }: Props) {
                     <CartesianGrid vertical={false} stroke={grade} />
                     <XAxis dataKey="dia" tick={eixo} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                     <YAxis tick={eixo} tickLine={false} axisLine={false} width={72} tickFormatter={(v: number) => brlCurto(v)} />
-                    <RTooltip {...tooltipStyle} formatter={(v: number) => [brl(v), 'Venda']} />
+                    <RTooltip {...tooltipStyle} formatter={(v) => [brl(Number(v)), 'Venda']} />
                     <Bar dataKey="venda" fill={AZUL} radius={[3, 3, 0, 0]} maxBarSize={36} />
                   </BarChart>
                 </ResponsiveContainer>

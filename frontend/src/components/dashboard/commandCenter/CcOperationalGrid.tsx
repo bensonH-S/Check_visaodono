@@ -72,21 +72,10 @@ function brl(valor: number | null | undefined) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 }
 
-function brlCompacto(valor: number) {
-  if (Math.abs(valor) >= 1_000_000) return `R$ ${(valor / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi`;
-  if (Math.abs(valor) >= 1_000) return `R$ ${(valor / 1_000).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} mil`;
-  return brl(valor);
-}
-
 function valorGrafico(valor: number) {
   if (Math.abs(valor) >= 1_000_000) return `${(valor / 1_000_000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} mi`;
   if (Math.abs(valor) >= 1_000) return `${Math.round(valor / 1_000).toLocaleString('pt-BR')}k`;
   return Math.round(valor).toLocaleString('pt-BR');
-}
-
-function pct(valor: number | null | undefined) {
-  if (valor == null || !Number.isFinite(valor)) return '—';
-  return `${valor.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`;
 }
 
 const chartTooltipSx = {
@@ -282,7 +271,12 @@ export function CcStorePerformance({
                 cursor={{ fill: 'rgba(27,110,243,.05)' }}
                 contentStyle={chartTooltipSx}
                 labelStyle={{ color: 'var(--ga-text-primary)', fontWeight: 800 }}
-                formatter={(value: number) => metric === 'cmv' ? `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%` : brl(value)}
+                formatter={(value) => {
+                  const n = Number(value);
+                  return metric === 'cmv'
+                    ? `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
+                    : brl(n);
+                }}
               />
               <Bar
                 dataKey={metric}
@@ -300,7 +294,12 @@ export function CcStorePerformance({
                 <LabelList
                   dataKey={metric}
                   position="top"
-                  formatter={(value: number) => metric === 'cmv' ? `${value.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%` : valorGrafico(value)}
+                  formatter={(value) => {
+                    const n = Number(value);
+                    return metric === 'cmv'
+                      ? `${n.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`
+                      : valorGrafico(n);
+                  }}
                   style={{ fontSize: 8.5, fontWeight: 800, fill: 'var(--ga-text-primary)' }}
                 />
               </Bar>
@@ -417,7 +416,7 @@ export function CcFinancePanel({ despesas, loading, grade }: Pick<Props, 'despes
                 <LabelList
                   dataKey="total"
                   position="top"
-                  formatter={(value: number) => valorGrafico(value)}
+                  formatter={(value) => valorGrafico(Number(value))}
                   style={{ fontSize: 8.5, fontWeight: 800, fill: 'var(--ga-text-primary)' }}
                 />
               </Bar>

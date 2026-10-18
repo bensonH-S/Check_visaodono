@@ -1722,22 +1722,24 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou, som
               disabled={somenteLeitura}
               onChange={(ev) => setPagamento(ev.target.value)}
               placeholder={t('Para copiar na hora de pagar', 'Copy this when paying')}
-              InputProps={somenteLeitura && pagamento ? {
-                endAdornment: (
-                  <IconButton
-                    size="small"
-                    aria-label={t('Copiar', 'Copy')}
-                    onClick={() => {
-                      void navigator.clipboard.writeText(pagamento).then(
-                        () => showToast(t('Copiado.', 'Copied.'), 'success'),
-                        () => showToast(t('Não copiou', 'Could not copy'), 'error'),
-                      )
-                    }}
-                    sx={{ color: FIN_MUTED }}
-                  >
-                    <ContentCopyIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                ),
+              slotProps={somenteLeitura && pagamento ? {
+                input: {
+                  endAdornment: (
+                    <IconButton
+                      size="small"
+                      aria-label={t('Copiar', 'Copy')}
+                      onClick={() => {
+                        void navigator.clipboard.writeText(pagamento).then(
+                          () => showToast(t('Copiado.', 'Copied.'), 'success'),
+                          () => showToast(t('Não copiou', 'Could not copy'), 'error'),
+                        )
+                      }}
+                      sx={{ color: FIN_MUTED }}
+                    >
+                      <ContentCopyIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  ),
+                },
               } : undefined}
               sx={finCampoSx}
             />
