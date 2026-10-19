@@ -1619,6 +1619,11 @@
   color: var(--eh-green);
 }
 
+.ck-estoque-hub__nfe-btn--ok.is-parcial {
+  background: rgba(245, 158, 11, 0.2);
+  color: #b45309;
+}
+
 .ck-estoque-hub__nfe-btn--no.is-on {
   background: rgba(239, 68, 68, 0.18);
   color: var(--eh-red);
@@ -1630,6 +1635,47 @@
 
 .ck-estoque-hub__row.is-falta {
   background: rgba(239, 68, 68, 0.06);
+}
+
+.ck-estoque-hub__row.is-parcial {
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.ck-estoque-hub__qtd-edit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ck-estoque-hub__qtd-edit input {
+  width: 4.5rem;
+  max-width: 100%;
+  padding: 4px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.ck-estoque-hub__qtd-edit input:disabled {
+  opacity: 0.45;
+}
+
+.ck-estoque-hub__qtd-edit input:focus {
+  outline: none;
+  border-color: #f59e0b;
+}
+
+.ck-estoque-hub__qtd-edit small {
+  font-size: 10px;
+  opacity: 0.7;
+  white-space: nowrap;
 }
 
 .ck-estoque-hub__foot {
@@ -1664,6 +1710,12 @@
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 
+.ck-estoque-hub__foot button.is-no {
+  background: transparent;
+  color: #f0b4b4;
+  box-shadow: inset 0 0 0 1px rgba(220, 80, 80, 0.45);
+}
+
 .ck-estoque-hub__foot button.is-pri {
   flex: 1.35;
   min-width: 0;
@@ -1671,6 +1723,19 @@
   color: #fff;
   white-space: nowrap;
   padding-inline: 10px;
+}
+
+.ck-estoque-hub--nfe .ck-estoque-hub__foot {
+  flex-wrap: wrap;
+}
+
+.ck-estoque-hub--nfe .ck-estoque-hub__foot button {
+  flex: 1 1 calc(50% - 8px);
+  min-width: 0;
+}
+
+.ck-estoque-hub--nfe .ck-estoque-hub__foot button.is-pri {
+  flex: 1 1 100%;
 }
 
 .ck-estoque-hub--nfe .ck-estoque-hub__brand-row {

@@ -2039,10 +2039,12 @@ router.post('/nfes/:id/conferir', permNfe, async (req, res, next) => {
     const bloqueio = acessoLoja(req, rows[0].id_loja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
+    const nenhumChegou = !!req.body?.nenhum_chegou;
     const result = await conferirRecebimentoNfe({
       id_nfe: idNfe,
       itens: Array.isArray(req.body?.itens) ? req.body.itens : null,
       confirmar_todos: !!req.body?.confirmar_todos,
+      nenhum_chegou: nenhumChegou,
       criado_por: userId(req),
     });
 
@@ -2051,7 +2053,9 @@ router.post('/nfes/:id/conferir', permNfe, async (req, res, next) => {
       acao: 'criar',
       entidade: 'estoque_nfe_conferencia',
       entidade_id: idNfe,
-      descricao: `Conferiu NF #${idNfe} — entrega ${result.data_entrega} — ${result.status_entrega}`,
+      descricao: nenhumChegou || result.nenhum_chegou
+        ? `Marcou NF #${idNfe} como não chegou — ${result.data_entrega}`
+        : `Conferiu NF #${idNfe} — entrega ${result.data_entrega} — ${result.status_entrega}`,
     });
 
     // Espelha NF conferida/divergente no financeiro (só marca selo na despesa existente).

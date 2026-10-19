@@ -1849,6 +1849,8 @@ export const api = {
     idNfe: number,
     body: {
       confirmar_todos?: boolean;
+      /** Marca a NF inteira: mercadoria não chegou (zera itens, sai da fila). */
+      nenhum_chegou?: boolean;
       itens?: Array<{
         id_item: number;
         qtd_conferida?: number;

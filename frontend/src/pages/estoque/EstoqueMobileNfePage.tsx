@@ -419,6 +419,27 @@ export default function EstoqueMobileNfePage() {
     });
   };
 
+
+  /** Um toque: mercadoria não chegou → sai da fila sem entrar estoque. */
+  const marcarNotaNaoChegou = async () => {
+    if (!det || det.entrada_registrada) return;
+    const rotulo = det.numero || det.id_nfe;
+    const ok = window.confirm(
+      `Confirmar que a NF ${rotulo} não chegou na loja?\nNenhum item entra no estoque e a nota sai da fila.`,
+    );
+    if (!ok) return;
+    setSalvando(true);
+    try {
+      await api.estoqueNfeConferir(det.id_nfe, { nenhum_chegou: true });
+      showToast('NF marcada: mercadoria não chegou', 'warning');
+      navigate('/estoque/mobile', { replace: true, state: { aba: 'nf' } });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao marcar NF', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
   const dialogDanfe = (
     <Dialog
       fullScreen
@@ -649,13 +670,21 @@ export default function EstoqueMobileNfePage() {
             </button>
           ) : (
             <>
-              <button type="button" className="is-ghost" onClick={marcarTodosOk}>
+              <button
+                type="button"
+                className="is-no"
+                disabled={salvando}
+                onClick={() => void marcarNotaNaoChegou()}
+              >
+                Não chegou
+              </button>
+              <button type="button" className="is-ghost" disabled={salvando} onClick={marcarTodosOk}>
                 Todos OK
               </button>
               <button
                 type="button"
                 className="is-pri"
-                disabled={salvando || resumo.pend > 0}
+                disabled={salvando || resumo.pend > 0 || resumo.total === 0}
                 onClick={() => void finalizar()}
               >
                 {salvando
