@@ -146,7 +146,7 @@ const paperInboxSx = {
 } as const
 
 const INBOX_STATUS = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
-const FILTROS = ['Todas', 'Manuais', 'Vencidas', 'NF confirmada', 'Aguardando NF'] as const
+const FILTROS = ['Todas', 'Manuais', 'Vencidas', 'NF confirmada', 'NF Parcial', 'NF Pendente', 'Aguardando NF'] as const
 const COR_MANUAL = '#D97706'
 const FILTROS_NF = ['Todas', 'Autorizadas', 'Canceladas', 'Com XML'] as const
 const hoje = new Date().toISOString().slice(0, 10)
@@ -284,7 +284,13 @@ export function InboxDdaPage() {
       if (busca && !texto.includes(busca.toLowerCase())) return false
       if (filtro === 'Manuais') return e.fonte === 'manual'
       if (filtro === 'Vencidas') return !!e.vencimento && e.vencimento < hoje
-      if (filtro === 'NF confirmada') return e.nf_confirmada || e.fonte === 'nfe'
+      if (filtro === 'NF confirmada') return (e.nf_ciclo === 'confirmada') || (e.nf_confirmada && !e.nf_divergente) || e.fonte === 'nfe'
+      if (filtro === 'NF Parcial') return e.nf_ciclo === 'divergente' || (e.nf_confirmada && !!e.nf_divergente)
+      if (filtro === 'NF Pendente') {
+        return e.nf_ciclo === 'nao_confirmada'
+          || e.nf_ciclo === 'em_transito'
+          || (!e.nf_confirmada && e.fonte === 'dda' && e.nf_ciclo !== 'confirmada' && e.nf_ciclo !== 'divergente')
+      }
       if (filtro === 'Aguardando NF') return e.fonte !== 'manual' && e.fonte !== 'nfe' && !e.nf_confirmada
       return true
     })
@@ -1298,13 +1304,37 @@ function SimbolosDda({
         />
       ) : (
         <Selo
-          rotulo="NFE"
-          titulo={temNf
-            ? t('Tem nota fiscal. Abrir na aba Notas', 'Has invoice. Open Invoices tab')
-            : despesa.nf_confirmada
-              ? t('NF conferida no gestor', 'Invoice checked in stock')
-              : t('Aguardando nota fiscal', 'Awaiting invoice')}
-          cor={temNf || despesa.nf_confirmada ? '#1D4ED8' : '#94A3B8'}
+          rotulo={
+            despesa.nf_ciclo === 'divergente' || (despesa.nf_confirmada && despesa.nf_divergente)
+              ? 'PAR'
+              : despesa.nf_ciclo === 'confirmada' || (despesa.nf_confirmada && !despesa.nf_divergente)
+                ? 'OK'
+                : despesa.nf_ciclo === 'nao_confirmada' || despesa.nf_ciclo === 'em_transito'
+                  ? 'NC'
+                  : 'NFE'
+          }
+          titulo={
+            despesa.nf_ciclo === 'divergente' || (despesa.nf_confirmada && despesa.nf_divergente)
+              ? t('NF Parcial — conferida com diferença de quantidade', 'Partial NF — checked with quantity mismatch')
+              : despesa.nf_ciclo === 'confirmada' || (despesa.nf_confirmada && !despesa.nf_divergente)
+                ? t('NF confirmada', 'Invoice confirmed')
+                : despesa.nf_ciclo === 'nao_confirmada' || despesa.nf_ciclo === 'em_transito'
+                  ? t('NF Pendente', 'Pending NF')
+                  : temNf
+                    ? t('Tem nota fiscal. Abrir na aba Notas', 'Has invoice. Open Invoices tab')
+                    : t('Aguardando nota fiscal', 'Awaiting invoice')
+          }
+          cor={
+            despesa.nf_ciclo === 'divergente' || (despesa.nf_confirmada && despesa.nf_divergente)
+              ? '#B45309'
+              : despesa.nf_ciclo === 'confirmada' || (despesa.nf_confirmada && !despesa.nf_divergente)
+                ? '#047857'
+                : despesa.nf_ciclo === 'nao_confirmada' || despesa.nf_ciclo === 'em_transito'
+                  ? '#475569'
+                  : temNf
+                    ? '#1D4ED8'
+                    : '#94A3B8'
+          }
           onClick={temNf ? onNota : undefined}
         />
       )}
@@ -1465,6 +1495,8 @@ function rotuloFiltro(item: string, t: (pt: string, en: string) => string) {
     Manuais: ['Manuais', 'Manual'],
     Vencidas: ['Vencidas', 'Overdue'],
     'NF confirmada': ['NF confirmada', 'Invoice confirmed'],
+    'NF Parcial': ['NF Parcial', 'Partial NF'],
+    'NF Pendente': ['NF Pendente', 'Pending NF'],
     'Aguardando NF': ['Aguardando NF', 'Awaiting invoice'],
     Autorizadas: ['Autorizadas', 'Authorized'],
     Canceladas: ['Canceladas', 'Cancelled'],

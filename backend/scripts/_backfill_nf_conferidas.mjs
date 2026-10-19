@@ -1,4 +1,4 @@
-/** Marca NF confirmada na Agenda + remove duplicatas ESTOQUE-NFE do Inbox. */
+/** Liga DDA↔NF + cria na Agenda as conferidas sem DDA + remove rascunhos ESTOQUE-NFE. */
 import dotenv from 'dotenv'
 import pg from 'pg'
 import path from 'path'
@@ -49,20 +49,31 @@ await portal.connect()
 await finance.connect()
 
 const canceladas = await cancelarDuplicatasNfeInbox(finance)
-console.log('duplicatas inbox canceladas', canceladas)
+console.log('rascunhos inbox cancelados', canceladas)
 
 const sync = await sincronizarNfesConferidas({ financePool: finance, portalPool: portal })
 console.log('sync', sync)
 
-const semana = await finance.query(`
-  select
-    count(*) filter (where coalesce(nf_confirmada,false))::int as com_selo,
-    count(*) filter (where not coalesce(nf_confirmada,false))::int as sem_selo
-  from despesas
-  where status in ('pronta','autorizada','enviada')
-    and vencimento between '2026-10-18' and '2026-10-25'
+const amostra = await finance.query(`
+  select eo.apelido as loja,
+         left(coalesce(f.nome, d.descricao), 40) as fornecedor,
+         d.numero_nf,
+         d.fonte,
+         d.nf_ciclo,
+         d.valor::float8 as valor,
+         to_char(d.vencimento,'YYYY-MM-DD') as venc,
+         d.nfe_id
+  from despesas d
+  join empresas eo on eo.id = d.empresa_origem_id
+  left join fornecedores f on f.id = d.fornecedor_id
+  where d.fonte = 'nfe'
+    and d.status = 'pronta'
+    and coalesce(d.nf_confirmada, false)
+  order by d.vencimento desc nulls last
+  limit 15
 `)
-console.log('agenda semana', semana.rows[0])
+console.log('amostra fonte=nfe confirmadas', amostra.rowCount)
+console.log(JSON.stringify(amostra.rows, null, 2))
 
 await portal.end()
 await finance.end()

@@ -30,11 +30,13 @@ import {
   confirmarEntradaNfe,
   conferirRecebimentoNfe,
   listarNfesEstoque,
+  listarRelatorioDivergenciasNfe,
   obterNfeDetalhe,
   statusDisciplinaEstoque,
   fecharMesEstoque,
   reabrirMesEstoque,
 } from '../services/estoqueCmvReal.js';
+import { acessoTodasLojas } from '../permissoes.js';
 import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js';
 import { syncVendasBkOffice, getBkOfficeStatus } from '../services/bkoffice/syncVendas.js';
 import { statusKitParaPortal } from '../services/bkoffice/kitSyncLease.js';
@@ -76,6 +78,7 @@ import { parsePaginacaoOffset, montarEnvelopeOffset } from '../paginacao.js';
 import fs from 'fs/promises';
 import { parseNfeXml } from '../services/nfeXml.js';
 import { agendarXmlPendentesLoja, completarXmlNotaEstoque, danfeNotaEstoque } from '../financeiro/lib/syncNfeSefaz.mjs';
+import { montarExcelDivergenciasNfe } from '../financeiro/lib/excelDivergenciasNfe.mjs';
 
 const router = Router();
 const permOp = requirePermissao('estoque.operacional');
@@ -83,6 +86,13 @@ const permOp = requirePermissao('estoque.operacional');
 const permSaldo = requirePermissao('estoque.operacional', 'estoque.conferencia');
 /** Receber NF: gestores, regionais, diretor, Felipe e TI entram com conferência. */
 const permNfe = permSaldo;
+/** Relatório de divergência: estoque ou financeiro (Agenda). */
+const permDivergenciasNf = requirePermissao(
+  'estoque.operacional',
+  'estoque.conferencia',
+  'financeiro.ver',
+  'financeiro.resumo.ver',
+);
 const permBreak = requirePermissao('estoque.break', 'estoque.operacional');
 const permConfig = requirePermissao('configuracoes.ver', 'estoque.operacional');
 const upload = multer({
@@ -1844,6 +1854,54 @@ router.get('/nfes', permNfe, async (req, res, next) => {
   }
 });
 
+/** Relatório de NF com divergência de quantidade (JSON ou Excel). */
+router.get('/nfes/divergencias', permDivergenciasNf, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const de = req.query.de ? String(req.query.de).slice(0, 10) : null;
+    const ate = req.query.ate ? String(req.query.ate).slice(0, 10) : null;
+    let idsLoja = null;
+
+    if (idLoja) {
+      const bloqueio = acessoLoja(req, idLoja);
+      if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    } else if (!acessoTodasLojas(req.user)) {
+      const ids = Array.isArray(req.user?.lojas_ids_estoque)
+        ? req.user.lojas_ids_estoque
+        : req.user?.lojas_ids || [];
+      idsLoja = ids.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+      if (!idsLoja.length) {
+        return res.status(403).json({ error: 'Sem acesso a lojas de estoque' });
+      }
+    }
+
+    const data = await listarRelatorioDivergenciasNfe({
+      id_loja: idLoja,
+      ids_loja: idsLoja,
+      de,
+      ate,
+    });
+
+    const formato = String(req.query.formato || 'json').toLowerCase();
+    if (formato !== 'xlsx') return res.json(data);
+
+    const buf = await montarExcelDivergenciasNfe(data);
+    const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(
+      new Date(),
+    );
+    const tag = idLoja ? `loja-${idLoja}` : 'rede';
+    const filename = `divergencias-nf-${tag}-${hoje}-CentralGA.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buf);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/nfes/:id', permNfe, async (req, res, next) => {
   try {
     const idNfe = Number(req.params.id);
@@ -1980,7 +2038,7 @@ router.post('/nfes/:id/conferir', permNfe, async (req, res, next) => {
       descricao: `Conferiu NF #${idNfe} — entrega ${result.data_entrega} — ${result.status_entrega}`,
     });
 
-    // Espelha NF conferida no financeiro (Agenda se casar boleto; senão Inbox com selo NF confirmada).
+    // Espelha NF conferida/divergente no financeiro (só marca selo na despesa existente).
     let financeiro = null;
     try {
       const { getFinancePool } = await import('../financeiro/http.mjs');

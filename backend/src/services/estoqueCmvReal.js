@@ -710,6 +710,257 @@ export async function conferirRecebimentoNfe({
   };
 }
 
+/**
+ * Relatório de NF conferidas com divergência de quantidade (item a item).
+ * Só linhas em que faltou produto (qtd NF > qtd recebida).
+ */
+export async function listarRelatorioDivergenciasNfe({
+  id_loja = null,
+  ids_loja = null,
+  de = null,
+  ate = null,
+} = {}) {
+  const params = [];
+  const where = [`n.status_entrega = 'divergente'`, `n.entrada_registrada = TRUE`];
+
+  if (id_loja) {
+    params.push(Number(id_loja));
+    where.push(`n.id_loja = $${params.length}`);
+  } else if (Array.isArray(ids_loja) && ids_loja.length) {
+    params.push(ids_loja.map(Number).filter((n) => Number.isFinite(n) && n > 0));
+    where.push(`n.id_loja = ANY($${params.length}::int[])`);
+  }
+
+  if (de) {
+    params.push(String(de).slice(0, 10));
+    where.push(`COALESCE(n.data_entrega, n.entrada_em::date, n.emissao::date) >= $${params.length}::date`);
+  }
+  if (ate) {
+    params.push(String(ate).slice(0, 10));
+    where.push(`COALESCE(n.data_entrega, n.entrada_em::date, n.emissao::date) <= $${params.length}::date`);
+  }
+
+  const { rows } = await pool.query(
+    `SELECT
+        l.name AS loja,
+        n.id_loja,
+        n.id_nfe,
+        n.numero,
+        n.serie,
+        n.emitente_nome,
+        n.emitente_cnpj,
+        n.fornecedor,
+        n.valor_total,
+        to_char(n.emissao::date, 'YYYY-MM-DD') AS emissao,
+        to_char(COALESCE(n.data_entrega, n.entrada_em::date), 'YYYY-MM-DD') AS data_conferencia,
+        i.id_item,
+        i.n_item,
+        COALESCE(ins.codigo, i.codigo_nf) AS codigo,
+        COALESCE(ins.descricao, i.descricao) AS produto,
+        COALESCE(ins.unidade_contagem, i.u_com) AS unidade,
+        COALESCE(i.qtd_estoque, i.q_com, 0)::float8 AS qtd_nf,
+        COALESCE(i.qtd_conferida, 0)::float8 AS qtd_recebida,
+        GREATEST(COALESCE(i.qtd_estoque, i.q_com, 0) - COALESCE(i.qtd_conferida, 0), 0)::float8 AS qtd_faltante,
+        i.v_un_com::float8 AS valor_unitario,
+        i.v_prod::float8 AS valor_item_nf,
+        CASE
+          WHEN COALESCE(i.qtd_estoque, i.q_com, 0) > 0
+            THEN ROUND((
+              GREATEST(COALESCE(i.qtd_estoque, i.q_com, 0) - COALESCE(i.qtd_conferida, 0), 0)
+              * COALESCE(i.v_prod, 0)
+              / COALESCE(i.qtd_estoque, i.q_com, 0)
+            )::numeric, 2)::float8
+          ELSE 0
+        END AS valor_faltante,
+        i.divergencia_obs
+      FROM estoque_nfe n
+      JOIN lojas l ON l.id_loja = n.id_loja
+      JOIN estoque_nfe_itens i ON i.id_nfe = n.id_nfe
+      LEFT JOIN insumos ins ON ins.id_insumo = i.id_insumo
+      WHERE ${where.join(' AND ')}
+        AND COALESCE(i.qtd_estoque, i.q_com, 0) - COALESCE(i.qtd_conferida, 0) > 0.0001
+      ORDER BY l.name, n.data_entrega DESC NULLS LAST, n.id_nfe DESC, i.n_item NULLS LAST, i.id_item`,
+    params,
+  );
+
+  const porNf = new Map();
+  const porLoja = new Map();
+  for (const r of rows) {
+    const chaveNf = `${r.id_nfe}`;
+    const nf = porNf.get(chaveNf) || {
+      loja: r.loja,
+      id_nfe: r.id_nfe,
+      numero: r.numero,
+      emitente: r.emitente_nome,
+      data_conferencia: r.data_conferencia,
+      itens_faltantes: 0,
+      qtd_faltante: 0,
+      valor_faltante: 0,
+      valor_nf: r.valor_total != null ? num(r.valor_total) : null,
+    };
+    nf.itens_faltantes += 1;
+    nf.qtd_faltante += Number(r.qtd_faltante) || 0;
+    nf.valor_faltante += Number(r.valor_faltante) || 0;
+    porNf.set(chaveNf, nf);
+
+    const loja = porLoja.get(r.loja) || {
+      loja: r.loja,
+      nfs: 0,
+      itens_faltantes: 0,
+      valor_faltante: 0,
+    };
+    loja.itens_faltantes += 1;
+    loja.valor_faltante += Number(r.valor_faltante) || 0;
+    porLoja.set(r.loja, loja);
+  }
+  // Conta NFs distintas por loja
+  const nfsPorLoja = new Map();
+  for (const nf of porNf.values()) {
+    nfsPorLoja.set(nf.loja, (nfsPorLoja.get(nf.loja) || 0) + 1);
+  }
+  for (const [nome, loja] of porLoja) {
+    loja.nfs = nfsPorLoja.get(nome) || 0;
+  }
+
+  const pendentes = await listarNfesSemConfirmacao({ id_loja, ids_loja, de, ate });
+
+  return {
+    itens: rows,
+    por_nf: [...porNf.values()],
+    por_loja: [...porLoja.values()].sort((a, b) => a.loja.localeCompare(b.loja, 'pt-BR')),
+    sem_confirmacao: pendentes.nfs,
+    sem_confirmacao_por_loja: pendentes.por_loja,
+    totais: {
+      linhas: rows.length,
+      nfs: porNf.size,
+      lojas: porLoja.size,
+      valor_faltante: [...porNf.values()].reduce((s, n) => s + (n.valor_faltante || 0), 0),
+      sem_confirmacao: pendentes.nfs.length,
+      lojas_sem_confirmacao: pendentes.por_loja.length,
+    },
+  };
+}
+
+/** NFs ainda não conferidas pela loja (pendentes no app). */
+export async function listarNfesSemConfirmacao({
+  id_loja = null,
+  ids_loja = null,
+  de = null,
+  ate = null,
+} = {}) {
+  const params = [];
+  const where = [
+    `n.entrada_registrada = FALSE`,
+    `n.status_entrega IN ('aguardando_conferencia', 'em_transito', 'aguardando_portal')`,
+    `EXISTS (SELECT 1 FROM estoque_nfe_itens i WHERE i.id_nfe = n.id_nfe)`,
+  ];
+
+  if (id_loja) {
+    params.push(Number(id_loja));
+    where.push(`n.id_loja = $${params.length}`);
+  } else if (Array.isArray(ids_loja) && ids_loja.length) {
+    params.push(ids_loja.map(Number).filter((n) => Number.isFinite(n) && n > 0));
+    where.push(`n.id_loja = ANY($${params.length}::int[])`);
+  }
+
+  if (de) {
+    params.push(String(de).slice(0, 10));
+    where.push(`COALESCE(n.emissao::date, n.data_saida) >= $${params.length}::date`);
+  }
+  if (ate) {
+    params.push(String(ate).slice(0, 10));
+    where.push(`COALESCE(n.emissao::date, n.data_saida) <= $${params.length}::date`);
+  }
+
+  const { rows } = await pool.query(
+    `SELECT
+        l.name AS loja,
+        n.id_loja,
+        n.id_nfe,
+        n.numero,
+        n.serie,
+        n.emitente_nome,
+        n.emitente_cnpj,
+        n.fornecedor,
+        n.status_entrega,
+        n.valor_total::float8 AS valor_total,
+        to_char(n.emissao::date, 'YYYY-MM-DD') AS emissao,
+        to_char(n.data_saida, 'YYYY-MM-DD') AS data_saida,
+        (SELECT COUNT(*)::int FROM estoque_nfe_itens i WHERE i.id_nfe = n.id_nfe) AS itens
+      FROM estoque_nfe n
+      JOIN lojas l ON l.id_loja = n.id_loja
+      WHERE ${where.join(' AND ')}
+      ORDER BY l.name, COALESCE(n.emissao, n.data_saida) ASC NULLS LAST, n.id_nfe`,
+    params,
+  );
+
+  const porLoja = new Map();
+  for (const r of rows) {
+    const cur = porLoja.get(r.loja) || {
+      loja: r.loja,
+      nfs: 0,
+      valor_total: 0,
+      emissao_min: null,
+      emissao_max: null,
+    };
+    cur.nfs += 1;
+    cur.valor_total += Number(r.valor_total) || 0;
+    if (r.emissao) {
+      if (!cur.emissao_min || r.emissao < cur.emissao_min) cur.emissao_min = r.emissao;
+      if (!cur.emissao_max || r.emissao > cur.emissao_max) cur.emissao_max = r.emissao;
+    }
+    porLoja.set(r.loja, cur);
+  }
+
+  return {
+    nfs: rows,
+    por_loja: [...porLoja.values()].sort((a, b) => b.nfs - a.nfs || a.loja.localeCompare(b.loja, 'pt-BR')),
+  };
+}
+
+/** @deprecated use montarExcelDivergenciasNfe */
+export function linhasExcelDivergenciasNfe(data) {
+  const fmt = (v) => (v == null || Number.isNaN(Number(v)) ? null : Number(v));
+  return {
+    itens: (data.itens || []).map((r) => ({
+      Loja: r.loja,
+      NF: r.numero,
+      Série: r.serie,
+      Fornecedor: r.emitente_nome,
+      CNPJ: r.emitente_cnpj,
+      Origem: r.fornecedor,
+      Emissão: r.emissao,
+      Conferência: r.data_conferencia,
+      Código: r.codigo,
+      Produto: r.produto,
+      Unidade: r.unidade,
+      'Qtd NF': fmt(r.qtd_nf),
+      'Qtd recebida': fmt(r.qtd_recebida),
+      'Qtd faltante': fmt(r.qtd_faltante),
+      'Valor unitário': fmt(r.valor_unitario),
+      'Valor item NF': fmt(r.valor_item_nf),
+      'Valor faltante': fmt(r.valor_faltante),
+      Observação: r.divergencia_obs || '',
+    })),
+    por_nf: (data.por_nf || []).map((r) => ({
+      Loja: r.loja,
+      NF: r.numero,
+      Fornecedor: r.emitente,
+      Conferência: r.data_conferencia,
+      'Itens faltantes': r.itens_faltantes,
+      'Qtd faltante': fmt(r.qtd_faltante),
+      'Valor faltante': fmt(r.valor_faltante),
+      'Valor NF': fmt(r.valor_nf),
+    })),
+    por_loja: (data.por_loja || []).map((r) => ({
+      Loja: r.loja,
+      NFs: r.nfs,
+      'Itens faltantes': r.itens_faltantes,
+      'Valor faltante': fmt(r.valor_faltante),
+    })),
+  };
+}
+
 export async function obterNfeDetalhe(idNfe) {
   const id = Number(idNfe);
   const { rows } = await pool.query(`SELECT * FROM estoque_nfe WHERE id_nfe = $1`, [id]);

@@ -247,10 +247,11 @@ export async function receberLoteFreecontrol(pool, req, env = process.env) {
       insert into despesas (
         id, descricao, empresa_origem_id, empresa_registro_id,
         documento_ref, numero_nf, competencia, vencimento, valor,
-        forma_pagamento, dados_pagamento, status, fonte, freecontrol_tipo
+        forma_pagamento, dados_pagamento, status, fonte, freecontrol_tipo,
+        conferencia_status
       ) values (
         gen_random_uuid(), $1, $2, $3, $4, $5, $6::date, $7::date, $8,
-        $9, $10, 'pronta', 'freecontrol', $11
+        $9, $10, 'pronta', 'freecontrol', $11, 'ok'
       )
       returning id::text as id
       `,

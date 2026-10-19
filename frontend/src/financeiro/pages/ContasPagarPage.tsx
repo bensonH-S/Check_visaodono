@@ -16,6 +16,7 @@ import Radio from '@mui/material/Radio'
 import RadioGroup from '@mui/material/RadioGroup'
 import IconButton from '@mui/material/IconButton'
 import LinearProgress from '@mui/material/LinearProgress'
+import Menu from '@mui/material/Menu'
 import MenuItem from '@mui/material/MenuItem'
 import Paper from '@mui/material/Paper'
 import Snackbar from '@mui/material/Snackbar'
@@ -32,6 +33,7 @@ import Typography from '@mui/material/Typography'
 import AddIcon from '@mui/icons-material/Add'
 import AttachFileOutlinedIcon from '@mui/icons-material/AttachFileOutlined'
 import CheckIcon from '@mui/icons-material/Check'
+import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined'
 import CloseIcon from '@mui/icons-material/Close'
 import ContentCopyIcon from '@mui/icons-material/ContentCopy'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
@@ -99,7 +101,18 @@ const CODIGO: Record<string, string> = {
   folha: 'Folha Pagamento', cadastro: 'Cadastro', chave_pix: 'Chave PIX',
   boleto: 'Boleto', guia: 'Guia', dinheiro: 'Dinheiro', online: 'Online',
 }
-const FILTROS = ['Todas', 'DDA', 'Free Control', 'Boletos', 'Para autorizar', 'Vencidas', 'NF confirmada'] as const
+const FILTROS = ['Todas', 'DDA', 'Free Control', 'Boletos', 'Para autorizar', 'Vencidas', 'NF confirmada', 'NF Parcial', 'NF Pendente'] as const
+
+function cicloNf(e: Despesa): 'nao_confirmada' | 'confirmada' | 'divergente' | null {
+  if (e.nf_ciclo === 'confirmada' || e.nf_ciclo === 'divergente') return e.nf_ciclo
+  // em_transito e nao_confirmada → mesmo selo na Agenda
+  if (e.nf_ciclo === 'nao_confirmada' || e.nf_ciclo === 'em_transito') return 'nao_confirmada'
+  if (e.nf_confirmada && e.nf_divergente) return 'divergente'
+  if (e.nf_confirmada) return 'confirmada'
+  if (e.fonte === 'freecontrol' || e.fonte === 'manual') return null
+  if (e.fonte === 'dda' || e.fonte === 'nfe' || e.numero_nf) return 'nao_confirmada'
+  return null
+}
 
 const TOM_CLARO: Record<string, { color: string; border: string; bg: string }> = {
   a_pagar: { color: '#1D4ED8', border: 'rgba(59,130,246,0.45)', bg: 'rgba(59,130,246,0.1)' },
@@ -177,6 +190,75 @@ export function ContasPagarPage() {
   const [erroBanco, setErroBanco] = useState('')
   const [importarAberto, setImportarAberto] = useState(false)
   const [baixandoExcel, setBaixandoExcel] = useState(false)
+  const [baixandoDivergencias, setBaixandoDivergencias] = useState(false)
+  const [menuNf, setMenuNf] = useState<{ despesa: Despesa; anchor: HTMLElement } | null>(null)
+  const [menuConf, setMenuConf] = useState<{ despesa: Despesa; anchor: HTMLElement; modo: 'free' | 'tributo' } | null>(null)
+  const [salvandoNf, setSalvandoNf] = useState(false)
+
+  const alterarStatusNf = async (ciclo: 'confirmada' | 'divergente' | 'nao_confirmada') => {
+    if (!menuNf || somenteLeitura) return
+    const id = menuNf.despesa.id
+    setSalvandoNf(true)
+    try {
+      const r = await api.alterarNfStatus(id, ciclo)
+      setDespesas((prev) => prev.map((d) => (
+        d.id === id
+          ? {
+            ...d,
+            nf_ciclo: r.nf_ciclo as Despesa['nf_ciclo'],
+            nf_confirmada: r.nf_confirmada,
+            nf_divergente: r.nf_divergente,
+          }
+          : d
+      )))
+      showToast(
+        ciclo === 'confirmada'
+          ? t('NF confirmada.', 'Invoice confirmed.')
+          : ciclo === 'divergente'
+            ? t('Marcada como NF Parcial.', 'Marked as partial NF.')
+            : t('Marcada como NF Pendente.', 'Marked as pending NF.'),
+        'success',
+      )
+      setMenuNf(null)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t('Não alterou o status.', 'Could not change status.'), 'error')
+    } finally {
+      setSalvandoNf(false)
+    }
+  }
+
+  const alterarConferencia = async (status: 'ok' | 'pendente' | 'conferido') => {
+    if (!menuConf || somenteLeitura) return
+    const id = menuConf.despesa.id
+    setSalvandoNf(true)
+    try {
+      const r = await api.alterarConferencia(id, status)
+      setDespesas((prev) => prev.map((d) => (
+        d.id === id
+          ? {
+            ...d,
+            conferencia_status: r.conferencia_status as Despesa['conferencia_status'],
+            tributo_tipo: r.tributo_tipo,
+            tributo_rotulo: r.tributo_rotulo,
+            tributo_portal: r.tributo_portal,
+          }
+          : d
+      )))
+      showToast(
+        status === 'ok'
+          ? t('Free Control OK.', 'Free Control OK.')
+          : status === 'conferido'
+            ? t('Tributo confirmado.', 'Tax confirmed.')
+            : t('Marcado como pendente.', 'Marked as pending.'),
+        'success',
+      )
+      setMenuConf(null)
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : t('Não alterou a conferência.', 'Could not update check.'), 'error')
+    } finally {
+      setSalvandoNf(false)
+    }
+  }
 
   const baixarExcel = async () => {
     if (!de || !ate || de > ate) {
@@ -190,6 +272,25 @@ export function ContasPagarPage() {
       showToast(err instanceof Error ? err.message : t('Não gerou a planilha.', 'Could not build the spreadsheet.'), 'error')
     } finally {
       setBaixandoExcel(false)
+    }
+  }
+
+  const baixarDivergencias = async () => {
+    setBaixandoDivergencias(true)
+    try {
+      await api.baixarDivergenciasNf({
+        de: de || undefined,
+        ate: ate || undefined,
+      })
+    } catch (err) {
+      showToast(
+        err instanceof Error
+          ? err.message
+          : t('Não gerou o relatório de divergências.', 'Could not build the mismatch report.'),
+        'error',
+      )
+    } finally {
+      setBaixandoDivergencias(false)
     }
   }
 
@@ -249,19 +350,30 @@ export function ContasPagarPage() {
   }).reduce((a, e) => a + Number(e.valor), 0), [despesas, de, ate])
 
   const linhas = useMemo(() => {
-    const filtradas = noPeriodo.filter((e) => {
-      const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.plano ?? ''}`.toLowerCase()
-      if (busca && !texto.includes(busca.toLowerCase())) return false
+    const q = busca.trim().toLowerCase()
+    const qDigitos = q.replace(/\D/g, '')
+    // Busca por texto/NF ignora o recorte semanal — senão a nota some quando o vencimento é outra semana.
+    const base = q ? naAgenda : noPeriodo
+    const filtradas = base.filter((e) => {
+      if (q) {
+        const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.plano ?? ''} ${e.numero_nf ?? ''}`.toLowerCase()
+        const nfDigitos = String(e.numero_nf || '').replace(/\D/g, '')
+        const bateTexto = texto.includes(q)
+        const bateNf = qDigitos.length >= 3 && nfDigitos.includes(qDigitos)
+        if (!bateTexto && !bateNf) return false
+      }
       if (filtro === 'DDA') return e.fonte === 'dda'
       if (filtro === 'Free Control') return e.fonte === 'freecontrol'
       if (filtro === 'Boletos') return e.forma_pagamento === 'boleto'
       if (filtro === 'Para autorizar') return e.status === 'pronta'
       if (filtro === 'Vencidas') return aberta(e) && !!e.vencimento && e.vencimento < hoje
-      if (filtro === 'NF confirmada') return e.nf_confirmada
+      if (filtro === 'NF confirmada') return cicloNf(e) === 'confirmada'
+      if (filtro === 'NF Parcial') return cicloNf(e) === 'divergente'
+      if (filtro === 'NF Pendente') return cicloNf(e) === 'nao_confirmada'
       return true
     })
     return ordenarLancamentosPorEmpresa(filtradas, empresas)
-  }, [noPeriodo, busca, filtro, empresas])
+  }, [noPeriodo, naAgenda, busca, filtro, empresas])
 
   useEffect(() => { setPagina(0) }, [busca, de, ate, loja, filtro])
 
@@ -336,6 +448,19 @@ export function ContasPagarPage() {
         >
           {t('Excel', 'Excel')}
         </Button>
+        <Button
+          type="button"
+          size="small"
+          variant="outlined"
+          startIcon={<ReportProblemOutlinedIcon sx={{ fontSize: 16 }} />}
+          disabled={baixandoDivergencias}
+          onClick={() => void baixarDivergencias()}
+          sx={finBtnOutlinedSx}
+        >
+          {baixandoDivergencias
+            ? t('Gerando…', 'Building…')
+            : t('Relatório NF', 'Invoice report')}
+        </Button>
         {!somenteLeitura && (
           <Button
             type="button"
@@ -384,8 +509,24 @@ export function ContasPagarPage() {
             key={item}
             size="small"
             label={t(
-              item === 'Todas' ? 'Todas' : item === 'DDA' ? 'DDA' : item === 'Free Control' ? 'Free Control' : item === 'Boletos' ? 'Boletos' : item === 'Para autorizar' ? 'Para autorizar' : item === 'Vencidas' ? 'Vencidas' : 'NF confirmada',
-              item === 'Todas' ? 'All' : item === 'DDA' ? 'DDA' : item === 'Free Control' ? 'Free Control' : item === 'Boletos' ? 'Boletos' : item === 'Para autorizar' ? 'To authorize' : item === 'Vencidas' ? 'Overdue' : 'Invoice confirmed',
+              item === 'Todas' ? 'Todas'
+                : item === 'DDA' ? 'DDA'
+                : item === 'Free Control' ? 'Free Control'
+                : item === 'Boletos' ? 'Boletos'
+                : item === 'Para autorizar' ? 'Para autorizar'
+                : item === 'Vencidas' ? 'Vencidas'
+                : item === 'NF Parcial' ? 'NF Parcial'
+                : item === 'NF Pendente' ? 'NF Pendente'
+                : 'NF confirmada',
+              item === 'Todas' ? 'All'
+                : item === 'DDA' ? 'DDA'
+                : item === 'Free Control' ? 'Free Control'
+                : item === 'Boletos' ? 'Boletos'
+                : item === 'Para autorizar' ? 'To authorize'
+                : item === 'Vencidas' ? 'Overdue'
+                : item === 'NF Parcial' ? 'Partial NF'
+                : item === 'NF Pendente' ? 'Pending NF'
+                : 'Invoice confirmed',
             )}
             variant="outlined"
             onClick={() => {
@@ -418,7 +559,7 @@ export function ContasPagarPage() {
                     key={h || 'acao'}
                     align={centro ? 'center' : 'left'}
                     sx={{
-                      ...(indice === 3 ? { width: 88 } : null),
+                      ...(indice === 3 ? { width: 148, minWidth: 148 } : null),
                       ...(indice === 8 ? { width: 72, px: 0.5 } : null),
                     }}
                   >
@@ -469,15 +610,132 @@ export function ContasPagarPage() {
                   </Typography>
                 </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle' }}>{e.origem}</TableCell>
-                <TableCell align="center" sx={{ verticalAlign: 'middle', width: 88, px: 0 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 24 }}>
-                    {e.nf_confirmada
-                      ? <Chip size="small" icon={<CheckIcon />} label={t('NF confirmada', 'Invoice confirmed')} sx={{ bgcolor: 'rgba(16,185,129,0.12)', color: '#047857', fontWeight: 600, '& .MuiChip-icon': { color: '#047857' } }} />
-                      : (
-                        <Tooltip title={t('NF pendente', 'Invoice pending')}>
-                          <AttachFileOutlinedIcon aria-label="NF pendente" sx={{ fontSize: 18, color: FIN_MUTED, display: 'block', opacity: 0.5 }} />
+                <TableCell align="center" sx={{ verticalAlign: 'middle', width: 168, minWidth: 168, px: 0.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 24 }}>
+                    {(() => {
+                      const chipClick = !somenteLeitura
+                        ? { cursor: 'pointer', '&:hover': { filter: 'brightness(0.97)' } }
+                        : null
+
+                      // Free Control → selo explícito por tipo
+                      if (e.fonte === 'freecontrol') {
+                        const ok = (e.conferencia_status || 'ok') !== 'pendente'
+                        const tipo = e.freecontrol_tipo === 'treinamento'
+                          ? t('Treinamento', 'Training')
+                          : e.freecontrol_tipo === 'despesa'
+                            ? t('Despesa', 'Expense')
+                            : t('Freelance', 'Freelance')
+                        const label = ok
+                          ? t(`${tipo} confirmado`, `${tipo} confirmed`)
+                          : t(`${tipo} pendente`, `${tipo} pending`)
+                        return (
+                          <Tooltip title={somenteLeitura ? '' : t('Clique para alterar conferência Free Control', 'Click to change Free Control check')}>
+                            <Chip
+                              size="small"
+                              icon={ok ? <CheckIcon /> : undefined}
+                              label={label}
+                              onClick={(ev) => {
+                                if (somenteLeitura) return
+                                ev.stopPropagation()
+                                setMenuConf({ despesa: e, anchor: ev.currentTarget, modo: 'free' })
+                              }}
+                              sx={{
+                                bgcolor: ok ? 'rgba(13,148,136,0.14)' : 'rgba(100,116,139,0.14)',
+                                color: ok ? '#0F766E' : '#475569',
+                                fontWeight: 700,
+                                '& .MuiChip-icon': { color: '#0F766E' },
+                                ...chipClick,
+                              }}
+                            />
+                          </Tooltip>
+                        )
+                      }
+
+                      // Tributo — um selo só (pendente / confirmado), tipo fica no detalhe
+                      if (e.tributo_tipo || e.tributo_rotulo) {
+                        const conferido = e.conferencia_status === 'conferido'
+                        const tipoHint = e.tributo_rotulo ? ` (${e.tributo_rotulo})` : ''
+                        return (
+                          <Tooltip
+                            title={
+                              conferido
+                                ? t(`Tributo confirmado${tipoHint} — cruzamento automático ou manual`, `Tax confirmed${tipoHint}`)
+                                : t(`Tributo pendente${tipoHint} — clique para ver / confirmar`, `Tax pending${tipoHint}`)
+                            }
+                          >
+                            <Chip
+                              size="small"
+                              icon={conferido ? <CheckIcon /> : <ReportProblemOutlinedIcon />}
+                              label={conferido ? t('Tributo confirmado', 'Tax confirmed') : t('Tributo pendente', 'Tax pending')}
+                              onClick={(ev) => {
+                                if (somenteLeitura) return
+                                ev.stopPropagation()
+                                setMenuConf({ despesa: e, anchor: ev.currentTarget, modo: 'tributo' })
+                              }}
+                              sx={{
+                                bgcolor: conferido ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.14)',
+                                color: conferido ? '#047857' : '#B45309',
+                                fontWeight: 600,
+                                '& .MuiChip-icon': { color: conferido ? '#047857' : '#B45309' },
+                                ...chipClick,
+                              }}
+                            />
+                          </Tooltip>
+                        )
+                      }
+
+                      const ciclo = cicloNf(e)
+                      const podeMudar = !somenteLeitura && (e.fonte === 'dda' || e.fonte === 'nfe' || !!e.numero_nf)
+                      const abrirMenu = (ev: React.MouseEvent<HTMLElement>) => {
+                        if (!podeMudar) return
+                        ev.stopPropagation()
+                        setMenuNf({ despesa: e, anchor: ev.currentTarget })
+                      }
+                      if (ciclo === 'divergente') {
+                        return (
+                          <Tooltip title={podeMudar ? t('Clique para alterar status', 'Click to change status') : t('Conferida com diferença de quantidade', 'Checked with quantity mismatch')}>
+                            <Chip
+                              size="small"
+                              icon={<ReportProblemOutlinedIcon />}
+                              label={t('NF Parcial', 'Partial NF')}
+                              onClick={abrirMenu}
+                              sx={{ bgcolor: 'rgba(245,158,11,0.14)', color: '#B45309', fontWeight: 600, '& .MuiChip-icon': { color: '#B45309' }, ...(podeMudar ? chipClick : null) }}
+                            />
+                          </Tooltip>
+                        )
+                      }
+                      if (ciclo === 'confirmada') {
+                        return (
+                          <Tooltip title={podeMudar ? t('Clique para alterar status', 'Click to change status') : ''}>
+                            <Chip
+                              size="small"
+                              icon={<CheckIcon />}
+                              label={t('NF confirmada', 'Invoice confirmed')}
+                              onClick={abrirMenu}
+                              sx={{ bgcolor: 'rgba(16,185,129,0.12)', color: '#047857', fontWeight: 600, '& .MuiChip-icon': { color: '#047857' }, ...(podeMudar ? chipClick : null) }}
+                            />
+                          </Tooltip>
+                        )
+                      }
+                      if (ciclo === 'nao_confirmada') {
+                        return (
+                          <Tooltip title={podeMudar ? t('Clique para confirmar ou alterar', 'Click to confirm or change') : t('Aguardando confirmação', 'Awaiting confirmation')}>
+                            <Chip
+                              size="small"
+                              icon={<AttachFileOutlinedIcon />}
+                              label={t('NF Pendente', 'Pending NF')}
+                              onClick={abrirMenu}
+                              sx={{ bgcolor: 'rgba(100,116,139,0.14)', color: '#475569', fontWeight: 600, '& .MuiChip-icon': { color: '#64748B' }, ...(podeMudar ? chipClick : null) }}
+                            />
+                          </Tooltip>
+                        )
+                      }
+                      return (
+                        <Tooltip title={t('Sem cruzamento de NF', 'No invoice match')}>
+                          <AttachFileOutlinedIcon aria-label="Sem NF" sx={{ fontSize: 18, color: FIN_MUTED, display: 'block', opacity: 0.35 }} />
                         </Tooltip>
-                      )}
+                      )
+                    })()}
                   </Box>
                 </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
@@ -674,6 +932,58 @@ export function ContasPagarPage() {
           }}
         />
       )}
+      <Menu
+        anchorEl={menuNf?.anchor ?? null}
+        open={!!menuNf}
+        onClose={() => { if (!salvandoNf) setMenuNf(null) }}
+        slotProps={{ paper: { sx: finMenuSx } }}
+      >
+        <MenuItem disabled={salvandoNf} onClick={() => void alterarStatusNf('confirmada')}>
+          {t('NF confirmada', 'Invoice confirmed')}
+        </MenuItem>
+        <MenuItem disabled={salvandoNf} onClick={() => void alterarStatusNf('divergente')}>
+          {t('NF Parcial', 'Partial NF')}
+        </MenuItem>
+        <MenuItem disabled={salvandoNf} onClick={() => void alterarStatusNf('nao_confirmada')}>
+          {t('NF Pendente', 'Pending NF')}
+        </MenuItem>
+      </Menu>
+      <Menu
+        anchorEl={menuConf?.anchor ?? null}
+        open={!!menuConf}
+        onClose={() => { if (!salvandoNf) setMenuConf(null) }}
+        slotProps={{ paper: { sx: finMenuSx } }}
+      >
+        {menuConf?.modo === 'free' ? (
+          <>
+            <MenuItem disabled={salvandoNf} onClick={() => void alterarConferencia('ok')}>
+              {t('Free Control confirmado', 'Free Control confirmed')}
+            </MenuItem>
+            <MenuItem disabled={salvandoNf} onClick={() => void alterarConferencia('pendente')}>
+              {t('Free Control pendente', 'Free Control pending')}
+            </MenuItem>
+          </>
+        ) : (
+          <>
+            <MenuItem disabled={salvandoNf} onClick={() => void alterarConferencia('conferido')}>
+              {t('Tributo confirmado', 'Tax confirmed')}
+            </MenuItem>
+            <MenuItem disabled={salvandoNf} onClick={() => void alterarConferencia('pendente')}>
+              {t('Tributo pendente', 'Tax pending')}
+            </MenuItem>
+            {menuConf?.despesa.tributo_portal ? (
+              <MenuItem
+                onClick={() => {
+                  window.open(menuConf.despesa.tributo_portal!, '_blank', 'noopener,noreferrer')
+                  setMenuConf(null)
+                }}
+              >
+                {t('Abrir portal da Receita/Fazenda', 'Open tax authority portal')}
+              </MenuItem>
+            ) : null}
+          </>
+        )}
+      </Menu>
       <Snackbar open={!!aviso} autoHideDuration={3200} onClose={() => setAviso('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity="success" variant="filled" onClose={() => setAviso('')}>{aviso}</Alert>
       </Snackbar>

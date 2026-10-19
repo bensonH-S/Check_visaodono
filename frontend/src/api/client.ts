@@ -1820,6 +1820,31 @@ export const api = {
     }
     return res.blob();
   },
+  estoqueBaixarDivergenciasNf: async (opts?: { idLoja?: number; de?: string; ate?: string }) => {
+    const q = new URLSearchParams({ formato: 'xlsx' });
+    if (opts?.idLoja != null) q.set('id_loja', String(opts.idLoja));
+    if (opts?.de) q.set('de', opts.de);
+    if (opts?.ate) q.set('ate', opts.ate);
+    const res = await fetch(`${BASE}/estoque/nfes/divergencias?${q}`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao gerar relatório de divergências');
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const match = cd.match(/filename="([^"]+)"/);
+    const filename = match?.[1] || 'divergencias-nf.xlsx';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
   estoqueNfeConferir: (
     idNfe: number,
     body: {

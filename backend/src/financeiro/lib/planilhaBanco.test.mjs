@@ -23,6 +23,8 @@ describe('planilha do banco', () => {
           numero_nf: '011279-01',
           forma_pagamento: 'boleto',
           pagamento: '23793390019000001833497000163101415930002014465',
+          nf_confirmada: true,
+          nf_divergente: false,
         },
         {
           origem_id: '1',
@@ -33,6 +35,8 @@ describe('planilha do banco', () => {
           numero_nf: '1',
           forma_pagamento: 'boleto',
           pagamento: '',
+          nf_confirmada: false,
+          nf_divergente: false,
         },
         {
           origem_id: '1',
@@ -45,6 +49,8 @@ describe('planilha do banco', () => {
           forma_pagamento: 'boleto',
           pagamento: '',
           fonte: 'dda',
+          nf_confirmada: true,
+          nf_divergente: true,
         },
         {
           origem_id: '3',
@@ -66,15 +72,19 @@ describe('planilha do banco', () => {
     assert.equal(rows[1][4], 260.5)
     assert.equal(rows[4][0], 'NF')
     assert.equal(rows[4][1], 'REI ALVIM')
+    assert.equal(rows[4][5], 'STATUS NF')
     assert.equal(rows[6][0], '011279-01')
     assert.equal(rows[6][1], 'PLATLOG')
     assert.equal(rows[6][2], 100.5)
     assert.equal(rows[6][3], 46307)
+    assert.equal(rows[6][5], 'NF confirmada')
     assert.equal(rows[7][0], '012596-02')
     assert.equal(rows[7][1], 'PLATLOG')
     assert.equal(rows[7][2], 50)
+    assert.equal(rows[7][5], 'NF Parcial')
     assert.equal(rows[8][1], 'GIMBA')
     assert.equal(rows[8][2], 40)
+    assert.equal(rows[8][5], 'NF Pendente')
     assert.equal(rows[9][1], 'TOTAL ')
     assert.equal(rows[9][2], 190.5)
     const king = rows.findIndex((r) => r[1] === 'KING ASSESSORIA')
@@ -83,6 +93,7 @@ describe('planilha do banco', () => {
     assert.equal(rows[king + 2][0], 'REI ALVIM')
     assert.equal(rows[king + 2][1], 'FREE Caike Batista dos Santos')
     assert.equal(rows[king + 2][4], 'FOLHA CADASTRADA')
+    assert.equal(rows[king + 2][5], 'Freelance confirmado')
     assert.equal(nomeArquivoPlanilha('2026-10-10', '2026-10-17'), 'BANCO 10.10 A 17.10.xlsx')
     assert.equal(rotuloEmpresa({ apelido: 'POPVAL' }), 'POPOYES VAL')
   })

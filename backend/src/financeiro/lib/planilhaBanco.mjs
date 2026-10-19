@@ -70,6 +70,9 @@ const AMARELO = 'FFFFC000'
 const ROSA_USA = 'FFF2DBDB'
 const BRANCO = 'FFFFFFFF'
 const PRETO = 'FF000000'
+const VERDE_NF = 'FFC6EFCE'
+const AMBAR_NF = 'FFFFEB9C'
+const CINZA_NF = 'FFF2F2F2'
 
 const FMT_REAL = '" R$ "* #,##0.00" ";"-R$ "* #,##0.00" ";" R$ "* "-"??" "'
 const FMT_TOTAL_BR = '" "[$R$-416]" "* #,##0.00" ";"-"[$R$-416]" "* #,##0.00" ";" "[$R$-416]" "* "-"??" "'
@@ -200,6 +203,52 @@ function colunaNf(linha, empresa) {
   return String(linha.numero_nf || '').trim()
 }
 
+const VIOLETA_TRANSITO = 'FFEDE9FE'
+
+const VERDE_OK = 'FFD1FAE5'
+const AMBAR_TRIB = 'FFFEF3C7'
+
+/** Status na Agenda/planilha: NF, Free Control OK ou tributo. */
+export function statusNfLinha(linha, empresa) {
+  const fonte = String(linha?.fonte || '').toLowerCase()
+  const conf = String(linha?.conferencia_status || '').toLowerCase()
+
+  if (fonte === 'freecontrol') {
+    const tipo = String(linha?.freecontrol_tipo || '').toLowerCase()
+    const base = tipo === 'treinamento' ? 'Treinamento' : tipo === 'despesa' ? 'Despesa' : 'Freelance'
+    if (conf === 'pendente') return { texto: `${base} pendente`, fill: CINZA_NF }
+    return { texto: `${base} confirmado`, fill: VERDE_OK }
+  }
+
+  const tributo = String(linha?.tributo_tipo || '').toLowerCase()
+  if (tributo) {
+    if (conf === 'conferido') return { texto: 'Tributo confirmado', fill: VERDE_NF }
+    return { texto: 'Tributo pendente', fill: AMBAR_TRIB }
+  }
+
+  // Holdings/sem NF de estoque: não inventa selo de NF.
+  if (semNf(empresa)) return { texto: '', fill: BRANCO }
+  if (fonte === 'manual') return { texto: '', fill: BRANCO }
+
+  let ciclo = String(linha?.nf_ciclo || '').toLowerCase()
+  if (!ciclo) {
+    if (linha?.nf_confirmada && linha?.nf_divergente) ciclo = 'divergente'
+    else if (linha?.nf_confirmada) ciclo = 'confirmada'
+    else if (fonte === 'dda' || fonte === 'nfe' || String(linha?.numero_nf || '').trim()) ciclo = 'nao_confirmada'
+  }
+
+  if (ciclo === 'divergente') {
+    return { texto: 'NF Parcial', fill: AMBAR_NF }
+  }
+  if (ciclo === 'confirmada') {
+    return { texto: 'NF confirmada', fill: VERDE_NF }
+  }
+  if (ciclo === 'nao_confirmada' || ciclo === 'em_transito') {
+    return { texto: 'NF Pendente', fill: CINZA_NF }
+  }
+  return { texto: '', fill: BRANCO }
+}
+
 function ordenarEmpresas(empresas) {
   return [...empresas].sort((a, b) => {
     const diff = ordemDe(a.apelido || a.razao_social) - ordemDe(b.apelido || b.razao_social)
@@ -247,6 +296,7 @@ export async function montarPlanilhaBanco({ de, ate, empresas, linhas }) {
     { width: 25.29 },
     { width: 17.29 },
     { width: 67.86 },
+    { width: 16.5 },
   ]
 
   ws.mergeCells('B1:C4')
@@ -290,8 +340,8 @@ export async function montarPlanilhaBanco({ de, ate, empresas, linhas }) {
       .sort((a, b) => dinheiro(b.valor) - dinheiro(a.valor) || String(a.vencimento).localeCompare(String(b.vencimento)) || descricaoLinha(a).localeCompare(descricaoLinha(b), 'pt-BR'))
     const nome = rotuloEmpresa(empresa)
     const cabecalho = semNf(empresa)
-      ? ['', nome, 'VALOR', ' VENCIMENTO', 'CÓDIGO']
-      : ['NF', nome, 'VALOR', ' VENCIMENTO', 'CÓDIGO']
+      ? ['', nome, 'VALOR', ' VENCIMENTO', 'CÓDIGO', 'STATUS NF']
+      : ['NF', nome, 'VALOR', ' VENCIMENTO', 'CÓDIGO', 'STATUS NF']
 
     const linhaCab = ws.getRow(cursor)
     linhaCab.height = 15
@@ -311,10 +361,18 @@ export async function montarPlanilhaBanco({ de, ate, empresas, linhas }) {
       somaGeral += valor
       const linha = ws.getRow(cursor)
       linha.height = 15
-      const valores = [colunaNf(item, empresa), descricaoLinha(item), valor, serialExcel(item.vencimento), codigoLinha(item)]
-      const fundos = [BRANCO, LARANJA, LARANJA, LARANJA, BRANCO]
-      const negritos = [false, true, false, true, true]
-      const formatos = [undefined, undefined, FMT_REAL, FMT_DATA, '@']
+      const statusNf = statusNfLinha(item, empresa)
+      const valores = [
+        colunaNf(item, empresa),
+        descricaoLinha(item),
+        valor,
+        serialExcel(item.vencimento),
+        codigoLinha(item),
+        statusNf.texto,
+      ]
+      const fundos = [BRANCO, LARANJA, LARANJA, LARANJA, BRANCO, statusNf.fill]
+      const negritos = [false, true, false, true, true, true]
+      const formatos = [undefined, undefined, FMT_REAL, FMT_DATA, '@', '@']
       valores.forEach((valorCelula, col) => {
         const celula = linha.getCell(col + 1)
         celula.value = valorCelula === null || valorCelula === '' ? null : valorCelula
@@ -326,7 +384,7 @@ export async function montarPlanilhaBanco({ de, ate, empresas, linhas }) {
 
     const linhaTotal = ws.getRow(cursor)
     linhaTotal.height = 15.8
-    for (let col = 1; col <= 5; col += 1) pintar(linhaTotal.getCell(col), { fill: AZUL })
+    for (let col = 1; col <= 6; col += 1) pintar(linhaTotal.getCell(col), { fill: AZUL })
     linhaTotal.getCell(2).value = 'TOTAL '
     pintar(linhaTotal.getCell(2), { fill: AZUL, nome: 'Arial', negrito: true })
     const celulaSoma = linhaTotal.getCell(3)
@@ -340,6 +398,7 @@ export async function montarPlanilhaBanco({ de, ate, empresas, linhas }) {
     pintar(celulaSoma, { fill: AZUL, fmt: FMT_REAL })
     pintar(linhaTotal.getCell(4), { fill: AZUL, negrito: true, tamanho: 11 })
     pintar(linhaTotal.getCell(5), { fill: AZUL, negrito: true, tamanho: 11, fmt: '@' })
+    pintar(linhaTotal.getCell(6), { fill: AZUL, negrito: true, tamanho: 11, fmt: '@' })
     cursor += 1
     ws.getRow(cursor).height = 15
     cursor += 1

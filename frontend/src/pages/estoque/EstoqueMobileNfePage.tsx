@@ -1,6 +1,6 @@
 /**
- * Conferência de recebimento NF no mobile.
- * Fluxo: NF do fornecedor → lista itens → OK chegou / X não chegou → lança estoque.
+ * Confer?ncia de recebimento NF no mobile.
+ * Fluxo: NF do fornecedor ? lista itens ? OK chegou / X n?o chegou ? lan?a estoque.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -24,14 +24,19 @@ import '../../components/estoque/estoque-mobile.css';
 
 type ItemCheck = {
   id_item: number;
-  /** true = chegou, false = não chegou, null = ainda não marcado */
+  /** true = chegou (total ou parcial), false = n?o chegou, null = ainda n?o marcado */
   ok: boolean | null;
   qtd_esperada: number;
   qtd_recebida: number;
 };
 
+function ehParcial(c: ItemCheck | undefined) {
+  if (!c || c.ok !== true) return false;
+  return Math.abs(c.qtd_recebida - c.qtd_esperada) > 0.0001 && c.qtd_recebida > 0;
+}
+
 function fmtDataBR(iso: string | null | undefined) {
-  if (!iso) return '—';
+  if (!iso) return '?';
   const s = String(iso).slice(0, 10);
   const [y, m, d] = s.split('-');
   if (!y || !m || !d) return s;
@@ -39,7 +44,7 @@ function fmtDataBR(iso: string | null | undefined) {
 }
 
 function fmtMoeda(v: number | null | undefined) {
-  if (v == null || Number.isNaN(Number(v))) return '—';
+  if (v == null || Number.isNaN(Number(v))) return '?';
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
@@ -50,7 +55,7 @@ function fmtQtd(v: number) {
   });
 }
 
-/** Código interno → nome amigável (coca = portal Brasal da Coca-Cola). */
+/** C?digo interno ? nome amig?vel (coca = portal Brasal da Coca-Cola). */
 function rotuloFornecedor(codigo: string | null | undefined, emitente?: string | null) {
   const f = String(codigo || '').toLowerCase();
   if (f === 'coca') return 'Coca-Cola';
@@ -74,7 +79,7 @@ function nomeItem(it: EstoqueNfeItem) {
   );
 }
 
-/** Unidade de estoque: cadastro → NF (uCom) → texto da descrição. Sem placeholder. */
+/** Unidade de estoque: cadastro ? NF (uCom) ? texto da descri??o. Sem placeholder. */
 function unidadeEstoque(it: EstoqueNfeItem): string {
   const cad = String(it.unidade_contagem || '').trim();
   if (cad) return normalizarUnidade(cad);
@@ -180,18 +185,29 @@ export default function EstoqueMobileNfePage() {
         const map: Record<number, ItemCheck> = {};
         for (const it of d.itens || []) {
           const esp = qtdEsperada(it);
-          const ja = it.conferido
-            ? it.qtd_conferida != null && Number(it.qtd_conferida) > 0
-              ? true
-              : it.qtd_conferida === 0
-                ? false
-                : null
-            : null;
+          const conf =
+            it.qtd_conferida != null && Number.isFinite(Number(it.qtd_conferida))
+              ? Number(it.qtd_conferida)
+              : null;
+          let ok: boolean | null = null;
+          let recebida = esp;
+          if (it.conferido || conf != null) {
+            if (conf != null && conf <= 0) {
+              ok = false;
+              recebida = 0;
+            } else if (conf != null) {
+              ok = true;
+              recebida = conf;
+            } else {
+              ok = true;
+              recebida = esp;
+            }
+          }
           map[it.id_item] = {
             id_item: it.id_item,
-            ok: ja,
+            ok,
             qtd_esperada: esp,
-            qtd_recebida: ja === false ? 0 : esp,
+            qtd_recebida: recebida,
           };
         }
         setChecks(map);
@@ -241,13 +257,41 @@ export default function EstoqueMobileNfePage() {
     });
   };
 
+  /** Digita a quantidade que realmente chegou (ex.: 3 de 5). */
+  const alterarQtd = (idItem: number, texto: string) => {
+    if (det?.entrada_registrada) return;
+    setChecks((prev) => {
+      const cur = prev[idItem];
+      if (!cur) return prev;
+      const limpo = String(texto).replace(',', '.').trim();
+      if (limpo === '') {
+        return {
+          ...prev,
+          [idItem]: { ...cur, ok: null, qtd_recebida: cur.qtd_esperada },
+        };
+      }
+      let n = Number(limpo);
+      if (!Number.isFinite(n) || n < 0) n = 0;
+      if (n > cur.qtd_esperada) n = cur.qtd_esperada;
+      return {
+        ...prev,
+        [idItem]: {
+          ...cur,
+          ok: n <= 0 ? false : true,
+          qtd_recebida: n,
+        },
+      };
+    });
+  };
+
   const resumo = useMemo(() => {
     const vals = Object.values(checks);
     const total = vals.length;
-    const ok = vals.filter((c) => c.ok === true).length;
+    const ok = vals.filter((c) => c.ok === true && !ehParcial(c)).length;
+    const parcial = vals.filter((c) => ehParcial(c)).length;
     const nao = vals.filter((c) => c.ok === false).length;
     const pend = vals.filter((c) => c.ok == null).length;
-    return { total, ok, nao, pend };
+    return { total, ok, parcial, nao, pend };
   }, [checks]);
 
   const fecharDanfe = () => {
@@ -273,7 +317,7 @@ export default function EstoqueMobileNfePage() {
         return url;
       });
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Não foi possível abrir a DANFE', 'error');
+      showToast(e instanceof Error ? e.message : 'N?o foi poss?vel abrir a DANFE', 'error');
     } finally {
       setAbrindoDanfe(false);
     }
@@ -302,15 +346,15 @@ export default function EstoqueMobileNfePage() {
       if (!c.duplicatas?.length && !c.vencimento) {
         showToast(
           c.tem_xml
-            ? 'Esta NF não tem cobrança no XML'
-            : 'O XML desta nota ainda não está no banco.',
+            ? 'Esta NF n?o tem cobran?a no XML'
+            : 'O XML desta nota ainda n?o est? no banco.',
           'error',
         );
         return;
       }
       setCobranca(c);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Não foi possível abrir a cobrança', 'error');
+      showToast(e instanceof Error ? e.message : 'N?o foi poss?vel abrir a cobran?a', 'error');
     } finally {
       setAbrindoCobranca(false);
     }
@@ -324,17 +368,24 @@ export default function EstoqueMobileNfePage() {
     }
     setSalvando(true);
     try {
-      const itens = Object.values(checks).map((c) => ({
-        id_item: c.id_item,
-        conferido: true,
-        qtd_conferida: c.ok ? c.qtd_recebida : 0,
-        divergencia_obs: c.ok ? undefined : 'Não chegou na entrega',
-      }));
+      const itens = Object.values(checks).map((c) => {
+        const qtd = c.ok === false ? 0 : c.qtd_recebida;
+        const parcial = Math.abs(qtd - c.qtd_esperada) > 0.0001;
+        let obs;
+        if (qtd <= 0) obs = 'N�o chegou na entrega';
+        else if (parcial) obs = `Recebido parcial: ${fmtQtd(qtd)} de ${fmtQtd(c.qtd_esperada)}`;
+        return {
+          id_item: c.id_item,
+          conferido: true,
+          qtd_conferida: qtd,
+          divergencia_obs: obs,
+        };
+      });
       const r = await api.estoqueNfeConferir(det.id_nfe, { itens });
       showToast(
         r.divergente
-          ? `NF lançada com divergência · ${fmtDataBR(r.data_entrega)}`
-          : `Recebimento OK · estoque atualizado`,
+          ? `NF lan�ada com diverg�ncia � ${fmtDataBR(r.data_entrega)}`
+          : 'Recebimento OK � estoque atualizado',
         r.divergente ? 'warning' : 'success',
       );
       navigate('/estoque/mobile', { replace: true, state: { aba: 'nf' } });
@@ -397,7 +448,7 @@ export default function EstoqueMobileNfePage() {
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
         <div className="ck-estoque-hub__brand-row">
-          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Meridian Gest�o Operacional" />
+          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Meridian Gest?o Operacional" />
         </div>
         <div className="ck-estoque-hub__hero-copy">
           <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
@@ -406,7 +457,7 @@ export default function EstoqueMobileNfePage() {
           {det ? (
             <p className="ck-estoque-hub__nfe-sub">
               {rotuloFornecedor(det.fornecedor, det.emitente_nome)}
-              {det.valor_total != null ? ` · ${fmtMoeda(det.valor_total)}` : ''}
+              {det.valor_total != null ? ` ? ${fmtMoeda(det.valor_total)}` : ''}
             </p>
           ) : null}
         </div>
@@ -423,10 +474,10 @@ export default function EstoqueMobileNfePage() {
                 '& .MuiLinearProgress-bar': { bgcolor: '#0548d1' },
               }}
             />
-            <p className="ck-estoque-hub__empty">Abrindo a nota…</p>
+            <p className="ck-estoque-hub__empty">Abrindo a nota?</p>
           </>
         ) : null}
-        {!loading && !det ? <p className="ck-estoque-hub__empty">Nota fiscal não encontrada.</p> : null}
+        {!loading && !det ? <p className="ck-estoque-hub__empty">Nota fiscal n?o encontrada.</p> : null}
         {det ? (
           <>
             <div className="ck-estoque-hub__nfe-docs">
@@ -436,7 +487,7 @@ export default function EstoqueMobileNfePage() {
                 onClick={() => void abrirDanfe(det.id_nfe)}
               >
                 <DescriptionOutlinedIcon />
-                {abrindoDanfe ? 'Abrindo…' : 'Visualizar DANFE'}
+                {abrindoDanfe ? 'Abrindo?' : 'Visualizar DANFE'}
               </button>
               <button
                 type="button"
@@ -444,7 +495,7 @@ export default function EstoqueMobileNfePage() {
                 onClick={() => void abrirCobranca(det.id_nfe)}
               >
                 <RequestQuoteOutlinedIcon />
-                {abrindoCobranca ? 'Abrindo…' : 'Cobrança'}
+                {abrindoCobranca ? 'Abrindo?' : 'Cobran?a'}
               </button>
             </div>
             <div className="ck-estoque-hub__table ck-estoque-hub__table--head">
@@ -464,13 +515,13 @@ export default function EstoqueMobileNfePage() {
             <div className="ck-estoque-hub__table ck-estoque-hub__table--body">
               <div className="ck-estoque-hub__lista">
                 {jaEntrou ? (
-                  <p className="ck-estoque-hub__entrada-feita">Entrada já feita. Esta nota não entra de novo.</p>
+                  <p className="ck-estoque-hub__entrada-feita">Entrada j? feita. Esta nota n?o entra de novo.</p>
                 ) : null}
                 {det.fornecedor === 'sefaz' && !(det.itens || []).length && !jaEntrou ? (
                   <div className="ck-estoque-hub__empty">
-                    <p>Esta nota ainda não tem o XML completo da Receita. Sem o XML não há produtos para dar entrada.</p>
+                    <p>Esta nota ainda n?o tem o XML completo da Receita. Sem o XML n?o h? produtos para dar entrada.</p>
                     <button type="button" disabled={loading} onClick={() => void carregarDetalhe(det.id_nfe)}>
-                      {loading ? 'Abrindo…' : 'Tentar de novo'}
+                      {loading ? 'Abrindo?' : 'Tentar de novo'}
                     </button>
                   </div>
                 ) : null}
@@ -479,12 +530,16 @@ export default function EstoqueMobileNfePage() {
                   const esp = c?.qtd_esperada ?? qtdEsperada(it);
                   const rec = c?.qtd_recebida ?? esp;
                   const estado = c?.ok;
+                  const parcial = ehParcial(c);
                   const semMatch = !it.id_insumo;
-                  const { linhaEstoque, linhaEmb } = rotuloQtd(it, rec, esp);
+                  const und = unidadeEstoque(it);
+                  const { linhaEmb } = rotuloQtd(it, rec, esp);
                   return (
                     <div
                       key={it.id_item}
-                      className={`ck-estoque-hub__row${estado === false ? ' is-falta' : ''}`}
+                      className={`ck-estoque-hub__row${
+                        estado === false ? ' is-falta' : parcial ? ' is-parcial' : ''
+                      }`}
                     >
                       <span className="ck-estoque-hub__item">
                         <img
@@ -501,22 +556,52 @@ export default function EstoqueMobileNfePage() {
                           <strong>{nomeItem(it)}</strong>
                           <small>
                             {semMatch
-                              ? 'Sem cadastro — só ocorrência'
+                              ? 'Sem cadastro ? s� ocorr�ncia'
                               : it.codigo_nf || it.codigo_insumo || ''}
+                            {parcial ? ` � parcial ${fmtQtd(rec)}/${fmtQtd(esp)}` : ''}
                           </small>
                         </span>
                       </span>
                       <span className="ck-estoque-hub__qtd ck-estoque-hub__qtd--nfe">
-                        {linhaEstoque}
-                        {linhaEmb ? <small>{linhaEmb}</small> : null}
+                        {jaEntrou ? (
+                          <>
+                            {rotuloQtd(it, rec, esp).linhaEstoque}
+                            {linhaEmb ? <small>{linhaEmb}</small> : null}
+                          </>
+                        ) : (
+                          <>
+                            <label className="ck-estoque-hub__qtd-edit">
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                max={esp}
+                                step="any"
+                                disabled={jaEntrou}
+                                value={estado == null ? '' : String(rec)}
+                                placeholder={fmtQtd(esp)}
+                                aria-label={`Quantidade recebida (NF ${fmtQtd(esp)}${und ? ` ${und}` : ''})`}
+                                onChange={(e) => alterarQtd(it.id_item, e.target.value)}
+                                onFocus={() => {
+                                  if (estado == null) marcar(it.id_item, true);
+                                }}
+                              />
+                              <small>
+                                de {fmtQtd(esp)}
+                                {und ? ` ${und}` : ''}
+                              </small>
+                            </label>
+                            {linhaEmb ? <small>{linhaEmb}</small> : null}
+                          </>
+                        )}
                       </span>
                       <span className="ck-estoque-hub__nfe-acoes">
                         <button
                           type="button"
                           className={`ck-estoque-hub__nfe-btn ck-estoque-hub__nfe-btn--ok${
-                            estado === true ? ' is-on' : ''
-                          }`}
-                          aria-label="Chegou"
+                            estado === true && !parcial ? ' is-on' : ''
+                          }${parcial ? ' is-parcial' : ''}`}
+                          aria-label="Chegou tudo"
                           disabled={jaEntrou || (semMatch && esp <= 0)}
                           onClick={() => marcar(it.id_item, true)}
                         >
@@ -527,7 +612,7 @@ export default function EstoqueMobileNfePage() {
                           className={`ck-estoque-hub__nfe-btn ck-estoque-hub__nfe-btn--no${
                             estado === false ? ' is-on' : ''
                           }`}
-                          aria-label="Não chegou"
+                          aria-label="N�o chegou"
                           disabled={jaEntrou}
                           onClick={() => marcar(it.id_item, false)}
                         >
@@ -550,7 +635,7 @@ export default function EstoqueMobileNfePage() {
           </button>
           {jaEntrou ? (
             <button type="button" className="is-feita" disabled>
-              Entrada já feita
+              Entrada j? feita
             </button>
           ) : (
             <>
@@ -563,7 +648,11 @@ export default function EstoqueMobileNfePage() {
                 disabled={salvando || resumo.pend > 0}
                 onClick={() => void finalizar()}
               >
-                {salvando ? 'Salvando…' : `Continuar (${resumo.ok}/${resumo.total})`}
+                {salvando
+                  ? 'Salvando?'
+                  : resumo.parcial > 0
+                    ? `Continuar (${resumo.ok + resumo.parcial}/${resumo.total} � ${resumo.parcial} parcial)`
+                    : `Continuar (${resumo.ok}/${resumo.total})`}
               </button>
             </>
           )}
@@ -579,14 +668,14 @@ export default function EstoqueMobileNfePage() {
               aria-label="Fechar"
               onClick={() => setCobranca(null)}
             />
-            <div className="ck-estoque-hub__sheet" role="dialog" aria-modal="true" aria-label="Cobrança">
+            <div className="ck-estoque-hub__sheet" role="dialog" aria-modal="true" aria-label="Cobran?a">
               <div className="ck-estoque-hub__sheet-handle" />
               <div className="ck-estoque-hub__sheet-head">
                 <span className="ck-estoque-hub__thumb ck-estoque-hub__thumb--nf">
                   <RequestQuoteOutlinedIcon />
                 </span>
                 <div>
-                  <strong>Cobrança da NF {cobranca.numero || det?.numero || ''}</strong>
+                  <strong>Cobran?a da NF {cobranca.numero || det?.numero || ''}</strong>
                   <small>{cobranca.emitente || 'Fornecedor'}</small>
                 </div>
               </div>
@@ -607,14 +696,14 @@ export default function EstoqueMobileNfePage() {
                       <span>Parcela {d.numero || i + 1}</span>
                       <b>
                         {fmtMoeda(d.valor)}
-                        <small> · {fmtDataBR(d.vencimento)}</small>
+                        <small> ? {fmtDataBR(d.vencimento)}</small>
                       </b>
                     </div>
                   ))}
                 </div>
               ) : null}
               <p className="ck-estoque-hub__nfe-hint">
-                Dados da NF. O boleto bancário em PDF não vem no XML do fornecedor.
+                Dados da NF. O boleto banc?rio em PDF n?o vem no XML do fornecedor.
               </p>
               <button type="button" className="ck-estoque-hub__sheet-fechar" onClick={() => setCobranca(null)}>
                 Fechar

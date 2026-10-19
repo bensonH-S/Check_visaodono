@@ -94,6 +94,7 @@ async function garantirSchemaFonte(db) {
   await db.query(fs.readFileSync(path.join(root, 'db', '010_despesa_fonte.sql'), 'utf8'))
   await db.query(fs.readFileSync(path.join(root, 'db', '015_despesa_pendente_inbox.sql'), 'utf8'))
   await db.query(fs.readFileSync(path.join(root, 'db', '016_despesa_acrescimos.sql'), 'utf8'))
+  await db.query(fs.readFileSync(path.join(root, 'db', '017_despesa_conferencia.sql'), 'utf8'))
   try {
     const { garantirSchemaFreecontrol } = await import('./lib/importFreecontrol.mjs')
     await garantirSchemaFreecontrol(db)
@@ -544,12 +545,12 @@ async function vincularFornecedores() {
 }
 
 async function amarrarNotas() {
-  // Liga boletos ↔ NF conferida; cria no Inbox as conferidas sem despesa (qualquer fornecedor).
+  // Liga boletos ↔ NF; cria na Agenda as conferidas sem DDA (fonte=nfe).
   const { pool: portalPool } = await import('../db.js')
   const resumo = await sincronizarNfesConferidas({ financePool: pool, portalPool })
-  if (resumo.ligadas || resumo.criadas) {
+  if (resumo.ligadas || resumo.criadas || resumo.reativadas) {
     console.log(
-      `[financeiro] NF conferidas → ligadas=${resumo.ligadas} criadas_inbox=${resumo.criadas} ignoradas=${resumo.ignoradas}`,
+      `[financeiro] NF → ligadas=${resumo.ligadas} criadas=${resumo.criadas} reativadas=${resumo.reativadas || 0} ignoradas=${resumo.ignoradas}`,
     )
   }
   return resumo
@@ -695,7 +696,18 @@ async function listarDespesas(empresaId, { empresaIds = null } = {}) {
            to_char(d.vencimento, 'YYYY-MM-DD') as vencimento,
            to_char(d.vencimento_original, 'YYYY-MM-DD') as vencimento_original,
            to_char(d.competencia, 'YYYY-MM-DD') as competencia, d.forma_pagamento, d.status,
-           d.documento_ref, d.numero_nf, d.nfe_id, d.nf_confirmada, d.empresa_origem_id as origem_id, eo.apelido as origem, eo.razao_social as origem_razao,
+           d.documento_ref, d.numero_nf, d.nfe_id, d.nf_confirmada, coalesce(d.nf_divergente, false) as nf_divergente,
+           coalesce(
+             nullif(btrim(d.nf_ciclo), ''),
+             case
+               when coalesce(d.nf_confirmada, false) and coalesce(d.nf_divergente, false) then 'divergente'
+               when coalesce(d.nf_confirmada, false) then 'confirmada'
+               else null
+             end
+           ) as nf_ciclo,
+           d.conferencia_status,
+           d.tributo_tipo,
+           d.empresa_origem_id as origem_id, eo.apelido as origem, eo.razao_social as origem_razao,
            er.apelido as registrado_em,
            d.fornecedor_id,
            coalesce(nullif(btrim(f.nome), ''), nullif(btrim(d.descricao), ''),
@@ -740,7 +752,62 @@ async function listarDespesas(empresaId, { empresaIds = null } = {}) {
     order by d.valor desc nulls last, d.vencimento nulls last, d.descricao
   `, params)
   setTimeout(sincronizarNotasEmFundo, 0)
-  return rows
+  setTimeout(() => { classificarTributosEmFundo().catch(() => {}) }, 0)
+  const { classificarTributo, rotuloTributo, portalTributo } = await import('./lib/classificarTributo.mjs')
+  return rows.map((row) => {
+    const fonte = String(row.fonte || '').toLowerCase()
+    let conferencia_status = row.conferencia_status || null
+    let tributo_tipo = row.tributo_tipo || null
+    if (fonte === 'freecontrol' && !conferencia_status) conferencia_status = 'ok'
+    if (!tributo_tipo) {
+      tributo_tipo = classificarTributo({
+        descricao: row.descricao,
+        fornecedor: row.fornecedor,
+        plano: row.plano,
+        documento_ref: row.documento_ref,
+        forma_pagamento: row.forma_pagamento,
+        freecontrol_tipo: row.freecontrol_tipo,
+        fonte: row.fonte,
+      })
+    }
+    if (tributo_tipo && !conferencia_status && fonte !== 'freecontrol') {
+      conferencia_status = 'pendente'
+    }
+    return {
+      ...row,
+      conferencia_status,
+      tributo_tipo,
+      tributo_rotulo: tributo_tipo ? rotuloTributo(tributo_tipo) : null,
+      tributo_portal: tributo_tipo ? portalTributo(tributo_tipo) : null,
+    }
+  })
+}
+
+let classificandoTributos = null
+async function classificarTributosEmFundo() {
+  if (classificandoTributos) return
+  classificandoTributos = (async () => {
+    await pool.query(`
+      alter table despesas add column if not exists conferencia_status text;
+      alter table despesas add column if not exists tributo_tipo text;
+      alter table despesas add column if not exists conferencia_detalhe text;
+    `).catch(() => {})
+    // Free Control sem status → OK
+    await pool.query(`
+      update despesas
+         set conferencia_status = 'ok'
+       where fonte = 'freecontrol'
+         and status <> 'cancelada'
+         and conferencia_status is null
+    `)
+    const { sincronizarConferenciaTributos } = await import('./lib/conferirTributo.mjs')
+    const resumo = await sincronizarConferenciaTributos(pool)
+    if (resumo.classificados || resumo.conferidos) {
+      console.log(
+        `[financeiro] tributos → classificados=${resumo.classificados} confirmados=${resumo.conferidos} pendentes=${resumo.pendentes}`,
+      )
+    }
+  })().finally(() => { classificandoTributos = null })
 }
 
 const tipos = {
@@ -909,11 +976,27 @@ export async function handleFinance(req, res) {
                d.documento_ref,
                d.fonte,
                d.freecontrol_tipo,
+               coalesce(d.nf_confirmada, false) as nf_confirmada,
+               coalesce(d.nf_divergente, false) as nf_divergente,
+               coalesce(
+                 nullif(btrim(d.nf_ciclo), ''),
+                 case
+                   when coalesce(d.nf_confirmada, false) and coalesce(d.nf_divergente, false) then 'divergente'
+                   when coalesce(d.nf_confirmada, false) then 'confirmada'
+                   when coalesce(d.fonte, '') in ('dda', 'nfe')
+                     or nullif(btrim(d.numero_nf), '') is not null then 'nao_confirmada'
+                   else null
+                 end
+               ) as nf_ciclo,
+               d.conferencia_status,
+               d.tributo_tipo,
+               p.nome as plano,
                er.apelido as registrado_em
         from despesas d
         join empresas eo on eo.id = d.empresa_origem_id
         left join empresas er on er.id = d.empresa_registro_id
         left join fornecedores f on f.id = d.fornecedor_id
+        left join plano_contas p on p.id = d.plano_conta_id
         left join (
           select distinct on (fornecedor_id) fornecedor_id, chave_pix
           from fornecedor_pagamentos
@@ -932,7 +1015,17 @@ export async function handleFinance(req, res) {
           ${empresaId ? 'and d.empresa_origem_id = $3' : ''}
         order by d.valor desc, d.vencimento, coalesce(nullif(trim(d.descricao), ''), f.nome, d.numero_nf)
       `, params)
-      const buffer = await montarPlanilhaBanco({ de, ate, empresas: empresas.rows, linhas: linhas.rows })
+      const { classificarTributo } = await import('./lib/classificarTributo.mjs')
+      const linhasPlanilha = linhas.rows.map((row) => {
+        const fonte = String(row.fonte || '').toLowerCase()
+        let conferencia_status = row.conferencia_status || null
+        let tributo_tipo = row.tributo_tipo || null
+        if (fonte === 'freecontrol' && !conferencia_status) conferencia_status = 'ok'
+        if (!tributo_tipo) tributo_tipo = classificarTributo(row)
+        if (tributo_tipo && !conferencia_status && fonte !== 'freecontrol') conferencia_status = 'pendente'
+        return { ...row, conferencia_status, tributo_tipo }
+      })
+      const buffer = await montarPlanilhaBanco({ de, ate, empresas: empresas.rows, linhas: linhasPlanilha })
       const nome = nomeArquivoPlanilha(de, ate)
       metaFinanceiro(req, {
         acao: 'download',
@@ -1409,6 +1502,135 @@ export async function handleFinance(req, res) {
         detalhes: { enviados: enviados.length, bloqueados: bloqueados.length, novos: paraAtualizar.length },
       })
       return send(res, 200, JSON.stringify({ enviados, bloqueados }))
+    }
+    /** Altera status da NF na Agenda (confirmada / parcial / não confirmada). */
+    {
+      const mNf = url.pathname.match(/^\/api\/despesas\/([0-9a-f-]{36})\/nf-status$/i)
+      if (req.method === 'POST' && mNf) {
+        const id = mNf[1]
+        const body = await readBody(req)
+        const ciclo = String(body?.ciclo || '').toLowerCase()
+        if (!['confirmada', 'divergente', 'nao_confirmada'].includes(ciclo)) {
+          return send(res, 400, JSON.stringify({
+            erro: 'Ciclo inválido. Use confirmada, divergente ou nao_confirmada.',
+          }))
+        }
+        const atual = await pool.query(
+          `select id::text as id, nfe_id, fonte, numero_nf, status
+             from despesas where id = $1`,
+          [id],
+        )
+        if (!atual.rowCount) return send(res, 404, JSON.stringify({ erro: 'Despesa não encontrada.' }))
+        const despesa = atual.rows[0]
+        const fonte = String(despesa.fonte || '').toLowerCase()
+        if (fonte === 'freecontrol' || fonte === 'manual') {
+          return send(res, 400, JSON.stringify({ erro: 'Free Control / manual não cruzam NF da loja.' }))
+        }
+
+        let estoque = null
+        if (ciclo === 'confirmada' && despesa.nfe_id) {
+          try {
+            const { conferirRecebimentoNfe } = await import('../services/estoqueCmvReal.js')
+            estoque = await conferirRecebimentoNfe({
+              id_nfe: Number(despesa.nfe_id),
+              confirmar_todos: true,
+              criado_por: req.user?.id_usuario || req.user?.sub || null,
+            })
+            if (estoque?.divergente) {
+              // Conferência no estoque ficou divergente — respeita.
+            }
+          } catch (err) {
+            // 409 = já lançada no estoque: só espelha selo na Agenda.
+            if (err?.status && err.status !== 409) {
+              return send(res, err.status, JSON.stringify({ erro: err.message }))
+            }
+          }
+        }
+
+        const cicloFinal =
+          ciclo === 'confirmada' && estoque?.divergente ? 'divergente' : ciclo
+        const confirmada = cicloFinal === 'confirmada' || cicloFinal === 'divergente'
+        const divergente = cicloFinal === 'divergente'
+
+        await pool.query(`
+          alter table despesas add column if not exists nf_ciclo text
+        `).catch(() => {})
+
+        const up = await pool.query(
+          `update despesas set
+             nf_ciclo = $2,
+             nf_confirmada = $3,
+             nf_divergente = $4
+           where id = $1
+           returning id::text as id, nf_ciclo, nf_confirmada, nf_divergente, nfe_id`,
+          [id, cicloFinal, confirmada, divergente],
+        )
+        metaFinanceiro(req, {
+          acao: 'atualizar',
+          entidade: 'despesa_nf',
+          idReferencia: id,
+          descricao: `Alterou status NF da despesa para ${cicloFinal}`,
+          detalhes: { ciclo: cicloFinal, nfe_id: despesa.nfe_id, estoque: !!estoque },
+        })
+        return send(res, 200, JSON.stringify({ ...up.rows[0], estoque }))
+      }
+    }
+    /** Conferência Free Control (ok/pendente) ou tributo (pendente/conferido). */
+    {
+      const mConf = url.pathname.match(/^\/api\/despesas\/([0-9a-f-]{36})\/conferencia$/i)
+      if (req.method === 'POST' && mConf) {
+        const id = mConf[1]
+        const body = await readBody(req)
+        const status = String(body?.status || '').toLowerCase()
+        if (!['ok', 'pendente', 'conferido'].includes(status)) {
+          return send(res, 400, JSON.stringify({ erro: 'Status inválido. Use ok, pendente ou conferido.' }))
+        }
+        await pool.query(`
+          alter table despesas add column if not exists conferencia_status text;
+          alter table despesas add column if not exists tributo_tipo text;
+        `).catch(() => {})
+        const atual = await pool.query(
+          `select id::text as id, fonte, descricao, documento_ref, forma_pagamento, freecontrol_tipo,
+                  tributo_tipo, f.nome as fornecedor, p.nome as plano
+             from despesas d
+             left join fornecedores f on f.id = d.fornecedor_id
+             left join plano_contas p on p.id = d.plano_conta_id
+            where d.id = $1`,
+          [id],
+        )
+        if (!atual.rowCount) return send(res, 404, JSON.stringify({ erro: 'Despesa não encontrada.' }))
+        const despesa = atual.rows[0]
+        const { classificarTributo, rotuloTributo, portalTributo } = await import('./lib/classificarTributo.mjs')
+        let tributoTipo = despesa.tributo_tipo || classificarTributo(despesa)
+        const fonte = String(despesa.fonte || '').toLowerCase()
+        if (fonte === 'freecontrol' && status === 'conferido') {
+          return send(res, 400, JSON.stringify({ erro: 'Free Control usa ok ou pendente.' }))
+        }
+        if (tributoTipo && status === 'ok') {
+          return send(res, 400, JSON.stringify({ erro: 'Tributo usa pendente ou conferido.' }))
+        }
+        const up = await pool.query(
+          `update despesas set
+             conferencia_status = $2,
+             tributo_tipo = coalesce(tributo_tipo, $3)
+           where id = $1
+           returning id::text as id, conferencia_status, tributo_tipo`,
+          [id, status, tributoTipo],
+        )
+        metaFinanceiro(req, {
+          acao: 'atualizar',
+          entidade: 'despesa_conferencia',
+          idReferencia: id,
+          descricao: `Conferência despesa → ${status}${tributoTipo ? ` (${tributoTipo})` : ''}`,
+          detalhes: { status, tributo_tipo: tributoTipo, fonte },
+        })
+        const row = up.rows[0]
+        return send(res, 200, JSON.stringify({
+          ...row,
+          tributo_rotulo: row.tributo_tipo ? rotuloTributo(row.tributo_tipo) : null,
+          tributo_portal: row.tributo_tipo ? portalTributo(row.tributo_tipo) : null,
+        }))
+      }
     }
     if (req.method === 'PATCH' && url.pathname.startsWith('/api/despesas/')) {
       const id = url.pathname.split('/').pop()
@@ -2103,6 +2325,8 @@ export function iniciarFinanceiro() {
     alter table despesas add column if not exists cnpj_cedente text;
     alter table despesas add column if not exists nfe_id text;
     alter table despesas add column if not exists nf_confirmada boolean not null default false;
+    alter table despesas add column if not exists nf_divergente boolean not null default false;
+    alter table despesas add column if not exists nf_ciclo text;
     alter table despesas add column if not exists boleto_arquivo text;
     alter table despesas add column if not exists nota_arquivo text;
     create index if not exists fornecedor_pagamentos_pix_idx

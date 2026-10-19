@@ -207,6 +207,15 @@ export type Despesa = {
   numero_nf: string | null
   nfe_id: string | null
   nf_confirmada: boolean
+  /** true = loja conferiu NF com diferença de quantidade */
+  nf_divergente?: boolean
+  /** em_transito | nao_confirmada | confirmada | divergente */
+  nf_ciclo?: 'em_transito' | 'nao_confirmada' | 'confirmada' | 'divergente' | null
+  /** ok | pendente | conferido — Free Control e tributos */
+  conferencia_status?: 'ok' | 'pendente' | 'conferido' | null
+  tributo_tipo?: string | null
+  tributo_rotulo?: string | null
+  tributo_portal?: string | null
   origem_id: string
   origem: string
   origem_razao: string
@@ -631,6 +640,60 @@ export const api = {
     }
     const disposto = res.headers.get('content-disposition') || ''
     const nome = /filename="([^"]+)"/.exec(disposto)?.[1] || `BANCO ${de} A ${ate}.xlsx`
+    const url = URL.createObjectURL(await res.blob())
+    const link = document.createElement('a')
+    link.href = url
+    link.download = nome
+    link.click()
+    URL.revokeObjectURL(url)
+  },
+  /** Altera status da NF na Agenda: confirmada | divergente (parcial) | nao_confirmada. */
+  alterarNfStatus: async (id: string, ciclo: 'confirmada' | 'divergente' | 'nao_confirmada') => {
+    const res = await financeFetch(`${apiRoot}/despesas/${id}/nf-status`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ciclo }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((data as { erro?: string }).erro || 'Não alterou o status da NF')
+    return data as {
+      id: string
+      nf_ciclo: string
+      nf_confirmada: boolean
+      nf_divergente: boolean
+      nfe_id: string | null
+    }
+  },
+  /** Free Control (ok/pendente) ou tributo (pendente/conferido). */
+  alterarConferencia: async (id: string, status: 'ok' | 'pendente' | 'conferido') => {
+    const res = await financeFetch(`${apiRoot}/despesas/${id}/conferencia`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((data as { erro?: string }).erro || 'Não alterou a conferência')
+    return data as {
+      id: string
+      conferencia_status: string
+      tributo_tipo: string | null
+      tributo_rotulo: string | null
+      tributo_portal: string | null
+    }
+  },
+  /** Excel: itens de NF conferidos com quantidade menor que a nota (faltou produto). */
+  baixarDivergenciasNf: async (opts?: { de?: string; ate?: string; idLoja?: number }) => {
+    const q = new URLSearchParams({ formato: 'xlsx' })
+    if (opts?.de) q.set('de', opts.de)
+    if (opts?.ate) q.set('ate', opts.ate)
+    if (opts?.idLoja != null) q.set('id_loja', String(opts.idLoja))
+    const res = await financeFetch(`${apiBasePath}/estoque/nfes/divergencias?${q}`)
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error((data as { error?: string; erro?: string }).error || (data as { erro?: string }).erro || 'Não gerou o relatório de divergências')
+    }
+    const disposto = res.headers.get('content-disposition') || ''
+    const nome = /filename="([^"]+)"/.exec(disposto)?.[1] || 'divergencias-nf.xlsx'
     const url = URL.createObjectURL(await res.blob())
     const link = document.createElement('a')
     link.href = url

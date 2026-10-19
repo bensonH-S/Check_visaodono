@@ -29,8 +29,10 @@ function digitos(valor) {
 
 const rootDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const schemaPath = path.join(rootDir, 'db', '005_bb_credenciais.sql')
+/** Pasta Certificados na raiz do monorepo (Check_visaodono/Certificados). */
 const pastasCertificados = [
-  path.join(rootDir, '..', '..', '..', 'Certificados'),
+  path.join(rootDir, '..', '..', '..', 'Certificados'), // backend/src/financeiro → repo root
+  path.join(rootDir, '..', '..', 'Certificados'), // backend/src → backend/Certificados
   path.join(rootDir, 'Certificados'),
 ]
 
