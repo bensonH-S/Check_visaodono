@@ -148,15 +148,15 @@ export function ReuniaoSemanalPage() {
                 <TableCell sx={th}>{t('Loja', 'Store')}</TableCell>
                 <TableCell align="right" sx={th}>
                   {t('Venda', 'Sales')}
-                  <Typography component="span" display="block" sx={thSub}>
+                  <Box component="span" sx={thSub}>
                     {t('período', 'period')}
-                  </Typography>
+                  </Box>
                 </TableCell>
                 <TableCell align="right" sx={th}>
                   {t('Venda', 'Sales')}
-                  <Typography component="span" display="block" sx={thSub}>
+                  <Box component="span" sx={thSub}>
                     {t('proj. 30 dias', 'proj. 30 days')}
-                  </Typography>
+                  </Box>
                 </TableCell>
                 <TableCell align="right" sx={th}>
                   {t('Gasto CMV', 'COGS')}
@@ -272,4 +272,10 @@ const th = {
   borderBottom: `1px solid ${FIN_BORDER}`,
 } as const
 
-const thSub = { fontSize: 9, fontWeight: 600, color: FIN_MUTED, textTransform: 'none' } as const
+const thSub = {
+  display: 'block',
+  fontSize: 9,
+  fontWeight: 600,
+  color: FIN_MUTED,
+  textTransform: 'none',
+} as const
