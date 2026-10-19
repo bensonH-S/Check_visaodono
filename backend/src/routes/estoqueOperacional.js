@@ -1842,12 +1842,18 @@ router.get('/nfes', permNfe, async (req, res, next) => {
     const origem = req.query.origem ? String(req.query.origem) : null;
     const pendentes = req.query.pendentes === '1' || req.query.pendentes === 'true';
     const conferir = req.query.conferir === '1' || req.query.conferir === 'true';
+    const mesAtual =
+      req.query.mes_atual === '1' ||
+      req.query.mes_atual === 'true' ||
+      req.query.mesAtual === '1' ||
+      req.query.mesAtual === 'true';
     const rows = await listarNfesEstoque(idLoja, {
       pendentes,
       conferir,
       limit: req.query.limit ? Number(req.query.limit) : 50,
       origem,
-      dias: req.query.dias ? Number(req.query.dias) : null,
+      dias: req.query.dias != null && req.query.dias !== '' ? Number(req.query.dias) : null,
+      mesAtual,
     });
     // Fila de XML SEFAZ: também no modo conferir (Platlog+SEFAZ), senão nota fica sem itens.
     if (String(origem || '').toLowerCase() === 'sefaz' || conferir || pendentes) {

@@ -1786,14 +1786,23 @@ export const api = {
   },
   estoqueNfes: (
     idLoja: number,
-    opts?: { pendentes?: boolean; conferir?: boolean; limit?: number; origem?: 'sefaz'; dias?: number },
+    opts?: {
+      pendentes?: boolean;
+      conferir?: boolean;
+      limit?: number;
+      origem?: 'sefaz';
+      dias?: number;
+      /** Só NFs do mês corrente (emissão/saída). */
+      mesAtual?: boolean;
+    },
   ) => {
     const params = new URLSearchParams({ id_loja: String(idLoja) });
     if (opts?.pendentes) params.set('pendentes', '1');
     if (opts?.conferir) params.set('conferir', '1');
     if (opts?.limit) params.set('limit', String(opts.limit));
     if (opts?.origem) params.set('origem', opts.origem);
-    if (opts?.dias) params.set('dias', String(opts.dias));
+    if (opts?.dias != null) params.set('dias', String(opts.dias));
+    if (opts?.mesAtual) params.set('mes_atual', '1');
     return request<EstoqueNfeResumo[]>(`/estoque/nfes?${params}`);
   },
   estoqueNfeDetalhe: (idNfe: number) => request<EstoqueNfeDetalhe>(`/estoque/nfes/${idNfe}`),

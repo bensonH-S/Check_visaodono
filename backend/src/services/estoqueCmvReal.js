@@ -1056,7 +1056,7 @@ export async function obterNfeDetalhe(idNfe) {
 
 export async function listarNfesEstoque(
   idLoja,
-  { pendentes = false, conferir = false, limit = 50, origem = null, dias = null } = {},
+  { pendentes = false, conferir = false, limit = 50, origem = null, dias = null, mesAtual = false } = {},
 ) {
   const params = [idLoja];
   let filtro = '';
@@ -1078,10 +1078,16 @@ export async function listarNfesEstoque(
                  OR EXISTS (SELECT 1 FROM estoque_nfe_itens i WHERE i.id_nfe = n.id_nfe)
                )`;
   }
-  const janela = Number(dias);
-  if (Number.isFinite(janela) && janela > 0) {
-    params.push(Math.min(janela, 365));
-    filtro += ` AND COALESCE(n.emissao::date, CURRENT_DATE) >= CURRENT_DATE - $${params.length}::int`;
+  // Conferência do gestor: só mês corrente (emissão/saída). Outro mês só gera trabalho.
+  if (mesAtual || (conferir && dias == null)) {
+    filtro += ` AND date_trunc('month', COALESCE(n.emissao::date, n.data_saida, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date))
+                  = date_trunc('month', (NOW() AT TIME ZONE 'America/Sao_Paulo')::date)`;
+  } else {
+    const janela = Number(dias);
+    if (Number.isFinite(janela) && janela > 0) {
+      params.push(Math.min(janela, 365));
+      filtro += ` AND COALESCE(n.emissao::date, CURRENT_DATE) >= CURRENT_DATE - $${params.length}::int`;
+    }
   }
   params.push(Math.min(Math.max(Number(limit) || 50, 1), 400));
 

@@ -479,8 +479,8 @@ export function ContasPagarPage() {
         <Resumo
           cor="#1B6EF3"
           rotulo={t('A pagar', 'To pay')}
-          valor={brl(soma((e) => aberta(e) && !(e.vencimento && e.vencimento < hoje)))}
-          detalhe={t('no prazo', 'on time')}
+          valor={brl(soma((e) => aberta(e)))}
+          detalhe={t('da semana', 'for the week')}
         />
         <Box
           onClick={() => navigate('/financeiro/conciliacao')}
