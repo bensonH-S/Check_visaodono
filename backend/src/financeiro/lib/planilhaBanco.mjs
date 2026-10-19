@@ -205,25 +205,22 @@ function colunaNf(linha, empresa) {
 
 const VIOLETA_TRANSITO = 'FFEDE9FE'
 
-const VERDE_OK = 'FFD1FAE5'
-const AMBAR_TRIB = 'FFFEF3C7'
-
-/** Status na Agenda/planilha: NF, Free Control OK ou tributo. */
+/** Status na Agenda/planilha: NF, Free Control ou tributo — mesmas cores por estado. */
 export function statusNfLinha(linha, empresa) {
   const fonte = String(linha?.fonte || '').toLowerCase()
   const conf = String(linha?.conferencia_status || '').toLowerCase()
 
   if (fonte === 'freecontrol') {
     const tipo = String(linha?.freecontrol_tipo || '').toLowerCase()
-    const base = tipo === 'treinamento' ? 'Treinamento' : tipo === 'despesa' ? 'Despesa' : 'Freelance'
+    const base = tipo === 'treinamento' ? 'Trein' : tipo === 'despesa' ? 'Desp' : 'free'
     if (conf === 'pendente') return { texto: `${base} pendente`, fill: CINZA_NF }
-    return { texto: `${base} confirmado`, fill: VERDE_OK }
+    return { texto: `${base} confirmado`, fill: VERDE_NF }
   }
 
   const tributo = String(linha?.tributo_tipo || '').toLowerCase()
   if (tributo) {
-    if (conf === 'conferido') return { texto: 'Tributo confirmado', fill: VERDE_NF }
-    return { texto: 'Tributo pendente', fill: AMBAR_TRIB }
+    if (conf === 'conferido') return { texto: 'trib. confirmado', fill: VERDE_NF }
+    return { texto: 'trib. pendente', fill: CINZA_NF }
   }
 
   // Holdings/sem NF de estoque: não inventa selo de NF.

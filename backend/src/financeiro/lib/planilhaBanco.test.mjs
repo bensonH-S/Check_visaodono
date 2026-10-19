@@ -93,7 +93,7 @@ describe('planilha do banco', () => {
     assert.equal(rows[king + 2][0], 'REI ALVIM')
     assert.equal(rows[king + 2][1], 'FREE Caike Batista dos Santos')
     assert.equal(rows[king + 2][4], 'FOLHA CADASTRADA')
-    assert.equal(rows[king + 2][5], 'Freelance confirmado')
+    assert.equal(rows[king + 2][5], 'free confirmado')
     assert.equal(nomeArquivoPlanilha('2026-10-10', '2026-10-17'), 'BANCO 10.10 A 17.10.xlsx')
     assert.equal(rotuloEmpresa({ apelido: 'POPVAL' }), 'POPOYES VAL')
   })

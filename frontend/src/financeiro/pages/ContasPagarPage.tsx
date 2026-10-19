@@ -248,7 +248,7 @@ export function ContasPagarPage() {
         status === 'ok'
           ? t('Free Control OK.', 'Free Control OK.')
           : status === 'conferido'
-            ? t('Tributo confirmado.', 'Tax confirmed.')
+            ? t('trib. confirmado.', 'tax confirmed.')
             : t('Marcado como pendente.', 'Marked as pending.'),
         'success',
       )
@@ -617,14 +617,14 @@ export function ContasPagarPage() {
                         ? { cursor: 'pointer', '&:hover': { filter: 'brightness(0.97)' } }
                         : null
 
-                      // Free Control → selo explícito por tipo
+                      // Free Control → selo curto por tipo (mesmas cores: confirmado / pendente)
                       if (e.fonte === 'freecontrol') {
                         const ok = (e.conferencia_status || 'ok') !== 'pendente'
                         const tipo = e.freecontrol_tipo === 'treinamento'
-                          ? t('Treinamento', 'Training')
+                          ? t('Trein', 'Train')
                           : e.freecontrol_tipo === 'despesa'
-                            ? t('Despesa', 'Expense')
-                            : t('Freelance', 'Freelance')
+                            ? t('Desp', 'Exp')
+                            : t('free', 'free')
                         const label = ok
                           ? t(`${tipo} confirmado`, `${tipo} confirmed`)
                           : t(`${tipo} pendente`, `${tipo} pending`)
@@ -640,10 +640,10 @@ export function ContasPagarPage() {
                                 setMenuConf({ despesa: e, anchor: ev.currentTarget, modo: 'free' })
                               }}
                               sx={{
-                                bgcolor: ok ? 'rgba(13,148,136,0.14)' : 'rgba(100,116,139,0.14)',
-                                color: ok ? '#0F766E' : '#475569',
-                                fontWeight: 700,
-                                '& .MuiChip-icon': { color: '#0F766E' },
+                                bgcolor: ok ? 'rgba(16,185,129,0.12)' : 'rgba(100,116,139,0.14)',
+                                color: ok ? '#047857' : '#475569',
+                                fontWeight: 600,
+                                '& .MuiChip-icon': { color: '#047857' },
                                 ...chipClick,
                               }}
                             />
@@ -651,7 +651,7 @@ export function ContasPagarPage() {
                         )
                       }
 
-                      // Tributo — um selo só (pendente / confirmado), tipo fica no detalhe
+                      // Tributo — selo curto; tipo completo no tooltip
                       if (e.tributo_tipo || e.tributo_rotulo) {
                         const conferido = e.conferencia_status === 'conferido'
                         const tipoHint = e.tributo_rotulo ? ` (${e.tributo_rotulo})` : ''
@@ -659,24 +659,24 @@ export function ContasPagarPage() {
                           <Tooltip
                             title={
                               conferido
-                                ? t(`Tributo confirmado${tipoHint} — cruzamento automático ou manual`, `Tax confirmed${tipoHint}`)
-                                : t(`Tributo pendente${tipoHint} — clique para ver / confirmar`, `Tax pending${tipoHint}`)
+                                ? t(`trib. confirmado${tipoHint} — cruzamento automático ou manual`, `tax confirmed${tipoHint}`)
+                                : t(`trib. pendente${tipoHint} — clique para ver / confirmar`, `tax pending${tipoHint}`)
                             }
                           >
                             <Chip
                               size="small"
-                              icon={conferido ? <CheckIcon /> : <ReportProblemOutlinedIcon />}
-                              label={conferido ? t('Tributo confirmado', 'Tax confirmed') : t('Tributo pendente', 'Tax pending')}
+                              icon={conferido ? <CheckIcon /> : undefined}
+                              label={conferido ? t('trib. confirmado', 'tax confirmed') : t('trib. pendente', 'tax pending')}
                               onClick={(ev) => {
                                 if (somenteLeitura) return
                                 ev.stopPropagation()
                                 setMenuConf({ despesa: e, anchor: ev.currentTarget, modo: 'tributo' })
                               }}
                               sx={{
-                                bgcolor: conferido ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.14)',
-                                color: conferido ? '#047857' : '#B45309',
+                                bgcolor: conferido ? 'rgba(16,185,129,0.12)' : 'rgba(100,116,139,0.14)',
+                                color: conferido ? '#047857' : '#475569',
                                 fontWeight: 600,
-                                '& .MuiChip-icon': { color: conferido ? '#047857' : '#B45309' },
+                                '& .MuiChip-icon': { color: '#047857' },
                                 ...chipClick,
                               }}
                             />
@@ -966,10 +966,10 @@ export function ContasPagarPage() {
         ) : (
           <>
             <MenuItem disabled={salvandoNf} onClick={() => void alterarConferencia('conferido')}>
-              {t('Tributo confirmado', 'Tax confirmed')}
+              {t('trib. confirmado', 'tax confirmed')}
             </MenuItem>
             <MenuItem disabled={salvandoNf} onClick={() => void alterarConferencia('pendente')}>
-              {t('Tributo pendente', 'Tax pending')}
+              {t('trib. pendente', 'tax pending')}
             </MenuItem>
             {menuConf?.despesa.tributo_portal ? (
               <MenuItem
