@@ -284,8 +284,8 @@ export function InboxDdaPage() {
       if (busca && !texto.includes(busca.toLowerCase())) return false
       if (filtro === 'Manuais') return e.fonte === 'manual'
       if (filtro === 'Vencidas') return !!e.vencimento && e.vencimento < hoje
-      if (filtro === 'NF confirmada') return e.nf_confirmada
-      if (filtro === 'Aguardando NF') return e.fonte !== 'manual' && !e.nf_confirmada
+      if (filtro === 'NF confirmada') return e.nf_confirmada || e.fonte === 'nfe'
+      if (filtro === 'Aguardando NF') return e.fonte !== 'manual' && e.fonte !== 'nfe' && !e.nf_confirmada
       return true
     })
     return ordenarLancamentosPorEmpresa(filtradas, empresas)
@@ -310,8 +310,8 @@ export function InboxDdaPage() {
 
   useEffect(() => { setPagina(0) }, [busca, de, ate, deNf, ateNf, loja, filtro, filtroNf, aba])
 
-  const comNf = noPeriodo.filter((e) => e.nf_confirmada)
-  const semNf = noPeriodo.filter((e) => !e.nf_confirmada)
+  const comNf = noPeriodo.filter((e) => e.nf_confirmada || e.fonte === 'nfe')
+  const semNf = noPeriodo.filter((e) => !e.nf_confirmada && e.fonte !== 'nfe')
   const vencidas = noPeriodo.filter((e) => e.vencimento && e.vencimento < hoje)
   const lojas = useMemo(() => ordenarEmpresas(empresas), [empresas])
 

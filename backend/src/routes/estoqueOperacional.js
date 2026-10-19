@@ -1977,9 +1977,23 @@ router.post('/nfes/:id/conferir', permNfe, async (req, res, next) => {
       acao: 'criar',
       entidade: 'estoque_nfe_conferencia',
       entidade_id: idNfe,
-      descricao: `Conferiu NF #${idNfe} ┬À entrega ${result.data_entrega} ┬À ${result.status_entrega}`,
+      descricao: `Conferiu NF #${idNfe} — entrega ${result.data_entrega} — ${result.status_entrega}`,
     });
-    res.status(201).json(result);
+
+    // Espelha NF conferida no financeiro (Agenda se casar boleto; senão Inbox com selo NF confirmada).
+    let financeiro = null;
+    try {
+      const { getFinancePool } = await import('../financeiro/http.mjs');
+      const { sincronizarNfesConferidas } = await import('../financeiro/lib/nfEntrada.mjs');
+      const financePool = typeof getFinancePool === 'function' ? getFinancePool() : null;
+      if (financePool) {
+        financeiro = await sincronizarNfesConferidas({ financePool, portalPool: pool });
+      }
+    } catch (syncErr) {
+      console.error('[estoque] sync NF→financeiro:', syncErr?.message || syncErr);
+    }
+
+    res.status(201).json({ ...result, financeiro });
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);

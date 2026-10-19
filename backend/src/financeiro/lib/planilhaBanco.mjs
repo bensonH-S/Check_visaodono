@@ -154,8 +154,24 @@ function nomeFornecedor(texto) {
   return t
 }
 
+function textoNome(linha) {
+  return [
+    linha?.descricao,
+    linha?.fornecedor,
+    linha?.fornecedor_nome,
+    linha?.razao_social,
+    linha?.cedente,
+  ]
+    .map((v) => String(v || '').replace(/\s+/g, ' ').trim())
+    .find(Boolean) || ''
+}
+
 function descricaoLinha(linha) {
-  const texto = String(linha.descricao || '').replace(/\s+/g, ' ').trim()
+  const texto = textoNome(linha)
+  if (!texto) {
+    const nf = String(linha?.numero_nf || '').trim()
+    return nf ? `NF ${nf}` : 'SEM NOME'
+  }
   if (linha.fonte !== 'freecontrol') return nomeFornecedor(texto)
   if (/^(FREE|TREIN|PASSAG|REEMB|RESCISAO|FERIAS)\b/i.test(texto)) return nomeFornecedor(texto)
   if (linha.freecontrol_tipo === 'treinamento') return nomeFornecedor(`TREIN ${texto}`.trim())

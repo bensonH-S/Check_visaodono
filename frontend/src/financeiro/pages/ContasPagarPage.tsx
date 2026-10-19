@@ -224,7 +224,9 @@ export function ContasPagarPage() {
   const naAgenda = useMemo(() => despesas.filter((e) => {
     if (estaNoInbox(e)) return false
     if (e.status === 'paga' || e.status === 'conciliada' || e.status === 'cancelada') return false
-    if (e.fonte === 'dda') return ['pronta', 'autorizada', 'enviada'].includes(e.status)
+    if (e.fonte === 'dda' || e.fonte === 'nfe') {
+      return ['pronta', 'autorizada', 'enviada'].includes(e.status)
+    }
     return true
   }), [despesas])
 

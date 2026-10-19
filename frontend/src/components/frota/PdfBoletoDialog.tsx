@@ -14,6 +14,7 @@ import PrintIcon from '@mui/icons-material/Print';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { api } from '../../api/client';
 import { getToken } from '../../lib/auth';
+import { registrarAcaoAuditoria } from '../../lib/registrarAcaoAuditoria';
 
 type Props = {
   open: boolean;
@@ -67,6 +68,13 @@ export default function PdfBoletoDialog({ open, url, idDebito, titulo, onClose }
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      registrarAcaoAuditoria({
+        modulo: 'frota',
+        acao: 'download',
+        entidade: 'boleto',
+        id_referencia: idDebito ?? undefined,
+        descricao: `Baixou boleto da frota${idDebito != null ? ` #${idDebito}` : ''}`,
+      });
     } catch (e) {
       alert(e instanceof Error ? e.message : 'Não foi possível baixar o boleto');
     } finally {

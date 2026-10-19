@@ -35,6 +35,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { registrarAcaoAuditoria } from '../lib/registrarAcaoAuditoria';
 import {
   api,
   type DashboardIndicadoresData,
@@ -595,6 +596,13 @@ export default function IndicadoresPage({ embedded = false }: Props) {
     a.download = `indicadores_${de}_${ate}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+    registrarAcaoAuditoria({
+      modulo: 'indicadores',
+      acao: 'download',
+      entidade: 'csv',
+      descricao: `Baixou CSV de indicadores (${de} a ${ate})`,
+      detalhes: { de, ate, linhas: linhasCards.length },
+    });
   }
 
   const grade = isDark ? 'rgba(148,163,184,0.15)' : 'rgba(15,23,42,0.07)';

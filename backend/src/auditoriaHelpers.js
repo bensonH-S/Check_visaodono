@@ -101,7 +101,13 @@ export function inferirModulo(path) {
   if (p.includes('/auth')) return 'auth';
   if (p.includes('/nao-conformidades')) return 'checklist';
   if (p.includes('/energia')) return 'energia';
+  if (p.includes('/financeiro') || p.includes('/despesas') || p.includes('/dda') || p.includes('/conciliacao') || p.includes('/caixa')) {
+    return 'financeiro';
+  }
+  if (p.includes('/ti-tickets') || p.includes('/ti/')) return 'ti';
+  if (p.includes('/estoque')) return 'estoque';
   if (p.includes('/push')) return 'sistema';
+  if (p.includes('/sistema/backup')) return 'sistema';
   if (p.includes('/auditoria')) return 'configuracoes';
   return 'sistema';
 }
@@ -185,9 +191,136 @@ function descricaoRecurso(path, method, body) {
   if (p.includes('/wpp')) return `${verbo} configuração WhatsApp${sufixo}`;
   if (p.includes('/agente-alvim')) return `${verbo} Agente Alvim${sufixo}`;
   if (p.includes('/push')) return `${verbo} inscrição de notificações`;
+  if (p.includes('/despesas/agenda')) return `Enviou título(s) para a Agenda banco${sufixo}`;
+  if (p.includes('/despesas/freecontrol-lote')) return `Recebeu lote Free Control no Contas a Pagar${sufixo}`;
+  if (p.includes('/despesas') && p.includes('/boleto')) return `Baixou boleto da despesa${sufixo}`;
+  if (p.includes('/despesas') && p.includes('/nota')) return `Baixou nota fiscal da despesa${sufixo}`;
+  if (p.includes('/despesas/planilha-banco')) return `Baixou planilha BANCO${sufixo}`;
+  if (p.includes('/despesas')) {
+    const id = ids[0] || null;
+    return `${verbo} despesa${id ? ` #${id}` : ''}${sufixo}`;
+  }
+  if (p.includes('/dda')) return `${verbo} DDA${sufixo}`;
+  if (p.includes('/conciliacao')) return `${verbo} conciliação bancária${sufixo}`;
+  if (p.includes('/caixa')) return `${verbo} fechamento de caixa${sufixo}`;
+  if (p.includes('/ti-tickets') || p.includes('/ti/')) {
+    const id = ids[0];
+    return `${verbo} ticket de TI${id ? ` #${id}` : ''}${sufixo}`;
+  }
+  if (p.includes('/estoque') && p.includes('/piloto-auditoria')) return `Baixou planilha do piloto de estoque${sufixo}`;
+  if (p.includes('/sistema/backup/download')) return `Baixou backup do sistema${sufixo}`;
 
   const recurso = pathCurto(path).replace(/^\//, '') || 'recurso';
   return `${verbo} ${recurso}${sufixo}`;
+}
+
+/** GETs que representam download/exportação (ação de negócio). */
+const DOWNLOAD_GET_PATHS = [
+  /\/financeiro\/despesas\/planilha-banco(?:\?|$)/i,
+  /\/despesas\/planilha-banco(?:\?|$)/i,
+  /\/financeiro\/despesas\/[^/?]+\/(boleto|nota)(?:\?|$)/i,
+  /\/despesas\/[^/?]+\/(boleto|nota)(?:\?|$)/i,
+  /\/estoque\/piloto-auditoria(?:\?|$)/i,
+  /\/estoque\/saude-baixa(?:\?|$)/i,
+  /\/estoque\/classificacao-contagem(?:\?|$)/i,
+  /\/sistema\/backup\/download\//i,
+  /\/frota\/.*boleto/i,
+];
+
+function queryDe(req) {
+  try {
+    const raw = req.originalUrl || req.url || '';
+    const q = raw.includes('?') ? raw.slice(raw.indexOf('?') + 1) : '';
+    return new URLSearchParams(q);
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+export function inferirAuditoriaDownload(req) {
+  const path = pathCompleto(req);
+  const curto = pathCurto(path).toLowerCase();
+  const qs = queryDe(req);
+  const modulo = inferirModulo(path);
+  const detalhes = { caminho: pathCurto(path), query: Object.fromEntries(qs.entries()) };
+
+  if (curto.includes('planilha-banco')) {
+    const de = qs.get('de') || '';
+    const ate = qs.get('ate') || '';
+    const periodo = de && ate ? ` (${de} a ${ate})` : '';
+    return {
+      modulo: 'financeiro',
+      acao: 'download',
+      entidade: 'planilha_banco',
+      idReferencia: de && ate ? `${de}_${ate}` : null,
+      descricao: `Baixou planilha BANCO${periodo}`,
+      detalhes,
+    };
+  }
+  if (/\/despesas\/[^/]+\/boleto/i.test(curto)) {
+    const id = curto.match(/\/despesas\/([^/]+)\/boleto/i)?.[1] || null;
+    return {
+      modulo: 'financeiro',
+      acao: 'download',
+      entidade: 'boleto',
+      idReferencia: id,
+      descricao: `Baixou boleto da despesa${id ? ` #${id.slice(0, 8)}` : ''}`,
+      detalhes,
+    };
+  }
+  if (/\/despesas\/[^/]+\/nota/i.test(curto)) {
+    const id = curto.match(/\/despesas\/([^/]+)\/nota/i)?.[1] || null;
+    return {
+      modulo: 'financeiro',
+      acao: 'download',
+      entidade: 'nota',
+      idReferencia: id,
+      descricao: `Baixou nota fiscal da despesa${id ? ` #${id.slice(0, 8)}` : ''}`,
+      detalhes,
+    };
+  }
+  if (curto.includes('piloto-auditoria')) {
+    return {
+      modulo: 'estoque',
+      acao: 'download',
+      entidade: 'piloto_auditoria',
+      idReferencia: qs.get('id_loja') || null,
+      descricao: 'Baixou planilha do piloto de estoque',
+      detalhes,
+    };
+  }
+  if (curto.includes('/sistema/backup/download')) {
+    const nome = curto.split('/').pop() || 'backup';
+    return {
+      modulo: 'sistema',
+      acao: 'download',
+      entidade: 'backup',
+      idReferencia: nome,
+      descricao: `Baixou backup do sistema (${nome})`,
+      detalhes,
+    };
+  }
+
+  return {
+    modulo,
+    acao: 'download',
+    entidade: 'arquivo',
+    idReferencia: null,
+    descricao: descricaoRecurso(path, 'GET', null).replace(/^GET\s+/i, 'Baixou '),
+    detalhes,
+  };
+}
+
+function ehDownloadAuditavel(req) {
+  if (req.method !== 'GET') return false;
+  const caminho = caminhoRequest(req);
+  if (!DOWNLOAD_GET_PATHS.some((re) => re.test(caminho))) return false;
+  // Endpoints de estoque que também servem JSON — só Excel conta como download
+  if (/piloto-auditoria|saude-baixa|classificacao-contagem/i.test(caminho)) {
+    const formato = String(queryDe(req).get('formato') || '').toLowerCase();
+    if (formato !== 'xlsx') return false;
+  }
+  return true;
 }
 
 /** Descrição genérica para mutações HTTP sem meta explícita. */
@@ -231,6 +364,9 @@ const IGNORAR_PATHS = [
   /\/push\/unsubscribe/i,
   /\/auditoria\/sessao\//i,
   /\/auditoria\/navegacao$/i,
+  /\/auditoria\/evento$/i,
+  /\/caixa\/ingest/i,
+  /\/caixa\/heartbeat/i,
 ];
 
 function caminhoRequest(req) {
@@ -244,9 +380,11 @@ function deveIgnorarAuditoria(req) {
 }
 
 export function middlewareAuditoriaHttp(req, res, next) {
-  if (!['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) return next();
+  const mutacao = ['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method);
+  const download = ehDownloadAuditavel(req);
+  if (!mutacao && !download) return next();
 
-  if (deveIgnorarAuditoria(req)) {
+  if (mutacao && deveIgnorarAuditoria(req)) {
     req.auditoriaRegistrada = true;
     return next();
   }
@@ -254,9 +392,11 @@ export function middlewareAuditoriaHttp(req, res, next) {
   res.on('finish', () => {
     if (res.statusCode >= 400) return;
     if (req.auditoriaRegistrada) return;
-    if (deveIgnorarAuditoria(req)) return;
+    if (mutacao && deveIgnorarAuditoria(req)) return;
 
-    const payload = req.auditoriaMeta || inferirAuditoriaHttp(req);
+    const payload =
+      req.auditoriaMeta ||
+      (download ? inferirAuditoriaDownload(req) : inferirAuditoriaHttp(req));
     void auditar(req, payload);
   });
 

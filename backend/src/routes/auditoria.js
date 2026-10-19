@@ -8,10 +8,27 @@ import {
   listarSessoes,
   listarNavegacao,
 } from '../services/auditoriaSessao.js';
+import { auditar, sanitizarCorpo } from '../auditoriaHelpers.js';
 import { requirePermissao } from '../permissoes.js';
 import { pool } from '../db.js';
 
 const router = Router();
+
+const ACOES_CLIENTE = new Set(['download', 'exportar', 'imprimir', 'operacao']);
+const MODULOS_CLIENTE = new Set([
+  'financeiro',
+  'indicadores',
+  'escalas',
+  'visitas',
+  'frota',
+  'estoque',
+  'energia',
+  'ti',
+  'metas',
+  'chamados',
+  'sistema',
+  'configuracoes',
+]);
 
 router.get('/eventos', requirePermissao('configuracoes.auditoria'), async (req, res, next) => {
   try {
@@ -98,6 +115,39 @@ router.post('/navegacao', async (req, res, next) => {
       titulo: row.titulo,
       entrou_em: row.entrou_em,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * Evento de negócio gerado no browser (CSV/PNG/PDF locais, sem GET de API).
+ * Qualquer usuário autenticado registra a própria ação.
+ */
+router.post('/evento', async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const acao = String(body.acao || 'download').toLowerCase().slice(0, 40);
+    const modulo = String(body.modulo || 'sistema').toLowerCase().slice(0, 40);
+    const descricao = String(body.descricao || '').trim().slice(0, 500);
+    if (!ACOES_CLIENTE.has(acao)) {
+      return res.status(400).json({ error: 'Ação não permitida para telemetria do cliente.' });
+    }
+    if (!MODULOS_CLIENTE.has(modulo)) {
+      return res.status(400).json({ error: 'Módulo inválido.' });
+    }
+    if (!descricao || descricao.length < 3) {
+      return res.status(400).json({ error: 'Descrição obrigatória.' });
+    }
+    await auditar(req, {
+      modulo,
+      acao,
+      entidade: body.entidade ? String(body.entidade).slice(0, 60) : null,
+      idReferencia: body.id_referencia != null ? String(body.id_referencia).slice(0, 80) : null,
+      descricao,
+      detalhes: sanitizarCorpo(body.detalhes) || null,
+    });
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }

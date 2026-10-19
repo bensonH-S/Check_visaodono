@@ -35,6 +35,18 @@ describe('planilha do banco', () => {
           pagamento: '',
         },
         {
+          origem_id: '1',
+          apelido: 'REI',
+          descricao: '',
+          fornecedor: 'PLATLOG IMP LOG E DISTRIBUICAO LTDA',
+          valor: 50,
+          vencimento: '2026-10-15',
+          numero_nf: '012596-02',
+          forma_pagamento: 'boleto',
+          pagamento: '',
+          fonte: 'dda',
+        },
+        {
           origem_id: '3',
           apelido: 'KING',
           descricao: 'Caike Batista dos Santos',
@@ -51,17 +63,20 @@ describe('planilha do banco', () => {
     const rows = XLSX.utils.sheet_to_json(wb.Sheets.Plan1, { header: 1, defval: '' })
     assert.equal(rows[0][1], 'BANCO 10/10 A 17/10')
     assert.equal(rows[1][3], 'TOTAL BR')
-    assert.equal(rows[1][4], 210.5)
+    assert.equal(rows[1][4], 260.5)
     assert.equal(rows[4][0], 'NF')
     assert.equal(rows[4][1], 'REI ALVIM')
     assert.equal(rows[6][0], '011279-01')
     assert.equal(rows[6][1], 'PLATLOG')
     assert.equal(rows[6][2], 100.5)
     assert.equal(rows[6][3], 46307)
-    assert.equal(rows[7][1], 'GIMBA')
-    assert.equal(rows[7][2], 40)
-    assert.equal(rows[8][1], 'TOTAL ')
-    assert.equal(rows[8][2], 140.5)
+    assert.equal(rows[7][0], '012596-02')
+    assert.equal(rows[7][1], 'PLATLOG')
+    assert.equal(rows[7][2], 50)
+    assert.equal(rows[8][1], 'GIMBA')
+    assert.equal(rows[8][2], 40)
+    assert.equal(rows[9][1], 'TOTAL ')
+    assert.equal(rows[9][2], 190.5)
     const king = rows.findIndex((r) => r[1] === 'KING ASSESSORIA')
     assert.ok(king > 4)
     assert.equal(rows[king][0], '')

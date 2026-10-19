@@ -700,7 +700,7 @@ function inboxSql() {
     not (
       d.status in ('rascunho', 'classificada', 'bloqueada_duplicata')
       and (
-        d.fonte = 'dda'
+        d.fonte in ('dda', 'nfe')
         or (coalesce(d.fonte, 'manual') = 'manual' and coalesce(d.pendente_inbox, false))
       )
     )
@@ -794,7 +794,7 @@ export async function conciliarAutomatico(pool, { contaId, empresaId, de, ate })
           and not (
             d.status in ('rascunho', 'bloqueada_duplicata')
             and (
-              d.fonte = 'dda'
+              d.fonte in ('dda', 'nfe')
               or (coalesce(d.fonte, 'manual') = 'manual' and coalesce(d.pendente_inbox, false))
             )
           )

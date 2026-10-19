@@ -12,6 +12,7 @@ import {
   fmtSemanaCurta,
   rotuloBkLoja,
 } from '../components/escalas/escalaVisitasUtils';
+import { registrarAcaoAuditoria } from '../lib/registrarAcaoAuditoria';
 
 const W = 3600;
 const MARGIN = 64;
@@ -102,6 +103,13 @@ function baixarBlob(blob: Blob, nome: string) {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+  registrarAcaoAuditoria({
+    modulo: 'escalas',
+    acao: 'download',
+    entidade: 'png_escala',
+    descricao: `Baixou imagem da escala (${nome})`,
+    detalhes: { arquivo: nome },
+  });
 }
 
 export async function compartilharOuBaixar(

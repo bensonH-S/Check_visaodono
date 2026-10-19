@@ -31,6 +31,23 @@ import { configPageSx } from './configPageSx';
 const POR_PAGINA = 30;
 
 type FiltroStatus = 'todas' | 'abertas' | 'encerradas';
+type FiltroTipoTimeline = 'todas' | 'download' | 'acoes' | 'telas';
+
+const MODULOS_FILTRO: { value: string; label: string }[] = [
+  { value: '', label: 'Todos os módulos' },
+  { value: 'financeiro', label: 'Financeiro' },
+  { value: 'frota', label: 'Frota' },
+  { value: 'estoque', label: 'Estoque' },
+  { value: 'escalas', label: 'Escalas' },
+  { value: 'visitas', label: 'Visitas' },
+  { value: 'indicadores', label: 'Indicadores' },
+  { value: 'ti', label: 'TI' },
+  { value: 'chamados', label: 'Chamados' },
+  { value: 'metas', label: 'Metas' },
+  { value: 'usuarios', label: 'Usuários' },
+  { value: 'auth', label: 'Acesso' },
+  { value: 'sistema', label: 'Sistema' },
+];
 
 type AtividadeLinha =
   | { kind: 'nav'; at: string; item: AuditoriaNavegacaoItem }
@@ -55,12 +72,18 @@ function tomAcao(tipo?: string): 'ok' | 'alerta' | 'erro' | 'info' | 'neutro' {
       return 'alerta';
     case 'criacao':
       return 'ok';
+    case 'download':
     case 'upload':
     case 'operacao':
       return 'info';
     default:
       return 'neutro';
   }
+}
+
+function rotuloSeloAcao(item: AuditoriaEvento) {
+  if (item.tipo_acao === 'download' || item.acao === 'download') return 'Download';
+  return item.acao_label || item.acao;
 }
 
 function dispositivoLabel(d: string | null | undefined) {
@@ -85,6 +108,8 @@ export default function AuditoriaPage() {
   const [navSessao, setNavSessao] = useState<AuditoriaNavegacaoItem[]>([]);
   const [acoesSessao, setAcoesSessao] = useState<AuditoriaEvento[]>([]);
   const [carregandoDetalhe, setCarregandoDetalhe] = useState(false);
+  const [filtroModulo, setFiltroModulo] = useState('');
+  const [filtroTipoTimeline, setFiltroTipoTimeline] = useState<FiltroTipoTimeline>('todas');
 
   useEffect(() => {
     api
@@ -148,6 +173,8 @@ export default function AuditoriaPage() {
     setCarregandoDetalhe(true);
     setNavSessao([]);
     setAcoesSessao([]);
+    setFiltroModulo('');
+    setFiltroTipoTimeline('todas');
     try {
       const [nav, eventos] = await Promise.all([
         api.auditoriaNavegacoes({ id_sessao: sessao.id_sessao, pageSize: 150 }),
@@ -172,12 +199,24 @@ export default function AuditoriaPage() {
   }, []);
 
   const timeline = useMemo<AtividadeLinha[]>(() => {
+    const navOk = filtroTipoTimeline === 'todas' || filtroTipoTimeline === 'telas';
+    const acoesOk = filtroTipoTimeline === 'todas' || filtroTipoTimeline === 'acoes' || filtroTipoTimeline === 'download';
     const linhas: AtividadeLinha[] = [
-      ...navSessao.map((item) => ({ kind: 'nav' as const, at: item.entrou_em, item })),
-      ...acoesSessao.map((item) => ({ kind: 'acao' as const, at: item.created_at, item })),
+      ...(navOk ? navSessao.map((item) => ({ kind: 'nav' as const, at: item.entrou_em, item })) : []),
+      ...(acoesOk
+        ? acoesSessao
+            .filter((item) => {
+              if (filtroModulo && String(item.modulo || '').toLowerCase() !== filtroModulo) return false;
+              if (filtroTipoTimeline === 'download') {
+                return item.tipo_acao === 'download' || item.acao === 'download';
+              }
+              return true;
+            })
+            .map((item) => ({ kind: 'acao' as const, at: item.created_at, item }))
+        : []),
     ];
     return linhas.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
-  }, [navSessao, acoesSessao]);
+  }, [navSessao, acoesSessao, filtroModulo, filtroTipoTimeline]);
 
   const colunas: Coluna<AuditoriaSessao>[] = [
     {
@@ -324,6 +363,36 @@ export default function AuditoriaPage() {
           </Secao>
 
           <Secao titulo="Linha do tempo">
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 1.25 }}>
+              <TextField
+                select
+                size="small"
+                label="Tipo"
+                value={filtroTipoTimeline}
+                onChange={(e) => setFiltroTipoTimeline(e.target.value as FiltroTipoTimeline)}
+                sx={{ minWidth: 140, ...finCampoSx }}
+              >
+                <MenuItem value="todas">Tudo</MenuItem>
+                <MenuItem value="download">Downloads</MenuItem>
+                <MenuItem value="acoes">Ações</MenuItem>
+                <MenuItem value="telas">Telas</MenuItem>
+              </TextField>
+              <TextField
+                select
+                size="small"
+                label="Módulo"
+                value={filtroModulo}
+                onChange={(e) => setFiltroModulo(e.target.value)}
+                sx={{ minWidth: 160, ...finCampoSx }}
+                disabled={filtroTipoTimeline === 'telas'}
+              >
+                {MODULOS_FILTRO.map((m) => (
+                  <MenuItem key={m.value || 'all'} value={m.value}>
+                    {m.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
             {carregandoDetalhe ? (
               <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Carregando atividade…</Typography>
             ) : timeline.length === 0 ? (
@@ -374,7 +443,7 @@ export default function AuditoriaPage() {
                     >
                       <Stack direction="row" spacing={1} sx={{ alignItems: 'center', mb: 0.5 }}>
                         <Selo
-                          texto={linha.item.acao_label || linha.item.acao}
+                          texto={rotuloSeloAcao(linha.item)}
                           tom={tomAcao(linha.item.tipo_acao)}
                         />
                         <Typography sx={{ fontSize: 12, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>

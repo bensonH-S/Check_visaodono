@@ -25,6 +25,7 @@ const ACAO_LABEL = {
   logout: 'Saiu do sistema',
   login_falha: 'Tentativa de acesso falhou',
   navegar: 'Navegou',
+  download: 'Baixou',
   criar: 'Criou',
   atualizar: 'Alterou',
   excluir: 'Excluiu',
@@ -51,6 +52,9 @@ const ACAO_LABEL = {
   reabertura: 'Reabriu chamado',
   criado: 'Criou chamado',
   status: 'Alterou status',
+  autorizar: 'Autorizou',
+  cancelar: 'Cancelou',
+  importar: 'Importou',
 };
 
 const MODULO_LABEL = {
@@ -65,6 +69,11 @@ const MODULO_LABEL = {
   escalas: 'Escalas',
   metas: 'Metas',
   checklist: 'Checklist',
+  financeiro: 'Financeiro',
+  ti: 'TI',
+  estoque: 'Estoque',
+  energia: 'Energia',
+  indicadores: 'Indicadores',
   sistema: 'Sistema',
 };
 
@@ -161,10 +170,13 @@ function classificarAcao(acao, descricao = '') {
   if (a.includes('anexar') || a.includes('upload') || d.includes('enviou o arquivo') || d.includes('anexou')) {
     return 'upload';
   }
+  if (a === 'download' || d.includes('baixou')) return 'download';
   if (a === 'login' || a === 'logout' || a === 'login_falha') return 'acesso';
   if (a === 'navegar') return 'navegacao';
-  if (a.includes('criar') || a === 'iniciar' || a === 'criado') return 'criacao';
-  if (a.includes('atualizar') || a.includes('salvar') || a.includes('alter') || a === 'finalizar') return 'alteracao';
+  if (a.includes('criar') || a === 'iniciar' || a === 'criado' || a === 'importar') return 'criacao';
+  if (a.includes('atualizar') || a.includes('salvar') || a.includes('alter') || a === 'finalizar' || a === 'autorizar') {
+    return 'alteracao';
+  }
   if (a.includes('assum') || a.includes('devolver') || a.includes('aprov') || a.includes('fechamento')) {
     return 'operacao';
   }

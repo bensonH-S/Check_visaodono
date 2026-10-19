@@ -247,6 +247,18 @@ export const api = {
       '/auditoria/navegacao',
       { method: 'POST', body: JSON.stringify(body) },
     ),
+  auditoriaEvento: (body: {
+    modulo: string;
+    acao?: string;
+    descricao: string;
+    entidade?: string;
+    id_referencia?: string;
+    detalhes?: Record<string, unknown>;
+  }) =>
+    request<{ ok: boolean }>('/auditoria/evento', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   auditoriaSessoes: (params?: {
     page?: number;
     pageSize?: number;
@@ -4320,7 +4332,7 @@ export interface AuditoriaEvento {
   modulo_label?: string;
   acao: string;
   acao_label?: string;
-  tipo_acao?: 'acesso' | 'criacao' | 'alteracao' | 'exclusao' | 'upload' | 'operacao' | 'navegacao' | 'outro';
+  tipo_acao?: 'acesso' | 'criacao' | 'alteracao' | 'exclusao' | 'upload' | 'download' | 'operacao' | 'navegacao' | 'outro';
   entidade: string | null;
   id_referencia: string | null;
   descricao: string;

@@ -232,12 +232,13 @@ export type Despesa = {
 
 const STATUS_INBOX = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
 
-/** Título que ainda espera confirmação no Inbox (DDA ou despesa manual nova). */
+/** Título que ainda espera confirmação no Inbox (DDA, NF conferida sem boleto, ou manual nova). */
 export function estaNoInbox(e: Pick<Despesa, 'fonte' | 'status' | 'pendente_inbox'>) {
   /** Paga/conciliada nunca voltam ao Inbox — só em Conciliadas. */
   if (e.status === 'paga' || e.status === 'conciliada' || e.status === 'cancelada') return false
   if (!STATUS_INBOX.has(e.status)) return false
   if (e.fonte === 'dda') return true
+  if (e.fonte === 'nfe') return true
   if (e.fonte === 'manual') return e.pendente_inbox === true
   return false
 }

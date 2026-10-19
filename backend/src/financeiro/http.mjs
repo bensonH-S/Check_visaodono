@@ -27,7 +27,7 @@ import { removerCadastro, salvarCadastro, usoDe } from './lib/cadastros.mjs'
 import { garantirSchemaCaixa, lerComprovante, mesFechamentos, receberHeartbeat, receberIngestao, resumoCanaisPeriodo, salvarFechamento } from './lib/fechamentoCaixa.mjs'
 import { gerarDanfe } from './lib/danfe.mjs'
 import { baixarBoletoDaDespesa, baixarNotaDaDespesa } from './lib/boletoEsupri.mjs'
-import { cruzarNotas } from './lib/nfEntrada.mjs'
+import { sincronizarNfesConferidas } from './lib/nfEntrada.mjs'
 import { hojeBR, lerConfigBkoffice, registrarFalhaVendas, resumoVendas, salvarConfigBkoffice, sincronizarVendasBk } from './lib/bkofficeVendas.mjs'
 import {
   amarrarDdaComNotasReceita,
@@ -40,6 +40,15 @@ import {
 } from './lib/syncNfeSefaz.mjs'
 import { parsePdfDespesa } from './lib/importarPdfDespesa.mjs'
 import { montarPlanilhaBanco, nomeArquivoPlanilha } from './lib/planilhaBanco.mjs'
+import { auditar } from '../auditoriaHelpers.js'
+
+function metaFinanceiro(req, payload) {
+  if (!req) return
+  req.auditoriaMeta = {
+    modulo: 'financeiro',
+    ...payload,
+  }
+}
 import {
   confirmarConciliacao,
   desfazerConciliacao,
@@ -535,45 +544,15 @@ async function vincularFornecedores() {
 }
 
 async function amarrarNotas() {
-  const despesas = await pool.query(`
-    select d.id, d.numero_nf, coalesce(f.cpf_cnpj, d.cnpj_cedente) as cnpj_fornecedor, eo.cnpj as cnpj_empresa
-    from despesas d
-    join empresas eo on eo.id = d.empresa_origem_id
-    left join fornecedores f on f.id = d.fornecedor_id
-    where d.nf_confirmada = false and d.numero_nf is not null and d.status <> 'cancelada'
-  `)
-  if (despesas.rowCount) {
-    const notas = await operacional.query(`
-      select n.id_nfe::text as id, n.numero, n.emitente_cnpj, l.cnpj as cnpj_loja
-      from estoque_nfe n
-      join lojas l on l.id_loja = n.id_loja
-      where n.status_entrega = 'conferida'
-    `)
-    for (const cruzamento of cruzarNotas(despesas.rows, notas.rows)) {
-      // Gestor conferiu a NF no app → título vai sozinho para a Agenda banco (pronta).
-      await pool.query(
-        `update despesas set
-           nf_confirmada = true,
-           nfe_id = $2,
-           status = case
-             when status in ('rascunho', 'classificada', 'bloqueada_duplicata') then 'pronta'
-             else status
-           end,
-           pendente_inbox = case
-             when status in ('rascunho', 'classificada', 'bloqueada_duplicata') then false
-             else pendente_inbox
-           end
-         where id = $1 and nf_confirmada = false`,
-        [cruzamento.despesa_id, cruzamento.nfe_id],
-      )
-    }
+  // Liga boletos ↔ NF conferida; cria no Inbox as conferidas sem despesa (qualquer fornecedor).
+  const { pool: portalPool } = await import('../db.js')
+  const resumo = await sincronizarNfesConferidas({ financePool: pool, portalPool })
+  if (resumo.ligadas || resumo.criadas) {
+    console.log(
+      `[financeiro] NF conferidas → ligadas=${resumo.ligadas} criadas_inbox=${resumo.criadas} ignoradas=${resumo.ignoradas}`,
+    )
   }
-  // Já tinham NF conferida e ainda estavam no inbox (legado / corrida).
-  await pool.query(`
-    update despesas set status = 'pronta', pendente_inbox = false
-    where nf_confirmada = true
-      and status in ('rascunho', 'classificada', 'bloqueada_duplicata')
-  `)
+  return resumo
 }
 
 let sincronizandoNotas = null
@@ -728,6 +707,7 @@ async function listarDespesas(empresaId, { empresaIds = null } = {}) {
            coalesce(d.fonte, case
              when d.documento_ref like 'DDA|%' then 'dda'
              when d.documento_ref like 'FC|%' then 'freecontrol'
+             when d.documento_ref like 'ESTOQUE-NFE|%' then 'nfe'
              when d.forma_pagamento = 'boleto' and d.documento_ref ~ '^\\d{44}$' then 'dda'
              else 'manual'
            end) as fonte,
@@ -837,6 +817,20 @@ export async function receberFreecontrolLote(req, res) {
     }
     const { receberLoteFreecontrol } = await import('./lib/importFreecontrol.mjs')
     const resultado = await receberLoteFreecontrol(pool, req, env)
+    void auditar(req, {
+      idUsuario: null,
+      modulo: 'financeiro',
+      acao: 'importar',
+      entidade: 'freecontrol_lote',
+      idReferencia: resultado?.period_key || null,
+      descricao: `Recebeu lote Free Control (${resultado?.period_from || '?'} a ${resultado?.period_to || '?'}) — criadas=${resultado?.criadas ?? 0} existentes=${resultado?.existentes ?? 0}`,
+      detalhes: {
+        period_key: resultado?.period_key,
+        criadas: resultado?.criadas,
+        existentes: resultado?.existentes,
+        ignoradas: resultado?.ignoradas,
+      },
+    })
     return send(res, 200, JSON.stringify(resultado))
   } catch (err) {
     return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não importou o lote Free Control.' }))
@@ -905,6 +899,8 @@ export async function handleFinance(req, res) {
         select d.empresa_origem_id::text as origem_id,
                eo.apelido,
                d.descricao,
+               f.nome as fornecedor,
+               f.razao_social,
                d.valor::float8 as valor,
                to_char(d.vencimento, 'YYYY-MM-DD') as vencimento,
                d.numero_nf,
@@ -917,6 +913,7 @@ export async function handleFinance(req, res) {
         from despesas d
         join empresas eo on eo.id = d.empresa_origem_id
         left join empresas er on er.id = d.empresa_registro_id
+        left join fornecedores f on f.id = d.fornecedor_id
         left join (
           select distinct on (fornecedor_id) fornecedor_id, chave_pix
           from fornecedor_pagamentos
@@ -928,15 +925,22 @@ export async function handleFinance(req, res) {
           and not (
             d.status in ('rascunho', 'classificada', 'bloqueada_duplicata')
             and (
-              d.fonte = 'dda'
+              d.fonte in ('dda', 'nfe')
               or (coalesce(d.fonte, 'manual') = 'manual' and coalesce(d.pendente_inbox, false))
             )
           )
           ${empresaId ? 'and d.empresa_origem_id = $3' : ''}
-        order by d.valor desc, d.vencimento, d.descricao
+        order by d.valor desc, d.vencimento, coalesce(nullif(trim(d.descricao), ''), f.nome, d.numero_nf)
       `, params)
       const buffer = await montarPlanilhaBanco({ de, ate, empresas: empresas.rows, linhas: linhas.rows })
       const nome = nomeArquivoPlanilha(de, ate)
+      metaFinanceiro(req, {
+        acao: 'download',
+        entidade: 'planilha_banco',
+        idReferencia: `${de}_${ate}`,
+        descricao: `Baixou planilha BANCO (${de} a ${ate}) — ${linhas.rows.length} linha(s)`,
+        detalhes: { de, ate, linhas: linhas.rows.length, empresa: empresaId || null, arquivo: nome },
+      })
       res.writeHead(200, {
         'content-type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'content-disposition': `attachment; filename="${nome}"`,
@@ -1397,6 +1401,13 @@ export async function handleFinance(req, res) {
         )
         enviados.push(...up.rows)
       }
+      metaFinanceiro(req, {
+        acao: 'autorizar',
+        entidade: 'despesa',
+        idReferencia: paraAtualizar[0] || enviados[0]?.id || null,
+        descricao: `Enviou ${paraAtualizar.length || enviados.length} título(s) para a Agenda banco`,
+        detalhes: { enviados: enviados.length, bloqueados: bloqueados.length, novos: paraAtualizar.length },
+      })
       return send(res, 200, JSON.stringify({ enviados, bloqueados }))
     }
     if (req.method === 'PATCH' && url.pathname.startsWith('/api/despesas/')) {
@@ -1448,6 +1459,13 @@ export async function handleFinance(req, res) {
       const id = url.pathname.split('/').pop()
       const deleted = await pool.query('delete from despesas where id = $1 returning id', [id])
       if (!deleted.rowCount) return send(res, 404, JSON.stringify({ erro: 'Despesa não encontrada.' }))
+      metaFinanceiro(req, {
+        acao: 'excluir',
+        entidade: 'despesa',
+        idReferencia: id,
+        descricao: `Excluiu despesa #${String(id).slice(0, 8)}`,
+        detalhes: { id },
+      })
       return send(res, 200, JSON.stringify(deleted.rows[0]))
     }
     if (req.method === 'GET' && url.pathname === '/api/config/bkoffice') {
@@ -1580,7 +1598,18 @@ export async function handleFinance(req, res) {
         return send(res, 200, JSON.stringify({ linhas }))
       }
       const selecionadas = Array.isArray(body.linhas) ? body.linhas : []
-      return send(res, 201, JSON.stringify(await lancarDda(selecionadas, { paraAgenda: body.para_agenda === true })))
+      const paraAgenda = body.para_agenda === true
+      const resultado = await lancarDda(selecionadas, { paraAgenda })
+      metaFinanceiro(req, {
+        acao: 'importar',
+        entidade: 'dda',
+        idReferencia: resultado?.ids?.[0] || null,
+        descricao: paraAgenda
+          ? `Importou DDA e liberou ${resultado?.criadas ?? 0} título(s) na Agenda`
+          : `Importou DDA — ${resultado?.criadas ?? 0} título(s)`,
+        detalhes: { criadas: resultado?.criadas, ignoradas: resultado?.ignoradas, para_agenda: paraAgenda },
+      })
+      return send(res, 201, JSON.stringify(resultado))
     }
     if (req.method === 'POST' && (
       url.pathname === '/api/despesas/importar-arquivos'
@@ -2027,6 +2056,10 @@ async function cicloVendas() {
 }
 
 let iniciado = false
+
+export function getFinancePool() {
+  return pool
+}
 
 export function iniciarFinanceiro() {
   if (iniciado) return
