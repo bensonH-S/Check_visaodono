@@ -1022,8 +1022,14 @@ export async function listarNfesEstoque(
   const params = [idLoja];
   let filtro = '';
   if (conferir || pendentes) {
+    // SEFAZ sem XML/itens: não listar pra conferência (só enche a tela com erro).
+    // A fila agendarXmlPendentesLoja completa o XML; depois a nota passa a aparecer.
     filtro = ` AND n.entrada_registrada = FALSE
-               AND n.status_entrega IN ('aguardando_conferencia', 'em_transito', 'aguardando_portal', 'divergente')`;
+               AND n.status_entrega IN ('aguardando_conferencia', 'em_transito', 'aguardando_portal', 'divergente')
+               AND (
+                 EXISTS (SELECT 1 FROM estoque_nfe_itens i WHERE i.id_nfe = n.id_nfe)
+                 OR lower(COALESCE(n.fornecedor, '')) <> 'sefaz'
+               )`;
   }
   if (String(origem || '').toLowerCase() === 'sefaz') {
     // Igual ao portal do fornecedor: só nota com produto (XML completo) ou já com entrada.

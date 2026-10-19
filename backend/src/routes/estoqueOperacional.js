@@ -1840,14 +1840,19 @@ router.get('/nfes', permNfe, async (req, res, next) => {
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
 
     const origem = req.query.origem ? String(req.query.origem) : null;
+    const pendentes = req.query.pendentes === '1' || req.query.pendentes === 'true';
+    const conferir = req.query.conferir === '1' || req.query.conferir === 'true';
     const rows = await listarNfesEstoque(idLoja, {
-      pendentes: req.query.pendentes === '1' || req.query.pendentes === 'true',
-      conferir: req.query.conferir === '1' || req.query.conferir === 'true',
+      pendentes,
+      conferir,
       limit: req.query.limit ? Number(req.query.limit) : 50,
       origem,
       dias: req.query.dias ? Number(req.query.dias) : null,
     });
-    if (String(origem || '').toLowerCase() === 'sefaz') agendarXmlPendentesLoja(idLoja);
+    // Fila de XML SEFAZ: também no modo conferir (Platlog+SEFAZ), senão nota fica sem itens.
+    if (String(origem || '').toLowerCase() === 'sefaz' || conferir || pendentes) {
+      agendarXmlPendentesLoja(idLoja);
+    }
     res.json(rows);
   } catch (e) {
     next(e);
@@ -1905,14 +1910,25 @@ router.get('/nfes/divergencias', permDivergenciasNf, async (req, res, next) => {
 router.get('/nfes/:id', permNfe, async (req, res, next) => {
   try {
     const idNfe = Number(req.params.id);
-    await completarXmlNotaEstoque(idNfe).catch((err) => {
+    let xmlStatus = null;
+    try {
+      xmlStatus = await completarXmlNotaEstoque(idNfe);
+    } catch (err) {
       console.error(`[sefaz] xml da nota ${idNfe}: ${err.message}`);
-    });
+      xmlStatus = { ok: false, motivo: err.message };
+    }
     const det = await obterNfeDetalhe(idNfe);
     if (!det) return res.status(404).json({ error: 'NF não encontrada' });
     const bloqueio = acessoLoja(req, det.id_loja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
-    res.json(det);
+    const semItens = !(det.itens || []).length && !det.entrada_registrada;
+    res.json({
+      ...det,
+      xml_ok: !semItens || !!xmlStatus?.ok || !!xmlStatus?.ja,
+      xml_motivo: semItens
+        ? (xmlStatus?.motivo || 'O XML completo ainda não chegou da Receita. Toque em Tentar de novo em instantes.')
+        : null,
+    });
   } catch (e) {
     next(e);
   }

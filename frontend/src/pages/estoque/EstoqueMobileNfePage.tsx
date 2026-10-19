@@ -1,6 +1,6 @@
 /**
- * Confer?ncia de recebimento NF no mobile.
- * Fluxo: NF do fornecedor ? lista itens ? OK chegou / X n?o chegou ? lan?a estoque.
+ * Conferência de recebimento NF no mobile.
+ * Fluxo: NF do fornecedor → lista itens → OK chegou / X não chegou → lança estoque.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -24,7 +24,7 @@ import '../../components/estoque/estoque-mobile.css';
 
 type ItemCheck = {
   id_item: number;
-  /** true = chegou (total ou parcial), false = n?o chegou, null = ainda n?o marcado */
+  /** true = chegou (total ou parcial), false = não chegou, null = ainda não marcado */
   ok: boolean | null;
   qtd_esperada: number;
   qtd_recebida: number;
@@ -55,7 +55,7 @@ function fmtQtd(v: number) {
   });
 }
 
-/** C?digo interno ? nome amig?vel (coca = portal Brasal da Coca-Cola). */
+/** Código interno → nome amigável (coca = portal Brasal da Coca-Cola). */
 function rotuloFornecedor(codigo: string | null | undefined, emitente?: string | null) {
   const f = String(codigo || '').toLowerCase();
   if (f === 'coca') return 'Coca-Cola';
@@ -79,7 +79,7 @@ function nomeItem(it: EstoqueNfeItem) {
   );
 }
 
-/** Unidade de estoque: cadastro ? NF (uCom) ? texto da descri??o. Sem placeholder. */
+/** Unidade de estoque: cadastro → NF (uCom) → texto da descrição. Sem placeholder. */
 function unidadeEstoque(it: EstoqueNfeItem): string {
   const cad = String(it.unidade_contagem || '').trim();
   if (cad) return normalizarUnidade(cad);
@@ -177,7 +177,7 @@ export default function EstoqueMobileNfePage() {
   const [abrindoCobranca, setAbrindoCobranca] = useState(false);
 
   const carregarDetalhe = useCallback(
-    async (id: number) => {
+    async (id: number, opts?: { avisoXml?: boolean }) => {
       setLoading(true);
       try {
         const d = await api.estoqueNfeDetalhe(id);
@@ -211,6 +211,16 @@ export default function EstoqueMobileNfePage() {
           };
         }
         setChecks(map);
+        const semItens = !(d.itens || []).length && !d.entrada_registrada;
+        if (opts?.avisoXml && semItens) {
+          showToast(
+            (d as { xml_motivo?: string | null }).xml_motivo
+              || 'Ainda sem XML da Receita. Tente de novo em alguns segundos.',
+            'warning',
+          );
+        } else if (opts?.avisoXml && !semItens) {
+          showToast('XML carregado  produtos liberados.', 'success');
+        }
       } catch (e) {
         showToast(e instanceof Error ? e.message : 'Erro ao abrir NF', 'error');
         navigate('/estoque/mobile', { replace: true, state: { aba: 'nf' } });
@@ -317,7 +327,7 @@ export default function EstoqueMobileNfePage() {
         return url;
       });
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'N?o foi poss?vel abrir a DANFE', 'error');
+      showToast(e instanceof Error ? e.message : 'Não foi possível abrir a DANFE', 'error');
     } finally {
       setAbrindoDanfe(false);
     }
@@ -346,15 +356,15 @@ export default function EstoqueMobileNfePage() {
       if (!c.duplicatas?.length && !c.vencimento) {
         showToast(
           c.tem_xml
-            ? 'Esta NF n?o tem cobran?a no XML'
-            : 'O XML desta nota ainda n?o est? no banco.',
+            ? 'Esta NF não tem cobrança no XML'
+            : 'O XML desta nota ainda não está no banco.',
           'error',
         );
         return;
       }
       setCobranca(c);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'N?o foi poss?vel abrir a cobran?a', 'error');
+      showToast(e instanceof Error ? e.message : 'Não foi possível abrir a cobrança', 'error');
     } finally {
       setAbrindoCobranca(false);
     }
@@ -372,7 +382,7 @@ export default function EstoqueMobileNfePage() {
         const qtd = c.ok === false ? 0 : c.qtd_recebida;
         const parcial = Math.abs(qtd - c.qtd_esperada) > 0.0001;
         let obs;
-        if (qtd <= 0) obs = 'N�o chegou na entrega';
+        if (qtd <= 0) obs = 'N�o chegou na entrega';
         else if (parcial) obs = `Recebido parcial: ${fmtQtd(qtd)} de ${fmtQtd(c.qtd_esperada)}`;
         return {
           id_item: c.id_item,
@@ -384,8 +394,8 @@ export default function EstoqueMobileNfePage() {
       const r = await api.estoqueNfeConferir(det.id_nfe, { itens });
       showToast(
         r.divergente
-          ? `NF lan�ada com diverg�ncia � ${fmtDataBR(r.data_entrega)}`
-          : 'Recebimento OK � estoque atualizado',
+          ? `NF lançada com divergência · ${fmtDataBR(r.data_entrega)}`
+          : 'Recebimento OK � estoque atualizado',
         r.divergente ? 'warning' : 'success',
       );
       navigate('/estoque/mobile', { replace: true, state: { aba: 'nf' } });
@@ -448,7 +458,7 @@ export default function EstoqueMobileNfePage() {
       <div className="ck-estoque-hub__watermark" aria-hidden />
       <header className="ck-estoque-hub__top ck-estoque-hub__top--fixed">
         <div className="ck-estoque-hub__brand-row">
-          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Meridian Gest?o Operacional" />
+          <img className="ck-estoque-hub__mark ck-estoque-hub__mark--hero" src={assetUrl(LOGO_GA_LOCKUP)} alt="Meridian Gestão Operacional" />
         </div>
         <div className="ck-estoque-hub__hero-copy">
           <div className="ck-estoque-hub__store-row ck-estoque-hub__store-row--hero">
@@ -457,7 +467,7 @@ export default function EstoqueMobileNfePage() {
           {det ? (
             <p className="ck-estoque-hub__nfe-sub">
               {rotuloFornecedor(det.fornecedor, det.emitente_nome)}
-              {det.valor_total != null ? ` ? ${fmtMoeda(det.valor_total)}` : ''}
+              {det.valor_total != null ? ` · ${fmtMoeda(det.valor_total)}` : ''}
             </p>
           ) : null}
         </div>
@@ -474,10 +484,10 @@ export default function EstoqueMobileNfePage() {
                 '& .MuiLinearProgress-bar': { bgcolor: '#0548d1' },
               }}
             />
-            <p className="ck-estoque-hub__empty">Abrindo a nota?</p>
+            <p className="ck-estoque-hub__empty">Abrindo a nota…</p>
           </>
         ) : null}
-        {!loading && !det ? <p className="ck-estoque-hub__empty">Nota fiscal n?o encontrada.</p> : null}
+        {!loading && !det ? <p className="ck-estoque-hub__empty">Nota fiscal não encontrada.</p> : null}
         {det ? (
           <>
             <div className="ck-estoque-hub__nfe-docs">
@@ -487,7 +497,7 @@ export default function EstoqueMobileNfePage() {
                 onClick={() => void abrirDanfe(det.id_nfe)}
               >
                 <DescriptionOutlinedIcon />
-                {abrindoDanfe ? 'Abrindo?' : 'Visualizar DANFE'}
+                {abrindoDanfe ? 'Abrindo…' : 'Visualizar DANFE'}
               </button>
               <button
                 type="button"
@@ -495,7 +505,7 @@ export default function EstoqueMobileNfePage() {
                 onClick={() => void abrirCobranca(det.id_nfe)}
               >
                 <RequestQuoteOutlinedIcon />
-                {abrindoCobranca ? 'Abrindo?' : 'Cobran?a'}
+                {abrindoCobranca ? 'Abrindo…' : 'Cobrança'}
               </button>
             </div>
             <div className="ck-estoque-hub__table ck-estoque-hub__table--head">
@@ -515,13 +525,13 @@ export default function EstoqueMobileNfePage() {
             <div className="ck-estoque-hub__table ck-estoque-hub__table--body">
               <div className="ck-estoque-hub__lista">
                 {jaEntrou ? (
-                  <p className="ck-estoque-hub__entrada-feita">Entrada j? feita. Esta nota n?o entra de novo.</p>
+                  <p className="ck-estoque-hub__entrada-feita">Entrada já feita. Esta nota não entra de novo.</p>
                 ) : null}
                 {det.fornecedor === 'sefaz' && !(det.itens || []).length && !jaEntrou ? (
                   <div className="ck-estoque-hub__empty">
-                    <p>Esta nota ainda n?o tem o XML completo da Receita. Sem o XML n?o h? produtos para dar entrada.</p>
-                    <button type="button" disabled={loading} onClick={() => void carregarDetalhe(det.id_nfe)}>
-                      {loading ? 'Abrindo?' : 'Tentar de novo'}
+                    <p>Esta nota ainda não tem o XML completo da Receita. Sem o XML não há produtos para dar entrada.</p>
+                    <button type="button" disabled={loading} onClick={() => void carregarDetalhe(det.id_nfe, { avisoXml: true })}>
+                      {loading ? 'Buscando…' : 'Tentar de novo'}
                     </button>
                   </div>
                 ) : null}
@@ -556,9 +566,9 @@ export default function EstoqueMobileNfePage() {
                           <strong>{nomeItem(it)}</strong>
                           <small>
                             {semMatch
-                              ? 'Sem cadastro ? s� ocorr�ncia'
+                              ? 'Sem cadastro — só ocorrência'
                               : it.codigo_nf || it.codigo_insumo || ''}
-                            {parcial ? ` � parcial ${fmtQtd(rec)}/${fmtQtd(esp)}` : ''}
+                            {parcial ? ` � parcial ${fmtQtd(rec)}/${fmtQtd(esp)}` : ''}
                           </small>
                         </span>
                       </span>
@@ -612,7 +622,7 @@ export default function EstoqueMobileNfePage() {
                           className={`ck-estoque-hub__nfe-btn ck-estoque-hub__nfe-btn--no${
                             estado === false ? ' is-on' : ''
                           }`}
-                          aria-label="N�o chegou"
+                          aria-label="N�o chegou"
                           disabled={jaEntrou}
                           onClick={() => marcar(it.id_item, false)}
                         >
@@ -635,7 +645,7 @@ export default function EstoqueMobileNfePage() {
           </button>
           {jaEntrou ? (
             <button type="button" className="is-feita" disabled>
-              Entrada j? feita
+              Entrada já feita
             </button>
           ) : (
             <>
@@ -649,9 +659,9 @@ export default function EstoqueMobileNfePage() {
                 onClick={() => void finalizar()}
               >
                 {salvando
-                  ? 'Salvando?'
+                  ? 'Salvando…'
                   : resumo.parcial > 0
-                    ? `Continuar (${resumo.ok + resumo.parcial}/${resumo.total} � ${resumo.parcial} parcial)`
+                    ? `Continuar (${resumo.ok + resumo.parcial}/${resumo.total} · ${resumo.parcial} parcial)`
                     : `Continuar (${resumo.ok}/${resumo.total})`}
               </button>
             </>
@@ -668,14 +678,14 @@ export default function EstoqueMobileNfePage() {
               aria-label="Fechar"
               onClick={() => setCobranca(null)}
             />
-            <div className="ck-estoque-hub__sheet" role="dialog" aria-modal="true" aria-label="Cobran?a">
+            <div className="ck-estoque-hub__sheet" role="dialog" aria-modal="true" aria-label="Cobrança">
               <div className="ck-estoque-hub__sheet-handle" />
               <div className="ck-estoque-hub__sheet-head">
                 <span className="ck-estoque-hub__thumb ck-estoque-hub__thumb--nf">
                   <RequestQuoteOutlinedIcon />
                 </span>
                 <div>
-                  <strong>Cobran?a da NF {cobranca.numero || det?.numero || ''}</strong>
+                  <strong>Cobrança da NF {cobranca.numero || det?.numero || ''}</strong>
                   <small>{cobranca.emitente || 'Fornecedor'}</small>
                 </div>
               </div>
@@ -696,14 +706,14 @@ export default function EstoqueMobileNfePage() {
                       <span>Parcela {d.numero || i + 1}</span>
                       <b>
                         {fmtMoeda(d.valor)}
-                        <small> ? {fmtDataBR(d.vencimento)}</small>
+                        <small> · {fmtDataBR(d.vencimento)}</small>
                       </b>
                     </div>
                   ))}
                 </div>
               ) : null}
               <p className="ck-estoque-hub__nfe-hint">
-                Dados da NF. O boleto banc?rio em PDF n?o vem no XML do fornecedor.
+                Dados da NF. O boleto bancário em PDF não vem no XML do fornecedor.
               </p>
               <button type="button" className="ck-estoque-hub__sheet-fechar" onClick={() => setCobranca(null)}>
                 Fechar
