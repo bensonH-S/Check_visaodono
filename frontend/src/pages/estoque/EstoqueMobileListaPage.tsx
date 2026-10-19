@@ -289,7 +289,8 @@ export default function EstoqueMobileListaPage() {
       try {
         const [saldoRows, nfeRows] = await Promise.all([
           api.estoqueSaldos(idLoja),
-          api.estoqueNfes(idLoja, { limit: 400, origem: 'sefaz', dias: 30 }),
+          // conferir: todas as pendentes (Platlog/Gimba/SEFAZ…). origem=sefaz escondia o portal.
+          api.estoqueNfes(idLoja, { conferir: true, limit: 400, dias: 45 }),
         ]);
         if (cancel) return;
         setSaldos(saldoRows);
@@ -386,7 +387,7 @@ export default function EstoqueMobileListaPage() {
     recarregouXml.current = true;
     const timer = window.setTimeout(() => {
       api
-        .estoqueNfes(idLoja, { limit: 400, origem: 'sefaz', dias: 30 })
+        .estoqueNfes(idLoja, { conferir: true, limit: 400, dias: 45 })
         .then(setNfes)
         .catch(() => {});
     }, 15000);
@@ -652,7 +653,7 @@ export default function EstoqueMobileListaPage() {
                   <p>
                     {fornecedorAberto
                       ? fornecedorAberto.nome
-                      : 'Últimos 30 dias · XML e produtos da Receita.'}
+                      : 'Pendentes de conferência · Platlog, Gimba, SEFAZ e demais.'}
                   </p>
                 </div>
                 {fornecedorAberto ? (
@@ -720,7 +721,7 @@ export default function EstoqueMobileListaPage() {
               <div className="ck-estoque-hub__lista">
                 {!fornecedorAberto && !fornecedoresVisiveis.length ? (
                   <p className="ck-estoque-hub__empty">
-                    Nenhuma nota pronta nos últimos 30 dias. Quando o XML chegar da Receita, a nota e os produtos aparecem juntos.
+                    Nenhuma NF pendente de conferência nos últimos 45 dias.
                   </p>
                 ) : null}
                 {!fornecedorAberto
