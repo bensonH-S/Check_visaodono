@@ -77,6 +77,7 @@ import { FechamentoCaixaPage } from './financeiro/pages/FechamentoCaixaPage';
 import { ConciliacaoPage } from './financeiro/pages/ConciliacaoPage';
 import { ModuloPage as FinanceiroModuloPage } from './financeiro/pages/ModuloPage';
 import { VendasPage as FinanceiroVendasPage } from './financeiro/pages/VendasPage';
+import { ReuniaoSemanalPage } from './financeiro/pages/ReuniaoSemanalPage';
 import UsuariosPage from './pages/UsuariosPage';
 import ConfiguracoesPage from './pages/configuracoes/ConfiguracoesPage';
 import ConfiguracoesLayout from './layout/ConfiguracoesLayout';
@@ -602,6 +603,14 @@ export default function App() {
                 element={
                   <RotaFinanceiro>
                     <FinanceiroVendasPage />
+                  </RotaFinanceiro>
+                }
+              />
+              <Route
+                path="reuniao"
+                element={
+                  <RotaFinanceiro permitirResumo>
+                    <ReuniaoSemanalPage />
                   </RotaFinanceiro>
                 }
               />

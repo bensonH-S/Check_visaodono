@@ -19,6 +19,7 @@ const leituraResumo = new Set([
   '/empresas',
   '/despesas/planilha-banco',
   '/caixa/canais',
+  '/mascara-reuniao',
 ]);
 
 function podeLeituraResumo(req) {

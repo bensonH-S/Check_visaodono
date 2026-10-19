@@ -95,6 +95,13 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
     titleEn: 'Sales',
     icon: <PaymentsOutlinedIcon sx={iconSx} />,
   },
+  '/financeiro/reuniao': {
+    title: 'Reunião semanal',
+    titleEn: 'Weekly meeting',
+    subtitle: 'Máscara · venda, CMV Platlog/Coca/Gimba/Ideal',
+    subtitleEn: 'Mask · sales, COGS Platlog/Coke/Gimba/Ideal',
+    icon: <PaymentsOutlinedIcon sx={iconSx} />,
+  },
   '/chamados/novo': { title: 'Abrir chamado', icon: <AddIcon sx={iconSx} /> },
   '/chamados/aprovacoes': { title: 'Aprovações', icon: <ThumbUpAltOutlinedIcon sx={iconSx} /> },
   '/frota': { title: 'Frota', icon: <DirectionsCarIcon sx={iconSx} /> },

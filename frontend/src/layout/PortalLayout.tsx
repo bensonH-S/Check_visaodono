@@ -28,6 +28,7 @@ import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import PointOfSaleOutlinedIcon from '@mui/icons-material/PointOfSaleOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import CompareArrowsOutlinedIcon from '@mui/icons-material/CompareArrowsOutlined';
+import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
 import FinanceIdiomaToggle from '../financeiro/FinanceIdiomaToggle';
@@ -130,7 +131,8 @@ function PortalLayoutInner() {
     path === '/financeiro' ||
     path.startsWith('/financeiro/inbox') ||
     path.startsWith('/financeiro/conciliacao') ||
-    path.startsWith('/financeiro/caixa');
+    path.startsWith('/financeiro/caixa') ||
+    path.startsWith('/financeiro/reuniao');
   const mostraIdiomaFinanceiro = isFinanceiroRota;
   const idiomaFinanceiro = useIdiomaFinanceiro();
   const finEn = idiomaFinanceiro === 'en';
@@ -389,6 +391,13 @@ function PortalLayoutInner() {
       label: finEn ? 'Cash closing' : 'Fechamento de caixa',
       icon: <PointOfSaleOutlinedIcon fontSize="small" />,
       show: podeVerFinanceiro(user),
+      section: secFin,
+    },
+    {
+      to: '/financeiro/reuniao',
+      label: finEn ? 'Weekly meeting' : 'Reunião semanal',
+      icon: <TableChartOutlinedIcon fontSize="small" />,
+      show: podeVerResumoFinanceiro(user),
       section: secFin,
     },
 

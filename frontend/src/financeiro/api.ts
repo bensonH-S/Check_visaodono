@@ -541,6 +541,37 @@ export type ResumoVendas = {
   ultimo_sync: { mensagem: string; criado_em: string; ok: boolean } | null
 }
 
+export type MascaraReuniaoLoja = {
+  bk: string
+  loja: string
+  id_loja?: number | null
+  dias_venda: number | null
+  venda: number
+  venda_projetada: number
+  gasto: number
+  gasto_platlog: number
+  gasto_coca: number
+  gasto_gimba: number
+  gasto_uniforme: number
+  cmv_atual: number | null
+  cmv_projetado: number | null
+  trafego: number | null
+  ticket_medio: number | null
+  rating_ifood: number | null
+  rating_99: number | null
+  visita_meridian: number | null
+  rev: string | null
+}
+
+export type MascaraReuniao = {
+  de: string
+  ate: string
+  janela_dias: number
+  cmv_fornecedores: string[]
+  lojas: MascaraReuniaoLoja[]
+  total: MascaraReuniaoLoja
+}
+
 export type ResumoFinanceiro = {
   a_pagar: number
   pago: number
@@ -824,6 +855,15 @@ export const api = {
     return data as { linhas: LinhaDda[] }
   },
   vendas: (dia: string) => get<ResumoVendas>(`${apiRoot}/vendas?dia=${encodeURIComponent(dia)}`),
+  /** Máscara reunião semanal: venda + gasto CMV (Platlog/Coca/Gimba/Ideal). */
+  mascaraReuniao: (opts?: { de?: string; ate?: string; dias?: number }) => {
+    const q = new URLSearchParams()
+    if (opts?.de) q.set('de', opts.de)
+    if (opts?.ate) q.set('ate', opts.ate)
+    if (opts?.dias != null) q.set('dias', String(opts.dias))
+    const qs = q.toString()
+    return get<MascaraReuniao>(`${apiRoot}/mascara-reuniao${qs ? `?${qs}` : ''}`)
+  },
   /** Canais do caixa no período (Pix, débito, crédito, iFood, 99…). */
   caixaCanais: (de: string, ate: string, empresa?: string) => {
     const q = new URLSearchParams({ de, ate })

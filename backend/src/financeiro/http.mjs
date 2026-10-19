@@ -40,6 +40,7 @@ import {
 } from './lib/syncNfeSefaz.mjs'
 import { parsePdfDespesa } from './lib/importarPdfDespesa.mjs'
 import { montarPlanilhaBanco, nomeArquivoPlanilha } from './lib/planilhaBanco.mjs'
+import { montarMascaraReuniao } from './lib/mascaraReuniao.mjs'
 import { auditar } from '../auditoriaHelpers.js'
 
 function metaFinanceiro(req, payload) {
@@ -1709,6 +1710,21 @@ export async function handleFinance(req, res) {
     }
     if (req.method === 'GET' && url.pathname === '/api/vendas') {
       return send(res, 200, JSON.stringify(await resumoVendas(pool, url.searchParams.get('dia') || '')))
+    }
+    if (req.method === 'GET' && url.pathname === '/api/mascara-reuniao') {
+      try {
+        const de = url.searchParams.get('de') || ''
+        const ate = url.searchParams.get('ate') || ''
+        const dias = url.searchParams.get('dias')
+        const data = await montarMascaraReuniao(pool, {
+          de: de || undefined,
+          ate: ate || undefined,
+          dias: dias != null && dias !== '' ? Number(dias) : 30,
+        })
+        return send(res, 200, JSON.stringify(data))
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não montou a máscara.' }))
+      }
     }
     if (req.method === 'GET' && url.pathname === '/api/caixa') {
       try {
