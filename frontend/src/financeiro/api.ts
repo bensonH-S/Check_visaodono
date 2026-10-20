@@ -572,6 +572,44 @@ export type MascaraReuniao = {
   total: MascaraReuniaoLoja
 }
 
+export type PlatlogNfeItem = {
+  id_nfe: number
+  numero: string | number | null
+  chave: string | null
+  serie: string | null
+  emissao: string
+  mes: string
+  valor_total: number
+  loja: string
+  bk: string | null
+  id_loja: number
+  status_entrega: string | null
+  entrada_registrada: boolean
+  tem_xml: boolean
+  xml_path: string | null
+}
+
+export type PlatlogNfesLista = {
+  de: string
+  ate: string
+  total: number
+  com_xml: number
+  sem_xml: number
+  valor: number
+  por_mes: Array<{ mes: string; qtd: number; com_xml: number; valor: number }>
+  notas: PlatlogNfeItem[]
+}
+
+export type PlatlogNfesExport = {
+  de: string
+  ate: string
+  pasta: string
+  total: number
+  copiados: number
+  faltando_xml: number
+  faltando: Array<{ id_nfe: number; numero: string | number | null; loja: string; emissao: string }>
+}
+
 export type ResumoFinanceiro = {
   a_pagar: number
   pago: number
@@ -863,6 +901,36 @@ export const api = {
     if (opts?.dias != null) q.set('dias', String(opts.dias))
     const qs = q.toString()
     return get<MascaraReuniao>(`${apiRoot}/mascara-reuniao${qs ? `?${qs}` : ''}`)
+  },
+  /** NFs Platlog emitidas no período (estoque_nfe). */
+  platlogNfes: (de: string, ate: string) =>
+    get<PlatlogNfesLista>(`${apiRoot}/mascara-reuniao/platlog-nfes?${new URLSearchParams({ de, ate })}`),
+  /** Gera DANFEs Platlog em Logs/exports/platlog-danfe-{de}_{ate}/ (nome: numero-loja-data.pdf). */
+  exportarPlatlogNfes: async (de: string, ate: string) => {
+    const res = await financeFetch(`${apiRoot}/mascara-reuniao/platlog-nfes/exportar`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ de, ate }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((data as { erro?: string }).erro || 'Não exportou a pasta')
+    return data as PlatlogNfesExport
+  },
+  /** Baixa ZIP com DANFEs Platlog do período. */
+  baixarPlatlogNfesZip: async (de: string, ate: string) => {
+    const res = await financeFetch(`${apiRoot}/mascara-reuniao/platlog-nfes/zip?${new URLSearchParams({ de, ate })}`)
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error((data as { erro?: string }).erro || 'Não gerou o ZIP')
+    }
+    const disposto = res.headers.get('content-disposition') || ''
+    const nome = /filename="([^"]+)"/.exec(disposto)?.[1] || `platlog-danfe-${de}_${ate}.zip`
+    const url = URL.createObjectURL(await res.blob())
+    const link = document.createElement('a')
+    link.href = url
+    link.download = nome
+    link.click()
+    URL.revokeObjectURL(url)
   },
   /** Canais do caixa no período (Pix, débito, crédito, iFood, 99…). */
   caixaCanais: (de: string, ate: string, empresa?: string) => {

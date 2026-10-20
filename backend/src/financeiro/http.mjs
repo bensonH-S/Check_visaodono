@@ -41,6 +41,7 @@ import {
 import { parsePdfDespesa } from './lib/importarPdfDespesa.mjs'
 import { montarPlanilhaBanco, nomeArquivoPlanilha } from './lib/planilhaBanco.mjs'
 import { montarMascaraReuniao } from './lib/mascaraReuniao.mjs'
+import { exportarPastaPlatlog, listarNfesPlatlog, montarZipPlatlog } from './lib/platlogNfes.mjs'
 import { auditar } from '../auditoriaHelpers.js'
 
 function metaFinanceiro(req, payload) {
@@ -1724,6 +1725,70 @@ export async function handleFinance(req, res) {
         return send(res, 200, JSON.stringify(data))
       } catch (err) {
         return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não montou a máscara.' }))
+      }
+    }
+    if (req.method === 'GET' && url.pathname === '/api/mascara-reuniao/platlog-nfes') {
+      try {
+        const de = url.searchParams.get('de') || '2026-08-01'
+        const ate = url.searchParams.get('ate') || '2026-10-31'
+        return send(res, 200, JSON.stringify(await listarNfesPlatlog(pool, { de, ate })))
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não listou as NFs Platlog.' }))
+      }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/mascara-reuniao/platlog-nfes/exportar') {
+      try {
+        const body = await readBody(req)
+        const de = String(body.de || url.searchParams.get('de') || '2026-08-01').slice(0, 10)
+        const ate = String(body.ate || url.searchParams.get('ate') || '2026-10-31').slice(0, 10)
+        const data = await exportarPastaPlatlog(pool, { de, ate })
+        metaFinanceiro(req, {
+          acao: 'export',
+          entidade: 'platlog_nfes',
+          idReferencia: `${de}_${ate}`,
+          descricao: `Exportou DANFEs Platlog (${de} a ${ate}) — ${data.copiados} PDF(s)`,
+          detalhes: {
+            de,
+            ate,
+            copiados: data.copiados,
+            faltando_xml: data.faltando_xml,
+            falhas_danfe: data.falhas_danfe,
+            pasta: data.pasta,
+          },
+        })
+        return send(res, 200, JSON.stringify(data))
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não exportou a pasta.' }))
+      }
+    }
+    if (req.method === 'GET' && url.pathname === '/api/mascara-reuniao/platlog-nfes/zip') {
+      try {
+        const de = url.searchParams.get('de') || '2026-08-01'
+        const ate = url.searchParams.get('ate') || '2026-10-31'
+        const zip = await montarZipPlatlog(pool, { de, ate })
+        metaFinanceiro(req, {
+          acao: 'download',
+          entidade: 'platlog_danfe_zip',
+          idReferencia: `${de}_${ate}`,
+          descricao: `Baixou ZIP DANFE Platlog (${de} a ${ate}) — ${zip.arquivos} PDF(s)`,
+          detalhes: {
+            de,
+            ate,
+            arquivos: zip.arquivos,
+            faltando_xml: zip.faltando_xml,
+            falhas_danfe: zip.falhas_danfe,
+          },
+        })
+        res.writeHead(200, {
+          'content-type': 'application/zip',
+          'content-disposition': `attachment; filename="${zip.nome}"`,
+          'cache-control': 'no-store',
+          'x-platlog-arquivos': String(zip.arquivos),
+          'x-platlog-faltando': String(zip.faltando_xml),
+        })
+        return res.end(zip.buffer)
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não gerou o ZIP.' }))
       }
     }
     if (req.method === 'GET' && url.pathname === '/api/caixa') {

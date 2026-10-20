@@ -25,6 +25,7 @@ const leituraResumo = new Set([
 function podeLeituraResumo(req) {
   if (req.method !== 'GET') return false;
   if (leituraResumo.has(req.path)) return true;
+  if (req.path.startsWith('/mascara-reuniao/')) return true;
   if (/^\/despesas\/[^/]+\/(nota|boleto)$/.test(req.path)) return true;
   return false;
 }
