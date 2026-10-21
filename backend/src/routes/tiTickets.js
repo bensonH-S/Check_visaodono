@@ -8,6 +8,9 @@ import {
   moverTicket,
   excluirTicket,
   listarComentarios,
+  listarEtapas,
+  adicionarEtapa,
+  marcarEtapa,
   adicionarComentario,
   excluirComentario,
   avaliarTicket,
@@ -318,11 +321,12 @@ router.get('/:id', requireGerenciar, async (req, res, next) => {
   try {
     const ticket = await obterTicket(Number(req.params.id));
     if (!ticket) return res.status(404).json({ error: 'Ticket não encontrado' });
-    const [comentarios, anexos] = await Promise.all([
+    const [comentarios, anexos, etapas] = await Promise.all([
       listarComentarios(ticket.id_ticket),
       listarAnexos(ticket.id_ticket),
+      listarEtapas(ticket.id_ticket),
     ]);
-    res.json({ ...ticket, comentarios, anexos });
+    res.json({ ...ticket, comentarios, anexos, etapas });
   } catch (e) {
     next(e);
   }
@@ -359,6 +363,38 @@ router.delete('/:id', requireGerenciar, async (req, res, next) => {
     const ok = await excluirTicket(Number(req.params.id));
     if (!ok) return res.status(404).json({ error: 'Ticket não encontrado' });
     res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/:id/etapas', requireGerenciar, async (req, res, next) => {
+  try {
+    res.json(await listarEtapas(Number(req.params.id)));
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:id/etapas', requireGerenciar, async (req, res, next) => {
+  try {
+    const etapa = await adicionarEtapa(Number(req.params.id), {
+      subcategoria: req.body?.subcategoria,
+      titulo: req.body?.titulo,
+    });
+    if (!etapa) return res.status(404).json({ error: 'Ticket não encontrado' });
+    res.status(201).json(etapa);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.patch('/etapas/:idEtapa', requireGerenciar, async (req, res, next) => {
+  try {
+    const result = await marcarEtapa(Number(req.params.idEtapa), req.body?.feita, req.user.sub);
+    if (!result) return res.status(404).json({ error: 'Etapa não encontrada' });
+    res.json(result);
   } catch (e) {
     next(e);
   }

@@ -319,6 +319,21 @@ export const api = {
     request<TiTicket>(`/ti-tickets/${id}/mover`, { method: 'POST', body: JSON.stringify(body) }),
   tiTicketExcluir: (id: number) =>
     request<{ ok: boolean }>(`/ti-tickets/${id}`, { method: 'DELETE' }),
+  tiTicketEtapaMarcar: (idEtapa: number, feita: boolean) =>
+    request<{
+      etapa: TiTicketEtapa;
+      id_ticket: number;
+      etapas_total: number;
+      etapas_feitas: number;
+    }>(`/ti-tickets/etapas/${idEtapa}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ feita }),
+    }),
+  tiTicketEtapaCriar: (id: number, body: { subcategoria?: string; titulo: string }) =>
+    request<TiTicketEtapa>(`/ti-tickets/${id}/etapas`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   tiTicketComentar: (id: number, texto: string) =>
     request<TiTicketComentario>(`/ti-tickets/${id}/comentarios`, {
       method: 'POST',
@@ -1923,6 +1938,26 @@ export const api = {
     }
     return request<EstoquePedidoSugerido>(`/estoque/pedido-sugerido?${params}`);
   },
+  estoquePedidoRascunho: (
+    idLoja: number,
+    opts?: { dias?: number; estoque_seguranca_dias?: number; meta_cmp?: number },
+  ) => {
+    const params = new URLSearchParams({ id_loja: String(idLoja) });
+    if (opts?.dias != null) params.set('dias', String(opts.dias));
+    if (opts?.estoque_seguranca_dias != null) {
+      params.set('estoque_seguranca_dias', String(opts.estoque_seguranca_dias));
+    }
+    if (opts?.meta_cmp != null) params.set('meta_cmp', String(opts.meta_cmp));
+    return request<EstoquePedidoRascunho>(`/estoque/pedido-rascunho?${params}`);
+  },
+  estoquePedidoCarrinhoEsupri: (body: {
+    id_loja: number;
+    itens: Array<{ codigo: string; caixas: number; preco?: number | null }>;
+  }) =>
+    request<EstoquePedidoCarrinhoEsupri>('/estoque/pedido-rascunho/carrinho-esupri', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   estoqueMetaVendas: (idLoja: number, opts?: { crescimento?: number }) => {
     const params = new URLSearchParams({ id_loja: String(idLoja) });
     if (opts?.crescimento != null) params.set('crescimento', String(opts.crescimento));
@@ -3908,6 +3943,61 @@ export interface EstoquePedidoSugerido {
   itens: EstoquePedidoItem[];
 }
 
+export interface EstoquePedidoRascunhoItem {
+  codigo: string;
+  descricao: string;
+  fornecedor: string;
+  ritmo_dia: number;
+  saldo_atual: number;
+  a_caminho: number;
+  cobertura_dias: number | null;
+  und_convertida: number;
+  preco_caixa: number;
+  preco_nota?: number | null;
+  preco_esupri?: number | null;
+  vende_esupri?: boolean | null;
+  caixas_calculo: number;
+  caixas_pedidas: number;
+  pedido_ajustado: number;
+  valor: number;
+  cortado: boolean;
+  motivo: string | null;
+}
+
+export interface EstoquePedidoRascunho {
+  id_loja: number;
+  loja_nome: string;
+  bk_number: string;
+  piloto_carrinho_bloqueado: boolean;
+  piloto_bloqueio: string | null;
+  dias_cobertura: number;
+  dias_ciclo: number;
+  janela_transito_dias: number;
+  cmp: {
+    meta_pct: number;
+    cmp_atual_pct: number | null;
+    venda_mes: number;
+    venda_projetada: number;
+    compras_mes: number;
+    teto_mes: number;
+    teto_restante: number;
+    valor_pedido: number;
+    teto_aplicado: boolean;
+    cortados: number;
+  };
+  itens: EstoquePedidoRascunhoItem[];
+}
+
+export interface EstoquePedidoCarrinhoEsupri {
+  confirmado: false;
+  limpo: boolean;
+  preenchidos: Array<{ codigo: string; caixas: number; preco_lista?: number | null; preco_portal?: number | null }>;
+  nao_encontrados: Array<{ codigo: string; motivo: string }>;
+  valor_portal?: string | null;
+  qtd_itens_portal?: number | null;
+  png_base64: string;
+}
+
 export interface EstoqueSyncFornecedor {
   id_sync: number;
   fornecedor: 'platlog' | 'coca' | 'idealwork' | 'gimba' | string;
@@ -4450,9 +4540,22 @@ export interface TiTicket {
   avaliacao: number | null;
   avaliacao_comentario: string | null;
   ordem: number;
+  etapas_total?: number;
+  etapas_feitas?: number;
   created_at: string;
   updated_at: string;
   concluido_em: string | null;
+}
+
+export interface TiTicketEtapa {
+  id_etapa: number;
+  id_ticket: number;
+  subcategoria: string;
+  titulo: string;
+  feita: boolean;
+  ordem: number;
+  feita_em: string | null;
+  feita_por_nome: string | null;
 }
 
 export interface PortalNotificacao {
@@ -4495,6 +4598,7 @@ export interface TiTicketAnexo {
 export type TiTicketDetalhe = TiTicket & {
   comentarios?: TiTicketComentario[];
   anexos?: TiTicketAnexo[];
+  etapas?: TiTicketEtapa[];
 };
 
 export interface TiNota {

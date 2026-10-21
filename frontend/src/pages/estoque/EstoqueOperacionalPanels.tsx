@@ -4,6 +4,7 @@ import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
+import LinearProgress from '@mui/material/LinearProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -53,8 +54,8 @@ import {
   type EstoqueMetaVendas,
   type EstoqueNfeDetalhe,
   type EstoqueNfeResumo,
-  type EstoquePedidoItem,
-  type EstoquePedidoSugerido,
+  type EstoquePedidoRascunho,
+  type EstoquePedidoRascunhoItem,
   type EstoqueMovimento,
   type EstoqueSaldoItem,
   type EstoqueSyncLojaStatus,
@@ -65,6 +66,15 @@ import {
   type ProdutoEstoque,
   type ProdutoVendaEstoque,
 } from '../../api/client';
+import {
+  FIN_BORDER,
+  FIN_MUTED,
+  FIN_SURFACE,
+  FIN_TEXT,
+  finBtnContainedSx,
+  finBtnOutlinedSx,
+  finCampoSx,
+} from '../../financeiro/temaFinanceiroEscuro';
 import CampoDataFrota from '../../components/frota/CampoDataFrota';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
@@ -3102,19 +3112,31 @@ function PainelSaldoKardex({
 
 function PainelPedido({ idLoja }: { idLoja: number }) {
   const [loading, setLoading] = useState(true);
-  const [dados, setDados] = useState<EstoquePedidoSugerido | null>(null);
-  const [itens, setItens] = useState<EstoquePedidoItem[]>([]);
-  const [crescimento, setCrescimento] = useState('5');
+  const [dados, setDados] = useState<EstoquePedidoRascunho | null>(null);
+  const [itens, setItens] = useState<EstoquePedidoRascunhoItem[]>([]);
   const [dias, setDias] = useState('7');
+  const [seguranca, setSeguranca] = useState('1');
+  const [metaCmp, setMetaCmp] = useState('38');
+  const [soPlatlog, setSoPlatlog] = useState(true);
+  const [montando, setMontando] = useState(false);
+  const [printCarrinho, setPrintCarrinho] = useState<{
+    png: string;
+    preenchidos: number;
+    faltou: number;
+    faltouCodigos: string[];
+    valorPortal: string | null;
+    valorLista: number;
+    precos: Array<{ codigo: string; caixas: number; lista: number | null; portal: number | null }>;
+  } | null>(null);
 
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const cres = Number(String(crescimento).replace(',', '.')) / 100;
-      const r = await api.estoquePedidoSugerido(idLoja, {
-        crescimento: Number.isFinite(cres) ? cres : 0.05,
+      const meta = Number(String(metaCmp).replace(',', '.')) / 100;
+      const r = await api.estoquePedidoRascunho(idLoja, {
         dias: Number(dias) || 7,
-        estoque_seguranca_dias: 1,
+        estoque_seguranca_dias: Number(seguranca) || 0,
+        meta_cmp: Number.isFinite(meta) ? meta : 0.38,
       });
       setDados(r);
       setItens(r.itens.map((i) => ({ ...i })));
@@ -3123,25 +3145,86 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
     } finally {
       setLoading(false);
     }
-  }, [idLoja, crescimento, dias]);
+  }, [idLoja, dias, seguranca, metaCmp]);
 
   useEffect(() => {
     void carregar();
   }, [carregar]);
 
-  const confirmar = () => {
-    const linhas = itens
+  const visiveis = soPlatlog ? itens.filter((i) => i.fornecedor === 'platlog') : itens;
+  const valorAjustado = visiveis.reduce(
+    (s, i) => s + Math.max(0, Number(i.pedido_ajustado) || 0) * Number(i.preco_caixa || 0),
+    0,
+  );
+
+  const copiar = () => {
+    const linhas = visiveis
       .filter((i) => Number(i.pedido_ajustado) > 0)
       .map(
         (i) =>
           `${i.codigo}\t${i.descricao}\t${Number(i.pedido_ajustado).toLocaleString('pt-BR')}`,
       );
-    const texto = ['Código\tInsumo\tPedido', ...linhas].join('\n');
+    const texto = ['Código\tInsumo\tCaixas', ...linhas].join('\n');
     void navigator.clipboard?.writeText(texto);
-    showToast(
-      `${linhas.length} item(ns) copiados. Ajuste feito pelo gestor — envio automático ainda não.`,
-      'success',
-    );
+    showToast(`${linhas.length} item(ns) copiados. O app não envia o pedido.`, 'success');
+  };
+
+  const montarCarrinho = async () => {
+    if (dados?.piloto_carrinho_bloqueado) {
+      showToast(`${dados.piloto_bloqueio || 'Esta loja'} fica fora do piloto.`, 'error');
+      return;
+    }
+    const linhas = visiveis
+      .filter((i) => i.fornecedor === 'platlog' && i.vende_esupri !== false && Number(i.pedido_ajustado) > 0)
+      .map((i) => ({
+        codigo: i.codigo,
+        caixas: Math.round(Number(i.pedido_ajustado)),
+        preco: Number(i.preco_caixa) || 0,
+      }));
+    if (!linhas.length) {
+      showToast('Nenhuma caixa Platlog para preencher.', 'error');
+      return;
+    }
+    setMontando(true);
+    try {
+      const r = await api.estoquePedidoCarrinhoEsupri({ id_loja: idLoja, itens: linhas.slice(0, 40) });
+      const faltou = r.nao_encontrados.length;
+      setPrintCarrinho({
+        png: r.png_base64,
+        preenchidos: r.preenchidos.length,
+        faltou,
+        faltouCodigos: r.nao_encontrados.map((n) => n.codigo),
+        valorPortal: r.valor_portal || null,
+        valorLista: valorAjustado,
+        precos: [
+          ...r.preenchidos.map((p) => ({
+            codigo: p.codigo,
+            caixas: p.caixas,
+            lista: p.preco_lista ?? null,
+            portal: p.preco_portal ?? null,
+          })),
+          ...r.nao_encontrados.map((n) => {
+            const origem = linhas.find((l) => l.codigo === n.codigo);
+            return {
+              codigo: n.codigo,
+              caixas: origem?.caixas ?? 0,
+              lista: origem?.preco ?? null,
+              portal: null,
+            };
+          }),
+        ],
+      });
+      showToast(
+        r.preenchidos.length
+          ? `${r.preenchidos.length} caixa(s) digitadas no print e depois apagadas. Pedido não enviado.`
+          : 'O eSupri abriu, mas nenhuma quantidade foi digitada.',
+        r.preenchidos.length ? 'success' : 'error',
+      );
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Falha ao abrir o eSupri', 'error');
+    } finally {
+      setMontando(false);
+    }
   };
 
   if (loading && !dados) {
@@ -3152,84 +3235,152 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
     );
   }
 
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
-      <Paper sx={{ p: 2, border: `1px solid ${colors.border}` }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: (theme: any) => theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy }} gutterBottom>
-          Pedido sugerido da semana
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Base: vendas dos últimos {dados?.periodo_dias ?? 7} dias Ã— fichas âˆ’ saldo atual. Você
-          ajusta e confirma (o app não pede sozinho).
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-          <TextField
-            size="small"
-            label="Crescimento %"
-            value={crescimento}
-            onChange={(e) => setCrescimento(e.target.value)}
-            sx={{ width: 120 }}
-          />
-          <TextField
-            size="small"
-            label="Dias base"
-            value={dias}
-            onChange={(e) => setDias(e.target.value)}
-            sx={{ width: 100 }}
-          />
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
-            Recalcular
-          </Button>
-          <Button variant="contained" onClick={confirmar} disabled={!itens.length}>
-            Copiar pedido ajustado
-          </Button>
-        </Box>
-      </Paper>
+  const cmp = dados?.cmp;
+  const brl = (v: number) =>
+    v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const kpi = (rotulo: string, valor: string, detalhe: string, cor: string) => (
+    <Paper
+      key={rotulo}
+      variant="outlined"
+      sx={{
+        position: 'relative',
+        flex: '1 1 140px',
+        minWidth: 140,
+        px: 1.5,
+        py: 1,
+        pl: 1.75,
+        overflow: 'hidden',
+        bgcolor: FIN_SURFACE,
+        borderColor: FIN_BORDER,
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 3,
+          bgcolor: cor,
+        },
+      }}
+    >
+      <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: FIN_MUTED }}>
+        {rotulo}
+      </Typography>
+      <Typography sx={{ fontSize: 18, fontWeight: 700, color: FIN_TEXT, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+        {valor}
+      </Typography>
+      <Typography sx={{ fontSize: 11, color: FIN_MUTED }}>{detalhe}</Typography>
+    </Paper>
+  );
 
-      <Paper sx={tablePaperSx}>
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0, color: FIN_TEXT }}>
+      <Box>
+        <Typography sx={{ fontSize: 18, fontWeight: 700, color: FIN_TEXT, letterSpacing: '-0.02em' }}>
+          Pedido da semana · Platlog
+        </Typography>
+        <Typography sx={{ fontSize: 13, color: FIN_MUTED, mt: 0.25 }}>
+          Lista do que esta loja compraria agora. O pedido não sai desta tela.
+        </Typography>
+      </Box>
+
+      {cmp ? (
+        <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap' }}>
+          {kpi('CMP do mês', cmp.cmp_atual_pct != null ? `${fmtNum(cmp.cmp_atual_pct, 1)}%` : '—', 'compras ÷ venda', '#1B6EF3')}
+          {kpi('Já comprado', brl(cmp.compras_mes), `teto ${brl(cmp.teto_mes)}`, '#B45309')}
+          {kpi('Ainda cabe', brl(cmp.teto_restante), 'antes deste pedido', '#059669')}
+          {kpi('Este pedido', brl(valorAjustado), cmp.cortados > 0 ? `${cmp.cortados} itens cortados` : 'dentro do teto', valorAjustado > cmp.teto_restante ? '#B91C1C' : '#1B6EF3')}
+        </Box>
+      ) : null}
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+        <TextField size="small" label="Dias de cobertura" value={dias} onChange={(e) => setDias(e.target.value)} sx={{ ...finCampoSx, width: 150 }} />
+        <TextField size="small" label="Segurança (dias)" value={seguranca} onChange={(e) => setSeguranca(e.target.value)} sx={{ ...finCampoSx, width: 140 }} />
+        <TextField size="small" label="Teto CMP %" value={metaCmp} onChange={(e) => setMetaCmp(e.target.value)} sx={{ ...finCampoSx, width: 120 }} />
+        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()} sx={finBtnOutlinedSx}>
+          Recalcular
+        </Button>
+        <Box sx={{ flex: 1 }} />
+        <Button variant="outlined" onClick={() => setSoPlatlog((v) => !v)} sx={finBtnOutlinedSx}>
+          {soPlatlog ? 'Só Platlog' : 'Todos'}
+        </Button>
+        <Button variant="outlined" onClick={copiar} disabled={!visiveis.length} sx={finBtnOutlinedSx}>
+          Copiar lista
+        </Button>
+        <Button
+          variant="contained"
+          disableElevation
+          onClick={() => void montarCarrinho()}
+          disabled={montando || Boolean(dados?.piloto_carrinho_bloqueado) || !visiveis.length}
+          sx={finBtnContainedSx}
+        >
+          {montando ? 'Abrindo eSupri…' : 'Montar no eSupri'}
+        </Button>
+      </Box>
+      <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
+        A coluna Caixas é a que vale. Montar no eSupri preenche, tira print e apaga. Não envia.
+        {dados?.piloto_carrinho_bloqueado ? ` ${dados.piloto_bloqueio} fica fora do piloto.` : ''}
+      </Typography>
+
+      <Paper variant="outlined" sx={{ ...tablePaperSx, borderColor: FIN_BORDER, bgcolor: FIN_SURFACE, flex: 1, minHeight: 0 }}>
         <TableContainer sx={tableContainerSx}>
           <Table size="small" stickyHeader sx={tableSx}>
             <TableHead>
               <TableRow>
                 <TableCell>Código</TableCell>
                 <TableCell>Insumo</TableCell>
-                <TableCell align="right">Consumo proj.</TableCell>
-                <TableCell align="right">Saldo</TableCell>
-                <TableCell align="right">Sugerido</TableCell>
-                <TableCell align="right">Ajustado</TableCell>
+                <TableCell>Fornecedor</TableCell>
+                <TableCell align="right">Dias de estoque</TableCell>
+                <TableCell align="right">Na nota</TableCell>
+                <TableCell align="right">Conta</TableCell>
+                <TableCell align="right">Cabe no mês</TableCell>
+                <TableCell align="right">R$</TableCell>
+                <TableCell align="right">Caixas</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {itens.map((i, idx) => (
-                <TableRow key={i.codigo} hover>
-                  <TableCell sx={{ fontWeight: 700 }}>{i.codigo}</TableCell>
-                  <TableCell>{i.descricao}</TableCell>
-                  <TableCell align="right">{fmtNum(i.consumo_projetado, 3)}</TableCell>
-                  <TableCell align="right">{fmtNum(i.saldo_atual, 3)}</TableCell>
-                  <TableCell align="right">{fmtNum(i.pedido_sugerido, 3)}</TableCell>
-                  <TableCell align="right" sx={{ minWidth: 110 }}>
-                    <TextField
-                      size="small"
-                      value={String(i.pedido_ajustado)}
-                      onChange={(e) => {
-                        const next = [...itens];
-                        next[idx] = {
-                          ...next[idx],
-                          pedido_ajustado: Number(String(e.target.value).replace(',', '.')) || 0,
-                        };
-                        setItens(next);
-                      }}
-                      slotProps={{ htmlInput: { style: { textAlign: 'right' } } }}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
-              {!itens.length && (
+              {visiveis.map((i) => {
+                const idx = itens.findIndex((row) => row.codigo === i.codigo);
+                const valorLinha = Math.max(0, Number(i.pedido_ajustado) || 0) * Number(i.preco_caixa || 0);
+                return (
+                  <TableRow key={i.codigo} hover>
+                    <TableCell sx={{ fontWeight: 700 }}>{i.codigo}</TableCell>
+                    <TableCell>{i.descricao}</TableCell>
+                    <TableCell>{i.fornecedor || '—'}</TableCell>
+                    <TableCell align="right">
+                      {i.cobertura_dias == null ? '—' : `${fmtNum(i.cobertura_dias, 1)} d`}
+                    </TableCell>
+                    <TableCell align="right">{fmtNum(i.a_caminho, 1)}</TableCell>
+                    <TableCell align="right">{fmtNum(i.caixas_calculo, 0)}</TableCell>
+                    <TableCell align="right" sx={{ color: i.cortado ? '#B42318' : undefined }}>
+                      {fmtNum(i.caixas_pedidas, 0)}
+                    </TableCell>
+                    <TableCell align="right">
+                      {i.vende_esupri === false ? 'não vende' : brl(valorLinha)}
+                    </TableCell>
+                    <TableCell align="right" sx={{ minWidth: 110 }}>
+                      <TextField
+                        size="small"
+                        value={String(i.pedido_ajustado)}
+                        onChange={(e) => {
+                          const next = [...itens];
+                          if (idx < 0) return;
+                          next[idx] = {
+                            ...next[idx],
+                            pedido_ajustado: Number(String(e.target.value).replace(',', '.')) || 0,
+                          };
+                          setItens(next);
+                        }}
+                        slotProps={{ htmlInput: { style: { textAlign: 'right' } } }}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {!visiveis.length && (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={9}>
                     <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
-                      Sem vendas recentes ou fichas para montar o pedido. Importe vendas e confira
-                      fichas.
+                      Sem consumo recente para montar o rascunho. Confira vendas BK Office e fichas.
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -3238,6 +3389,54 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
           </Table>
         </TableContainer>
       </Paper>
+
+      <Dialog open={Boolean(printCarrinho)} onClose={() => setPrintCarrinho(null)} maxWidth="md" fullWidth>
+        <DialogContent>
+          {printCarrinho ? (
+            <>
+              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
+                {printCarrinho.preenchidos
+                  ? `${printCarrinho.preenchidos} caixa(s) digitadas. Pedido não enviado.`
+                  : 'Nada foi digitado. O eSupri abriu no catálogo vazio.'}
+              </Typography>
+              <Typography sx={{ fontSize: 13, color: FIN_MUTED, mb: 1.5 }}>
+                {`No eSupri essa lista fecha em ${brl(
+                  printCarrinho.precos.reduce((s, p) => s + (p.portal || 0) * p.caixas, 0),
+                )}. Aqui ela fecha em ${brl(printCarrinho.valorLista)}. O catálogo cobra o preço de hoje. A coluna R$ daqui é a última nota.`}
+                {printCarrinho.faltou ? ` Fora do catálogo: ${printCarrinho.faltouCodigos.join(', ')}.` : ''}
+              </Typography>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Código</TableCell>
+                    <TableCell align="right">Caixas</TableCell>
+                    <TableCell align="right">Nota</TableCell>
+                    <TableCell align="right">Catálogo</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {printCarrinho.precos.map((p) => {
+                    const diferente = p.portal != null && p.lista != null && Math.abs(p.portal - p.lista) > 0.009;
+                    return (
+                      <TableRow key={p.codigo}>
+                        <TableCell sx={{ fontWeight: 700 }}>{p.codigo}</TableCell>
+                        <TableCell align="right">{p.caixas}</TableCell>
+                        <TableCell align="right">{p.lista == null ? '—' : brl(p.lista)}</TableCell>
+                        <TableCell align="right" sx={{ color: p.portal == null ? '#B42318' : diferente ? '#B45309' : undefined, fontWeight: 700 }}>
+                          {p.portal == null ? 'não vende' : brl(p.portal)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </>
+          ) : null}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPrintCarrinho(null)}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

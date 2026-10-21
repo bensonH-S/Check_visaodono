@@ -55,6 +55,8 @@ const TICKET_SELECT = `
   t.created_at,
   t.updated_at,
   t.concluido_em,
+  (SELECT COUNT(*)::int FROM ti_ticket_etapas e WHERE e.id_ticket = t.id_ticket) AS etapas_total,
+  (SELECT COUNT(*)::int FROM ti_ticket_etapas e WHERE e.id_ticket = t.id_ticket AND e.feita) AS etapas_feitas,
   uc.nome AS criado_por_nome,
   ur.nome AS responsavel_nome,
   ur.avatar_inicial AS responsavel_avatar_inicial,
@@ -125,6 +127,8 @@ function mapTicket(row) {
     avaliacao: row.avaliacao != null ? Number(row.avaliacao) : null,
     avaliacao_comentario: row.avaliacao_comentario || null,
     ordem: Number(row.ordem) || 0,
+    etapas_total: Number(row.etapas_total) || 0,
+    etapas_feitas: Number(row.etapas_feitas) || 0,
     created_at: row.created_at,
     updated_at: row.updated_at,
     concluido_em: row.concluido_em,
@@ -412,6 +416,78 @@ export async function excluirComentario(idComentario, idUsuario, { gerenciar = f
     [idComentario],
   );
   return rowCount > 0;
+}
+
+function mapEtapa(row) {
+  if (!row) return null;
+  return {
+    id_etapa: Number(row.id_etapa),
+    id_ticket: Number(row.id_ticket),
+    subcategoria: row.subcategoria,
+    titulo: row.titulo,
+    feita: Boolean(row.feita),
+    ordem: Number(row.ordem) || 0,
+    feita_em: row.feita_em,
+    feita_por_nome: row.feita_por_nome || null,
+  };
+}
+
+export async function listarEtapas(idTicket) {
+  const { rows } = await pool.query(
+    `SELECT e.id_etapa, e.id_ticket, e.subcategoria, e.titulo, e.feita, e.ordem, e.feita_em,
+            u.nome AS feita_por_nome
+     FROM ti_ticket_etapas e
+     LEFT JOIN usuarios u ON u.id_usuario = e.feita_por
+     WHERE e.id_ticket = $1
+     ORDER BY e.ordem ASC, e.id_etapa ASC`,
+    [idTicket],
+  );
+  return rows.map(mapEtapa);
+}
+
+export async function adicionarEtapa(idTicket, { subcategoria, titulo }) {
+  const nome = String(subcategoria || '').trim().slice(0, 120) || 'Geral';
+  const texto = String(titulo || '').trim().slice(0, 300);
+  if (!texto) {
+    const err = new Error('Informe o nome da etapa');
+    err.status = 400;
+    throw err;
+  }
+  const ticket = await obterTicket(idTicket);
+  if (!ticket) return null;
+  const { rows: ord } = await pool.query(
+    `SELECT COALESCE(MAX(ordem), 0) + 10 AS prox FROM ti_ticket_etapas WHERE id_ticket = $1`,
+    [idTicket],
+  );
+  const { rows } = await pool.query(
+    `INSERT INTO ti_ticket_etapas (id_ticket, subcategoria, titulo, ordem)
+     VALUES ($1, $2, $3, $4)
+     RETURNING id_etapa`,
+    [idTicket, nome, texto, Number(ord[0]?.prox) || 10],
+  );
+  const lista = await listarEtapas(idTicket);
+  return lista.find((e) => e.id_etapa === Number(rows[0].id_etapa));
+}
+
+export async function marcarEtapa(idEtapa, feita, idUsuario) {
+  const { rows } = await pool.query(
+    `UPDATE ti_ticket_etapas
+     SET feita = $2,
+         feita_em = CASE WHEN $2 THEN NOW() ELSE NULL END,
+         feita_por = CASE WHEN $2 THEN $3 ELSE NULL END
+     WHERE id_etapa = $1
+     RETURNING id_etapa, id_ticket`,
+    [idEtapa, Boolean(feita), idUsuario || null],
+  );
+  if (!rows[0]) return null;
+  const lista = await listarEtapas(rows[0].id_ticket);
+  const etapa = lista.find((e) => e.id_etapa === Number(rows[0].id_etapa));
+  return {
+    etapa,
+    id_ticket: Number(rows[0].id_ticket),
+    etapas_total: lista.length,
+    etapas_feitas: lista.filter((e) => e.feita).length,
+  };
 }
 
 export async function avaliarTicket(id, idUsuario, { avaliacao, comentario }) {

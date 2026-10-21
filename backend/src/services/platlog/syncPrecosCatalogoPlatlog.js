@@ -138,6 +138,17 @@ export async function syncPrecosCatalogoPlatlog({
     row.overlap_desc = ov;
     casados.push(row);
 
+    if (aplicar && precoNovo > 0) {
+      await pool.query(
+        `
+        UPDATE insumos
+        SET preco_esupri = $3, vende_esupri = TRUE, atualizado_em = NOW()
+        WHERE id_loja = $1 AND id_insumo = $2
+        `,
+        [idLoja, ins.id_insumo, precoNovo],
+      );
+    }
+
     if (ov < 1) {
       duvidas.push(row);
       if (exigir_descricao) continue; // não aplica preço duvidoso

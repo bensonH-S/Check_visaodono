@@ -82,7 +82,7 @@ import {
 
 type AbaEstoque = 'cmv' | 'vendas' | 'rede' | 'piloto' | 'conferencia' | 'break' | 'pedido' | 'fichas' | 'saldo';
 
-const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'vendas', 'rede', 'piloto', 'break', 'saldo', 'fichas'];
+const ABAS_ESTOQUE: AbaEstoque[] = ['conferencia', 'vendas', 'rede', 'piloto', 'pedido', 'break', 'saldo', 'fichas'];
 
 /** URLs antigas → essenciais da validação */
 const REDIRECT_ABA: Record<string, AbaEstoque> = {
@@ -93,7 +93,6 @@ const REDIRECT_ABA: Record<string, AbaEstoque> = {
   kardex: 'saldo',
   nfe: 'conferencia',
   cmv: 'vendas',
-  pedido: 'vendas',
   meta: 'vendas',
   sync: 'rede',
 };
@@ -303,30 +302,18 @@ function AbasControleEstoque({
         minHeight: 40,
         minWidth: 0,
         borderBottom: `1px solid ${colors.border}`,
-        '& .MuiTabs-indicator': { display: 'none' },
+        '& .MuiTabs-indicator': { bgcolor: '#1B6EF3', height: 2 },
         '& .MuiTab-root': {
-          position: 'relative',
-          overflow: 'visible',
           minHeight: 40,
           minWidth: 0,
-          textTransform: 'uppercase',
-          letterSpacing: '0.12em',
-          fontWeight: 700,
-          fontSize: '0.72rem',
+          textTransform: 'none',
+          letterSpacing: 0,
+          fontWeight: 600,
+          fontSize: '0.8125rem',
           color: colors.textMuted,
           px: { xs: 1.25, md: 1.75 },
           '&.Mui-selected': {
             color: `${colors.textPrimary} !important`,
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              left: { xs: 10, md: 14 },
-              right: { xs: 10, md: 14 },
-              bottom: 0,
-              height: 2,
-              bgcolor: colors.orange,
-              borderRadius: '2px 2px 0 0',
-            },
           },
         },
       }}
@@ -339,6 +326,9 @@ function AbasControleEstoque({
       )}
       {podeOperacional && (
         <Tab disableRipple value="saldo" label="Saldo" disabled={semLoja || bloqueiaOutrasAbas} />
+      )}
+      {podeOperacional && (
+        <Tab disableRipple value="pedido" label="Pedido" disabled={semLoja || bloqueiaOutrasAbas} />
       )}
       {podeOperacional && (
         <Tab disableRipple value="fichas" label="Cadastro" disabled={semLoja || bloqueiaOutrasAbas} />
@@ -557,6 +547,10 @@ export default function ControleEstoquePage() {
 
   useEffect(() => {
     if (moduloVendas) {
+      if (abaParam === 'pedido') {
+        navigate('/estoque/pedido', { replace: true });
+        return;
+      }
       if (!isAbaEstoque(abaParam) || !(ABAS_VENDAS as readonly string[]).includes(abaParam || '')) {
         navigate('/vendas/vendas', { replace: true });
         return;
@@ -892,6 +886,7 @@ export default function ControleEstoquePage() {
     aba === 'vendas' ||
     aba === 'rede' ||
     aba === 'piloto' ||
+    aba === 'pedido' ||
     aba === 'break';
   const noGrupoVendas = moduloVendas || (ABAS_VENDAS as readonly string[]).includes(aba);
 
@@ -1388,7 +1383,7 @@ export default function ControleEstoquePage() {
                 </Box>
               )}
 
-              {((podeOperacional && (aba === 'vendas' || aba === 'rede' || aba === 'piloto' || aba === 'saldo' || aba === 'fichas')) ||
+              {((podeOperacional && (aba === 'vendas' || aba === 'rede' || aba === 'piloto' || aba === 'pedido' || aba === 'saldo' || aba === 'fichas')) ||
                 (podeBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
                   <Box

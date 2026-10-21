@@ -1644,6 +1644,93 @@ router.get('/pedido-sugerido', permOp, async (req, res, next) => {
   }
 });
 
+router.get('/pedido-rascunho', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const { calcularRascunhoAbastecimento } = await import('../services/estoquePedidoRascunho.js');
+    const dias = req.query.dias != null ? Number(req.query.dias) : 7;
+    const estoque_seguranca_dias =
+      req.query.estoque_seguranca_dias != null
+        ? Number(req.query.estoque_seguranca_dias)
+        : 1;
+    const meta_cmp = req.query.meta_cmp != null ? Number(req.query.meta_cmp) : undefined;
+    const result = await calcularRascunhoAbastecimento(idLoja, {
+      dias,
+      estoque_seguranca_dias,
+      meta_cmp,
+    });
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/pedido-rascunho/carrinho-esupri', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const { lojaForaDoPilotoPedido } = await import('../services/estoquePedidoRascunho.js');
+    const { rows } = await pool.query(
+      `SELECT name, bk_number FROM lojas WHERE id_loja = $1`,
+      [idLoja],
+    );
+    const loja = rows[0];
+    if (!loja) return res.status(404).json({ error: 'Loja não encontrada' });
+
+    const fora = lojaForaDoPilotoPedido({ bk: loja.bk_number, nome: loja.name });
+    if (fora) {
+      return res.status(409).json({
+        error: `${fora.nome} fica fora do piloto. O carrinho não abre nessa loja.`,
+      });
+    }
+
+    const { recarregarCredenciaisFornecedor } = await import('../services/estoqueFornecedorCredencial.js');
+    const { credencialLoja } = await import('../config/fornecedoresLojas.js');
+    await recarregarCredenciaisFornecedor();
+    const cred = credencialLoja(loja.bk_number, 'platlog_loja');
+    if (!cred.user || !cred.pass) {
+      return res.status(422).json({
+        error: 'Carrinho eSupri exige o login da loja. O login da rede não entra no piloto.',
+      });
+    }
+
+    const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
+    const { preencherCarrinhoPedidoEsupri } = await import('../services/platlog/esupriClient.js');
+    const preenchido = await preencherCarrinhoPedidoEsupri({
+      user: cred.user,
+      pass: cred.pass,
+      itens,
+      headless: true,
+      confirmar: false,
+      onLog: (msg) => console.log(`[esupri-carrinho] ${msg}`),
+    });
+
+    const { gravarPrecosEsupri } = await import('../services/estoquePedidoRascunho.js');
+    await gravarPrecosEsupri(idLoja, {
+      preenchidos: preenchido.preenchidos,
+      naoEncontrados: preenchido.nao_encontrados,
+    });
+
+    res.json({
+      confirmado: false,
+      limpo: preenchido.limpo,
+      preenchidos: preenchido.preenchidos,
+      nao_encontrados: preenchido.nao_encontrados,
+      valor_portal: preenchido.valor_portal,
+      qtd_itens_portal: preenchido.qtd_itens_portal,
+      png_base64: Buffer.from(preenchido.png).toString('base64'),
+    });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
 router.post('/insumos/custo', permOp, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.body?.id_loja);

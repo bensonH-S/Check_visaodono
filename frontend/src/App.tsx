@@ -491,7 +491,6 @@ export default function App() {
             <Route path="estoque/piloto" element={<Navigate to="/vendas/piloto" replace />} />
             <Route path="estoque/cmv" element={<Navigate to="/ranking" replace />} />
             <Route path="estoque/meta" element={<Navigate to="/vendas" replace />} />
-            <Route path="estoque/pedido" element={<Navigate to="/vendas" replace />} />
             <Route
               path="estoque/:aba"
               element={

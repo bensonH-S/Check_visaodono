@@ -13,6 +13,9 @@ import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import Autocomplete from '@mui/material/Autocomplete';
 import Avatar from '@mui/material/Avatar';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import LinearProgress from '@mui/material/LinearProgress';
+import RadioButtonUncheckedRoundedIcon from '@mui/icons-material/RadioButtonUncheckedRounded';
 import Chip from '@mui/material/Chip';
 import PeopleOutlineIcon from '@mui/icons-material/PeopleAltOutlined';
 import AddIcon from '@mui/icons-material/Add';
@@ -27,9 +30,10 @@ import {
   type TiTicketAcesso,
   type TiTicketAnexo,
   type TiTicketComentario,
+  type TiTicketEtapa,
 } from '../../api/client';
 import TiTicketAnexos from '../../components/TiTicketAnexos';
-import { finCampoSx, FIN_BORDER, FIN_MUTED, FIN_SURFACE, FIN_SURFACE_ALT, FIN_TEXT } from '../../financeiro/temaFinanceiroEscuro';
+import { finBtnContainedSx, finCampoSx, FIN_BORDER, FIN_MUTED, FIN_SURFACE, FIN_SURFACE_ALT, FIN_TEXT } from '../../financeiro/temaFinanceiroEscuro';
 import { PrefsProvider } from '../../financeiro/prefs';
 import { configPageSx } from './configPageSx';
 import { formatDataHoraBrasilia, formatDataSomenteData } from '../../utils/dateBr';
@@ -180,6 +184,10 @@ export default function TicketsTiPage() {
   const [filtroColaborador, setFiltroColaborador] = useState('');
   const [selecionado, setSelecionado] = useState<TiTicket | null>(null);
   const [comentarios, setComentarios] = useState<TiTicketComentario[]>([]);
+  const [etapas, setEtapas] = useState<TiTicketEtapa[]>([]);
+  const [novaSubcategoria, setNovaSubcategoria] = useState('Platlog');
+  const [mostrarNovaEtapa, setMostrarNovaEtapa] = useState(false);
+  const [novaEtapa, setNovaEtapa] = useState('');
   const [anexos, setAnexos] = useState<TiTicketAnexo[]>([]);
   const [anexosPendentes, setAnexosPendentes] = useState<{ nome: string; mime: string; dataUrl: string }[]>([]);
   const [novoComentario, setNovoComentario] = useState('');
@@ -273,14 +281,60 @@ export default function TicketsTiPage() {
   async function abrirDetalhe(t: TiTicket) {
     setSelecionado(t);
     setAnexos([]);
+    setEtapas([]);
     try {
       const full = await api.tiTicket(t.id_ticket);
       setSelecionado(full);
       setComentarios(full.comentarios || []);
       setAnexos(full.anexos || []);
+      setEtapas(full.etapas || []);
     } catch {
       setComentarios([]);
       setAnexos([]);
+      setEtapas([]);
+    }
+  }
+
+  function aplicarContagemEtapas(idTicket: number, feitas: number, total: number) {
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id_ticket === idTicket ? { ...t, etapas_feitas: feitas, etapas_total: total } : t,
+      ),
+    );
+    setSelecionado((atual) =>
+      atual && atual.id_ticket === idTicket
+        ? { ...atual, etapas_feitas: feitas, etapas_total: total }
+        : atual,
+    );
+  }
+
+  async function alternarEtapa(etapa: TiTicketEtapa) {
+    try {
+      const r = await api.tiTicketEtapaMarcar(etapa.id_etapa, !etapa.feita);
+      setEtapas((prev) => prev.map((e) => (e.id_etapa === r.etapa.id_etapa ? r.etapa : e)));
+      aplicarContagemEtapas(r.id_ticket, r.etapas_feitas, r.etapas_total);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao marcar etapa', 'error');
+    }
+  }
+
+  async function criarEtapa() {
+    if (!selecionado || !novaEtapa.trim()) return;
+    try {
+      const criada = await api.tiTicketEtapaCriar(selecionado.id_ticket, {
+        subcategoria: novaSubcategoria,
+        titulo: novaEtapa.trim(),
+      });
+      const proximas = [...etapas, criada].sort((a, b) => a.ordem - b.ordem);
+      setEtapas(proximas);
+      setNovaEtapa('');
+      aplicarContagemEtapas(
+        selecionado.id_ticket,
+        proximas.filter((e) => e.feita).length,
+        proximas.length,
+      );
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao criar etapa', 'error');
     }
   }
 
@@ -651,6 +705,13 @@ export default function TicketsTiPage() {
                       {t.origem === 'mesa' ? (
                         <Chip size="small" label="Mesa" sx={{ height: 18, fontSize: 10 }} />
                       ) : null}
+                      {(t.etapas_total || 0) > 0 ? (
+                        <Chip
+                          size="small"
+                          label={`${t.etapas_feitas || 0}/${t.etapas_total}`}
+                          sx={{ height: 18, fontSize: 10, fontWeight: 700 }}
+                        />
+                      ) : null}
                     </Stack>
                     <Typography sx={{ fontSize: 13, fontWeight: 600, lineHeight: 1.35, mb: 1 }}>
                       {t.titulo}
@@ -926,6 +987,121 @@ export default function TicketsTiPage() {
                     anexos={anexos}
                     onChange={setAnexos}
                   />
+
+                  {(() => {
+                    const feitas = etapas.filter((e) => e.feita).length;
+                    const total = etapas.length;
+                    const pct = total ? Math.round((feitas / total) * 100) : 0;
+                    const grupos = Array.from(new Set(etapas.map((e) => e.subcategoria)));
+                    return (
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          borderRadius: '12px',
+                          border: `1px solid ${FIN_BORDER}`,
+                          bgcolor: FIN_SURFACE_ALT,
+                        }}
+                      >
+                        <Stack direction="row" sx={{ alignItems: 'baseline', mb: 0.75 }}>
+                          <Typography sx={{ fontWeight: 700, fontSize: 14, flex: 1 }}>Etapas</Typography>
+                          <Typography sx={{ fontSize: 13, fontWeight: 700, color: pct === 100 ? '#047857' : FIN_TEXT }}>
+                            {feitas}/{total || 0}
+                          </Typography>
+                        </Stack>
+                        <LinearProgress
+                          variant="determinate"
+                          value={pct}
+                          sx={{
+                            height: 8,
+                            borderRadius: 99,
+                            bgcolor: 'rgba(15, 23, 42, 0.08)',
+                            mb: 1.5,
+                            '& .MuiLinearProgress-bar': {
+                              borderRadius: 99,
+                              bgcolor: pct === 100 ? '#059669' : '#1B6EF3',
+                            },
+                          }}
+                        />
+                        <Stack spacing={1.25}>
+                          {grupos.map((sub) => {
+                            const grupo = etapas.filter((e) => e.subcategoria === sub);
+                            const ok = grupo.filter((e) => e.feita).length;
+                            return (
+                              <Box key={sub}>
+                                <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: FIN_MUTED, mb: 0.5 }}>
+                                  {sub} · {ok}/{grupo.length}
+                                </Typography>
+                                <Stack spacing={0.5}>
+                                  {grupo.map((etapa, i) => (
+                                    <Box
+                                      key={etapa.id_etapa}
+                                      onClick={() => void alternarEtapa(etapa)}
+                                      sx={{
+                                        display: 'flex',
+                                        gap: 1,
+                                        alignItems: 'flex-start',
+                                        p: 1,
+                                        borderRadius: '10px',
+                                        cursor: 'pointer',
+                                        bgcolor: etapa.feita ? 'rgba(5, 150, 105, 0.1)' : FIN_SURFACE,
+                                        border: `1px solid ${etapa.feita ? 'rgba(5, 150, 105, 0.35)' : FIN_BORDER}`,
+                                      }}
+                                    >
+                                      {etapa.feita ? (
+                                        <CheckCircleRoundedIcon sx={{ color: '#059669', fontSize: 20, mt: '1px' }} />
+                                      ) : (
+                                        <RadioButtonUncheckedRoundedIcon sx={{ color: '#94A3B8', fontSize: 20, mt: '1px' }} />
+                                      )}
+                                      <Box sx={{ minWidth: 0 }}>
+                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: etapa.feita ? '#047857' : FIN_TEXT }}>
+                                          {i + 1}. {etapa.titulo}
+                                        </Typography>
+                                        {etapa.feita && etapa.feita_por_nome ? (
+                                          <Typography sx={{ fontSize: 11, color: '#047857' }}>
+                                            {etapa.feita_por_nome}
+                                            {etapa.feita_em ? ` · ${formatDataHoraBrasilia(etapa.feita_em)}` : ''}
+                                          </Typography>
+                                        ) : null}
+                                      </Box>
+                                    </Box>
+                                  ))}
+                                </Stack>
+                              </Box>
+                            );
+                          })}
+                        </Stack>
+                        {mostrarNovaEtapa ? (
+                          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1.25 }}>
+                            <TextField
+                              size="small"
+                              label="Grupo"
+                              value={novaSubcategoria}
+                              onChange={(e) => setNovaSubcategoria(e.target.value)}
+                              sx={{ ...finCampoSx, minWidth: { sm: 140 } }}
+                            />
+                            <TextField
+                              size="small"
+                              fullWidth
+                              label="Nova etapa"
+                              value={novaEtapa}
+                              onChange={(e) => setNovaEtapa(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') void criarEtapa();
+                              }}
+                              sx={finCampoSx}
+                            />
+                            <Button variant="contained" disableElevation onClick={() => void criarEtapa()} disabled={!novaEtapa.trim()} sx={finBtnContainedSx}>
+                              Adicionar
+                            </Button>
+                          </Stack>
+                        ) : (
+                          <Button size="small" onClick={() => setMostrarNovaEtapa(true)} sx={{ mt: 1, textTransform: 'none', color: FIN_MUTED }}>
+                            Adicionar etapa
+                          </Button>
+                        )}
+                      </Box>
+                    );
+                  })()}
 
                   <Typography sx={{ fontWeight: 700, fontSize: 14, pt: 1 }}>Comentários</Typography>
                   <Box sx={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>

@@ -266,6 +266,298 @@ export async function listarCatalogoPedidoEsupri({
   }
 }
 
+const TEXTO_CONFIRMA_PEDIDO = /finaliz|confirm|enviar|gravar|salvar|transmit|fechar\s*pedido/i;
+
+async function instalarTravaConfirmacao(page) {
+  await page.evaluate((fonte) => {
+    if (window.__meridianTravaPedido) return;
+    window.__meridianTravaPedido = true;
+    document.addEventListener(
+      'click',
+      (ev) => {
+        const el = ev.target && ev.target.closest
+          ? ev.target.closest('button, a, input[type="submit"], input[type="button"]')
+          : null;
+        if (!el) return;
+        const texto = `${el.innerText || ''} ${el.value || ''} ${el.getAttribute('title') || ''}`;
+        const re = new RegExp(fonte, 'i');
+        if (!re.test(texto)) return;
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+      },
+      true,
+    );
+  }, TEXTO_CONFIRMA_PEDIDO.source);
+}
+
+/**
+ * Preenche quantidades na tela Pedido e devolve o print.
+ * Não confirma, não grava e não envia. Depois zera o que preencheu.
+ * @param {{ codigo: string, caixas: number }[]} itens
+ */
+export async function preencherCarrinhoPedidoEsupri({
+  user,
+  pass,
+  itens = [],
+  baseUrl = DEFAULT_BASE,
+  headless = true,
+  onLog = () => {},
+  confirmar = false,
+} = {}) {
+  if (confirmar) {
+    throw Object.assign(new Error('O piloto não confirma pedido no eSupri.'), { status: 422 });
+  }
+  if (!user || !pass) {
+    throw Object.assign(new Error('Informe o login eSupri da loja.'), { status: 422 });
+  }
+  const linhas = (itens || [])
+    .map((i) => ({
+      codigo: String(i.codigo || '').replace(/\s/g, ''),
+      caixas: Math.max(0, Math.round(Number(i.caixas) || 0)),
+      preco: Number.isFinite(Number(i.preco)) ? Number(i.preco) : null,
+    }))
+    .filter((i) => i.codigo && i.caixas > 0)
+    .slice(0, 40);
+  if (!linhas.length) {
+    throw Object.assign(new Error('Nenhuma caixa para preencher.'), { status: 422 });
+  }
+
+  const base = String(baseUrl || DEFAULT_BASE).replace(/\/$/, '');
+  const browser = await launchBrowser({ headless, onLog });
+  const context = await browser.newContext({
+    locale: 'pt-BR',
+    viewport: { width: 1400, height: 900 },
+  });
+  const page = await context.newPage();
+  const preenchidos = [];
+  const naoEncontrados = [];
+
+  try {
+    await loginEsupri(page, { user, pass, base, onLog });
+    await instalarTravaConfirmacao(page);
+
+    onLog('pedido');
+    const menuPedido = page.locator('#menu_pedido > a, a:has-text("Pedido")').first();
+    await menuPedido.click({ timeout: 20000 });
+    await page.waitForTimeout(1500);
+    await instalarTravaConfirmacao(page);
+
+    const normCod = (s) => String(s || '').replace(/\D/g, '').replace(/^0+/, '') || '0';
+
+    const selects = page.locator('select');
+    const nSel = await selects.count();
+    for (let i = 0; i < nSel; i += 1) {
+      const labels = (await selects.nth(i).locator('option').allTextContents().catch(() => [])).map((t) => t.trim());
+      const maior = labels.find((t) => /^(100|50|todos|all)$/i.test(t));
+      if (!maior || !labels.some((t) => t === '10')) continue;
+      await selects.nth(i).selectOption({ label: maior }).catch(() => {});
+      await page.waitForTimeout(800);
+      break;
+    }
+
+    async function marcarQtd(codigo) {
+      return page.evaluate((alvo) => {
+        const norm = (s) => String(s || '').replace(/\D/g, '').replace(/^0+/, '') || '0';
+        document.querySelectorAll('[data-meridian-qtd]').forEach((el) => el.removeAttribute('data-meridian-qtd'));
+        const tables = [...document.querySelectorAll('table')];
+        for (const t of tables) {
+          const headers = [...t.querySelectorAll('thead th, thead td')].map((c) =>
+            (c.innerText || '').trim().toUpperCase(),
+          );
+          const iCod = headers.findIndex((h) => h.includes('CÓDIGO') || h.includes('CODIGO'));
+          const iQtd = headers.findIndex((h) => /^QTD/.test(h) || h.includes('QTDE') || h.includes('QUANT'));
+          const iPreco = headers.findIndex((h) => h.includes('PREÇO') || h.includes('PRECO'));
+          if (iCod < 0) continue;
+          for (const tr of t.querySelectorAll('tbody tr')) {
+            const cells = [...tr.cells];
+            if (norm(cells[iCod]?.innerText) !== alvo) continue;
+            const td = iQtd >= 0 ? cells[iQtd] : tr;
+            const input = (td || tr).querySelector(
+              'input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea',
+            );
+            if (!input) return { ok: false, motivo: 'sem campo de quantidade' };
+            input.setAttribute('data-meridian-qtd', '1');
+            const precoTxt = iPreco >= 0 ? (cells[iPreco]?.innerText || '').trim() : '';
+            return { ok: true, preco: precoTxt };
+          }
+        }
+        return { ok: false, motivo: 'linha' };
+      }, normCod(codigo));
+    }
+
+    async function digitarQtd(caixas) {
+      const input = page.locator('[data-meridian-qtd="1"]');
+      await input.click({ timeout: 4000 });
+      await input.fill('');
+      if (String(caixas) !== '0') {
+        await input.pressSequentially(String(caixas), { delay: 40 });
+      } else {
+        await input.fill('0');
+      }
+      await input.press('Tab').catch(() => {});
+      await page.waitForTimeout(200);
+    }
+
+    const pendentes = new Map(linhas.map((linha) => [normCod(linha.codigo), linha]));
+
+    async function avancarPagina() {
+      const nextBtn = page
+        .locator(
+          '.dataTables_paginate .next:not(.disabled), .paginate_button.next:not(.disabled), li.next:not(.disabled) a, a.next:not(.disabled)',
+        )
+        .first();
+      if (!(await nextBtn.count())) return false;
+      const travado = await nextBtn
+        .evaluate((el) => {
+          const li = el.closest('li');
+          return (
+            el.classList.contains('disabled') ||
+            el.getAttribute('aria-disabled') === 'true' ||
+            Boolean(li && li.classList.contains('disabled'))
+          );
+        })
+        .catch(() => true);
+      if (travado) return false;
+      await nextBtn.click();
+      await page.waitForTimeout(900);
+      return true;
+    }
+
+    async function irPrimeiraPagina() {
+      const first = page
+        .locator('.dataTables_paginate .first:not(.disabled), .paginate_button.first:not(.disabled), a.first')
+        .first();
+      if (await first.count()) {
+        await first.click().catch(() => {});
+        await page.waitForTimeout(800);
+        return;
+      }
+      const um = page.locator('.dataTables_paginate a, .paginate_button a, .paginate_button').filter({ hasText: /^1$/ }).first();
+      if (await um.count()) {
+        await um.click().catch(() => {});
+        await page.waitForTimeout(800);
+      }
+    }
+
+    async function digitarPendentesDaPagina() {
+      const codigos = [...pendentes.keys()];
+      for (const cod of codigos) {
+        const linha = pendentes.get(cod);
+        if (!linha) continue;
+        const achou = await marcarQtd(linha.codigo);
+        if (!achou.ok) continue;
+        try {
+          await digitarQtd(linha.caixas);
+          const precoPortal = parsePrecoBr(achou.preco);
+          preenchidos.push({
+            codigo: linha.codigo,
+            caixas: linha.caixas,
+            preco_lista: linha.preco ?? null,
+            preco_portal: precoPortal,
+          });
+          pendentes.delete(cod);
+          onLog(`caixa ${linha.codigo}=${linha.caixas} lista=${linha.preco ?? '—'} portal=${precoPortal ?? achou.preco ?? '—'}`);
+        } catch (e) {
+          pendentes.delete(cod);
+          naoEncontrados.push({ codigo: linha.codigo, motivo: 'não digitou a qtd' });
+          onLog(`falha qtd ${linha.codigo}: ${e.message}`);
+        }
+      }
+    }
+
+    let pagina = 1;
+    while (pendentes.size && pagina <= 40) {
+      await digitarPendentesDaPagina();
+      if (!pendentes.size) break;
+      const avancou = await avancarPagina();
+      if (!avancou) break;
+      pagina += 1;
+    }
+    if (pendentes.size) {
+      const busca = page.locator('input[placeholder="Buscar"]').first();
+      if (await busca.count()) {
+        for (const cod of [...pendentes.keys()]) {
+          const linha = pendentes.get(cod);
+          if (!linha) continue;
+          await busca.fill('').catch(() => {});
+          await busca.fill(String(linha.codigo).replace(/^0+/, '') || linha.codigo);
+          await busca.press('Enter').catch(() => {});
+          await page.waitForTimeout(700);
+          const achou = await marcarQtd(linha.codigo);
+          if (!achou.ok) continue;
+          try {
+            await digitarQtd(linha.caixas);
+            const precoPortal = parsePrecoBr(achou.preco);
+            preenchidos.push({
+              codigo: linha.codigo,
+              caixas: linha.caixas,
+              preco_lista: linha.preco ?? null,
+              preco_portal: precoPortal,
+            });
+            pendentes.delete(cod);
+            onLog(`busca ${linha.codigo}=${linha.caixas} portal=${precoPortal ?? '—'}`);
+          } catch (e) {
+            onLog(`falha busca ${linha.codigo}: ${e.message}`);
+          }
+        }
+        await busca.fill('').catch(() => {});
+        await page.waitForTimeout(400);
+      }
+    }
+    for (const linha of pendentes.values()) {
+      naoEncontrados.push({ codigo: linha.codigo, motivo: 'não está no catálogo desta loja' });
+    }
+
+    const resumo = await page.evaluate(() => {
+      const texto = (document.body?.innerText || '').replace(/[\u00a0\u202f]/g, '');
+      const valores = [...texto.matchAll(/Valor\s+R\$\s*([\d.]+,\d{2})/g)].map((m) => m[1]);
+      const qtd = texto.match(/Quantidade de itens\s+(\d+)/);
+      return { valor: valores[0] || null, qtd: qtd ? Number(qtd[1]) : null };
+    });
+    onLog(`portal valor=${resumo.valor || '—'} itens=${resumo.qtd ?? '—'} digitados=${preenchidos.length}`);
+
+    const png = await page.screenshot({ fullPage: false, type: 'png' });
+
+    let limpo = true;
+    if (preenchidos.length) {
+      await irPrimeiraPagina();
+      const zerar = new Map(preenchidos.map((linha) => [normCod(linha.codigo), linha]));
+      let volta = 1;
+      while (zerar.size && volta <= 40) {
+        for (const cod of [...zerar.keys()]) {
+          const linha = zerar.get(cod);
+          if (!linha) continue;
+          const achou = await marcarQtd(linha.codigo);
+          if (!achou.ok) continue;
+          try {
+            await digitarQtd(0);
+            zerar.delete(cod);
+          } catch {
+            limpo = false;
+          }
+        }
+        if (!zerar.size) break;
+        const avancou = await avancarPagina();
+        if (!avancou) break;
+        volta += 1;
+      }
+      if (zerar.size) limpo = false;
+    }
+
+    return {
+      confirmado: false,
+      limpo,
+      preenchidos,
+      nao_encontrados: naoEncontrados,
+      valor_portal: resumo.valor,
+      qtd_itens_portal: resumo.qtd,
+      png,
+    };
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
 /**
  * @param {{
  *   user: string,
