@@ -10,7 +10,7 @@
     "dev:api": "node --watch server.js",
     "dev:web": "npx --yes wait-on tcp:127.0.0.1:5000 -t 45000 && npm run dev --prefix frontend",
     "prepro": "node scripts/write-version.js && node scripts/ensure-deps.js && npx --yes kill-port 5000 5173 5174 5175",
-    "pro": "concurrently -n api,web -c cyan,magenta \"npm run pro:api\" \"npm run pro:web\"",
+    "pro": "node scripts/pro.mjs",
     "pro:api": "node server.js --db-prod",
     "pro:web": "npx --yes wait-on tcp:127.0.0.1:5000 -t 90000 && npm run dev --prefix frontend",
     "preview:phone": "node scripts/preview-phone.mjs",

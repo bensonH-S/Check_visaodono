@@ -29,6 +29,8 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import SearchIcon from '@mui/icons-material/Search';
 import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -67,15 +69,10 @@ import {
   type ProdutoVendaEstoque,
 } from '../../api/client';
 import {
-  FIN_BORDER,
-  FIN_MUTED,
-  FIN_SURFACE,
-  FIN_TEXT,
   finBtnContainedSx,
   finBtnOutlinedSx,
   finCampoSx,
 } from '../../financeiro/temaFinanceiroEscuro';
-import CampoDataFrota from '../../components/frota/CampoDataFrota';
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota';
 import EstoqueInsumoAutocomplete from '../../components/estoque/EstoqueInsumoAutocomplete';
 import EstoqueProdutoVendaAutocomplete from '../../components/estoque/EstoqueProdutoVendaAutocomplete';
@@ -225,31 +222,6 @@ function inicioMesISO() {
   const hoje = hojeISO();
   return `${hoje.slice(0, 8)}01`;
 }
-
-const campoBreakBaseSx = {
-  minWidth: 0,
-  '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
-    borderRadius: 1,
-    minHeight: 40,
-    height: 40,
-    alignItems: 'center',
-  },
-  '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': {
-    borderRadius: 1,
-  },
-  '& .MuiSelect-select, & .MuiOutlinedInput-input, & .MuiPickersInputBase-input': {
-    py: '8.5px',
-    display: 'flex',
-    alignItems: 'center',
-    boxSizing: 'border-box',
-    fontSize: '0.875rem',
-  },
-} as const;
-
-const campoBreakDataSx = {
-  ...campoBreakBaseSx,
-  flex: '1 1 100%',
-} as const;
 
 const campoBreakFieldSx = {
   '& .MuiOutlinedInput-root': {
@@ -456,6 +428,98 @@ type Props = {
 };
 
 export type { AbaOp };
+
+export function BarraSegmento({
+  itens,
+}: {
+  itens: Array<{ id: string; label: string; qtd?: number; ativo: boolean; cor?: string; onClick: () => void }>;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'inline-flex',
+        alignSelf: 'flex-start',
+        flexShrink: 0,
+        border: '1px solid',
+        borderColor: 'divider',
+        borderRadius: '8px',
+        bgcolor: 'var(--ga-surface)',
+      }}
+    >
+      {itens.map((f, i, arr) => (
+        <Box
+          key={f.id}
+          component="button"
+          type="button"
+          onClick={f.onClick}
+          sx={{
+            font: 'inherit',
+            color: 'inherit',
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 0.75,
+            px: 1.25,
+            pt: 0.6,
+            pb: '2px',
+            cursor: 'pointer',
+            borderTop: 0,
+            borderLeft: 0,
+            borderRight: i < arr.length - 1 ? '1px solid var(--ga-border)' : 0,
+            borderBottom: `2px solid ${f.ativo ? (f.cor || '#C47A2A') : 'transparent'}`,
+            borderRadius: i === 0 ? '7px 0 0 7px' : i === arr.length - 1 ? '0 7px 7px 0' : 0,
+            bgcolor: f.ativo ? 'var(--ga-canvas-alt)' : 'transparent',
+            '&:hover': { bgcolor: 'var(--ga-canvas-alt)' },
+          }}
+        >
+          <Typography component="span" sx={{ fontSize: 11, fontWeight: 650, letterSpacing: '0.04em', textTransform: 'uppercase', color: f.ativo ? 'text.primary' : 'text.secondary' }}>
+            {f.label}
+          </Typography>
+          {f.qtd != null ? (
+            <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: f.ativo ? f.cor || 'var(--ga-orange)' : 'text.primary' }}>
+              {f.qtd}
+            </Typography>
+          ) : null}
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+export const papelDrawerSx = {
+  width: 440,
+  maxWidth: '100%',
+  bgcolor: 'var(--ga-canvas)',
+  backgroundImage: 'none',
+  borderLeft: '1px solid var(--ga-border)',
+} as const;
+
+const drawerSemTranco = {
+  disableScrollLock: true,
+  disableAutoFocus: true,
+  disableRestoreFocus: true,
+} as const;
+
+export function CabecalhoDrawer({
+  titulo,
+  icone,
+  onClose,
+}: {
+  titulo: string;
+  icone: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 3, py: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'var(--ga-surface)', flexShrink: 0 }}>
+      <Box sx={{ width: 36, height: 36, borderRadius: '10px', display: 'grid', placeItems: 'center', bgcolor: 'rgba(27,110,243,0.12)', color: '#1B6EF3', flexShrink: 0 }}>
+        {icone}
+      </Box>
+      <Typography sx={{ flex: 1, fontSize: 16, fontWeight: 650, letterSpacing: '-0.02em' }}>{titulo}</Typography>
+      <IconButton size="small" onClick={onClose} aria-label="Fechar">
+        <CloseIcon fontSize="small" />
+      </IconButton>
+    </Box>
+  );
+}
 
 export default function EstoqueOperacionalPanels({
   aba,
@@ -1546,7 +1610,7 @@ function PainelSyncRede({
               }}
             >
               <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontSize: '1.15rem', fontWeight: 700, letterSpacing: '-0.02em', color: colors.textPrimary, lineHeight: 1.25 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em', color: 'var(--ga-text-primary)', lineHeight: 1.25 }}>
                   {TITULO_SYNC[aberto.kind === 'uso' ? aberto.vista : aberto.kind]}
                 </Typography>
                 <Box sx={{ mt: 0.75 }}>
@@ -2201,9 +2265,9 @@ function PainelCmv({
               </Typography>
               <Typography
                 sx={{
-                  fontWeight: 600,
-                  fontSize: { xs: '1.4rem', md: '1.7rem' },
-                  letterSpacing: '-0.035em',
+                  fontWeight: 650,
+                  fontSize: 15,
+                  letterSpacing: '-0.03em',
                   lineHeight: 1.15,
                   color: k.color,
                   mt: 0.55,
@@ -2241,7 +2305,7 @@ function PainelCmv({
               {
                 label: 'Projeção restante',
                 value: fmtMoeda(metaVendas.projecao_restante),
-                sub: `média ${fmtMoeda(metaVendas.media_dia)} Ã— ${metaVendas.dias_restantes ?? 0} dias`,
+                sub: `média ${fmtMoeda(metaVendas.media_dia)} × ${metaVendas.dias_restantes ?? 0} dias`,
               },
               {
                 label: 'Fecha o mês',
@@ -2272,8 +2336,8 @@ function PainelCmv({
                 </Typography>
                 <Typography
                   sx={{
-                    fontWeight: 600,
-                    fontSize: { xs: '1.05rem', md: '1.15rem' },
+                    fontWeight: 650,
+                    fontSize: 15,
                     letterSpacing: '-0.03em',
                     mt: 0.35,
                     color: colors.textPrimary,
@@ -2812,82 +2876,36 @@ function PainelSaldoKardex({
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 1.25 }}>
-      <Box
-        sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-          flexWrap: 'wrap',
-          flexShrink: 0,
-          pb: 0.25,
-          borderBottom: `1px solid ${colors.border}`,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-          {(
-            [
-              { id: 'todos' as const, label: 'Todos', qtd: itens.length },
-              { id: 'zerado' as const, label: 'Zerado', qtd: qtdZerado },
-            ] as const
-          ).map((f) => {
-            const ativo = filtro === f.id;
-            return (
-              <Button
-                key={f.id}
-                disableRipple
-                onClick={() => setFiltro(f.id)}
-                sx={{
-                  textTransform: 'none',
-                  minWidth: 0,
-                  px: 1.1,
-                  py: 0.85,
-                  borderRadius: 0,
-                  fontWeight: ativo ? 700 : 600,
-                  fontSize: '0.8125rem',
-                  color: ativo ? colors.textPrimary : colors.textSecondary,
-                  borderBottom: ativo ? `2px solid ${colors.orange}` : '2px solid transparent',
-                  bgcolor: 'transparent',
-                  '&:hover': { bgcolor: 'transparent', color: colors.textPrimary },
-                }}
-              >
-                {f.label}
-                <Box
-                  component="span"
-                  sx={{
-                    ml: 0.85,
-                    px: 0.65,
-                    minWidth: 20,
-                    height: 18,
-                    borderRadius: '9px',
-                    bgcolor: colors.canvasAlt,
-                    color: colors.textMuted,
-                    fontSize: '0.68rem',
-                    fontWeight: 700,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {f.qtd}
-                </Box>
-              </Button>
-            );
-          })}
-        </Box>
-        <TextField
-          size="small"
-          placeholder="Buscar"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          sx={{
-            ml: { sm: 'auto' },
-            width: { xs: '100%', sm: 220 },
-            '& .MuiOutlinedInput-root': { height: 36, bgcolor: colors.surface },
-          }}
-        />
-      </Box>
+      <BarraSegmento
+        itens={[
+          { id: 'todos', label: 'Todos', qtd: itens.length, ativo: filtro === 'todos', onClick: () => setFiltro('todos') },
+          { id: 'zerado', label: 'Zerado', qtd: qtdZerado, ativo: filtro === 'zerado', cor: '#C4452D', onClick: () => setFiltro('zerado') },
+        ]}
+      />
 
-      <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0 }}>
+      <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
+          <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Saldo</Typography>
+          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+            {grupos.reduce((s, [, rows]) => s + rows.length, 0)}
+          </Typography>
+          <TextField
+            size="small"
+            placeholder="Buscar insumo"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ ml: 'auto', width: { xs: 160, sm: 240 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
+          />
+        </Box>
         <TableContainer sx={tableContainerSx}>
           <Table stickyHeader sx={tableSx} size="small">
             <TableHead>
@@ -3000,7 +3018,7 @@ function PainelSaldoKardex({
               }}
             >
               <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontSize: '1.15rem', fontWeight: 700, letterSpacing: '-0.02em', color: colors.textPrimary, lineHeight: 1.25 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em', color: 'var(--ga-text-primary)', lineHeight: 1.25 }}>
                   {nomeProdutoBreak(aberto.descricao) || aberto.descricao}
                 </Typography>
                 <Typography
@@ -3238,90 +3256,57 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
   const cmp = dados?.cmp;
   const brl = (v: number) =>
     v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  const kpi = (rotulo: string, valor: string, detalhe: string, cor: string) => (
-    <Paper
-      key={rotulo}
-      variant="outlined"
-      sx={{
-        position: 'relative',
-        flex: '1 1 140px',
-        minWidth: 140,
-        px: 1.5,
-        py: 1,
-        pl: 1.75,
-        overflow: 'hidden',
-        bgcolor: FIN_SURFACE,
-        borderColor: FIN_BORDER,
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: 3,
-          bgcolor: cor,
-        },
-      }}
-    >
-      <Typography sx={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: FIN_MUTED }}>
-        {rotulo}
-      </Typography>
-      <Typography sx={{ fontSize: 18, fontWeight: 700, color: FIN_TEXT, fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
-        {valor}
-      </Typography>
-      <Typography sx={{ fontSize: 11, color: FIN_MUTED }}>{detalhe}</Typography>
-    </Paper>
-  );
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1, minHeight: 0, color: FIN_TEXT }}>
-      <Box>
-        <Typography sx={{ fontSize: 18, fontWeight: 700, color: FIN_TEXT, letterSpacing: '-0.02em' }}>
-          Pedido da semana · Platlog
-        </Typography>
-        <Typography sx={{ fontSize: 13, color: FIN_MUTED, mt: 0.25 }}>
-          Lista do que esta loja compraria agora. O pedido não sai desta tela.
-        </Typography>
-      </Box>
-
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1, minHeight: 0, color: 'var(--ga-text-primary)' }}>
       {cmp ? (
-        <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap' }}>
-          {kpi('CMP do mês', cmp.cmp_atual_pct != null ? `${fmtNum(cmp.cmp_atual_pct, 1)}%` : '—', 'compras ÷ venda', '#1B6EF3')}
-          {kpi('Já comprado', brl(cmp.compras_mes), `teto ${brl(cmp.teto_mes)}`, '#B45309')}
-          {kpi('Ainda cabe', brl(cmp.teto_restante), 'antes deste pedido', '#059669')}
-          {kpi('Este pedido', brl(valorAjustado), cmp.cortados > 0 ? `${cmp.cortados} itens cortados` : 'dentro do teto', valorAjustado > cmp.teto_restante ? '#B91C1C' : '#1B6EF3')}
+        <Box sx={{ display: 'inline-flex', alignSelf: 'flex-start', flexShrink: 0, border: '1px solid', borderColor: 'divider', borderRadius: '8px', overflow: 'hidden', bgcolor: 'var(--ga-surface)' }}>
+          {[
+            { rotulo: 'CMP do mês', valor: cmp.cmp_atual_pct != null ? `${fmtNum(cmp.cmp_atual_pct, 1)}%` : '—', cor: '#1B6EF3' },
+            { rotulo: 'Já comprado', valor: brl(cmp.compras_mes), cor: '#C47A2A' },
+            { rotulo: 'Ainda cabe', valor: brl(cmp.teto_restante), cor: '#5C7052' },
+            { rotulo: 'Este pedido', valor: brl(valorAjustado), cor: valorAjustado > cmp.teto_restante ? '#C4452D' : '#1B6EF3' },
+          ].map((f, i, arr) => (
+            <Box key={f.rotulo} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, px: 1.25, py: 0.6, borderRight: i < arr.length - 1 ? '1px solid' : 0, borderColor: 'divider' }}>
+              <Typography component="span" sx={{ fontSize: 11, fontWeight: 650, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary' }}>
+                {f.rotulo}
+              </Typography>
+              <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: f.cor }}>
+                {f.valor}
+              </Typography>
+            </Box>
+          ))}
         </Box>
       ) : null}
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField size="small" label="Dias de cobertura" value={dias} onChange={(e) => setDias(e.target.value)} sx={{ ...finCampoSx, width: 150 }} />
-        <TextField size="small" label="Segurança (dias)" value={seguranca} onChange={(e) => setSeguranca(e.target.value)} sx={{ ...finCampoSx, width: 140 }} />
-        <TextField size="small" label="Teto CMP %" value={metaCmp} onChange={(e) => setMetaCmp(e.target.value)} sx={{ ...finCampoSx, width: 120 }} />
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()} sx={finBtnOutlinedSx}>
-          Recalcular
-        </Button>
-        <Box sx={{ flex: 1 }} />
-        <Button variant="outlined" onClick={() => setSoPlatlog((v) => !v)} sx={finBtnOutlinedSx}>
-          {soPlatlog ? 'Só Platlog' : 'Todos'}
-        </Button>
-        <Button variant="outlined" onClick={copiar} disabled={!visiveis.length} sx={finBtnOutlinedSx}>
-          Copiar lista
-        </Button>
-        <Button
-          variant="contained"
-          disableElevation
-          onClick={() => void montarCarrinho()}
-          disabled={montando || Boolean(dados?.piloto_carrinho_bloqueado) || !visiveis.length}
-          sx={finBtnContainedSx}
-        >
-          {montando ? 'Abrindo eSupri…' : 'Montar no eSupri'}
-        </Button>
-      </Box>
-      <Typography sx={{ fontSize: 12, color: FIN_MUTED }}>
-        A coluna Caixas é a que vale. Montar no eSupri preenche, tira print e apaga. Não envia.
-        {dados?.piloto_carrinho_bloqueado ? ` ${dados.piloto_bloqueio} fica fora do piloto.` : ''}
-      </Typography>
 
-      <Paper variant="outlined" sx={{ ...tablePaperSx, borderColor: FIN_BORDER, bgcolor: FIN_SURFACE, flex: 1, minHeight: 0 }}>
+      <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)', flex: 1, minHeight: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap', py: 0.75 }}>
+          <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Pedido da semana</Typography>
+          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{visiveis.length}</Typography>
+          <TextField size="small" label="Dias" value={dias} onChange={(e) => setDias(e.target.value)} sx={{ ...finCampoSx, width: 72, ml: 0.5 }} />
+          <TextField size="small" label="Segurança" value={seguranca} onChange={(e) => setSeguranca(e.target.value)} sx={{ ...finCampoSx, width: 96 }} />
+          <TextField size="small" label="Teto %" value={metaCmp} onChange={(e) => setMetaCmp(e.target.value)} sx={{ ...finCampoSx, width: 80 }} />
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', ml: 'auto' }}>
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()} sx={finBtnOutlinedSx}>
+              Recalcular
+            </Button>
+            <Button variant="outlined" onClick={() => setSoPlatlog((v) => !v)} sx={finBtnOutlinedSx}>
+              {soPlatlog ? 'Só Platlog' : 'Todos'}
+            </Button>
+            <Button variant="outlined" onClick={copiar} disabled={!visiveis.length} sx={finBtnOutlinedSx}>
+              Copiar
+            </Button>
+            <Button
+              variant="contained"
+              disableElevation
+              onClick={() => void montarCarrinho()}
+              disabled={montando || Boolean(dados?.piloto_carrinho_bloqueado) || !visiveis.length}
+              sx={finBtnContainedSx}
+            >
+              {montando ? 'Abrindo eSupri…' : 'Montar no eSupri'}
+            </Button>
+          </Box>
+        </Box>
         <TableContainer sx={tableContainerSx}>
           <Table size="small" stickyHeader sx={tableSx}>
             <TableHead>
@@ -3399,7 +3384,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                   ? `${printCarrinho.preenchidos} caixa(s) digitadas. Pedido não enviado.`
                   : 'Nada foi digitado. O eSupri abriu no catálogo vazio.'}
               </Typography>
-              <Typography sx={{ fontSize: 13, color: FIN_MUTED, mb: 1.5 }}>
+              <Typography sx={{ fontSize: 13, color: 'var(--ga-text-secondary)', mb: 1.5 }}>
                 {`No eSupri essa lista fecha em ${brl(
                   printCarrinho.precos.reduce((s, p) => s + (p.portal || 0) * p.caixas, 0),
                 )}. Aqui ela fecha em ${brl(printCarrinho.valorLista)}. O catálogo cobra o preço de hoje. A coluna R$ daqui é a última nota.`}
@@ -3761,141 +3746,92 @@ function PainelProdutos({
       return true;
     });
 
-  return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1, minHeight: 0 }}>
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Chip
-          label={`Produtos (${lista.length})`}
-          color={abaCadastro === 'produtos' ? 'primary' : 'default'}
-          onClick={() => setAbaCadastro('produtos')}
-          sx={{ fontWeight: 700 }}
-        />
-        <Chip
-          label={`Insumos (${insumos.filter((i) => i.ativo !== false).length})`}
-          color={abaCadastro === 'insumos' ? 'primary' : 'default'}
-          onClick={() => setAbaCadastro('insumos')}
-          sx={{ fontWeight: 700 }}
-        />
-      </Box>
+  const qtdInsumos = insumos.filter((i) => i.ativo !== false).length;
 
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 1.5,
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <TextField
-            size="small"
-            label={abaCadastro === 'produtos' ? 'Buscar produto' : 'Buscar insumo'}
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            sx={{ minWidth: 200 }}
-          />
-          {abaCadastro === 'produtos' && (
-            <>
-              <Chip
-                size="small"
-                label={`Todos (${lista.length})`}
-                color={filtroInsumo === 'todos' ? 'primary' : 'default'}
-                onClick={() => setFiltroInsumo('todos')}
-                sx={{ fontWeight: 600 }}
-              />
-              <Chip
-                size="small"
-                color={filtroInsumo === 'sem' ? 'warning' : 'default'}
-                label={`Falta ficha (${semInsumos})`}
-                onClick={() => setFiltroInsumo(filtroInsumo === 'sem' ? 'todos' : 'sem')}
-                sx={{ fontWeight: 700 }}
-              />
-            </>
-          )}
-          {abaCadastro === 'insumos' && (
-            <>
-              <Chip
-                size="small"
-                label={`Todos (${insumos.filter((i) => i.ativo !== false).length})`}
-                color={filtroCusto === 'todos' ? 'primary' : 'default'}
-                onClick={() => setFiltroCusto('todos')}
-                sx={{ fontWeight: 600 }}
-              />
-              <Chip
-                size="small"
-                color={filtroCusto === 'sem' ? 'warning' : 'default'}
-                label={`Sem custo automático (${semCustoCount})`}
-                onClick={() => setFiltroCusto(filtroCusto === 'sem' ? 'todos' : 'sem')}
-                sx={{ fontWeight: 700 }}
-              />
-              <Chip
-                size="small"
-                color={filtroCusto === 'com' ? 'success' : 'default'}
-                label={`Com custo (${comCustoCount})`}
-                onClick={() => setFiltroCusto(filtroCusto === 'com' ? 'todos' : 'com')}
-                sx={{ fontWeight: 600 }}
-              />
-              {semCustoCount > 0 && (
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="warning"
-                  disabled={promovendo}
-                  onClick={() => {
-                    void (async () => {
-                      if (
-                        !window.confirm(
-                          `Usar o preço da planilha como custo válido no CMV para ${semCustoCount} insumo(s)?\n\nNão altera o valor — só marca como Manual. Itens com preço zero ficam de fora.`,
-                        )
-                      ) {
-                        return;
-                      }
-                      setPromovendo(true);
-                      try {
-                        const r = await api.estoquePromoverPlanilha({ id_loja: idLoja });
-                        showToast(
-                          r.ainda_sem_preco.length
-                            ? `${r.promovidos} promovido(s). ${r.ainda_sem_preco.length} ainda sem preço (zerados).`
-                            : `${r.promovidos} preço(s) da planilha liberados no CMV.`,
-                          r.ainda_sem_preco.length ? 'warning' : 'success',
-                        );
-                        setFiltroCusto('todos');
-                        onInsumosReload?.();
-                      } catch (e) {
-                        showToast(
-                          e instanceof Error ? e.message : 'Erro ao promover preços',
-                          'error',
-                        );
-                      } finally {
-                        setPromovendo(false);
-                      }
-                    })();
-                  }}
-                >
-                  {promovendo ? 'Aplicando…' : 'Usar preço da planilha no CMV'}
-                </Button>
-              )}
-            </>
-          )}
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()}>
-            Atualizar
-          </Button>
-          {abaCadastro === 'produtos' && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => abrirNovo()}>
-              Novo produto
-            </Button>
-          )}
-          {abaCadastro === 'insumos' && onNovoInsumo && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={() => onNovoInsumo()}>
-              Novo insumo
-            </Button>
-          )}
-        </Box>
-      </Box>
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1, minHeight: 0 }}>
+      <BarraSegmento
+        itens={[
+          { id: 'produtos', label: 'Produtos', qtd: lista.length, ativo: abaCadastro === 'produtos', onClick: () => setAbaCadastro('produtos') },
+          { id: 'insumos', label: 'Insumos', qtd: qtdInsumos, ativo: abaCadastro === 'insumos', cor: '#C47A2A', onClick: () => setAbaCadastro('insumos') },
+        ]}
+      />
+      {abaCadastro === 'produtos' ? (
+        <BarraSegmento
+          itens={[
+            { id: 'todos', label: 'Todos', qtd: lista.length, ativo: filtroInsumo === 'todos', onClick: () => setFiltroInsumo('todos') },
+            { id: 'sem', label: 'Falta ficha', qtd: semInsumos, ativo: filtroInsumo === 'sem', cor: '#C47A2A', onClick: () => setFiltroInsumo(filtroInsumo === 'sem' ? 'todos' : 'sem') },
+            { id: 'unitario', label: 'Unitário', qtd: lista.filter(isUnitario).length, ativo: filtroInsumo === 'unitario', onClick: () => setFiltroInsumo(filtroInsumo === 'unitario' ? 'todos' : 'unitario') },
+          ]}
+        />
+      ) : (
+        <BarraSegmento
+          itens={[
+            { id: 'todos', label: 'Todos', qtd: qtdInsumos, ativo: filtroCusto === 'todos', onClick: () => setFiltroCusto('todos') },
+            { id: 'sem', label: 'Sem custo', qtd: semCustoCount, ativo: filtroCusto === 'sem', cor: '#C4452D', onClick: () => setFiltroCusto(filtroCusto === 'sem' ? 'todos' : 'sem') },
+            { id: 'com', label: 'Com custo', qtd: comCustoCount, ativo: filtroCusto === 'com', cor: '#5C7052', onClick: () => setFiltroCusto(filtroCusto === 'com' ? 'todos' : 'com') },
+          ]}
+        />
+      )}
 
       {abaCadastro === 'insumos' ? (
-        <Paper sx={tablePaperSx}>
+        <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap' }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Insumos</Typography>
+            <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{insumosFiltrados.length}</Typography>
+            <TextField
+              size="small"
+              placeholder="Buscar insumo"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              sx={{ ml: 'auto', width: { xs: 160, sm: 220 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
+            />
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()} sx={{ height: 32 }}>
+              Atualizar
+            </Button>
+            {semCustoCount > 0 && (
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={promovendo}
+                onClick={() => {
+                  void (async () => {
+                    if (
+                      !window.confirm(
+                        `Usar o preço da planilha como custo válido no CMV para ${semCustoCount} insumo(s)?\n\nNão altera o valor — só marca como Manual. Itens com preço zero ficam de fora.`,
+                      )
+                    ) {
+                      return;
+                    }
+                    setPromovendo(true);
+                    try {
+                      const r = await api.estoquePromoverPlanilha({ id_loja: idLoja });
+                      showToast(
+                        r.ainda_sem_preco.length
+                          ? `${r.promovidos} promovido(s). ${r.ainda_sem_preco.length} ainda sem preço (zerados).`
+                          : `${r.promovidos} preço(s) da planilha liberados no CMV.`,
+                        r.ainda_sem_preco.length ? 'warning' : 'success',
+                      );
+                      setFiltroCusto('todos');
+                      onInsumosReload?.();
+                    } catch (e) {
+                      showToast(e instanceof Error ? e.message : 'Erro ao promover preços', 'error');
+                    } finally {
+                      setPromovendo(false);
+                    }
+                  })();
+                }}
+                sx={{ height: 32 }}
+              >
+                {promovendo ? 'Aplicando…' : 'Preço da planilha'}
+              </Button>
+            )}
+            {onNovoInsumo ? (
+              <Button variant="contained" disableElevation startIcon={<AddIcon />} onClick={() => onNovoInsumo()} sx={{ height: 32 }}>
+                Novo insumo
+              </Button>
+            ) : null}
+          </Box>
           <TableContainer sx={tableContainerSx}>
             <Table size="small" stickyHeader sx={tableSx}>
               <TableHead>
@@ -3969,7 +3905,24 @@ function PainelProdutos({
           )}
         </Paper>
       ) : (
-      <Paper sx={tablePaperSx}>
+      <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Produtos</Typography>
+          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{listaFiltrada.length}</Typography>
+          <TextField
+            size="small"
+            placeholder="Buscar produto"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            sx={{ ml: 'auto', width: { xs: 160, sm: 220 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
+          />
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()} sx={{ height: 32 }}>
+            Atualizar
+          </Button>
+          <Button variant="contained" disableElevation startIcon={<AddIcon />} onClick={() => abrirNovo()} sx={{ height: 32 }}>
+            Novo produto
+          </Button>
+        </Box>
         <TableContainer sx={tableContainerSx}>
           <Table
             size="small"
@@ -4063,7 +4016,7 @@ function PainelProdutos({
                                           )?.label || i.unidade_receita
                                         }`
                                       : ''}{' '}
-                                    Ã— {nomeInsumo(i.codigo_insumo)}
+                                    × {nomeInsumo(i.codigo_insumo)}
                                   </Typography>
                                 ))
                               ) : (
@@ -4140,21 +4093,23 @@ function PainelProdutos({
       </Paper>
       )}
 
-      <Dialog
+      <Drawer
+        anchor="right"
         open={open}
         onClose={() => !carregandoFicha && setOpen(false)}
-        fullWidth
-        maxWidth="md"
-        slotProps={{
-          root: { sx: { zIndex: 15000 } },
-          paper: { sx: { maxWidth: 720, zIndex: 15001 } },
-        }}
+        disableScrollLock
+        disableAutoFocus
+        disableRestoreFocus
+        ModalProps={drawerSemTranco}
+        slotProps={{ paper: { sx: { ...papelDrawerSx, width: 520 } } }}
       >
-        <DialogTitleWithIcon plainIcon divider icon={<MenuBookOutlinedIcon />}>
-          {idFicha ? 'Ficha do produto' : 'Novo produto'}
-          {carregandoFicha ? ' …' : ''}
-        </DialogTitleWithIcon>
-        <DialogContent sx={{ ...dialogContentSx, overflow: 'auto', maxHeight: '70vh' }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <CabecalhoDrawer
+            titulo={`${idFicha ? 'Ficha do produto' : 'Novo produto'}${carregandoFicha ? ' …' : ''}`}
+            icone={<MenuBookOutlinedIcon sx={{ fontSize: 22 }} />}
+            onClose={() => !carregandoFicha && setOpen(false)}
+          />
+          <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           {carregandoFicha && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <CircularProgress size={18} />
@@ -4173,45 +4128,37 @@ function PainelProdutos({
           >
             <TextField
               {...dialogFieldProps}
+              size="small"
               fullWidth={false}
               label="Código BK"
               value={codigo}
               onChange={(e) => setCodigo(e.target.value)}
               disabled={!!idFicha}
-              sx={{ width: { xs: '100%', sm: 140 }, flexShrink: 0 }}
+              sx={{ width: 128, flexShrink: 0 }}
             />
             <TextField
               {...dialogFieldProps}
+              size="small"
               label="Nome"
               value={descricao}
               onChange={(e) => setDescricao(e.target.value)}
               placeholder="Ex.: WHOPPER"
-              sx={{ flex: 1, minWidth: { xs: '100%', sm: 0 } }}
+              sx={{ flex: 1, minWidth: 0 }}
             />
           </Box>
-          <Box
-            sx={{
-              display: 'flex',
-              gap: 1.5,
-              alignItems: 'flex-start',
-              flexWrap: { xs: 'wrap', sm: 'nowrap' },
+          <TextField
+            {...dialogFieldProps}
+            size="small"
+            label="Valor de venda"
+            value={valorVenda != null && valorVenda > 0 ? fmtMoeda(valorVenda) : '—'}
+            slotProps={{
+              ...dialogFieldProps.slotProps,
+              input: { readOnly: true },
             }}
-          >
-            <TextField
-              {...dialogFieldProps}
-              label="Valor de venda"
-              value={valorVenda != null && valorVenda > 0 ? fmtMoeda(valorVenda) : '—'}
-              slotProps={{
-                ...dialogFieldProps.slotProps,
-                input: { readOnly: true },
-              }}
-              sx={{ flex: 1, minWidth: { xs: '100%', sm: 0 } }}
-            />
-            <Typography variant="caption" color="text.secondary" sx={{ flex: 2, pt: 1 }}>
-              Custo dos insumos não aparece aqui — só após lançar nota fiscal (evita preço errado de
-              planilha).
-            </Typography>
-          </Box>
+          />
+          <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: 'text.secondary', mt: -0.5 }}>
+            Preço de venda do cardápio. O custo dos insumos só entra depois da nota fiscal.
+          </Typography>
           <FormControlLabel
             sx={{ mt: 0.5, alignItems: 'flex-start', ml: 0 }}
             control={
@@ -4234,38 +4181,22 @@ function PainelProdutos({
             }
           />
           {requerFicha ? (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              justifyContent: 'space-between',
-              gap: 1,
-              flexWrap: 'wrap',
-              mt: 0.5,
-              mb: 0.5,
-            }}
-          >
-            <Box sx={{ minWidth: 0, flex: '1 1 220px', pr: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
-                Insumos
-              </Typography>
-              <Typography
-                variant="caption"
-                color="text.secondary"
-                sx={{ display: 'block', mt: 0.25, lineHeight: 1.35, maxWidth: 420 }}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+              <Typography sx={{ fontSize: 13, fontWeight: 650 }}>Insumos da receita</Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<ChecklistRtlIcon />}
+                onClick={abrirPickerInsumos}
+                sx={{ flexShrink: 0 }}
               >
-                Quantidade na receita (g, fatia…). O custo usa a conversão para a unidade de compra.
-              </Typography>
+                Escolher da lista
+              </Button>
             </Box>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<ChecklistRtlIcon />}
-              onClick={abrirPickerInsumos}
-              sx={{ flexShrink: 0, mt: 0.25 }}
-            >
-              Escolher da lista
-            </Button>
+            <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: 'text.secondary' }}>
+              Quanto entra em uma unidade vendida. O custo usa a unidade de compra.
+            </Typography>
           </Box>
           ) : (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
@@ -4275,34 +4206,17 @@ function PainelProdutos({
           )}
           {requerFicha && (
           <>
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 0.75,
-              pt: 0.75,
-              ...(itens.length > 5
-                ? {
-                    maxHeight: 6 + 5 * 48 + 4 * 6, // pt + 5 linhas + gaps apertados
-                    overflowY: 'auto',
-                    overflowX: 'hidden',
-                    pr: 0.75,
-                  }
-                : {}),
-            }}
-          >
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {itens.map((it, idx) => (
               <Box
                 key={idx}
                 sx={{
                   display: 'flex',
-                  gap: 1,
-                  alignItems: 'flex-end',
-                  flexWrap: 'nowrap',
-                  height: 48,
-                  minHeight: 48,
-                  flexShrink: 0,
-                  overflow: 'visible',
+                  flexDirection: 'column',
+                  gap: 0.75,
+                  pb: 1.25,
+                  borderBottom: '1px solid',
+                  borderColor: 'divider',
                 }}
               >
                 <EstoqueInsumoAutocomplete
@@ -4323,12 +4237,9 @@ function PainelProdutos({
                     };
                     setItens(next);
                   }}
-                  sx={{
-                    flex: '1 1 auto',
-                    minWidth: 0,
-                    '& .MuiOutlinedInput-root': { height: 40, minHeight: 40 },
-                  }}
+                  sx={{ width: '100%', '& .MuiOutlinedInput-root': { height: 40, minHeight: 40 } }}
                 />
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <TextField
                   {...dialogFieldProps}
                   size="small"
@@ -4340,8 +4251,8 @@ function PainelProdutos({
                     setItens(next);
                   }}
                   sx={{
-                    width: 82,
-                    flexShrink: 0,
+                    flex: 1,
+                    minWidth: 0,
                     '& .MuiOutlinedInput-root': { height: 40, minHeight: 40, px: 0.35 },
                     '& .MuiOutlinedInput-input': {
                       textAlign: 'center',
@@ -4394,7 +4305,7 @@ function PainelProdutos({
                     setItens(next);
                   }}
                   sx={{
-                    width: 100,
+                    width: 132,
                     flexShrink: 0,
                     '& .MuiOutlinedInput-root': { height: 40, minHeight: 40 },
                   }}
@@ -4427,6 +4338,7 @@ function PainelProdutos({
                     </IconButton>
                   </span>
                 </Tooltip>
+                </Box>
               </Box>
             ))}
           </Box>
@@ -4451,7 +4363,7 @@ function PainelProdutos({
                       <Box component="span" sx={{ color: 'primary.main', fontWeight: 700 }}>
                         {i.quantidade} {rotuloUnidade(i.unidade_receita)}
                       </Box>
-                      {' Ã— '}
+                      {' × '}
                       {nomeInsumo(i.codigo_insumo)}
                       {custo > 0 ? (
                         <>
@@ -4479,9 +4391,8 @@ function PainelProdutos({
           </Button>
           </>
           )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-          <Box sx={{ flex: 1 }} />
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1, px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'var(--ga-surface)' }}>
           <FormControlLabel
             control={
               <Switch
@@ -4492,12 +4403,14 @@ function PainelProdutos({
             }
             label={ativo ? 'Ativo' : 'Inativo'}
           />
-          <Button onClick={() => setOpen(false)}>Fechar</Button>
-          <Button variant="contained" disabled={salvando} onClick={() => void salvar()}>
+          <Box sx={{ flex: 1 }} />
+          <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
+          <Button variant="contained" disableElevation disabled={salvando} onClick={() => void salvar()}>
             Salvar
           </Button>
-        </DialogActions>
-      </Dialog>
+          </Box>
+        </Box>
+      </Drawer>
 
       <Dialog
         open={!!excluirAlvo}
@@ -4649,6 +4562,15 @@ function tituloItemBreak(raw?: string | null) {
     });
 }
 
+function produtoEmprestimo(raw?: string | null) {
+  const base = nomeProdutoBreak(raw);
+  return base
+    .replace(/\s*[-–]\s*cx\b.*$/i, '')
+    .replace(/\s+cx\b.*$/i, '')
+    .replace(/,\s*$/, '')
+    .trim();
+}
+
 function nomeProdutoBreak(raw?: string | null, curto = false) {
   const titled = tituloItemBreak(raw);
   if (!titled) return '';
@@ -4661,6 +4583,12 @@ function nomeProdutoBreak(raw?: string | null, curto = false) {
   const base = limpo || titled;
   if (!curto) return base;
   return base.split(' ').slice(0, 4).join(' ');
+}
+
+function corTipoBreak(tipo?: string | null) {
+  if (String(tipo || '').startsWith('desperdicio')) return '#C4452D';
+  if (tipo === 'emprestimo') return '#C47A2A';
+  return '#E8520A';
 }
 
 function tipoCurtoBreak(tipo?: string | null) {
@@ -4736,6 +4664,56 @@ function rotuloDiaBreak(iso: string | null | undefined, longo = false) {
   }
 }
 
+function LinhaEmprestimoPendente({
+  emp,
+  modo,
+  busy,
+  onConfirm,
+}: {
+  emp: EstoqueEmprestimoAReceber;
+  modo: 'receber' | 'devolver';
+  busy: boolean;
+  onConfirm: () => void;
+}) {
+  const item = (emp.itens || [])[0];
+  const qtd = item ? fmtQtdItemBreak(item) : '';
+  const nome = item ? produtoEmprestimo(item.descricao) || item.codigo || 'Empréstimo' : 'Empréstimo';
+  const extra = (emp.itens || []).length > 1 ? ` +${(emp.itens || []).length - 1}` : '';
+  const detalhe = [qtd && qtd !== '—' ? qtd : null, `${nome}${extra}`].filter(Boolean).join(' · ');
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.25, py: 0.7, borderTop: '1px solid', borderColor: 'divider' }}>
+      <Box sx={{ minWidth: 0, flex: 1, '& .ck-loja-bk': { display: 'flex', maxWidth: '100%' } }}>
+        <LojaBkMarca bk={emp.loja_origem_bk} nome={emp.loja_origem_nome} size={20} />
+        <Typography
+          sx={{
+            mt: 0.15,
+            pl: '26px',
+            fontSize: 12,
+            lineHeight: 1.3,
+            color: 'text.secondary',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
+        >
+          {detalhe}
+        </Typography>
+      </Box>
+      <Button
+        size="small"
+        variant={modo === 'receber' ? 'contained' : 'outlined'}
+        disableElevation
+        disabled={busy}
+        onClick={onConfirm}
+        sx={{ height: 28, minWidth: 76, px: 1.25, fontSize: 12, flexShrink: 0 }}
+      >
+        {busy ? '…' : modo === 'receber' ? 'Recebi' : 'Devolver'}
+      </Button>
+    </Box>
+  );
+}
+
 function PainelBreak({ idLoja }: { idLoja: number }) {
   const [loading, setLoading] = useState(true);
   const [lista, setLista] = useState<EstoqueBreakResumo[]>([]);
@@ -4763,6 +4741,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
   const [kgEmp, setKgEmp] = useState('');
   const [aReceber, setAReceber] = useState<EstoqueEmprestimoAReceber[]>([]);
   const [aDevolver, setADevolver] = useState<EstoqueEmprestimoAReceber[]>([]);
+  const [pendenciasAbertas, setPendenciasAbertas] = useState(false);
   const [confirmandoId, setConfirmandoId] = useState<number | null>(null);
   const [filtro, setFiltro] = useState<'todos' | 'refeicao' | 'desperdicio' | 'emprestimo'>('todos');
   const [busca, setBusca] = useState('');
@@ -5033,6 +5012,10 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     };
   }, [aberto?.id_break, idLoja]);
 
+  useEffect(() => {
+    if (!aReceber.length && !aDevolver.length) setPendenciasAbertas(false);
+  }, [aReceber.length, aDevolver.length]);
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -5041,246 +5024,286 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     );
   }
 
-  const filtrosBarra: Array<{ id: typeof filtro; label: string; qtd: number; hide?: boolean }> = [
-    { id: 'todos', label: 'Todos', qtd: qtdFiltro.todos },
-    { id: 'refeicao', label: 'Break', qtd: qtdFiltro.refeicao },
-    { id: 'desperdicio', label: 'Desperdício', qtd: qtdFiltro.desperdicio },
-    { id: 'emprestimo', label: 'Empréstimo', qtd: qtdFiltro.emprestimo, hide: !qtdFiltro.emprestimo },
+  const filtrosBarra: Array<{ id: typeof filtro; label: string; qtd: number; cor: string; hide?: boolean }> = [
+    { id: 'todos', label: 'Todos', qtd: qtdFiltro.todos, cor: 'var(--ga-orange)' },
+    { id: 'refeicao', label: 'Break', qtd: qtdFiltro.refeicao, cor: '#E8520A' },
+    { id: 'desperdicio', label: 'Desperdício', qtd: qtdFiltro.desperdicio, cor: '#C4452D' },
+    { id: 'emprestimo', label: 'Empréstimo', qtd: qtdFiltro.emprestimo, cor: '#C47A2A', hide: !qtdFiltro.emprestimo },
   ];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 1.25 }}>
       <Box
         sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1.5,
-          flexWrap: 'wrap',
+          display: 'inline-flex',
+          alignSelf: 'flex-start',
           flexShrink: 0,
-          pb: 0.25,
-          borderBottom: `1px solid ${colors.border}`,
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          bgcolor: 'var(--ga-surface)',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, minWidth: 0 }}>
-          {filtrosBarra
-            .filter((f) => !f.hide)
-            .map((f) => {
-              const ativo = filtro === f.id;
-              return (
-                <Button
-                  key={f.id}
-                  disableRipple
-                  onClick={() => setFiltro(f.id)}
-                  sx={{
-                    textTransform: 'none',
-                    minWidth: 0,
-                    px: 1.1,
-                    py: 0.85,
-                    borderRadius: 0,
-                    fontWeight: ativo ? 700 : 600,
-                    fontSize: '0.8125rem',
-                    color: ativo ? colors.textPrimary : colors.textSecondary,
-                    borderBottom: ativo ? `2px solid ${colors.orange}` : '2px solid transparent',
-                    bgcolor: 'transparent',
-                    '&:hover': { bgcolor: 'transparent', color: colors.textPrimary },
-                  }}
-                >
-                  {f.label}
-                  <Box
-                    component="span"
-                    sx={{
-                      ml: 0.85,
-                      px: 0.65,
-                      minWidth: 20,
-                      height: 18,
-                      borderRadius: '9px',
-                      bgcolor: colors.canvasAlt,
-                      color: colors.textMuted,
-                      fontSize: '0.68rem',
-                      fontWeight: 700,
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {f.qtd}
-                  </Box>
-                </Button>
-              );
-            })}
-        </Box>
-        <TextField
-          size="small"
-          placeholder="Buscar"
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          sx={{
-            ml: { sm: 'auto' },
-            width: { xs: '100%', sm: 220 },
-            '& .MuiOutlinedInput-root': { height: 36, bgcolor: colors.surface },
-          }}
-        />
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            resetForm();
-            setOpen(true);
-          }}
-          sx={{
-            height: 36,
-            px: 1.75,
-            bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? colors.orange : colors.navy),
-            color: '#fff',
-            fontWeight: 700,
-            '&:hover': {
-              bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? colors.orangeHover : colors.navyDark),
-            },
-          }}
-        >
-          Lançar
-        </Button>
+        {filtrosBarra.filter((f) => !f.hide).map((f, i, arr) => {
+          const ativo = filtro === f.id;
+          return (
+            <Box
+              key={f.id}
+              component="button"
+              type="button"
+              onClick={() => setFiltro(f.id)}
+              sx={{
+                font: 'inherit',
+                color: 'inherit',
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 0.75,
+                px: 1.25,
+                py: 0.6,
+                cursor: 'pointer',
+                border: 0,
+                borderRight: i < arr.length - 1 ? '1px solid' : 0,
+                borderColor: 'divider',
+                bgcolor: ativo ? 'var(--ga-canvas-alt)' : 'transparent',
+                boxShadow: ativo ? `inset 0 -2px 0 ${f.cor}` : 'none',
+                '&:hover': { bgcolor: 'var(--ga-canvas-alt)' },
+              }}
+            >
+              <Typography component="span" sx={{ fontSize: 11, fontWeight: 650, letterSpacing: '0.04em', textTransform: 'uppercase', color: ativo ? 'text.primary' : 'text.secondary' }}>
+                {f.label}
+              </Typography>
+              <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: ativo ? f.cor : 'text.primary' }}>
+                {f.qtd}
+              </Typography>
+            </Box>
+          );
+        })}
       </Box>
 
-      {aReceber.length > 0 && (
-        <Box sx={{ ...portalPanelSx, p: 1.5, flexShrink: 0 }}>
-          <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: colors.textSecondary, mb: 0.75 }}>
-            Para receber
+      <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: '8px' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
+          <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Lançamentos</Typography>
+          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
+            {grupos.reduce((s, [, rows]) => s + rows.length, 0)}
           </Typography>
-          {aReceber.map((emp) => (
-            <Box
-              key={emp.id_break}
-              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, py: 0.6 }}
+          {aReceber.length + aDevolver.length > 0 ? (
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => {
+                setAberto(null);
+                setDetalhe(null);
+                setPendenciasAbertas(true);
+              }}
+              sx={{ height: 28, px: 1, fontSize: 12, fontWeight: 650, color: '#C47A2A' }}
             >
-              <Typography sx={{ fontSize: '0.8125rem', color: colors.textPrimary }}>
-                {emp.loja_origem_nome || 'Outra loja'}
-                {(emp.itens || [])[0]
-                  ? ` · ${nomeProdutoBreak(emp.itens[0].descricao) || emp.itens[0].codigo}`
-                  : ''}
-              </Typography>
-              <Button
-                size="small"
-                variant="contained"
-                disabled={confirmandoId === emp.id_break}
-                onClick={() => void confirmarRecebimento(emp.id_break)}
-                sx={{ bgcolor: '#16a34a', '&:hover': { bgcolor: '#15803d' }, height: 28, fontWeight: 700 }}
-              >
-                {confirmandoId === emp.id_break ? '…' : 'Recebi'}
-              </Button>
-            </Box>
-          ))}
+              {aReceber.length + aDevolver.length} empréstimos
+            </Button>
+          ) : null}
+          <TextField
+            size="small"
+            placeholder="Buscar colaborador ou pedido"
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                  </InputAdornment>
+                ),
+              },
+            }}
+            sx={{ ml: 'auto', width: { xs: 160, sm: 240 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
+          />
+          <Button
+            variant="contained"
+            disableElevation
+            startIcon={<AddIcon />}
+            onClick={() => {
+              resetForm();
+              setOpen(true);
+            }}
+            sx={{ height: 32 }}
+          >
+            Lançar
+          </Button>
         </Box>
-      )}
-
-      {aDevolver.length > 0 && (
-        <Box sx={{ ...portalPanelSx, p: 1.5, flexShrink: 0 }}>
-          <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: colors.textSecondary, mb: 0.75 }}>
-            Para devolver
-          </Typography>
-          {aDevolver.map((emp) => (
-            <Box
-              key={emp.id_break}
-              sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1.5, py: 0.6 }}
-            >
-              <Typography sx={{ fontSize: '0.8125rem', color: colors.textPrimary }}>
-                {emp.loja_origem_nome || 'Loja de origem'}
-                {(emp.itens || [])[0]
-                  ? ` · ${nomeProdutoBreak(emp.itens[0].descricao) || emp.itens[0].codigo}`
-                  : ''}
-              </Typography>
-              <Button
-                size="small"
-                variant="contained"
-                disabled={confirmandoId === emp.id_break}
-                onClick={() => void confirmarDevolucao(emp.id_break)}
-                sx={{ bgcolor: colors.navy, '&:hover': { bgcolor: colors.navyDark }, height: 28, fontWeight: 700 }}
-              >
-                {confirmandoId === emp.id_break ? '…' : 'Devolver'}
-              </Button>
+        <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+          {!grupos.length ? (
+            <Box sx={{ py: 6, textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>Nenhum lançamento neste recorte.</Typography>
             </Box>
-          ))}
-        </Box>
-      )}
-
-      <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0 }}>
-        <TableContainer sx={tableContainerSx}>
-          <Table stickyHeader sx={tableSx} size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ ...vendasThSx, pl: 2.5 }}>Colaborador</TableCell>
-                <TableCell sx={vendasThSx}>Pedido</TableCell>
-                <TableCell sx={vendasThSx} width={100}>
-                  Turno
-                </TableCell>
-                <TableCell sx={vendasThSx} width={130}>
-                  Tipo
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {!grupos.length ? (
-                <TableRow>
-                  <TableCell colSpan={4} sx={{ py: 5, color: colors.textMuted, borderBottom: 0 }}>
-                    Nenhum lançamento neste recorte.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                grupos.map(([dia, rows]) => (
-                  <Fragment key={dia}>
-                    <TableRow>
-                      <TableCell
-                        colSpan={4}
+          ) : (
+            grupos.map(([dia, rows]) => (
+              <Box key={dia}>
+                <Box
+                  sx={{
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 1,
+                    px: 1.5,
+                    py: 0.6,
+                    bgcolor: 'var(--ga-canvas-alt)',
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    fontSize: 11,
+                    fontWeight: 650,
+                    letterSpacing: '0.02em',
+                    color: 'text.secondary',
+                  }}
+                >
+                  {rotuloDiaBreak(dia, true)}
+                </Box>
+                {rows.map((b) => {
+                  const ativo = aberto?.id_break === b.id_break;
+                  const turno = labelTurnoBreak(b.turno);
+                  const cor = corTipoBreak(b.tipo);
+                  return (
+                    <Box
+                      key={b.id_break}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => {
+                        setPendenciasAbertas(false);
+                        setAberto(b);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setPendenciasAbertas(false);
+                          setAberto(b);
+                        }
+                      }}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.25,
+                        px: 1.5,
+                        py: 1,
+                        cursor: 'pointer',
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        bgcolor: ativo ? 'rgba(27, 110, 243, 0.06)' : 'transparent',
+                        '&:hover': { bgcolor: ativo ? 'rgba(27, 110, 243, 0.08)' : 'var(--ga-canvas-alt)' },
+                      }}
+                    >
+                      <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 1, bgcolor: cor, flexShrink: 0 }} />
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography noWrap sx={{ fontSize: 13, fontWeight: 650 }}>
+                          {nomeLinhaBreak(b)}
+                        </Typography>
+                        <Typography noWrap sx={{ fontSize: 12, color: 'text.secondary' }}>
+                          {resumoItemBreak(b)}
+                        </Typography>
+                      </Box>
+                      {turno !== '—' ? (
+                        <Typography sx={{ fontSize: 11, color: 'text.secondary', flexShrink: 0 }}>{turno}</Typography>
+                      ) : null}
+                      <Box
                         sx={{
-                          py: 1,
-                          pl: 2.5,
-                          bgcolor: colors.canvasAlt,
-                          borderBottom: `1px solid ${colors.border}`,
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          color: colors.textSecondary,
+                          flexShrink: 0,
+                          px: 0.75,
+                          py: 0.2,
+                          borderRadius: '6px',
+                          fontSize: 11,
+                          fontWeight: 650,
+                          color: cor,
+                          bgcolor: 'var(--ga-canvas-alt)',
                         }}
                       >
-                        {rotuloDiaBreak(dia, true)}
-                      </TableCell>
-                    </TableRow>
-                    {rows.map((b) => {
-                      const ativo = aberto?.id_break === b.id_break;
-                      const turno = labelTurnoBreak(b.turno);
-                      return (
-                        <TableRow
-                          key={b.id_break}
-                          hover
-                          selected={ativo}
-                          onClick={() => setAberto(b)}
-                          sx={{
-                            cursor: 'pointer',
-                            '& td': { borderBottom: `1px solid ${colors.border}`, py: 1.15 },
-                            '&.Mui-selected': { bgcolor: 'rgba(15, 26, 69, 0.05)' },
-                            '&.Mui-selected:hover': { bgcolor: 'rgba(15, 26, 69, 0.07)' },
-                          }}
-                        >
-                          <TableCell sx={{ pl: 2.5, fontSize: '0.875rem', fontWeight: 600, color: colors.textPrimary }}>
-                            {nomeLinhaBreak(b)}
-                          </TableCell>
-                          <TableCell sx={{ fontSize: '0.8125rem', color: colors.textSecondary }}>
-                            {resumoItemBreak(b)}
-                          </TableCell>
-                          <TableCell sx={{ fontSize: '0.8125rem', color: colors.textSecondary }}>
-                            {turno !== '—' ? turno : '—'}
-                          </TableCell>
-                          <TableCell sx={{ fontSize: '0.8125rem', color: colors.textSecondary }}>
-                            {tipoCurtoBreak(b.tipo)}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </Fragment>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                        {tipoCurtoBreak(b.tipo)}
+                      </Box>
+                      <ChevronRightIcon sx={{ fontSize: 16, color: 'text.disabled', flexShrink: 0 }} />
+                    </Box>
+                  );
+                })}
+              </Box>
+            ))
+          )}
+        </Box>
       </Paper>
+
+      <Drawer
+        anchor="right"
+        open={pendenciasAbertas}
+        onClose={() => setPendenciasAbertas(false)}
+        disableScrollLock
+        disableAutoFocus
+        disableRestoreFocus
+        slotProps={{
+          paper: {
+            sx: {
+              width: 420,
+              maxWidth: '100%',
+              borderLeft: `1px solid ${colors.border}`,
+              boxShadow: '-8px 0 24px rgba(15, 26, 69, 0.06)',
+              bgcolor: 'var(--ga-surface)',
+              backgroundImage: 'none',
+            },
+          },
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, px: 2.5, pt: 2.25, pb: 2, borderBottom: `1px solid ${colors.border}` }}>
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em', color: 'var(--ga-text-primary)', lineHeight: 1.25 }}>
+                Empréstimos
+              </Typography>
+              <Typography sx={{ fontSize: '0.8125rem', color: colors.textSecondary, mt: 0.5 }}>
+                {[
+                  aReceber.length ? `${aReceber.length} a receber` : null,
+                  aDevolver.length ? `${aDevolver.length} a devolver` : null,
+                ].filter(Boolean).join('  ·  ')}
+              </Typography>
+            </Box>
+            <IconButton size="small" aria-label="Fechar" onClick={() => setPendenciasAbertas(false)}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
+          <Box sx={{ flex: 1, overflow: 'auto', px: 2.5, py: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {aReceber.length > 0 ? (
+              <Paper variant="outlined" sx={{ borderRadius: '8px', overflow: 'hidden' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, minHeight: 32 }}>
+                  <Typography sx={{ fontSize: 11, fontWeight: 650, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#5C7052' }}>
+                    Para receber
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{aReceber.length}</Typography>
+                </Box>
+                {aReceber.map((emp) => (
+                  <LinhaEmprestimoPendente
+                    key={emp.id_break}
+                    emp={emp}
+                    modo="receber"
+                    busy={confirmandoId === emp.id_break}
+                    onConfirm={() => void confirmarRecebimento(emp.id_break)}
+                  />
+                ))}
+              </Paper>
+            ) : null}
+            {aDevolver.length > 0 ? (
+              <Paper variant="outlined" sx={{ borderRadius: '8px', overflow: 'hidden' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, minHeight: 32 }}>
+                  <Typography sx={{ fontSize: 11, fontWeight: 650, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#C47A2A' }}>
+                    Para devolver
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{aDevolver.length}</Typography>
+                </Box>
+                {aDevolver.map((emp) => (
+                  <LinhaEmprestimoPendente
+                    key={emp.id_break}
+                    emp={emp}
+                    modo="devolver"
+                    busy={confirmandoId === emp.id_break}
+                    onConfirm={() => void confirmarDevolucao(emp.id_break)}
+                  />
+                ))}
+              </Paper>
+            ) : null}
+          </Box>
+        </Box>
+      </Drawer>
 
       <Drawer
         anchor="right"
@@ -5303,7 +5326,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1, px: 2.5, pt: 2.25, pb: 2, borderBottom: `1px solid ${colors.border}` }}>
               <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontSize: '1.15rem', fontWeight: 700, letterSpacing: '-0.02em', color: colors.textPrimary, lineHeight: 1.25 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em', color: 'var(--ga-text-primary)', lineHeight: 1.25 }}>
                   {aberto.colaborador_nome?.trim() || nomeLinhaBreak(aberto)}
                 </Typography>
                 <Typography sx={{ fontSize: '0.8125rem', color: colors.textSecondary, mt: 0.5 }}>
@@ -5374,17 +5397,24 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
         ) : null}
       </Drawer>
 
-      <Dialog
+      <Drawer
+        anchor="right"
         open={open}
         onClose={() => setOpen(false)}
-        fullWidth
-        maxWidth="xs"
-        slotProps={{ paper: { sx: { maxWidth: 440 } } }}
+        disableScrollLock
+        disableAutoFocus
+        disableRestoreFocus
+        ModalProps={drawerSemTranco}
+        slotProps={{ paper: { sx: papelDrawerSx } }}
       >
-        <DialogTitleWithIcon plainIcon divider icon={<FreeBreakfastOutlinedIcon />}>
-          {labelTipoBreak(kind)}
-        </DialogTitleWithIcon>
-        <DialogContent sx={dialogContentSx}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <CabecalhoDrawer
+            titulo={labelTipoBreak(kind)}
+            icone={<FreeBreakfastOutlinedIcon sx={{ fontSize: 22 }} />}
+            onClose={() => setOpen(false)}
+          />
+          <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1.4fr 0.9fr', gap: 1.5 }}>
           <TextField
             {...dialogFieldProps}
             size="small"
@@ -5404,6 +5434,20 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             <MenuItem value="desperdicio_incompleto">Desperdício incompleto</MenuItem>
             <MenuItem value="emprestimo">Empréstimo</MenuItem>
           </TextField>
+          <TextField
+            {...dialogFieldProps}
+            size="small"
+            type="date"
+            label="Data"
+            value={dataBreak}
+            onChange={(e) => setDataBreak(e.target.value.slice(0, 10))}
+            sx={campoBreakFieldSx}
+            slotProps={{
+              ...dialogFieldProps.slotProps,
+              htmlInput: { max: hojeISO() },
+            }}
+          />
+          </Box>
           {kind === 'emprestimo' && (
             <TextField
               {...dialogFieldProps}
@@ -5429,31 +5473,6 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                 ))}
             </TextField>
           )}
-          <Box sx={campoBreakDataSx}>
-            <CampoDataFrota
-              label="Data"
-              value={dataBreak}
-              onChange={setDataBreak}
-              sx={{
-                mb: 0,
-                width: '100%',
-                '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
-                  borderRadius: 1,
-                  minHeight: 40,
-                  height: 40,
-                  alignItems: 'center',
-                },
-                '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': {
-                  borderRadius: 1,
-                },
-                '& .MuiOutlinedInput-input, & .MuiPickersInputBase-input': {
-                  py: '8.5px',
-                  boxSizing: 'border-box',
-                  fontSize: '0.875rem',
-                },
-              }}
-            />
-          </Box>
           {exigeTurno && (
             <TextField
               {...dialogFieldProps}
@@ -5591,54 +5610,62 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               />
             </Box>
           ) : (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <IconButton
-              size="small"
-              aria-label="Diminuir quantidade"
-              disabled={salvando || Number(String(qtde).replace(',', '.')) <= 0}
-              onClick={() => ajustarQtde(-1)}
-            >
-              <RemoveIcon fontSize="small" />
-            </IconButton>
-            <TextField
-              {...dialogFieldProps}
-              size="small"
-              label="Quantidade"
-              value={qtde}
-              onChange={(e) => setQtde(sanitizarEntradaFracionada(e.target.value, qtdInteira))}
-              sx={{
-                ...campoBreakFieldSx,
-                flex: 1,
-                '& .MuiOutlinedInput-input': { textAlign: 'center' },
-              }}
-              slotProps={{
-                ...dialogFieldProps.slotProps,
-                htmlInput: { style: { textAlign: 'center' }, inputMode: qtdInteira ? 'numeric' : 'decimal' },
-                input: {
-                  endAdornment: usaInsumo ? (
-                    <InputAdornment position="end">{unidadeFisica}</InputAdornment>
-                  ) : undefined,
-                },
-              }}
-            />
-            <IconButton
-              size="small"
-              aria-label="Aumentar quantidade"
-              disabled={salvando}
-              onClick={() => ajustarQtde(1)}
-            >
-              <AddIcon fontSize="small" />
-            </IconButton>
-          </Box>
+          <TextField
+            {...dialogFieldProps}
+            size="small"
+            label="Quantidade"
+            value={qtde}
+            onChange={(e) => setQtde(sanitizarEntradaFracionada(e.target.value, qtdInteira))}
+            sx={{
+              ...campoBreakFieldSx,
+              '& .MuiOutlinedInput-input': { textAlign: 'center' },
+            }}
+            slotProps={{
+              ...dialogFieldProps.slotProps,
+              htmlInput: { style: { textAlign: 'center' }, inputMode: qtdInteira ? 'numeric' : 'decimal' },
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <IconButton
+                      size="small"
+                      aria-label="Diminuir quantidade"
+                      disabled={salvando || Number(String(qtde).replace(',', '.')) <= 0}
+                      onClick={() => ajustarQtde(-1)}
+                      sx={{ p: 0.25 }}
+                    >
+                      <RemoveIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+                endAdornment: (
+                  <InputAdornment position="end">
+                    {usaInsumo ? (
+                      <Box component="span" sx={{ fontSize: 12, color: 'text.secondary', mr: 0.25 }}>{unidadeFisica}</Box>
+                    ) : null}
+                    <IconButton
+                      size="small"
+                      aria-label="Aumentar quantidade"
+                      disabled={salvando}
+                      onClick={() => ajustarQtde(1)}
+                      sx={{ p: 0.25 }}
+                    >
+                      <AddIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
           )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-          <Button onClick={() => setOpen(false)}>Cancelar</Button>
-          <Button variant="contained" disabled={salvando} onClick={() => void lancar()}>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'var(--ga-surface)' }}>
+          <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
+          <Button variant="contained" disableElevation disabled={salvando} onClick={() => void lancar()}>
             {kind === 'emprestimo' ? 'Enviar empréstimo' : 'Confirmar baixa'}
           </Button>
-        </DialogActions>
-      </Dialog>
+          </Box>
+        </Box>
+      </Drawer>
     </Box>
   );
 }

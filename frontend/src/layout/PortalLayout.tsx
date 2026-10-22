@@ -126,6 +126,9 @@ function PortalLayoutInner() {
   const isChamadoNovo = path === '/chamados/novo';
   const emAprovacoes = path.startsWith('/chamados/aprovacoes');
   const isDashboard = path === '/dashboard';
+  const isEstoque = path.startsWith('/estoque');
+  /** Mesmo canvas e densidade do Command Center. */
+  const visualCc = isDashboard || isEstoque;
   /** Agenda + Inbox + Caixa: PT/EN no header. */
   const isFinanceiroRota =
     path === '/financeiro' ||
@@ -479,8 +482,8 @@ function PortalLayoutInner() {
       )}
 
       <Box
-        className={`flex-1 flex flex-col min-w-0 min-h-0${isDashboard ? ' cc-page' : ''}`}
-        sx={{ bgcolor: isDashboard ? CC_BG : colors.canvas }}
+        className={`flex-1 flex flex-col min-w-0 min-h-0${visualCc ? ' cc-page' : ''}`}
+        sx={{ bgcolor: visualCc ? CC_BG : colors.canvas }}
       >
         {/* Topbar desktop — some em Configuração (já tem trilho próprio). */}
         {!hideSidebar && !emConfiguracoes && (
@@ -493,9 +496,9 @@ function PortalLayoutInner() {
               px: 2.5,
               height: 44,
               flexShrink: 0,
-              borderBottom: isDashboard ? 'none' : '1px solid',
+              borderBottom: visualCc ? 'none' : '1px solid',
               borderColor: colors.border,
-              bgcolor: isDashboard ? CC_BG : colors.canvas,
+              bgcolor: visualCc ? CC_BG : colors.canvas,
               overflow: 'visible',
               position: 'relative',
               zIndex: isDashboard ? 10000 : 1,
@@ -587,7 +590,7 @@ function PortalLayoutInner() {
 
         <Box
           component="main"
-          className={`flex-1 min-h-0 flex flex-col ${isDashboard ? 'overflow-y-auto md:overflow-hidden' : scrollInterno || emConfiguracoes ? 'overflow-hidden' : 'overflow-y-auto'}`}
+          className={`flex-1 min-h-0 flex flex-col ${visualCc ? 'overflow-y-auto md:overflow-hidden' : scrollInterno || emConfiguracoes ? 'overflow-hidden' : 'overflow-y-auto'}`}
           sx={emConfiguracoes ? {
             p: 0,
             pb: mobileTabsRodape.length > 0 ? { xs: safeAreaBottomCalc(64), md: 0 } : 0,
@@ -600,7 +603,7 @@ function PortalLayoutInner() {
               ? { xs: 1, md: 1 }
               : scrollInterno
                 ? { xs: 1.25, md: 1.5 }
-                : isDashboard
+                : visualCc
                   ? { xs: 1.25, md: 1.5 }
                   : emConfiguracoes || emFrota
                     ? { xs: 1.5, md: 1.75 }
@@ -609,14 +612,14 @@ function PortalLayoutInner() {
               ? 0
               : mobileTabsRodape.length > 0 && !isChamadoNovo
                 ? { xs: safeAreaBottomCalc(80), md: 2 }
-                : isDashboard
+                : visualCc
                   ? { xs: 1.25, md: 1.5 }
                   : 2,
             maxWidth: colunaEstreita ? { xs: 640, md: 'none' } : 'none',
             mx: colunaEstreita ? { xs: 'auto', md: 0 } : 0,
             width: '100%',
-            bgcolor: isDashboard ? CC_BG : colors.canvas,
-            ...(isDashboard
+            bgcolor: visualCc ? CC_BG : colors.canvas,
+            ...(visualCc
               ? {
                   flex: 1,
                   minHeight: 0,

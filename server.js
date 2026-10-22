@@ -123,11 +123,26 @@ const PORT = isProd ? Number(process.env.PORT) || PROD_PORT : DEV_PORT;
 const API_PREFIX = `${APP_BASE_PATH}/api`;
 const STATIC_BASE = `${APP_BASE_PATH}/`;
 
-// Local → vision_check_dev. Produção: --production, --db-prod ou DB_USE_PROD=1.
-const useProdDb = isProd || process.argv.includes('--db-prod') || process.env.DB_USE_PROD === '1';
-process.env.DB_NAME = useProdDb
-  ? String(process.env.DB_NAME || '').trim() || 'vision_check'
-  : 'vision_check_dev';
+// npm run dev → vision_check_dev.
+// npm run pro pergunta 0 (vision_check) ou 1 (vision_check_dev). Enter = produção.
+// --db-prod força vision_check e ignora DB_NAME de teste no .env.
+const escolhaBanco = String(process.env.DB_PRO_ESCOLHA || '').trim();
+const dbAlvo =
+  escolhaBanco === '1' || escolhaBanco === 'teste' || escolhaBanco === 'vision_check_dev'
+    ? 'vision_check_dev'
+    : escolhaBanco === '0' ||
+        escolhaBanco === 'producao' ||
+        escolhaBanco === 'vision_check' ||
+        process.argv.includes('--db-prod')
+      ? 'vision_check'
+      : isProd || process.env.DB_USE_PROD === '1'
+        ? String(process.env.DB_NAME || '').trim() || 'vision_check'
+        : 'vision_check_dev';
+process.env.DB_NAME = dbAlvo;
+if (dbAlvo === 'vision_check') process.env.DB_USE_PROD = '1';
+else if (escolhaBanco === '1' || escolhaBanco === 'teste' || escolhaBanco === 'vision_check_dev') {
+  delete process.env.DB_USE_PROD;
+}
 
 for (const key of ['DB_HOST', 'DB_USER']) {
   if (!process.env[key]) {
@@ -589,7 +604,7 @@ ${line('Modo: ', String(modo))}
 ${line('Servidor: ', 'http://localhost:' + PORT)}
 ${line('API: ', String(API_PREFIX))}
 ${row()}
-${line('Banco: ', String(dbName))}
+${line('Banco: ', `${dbName}${dbName === 'vision_check' ? ' (produção)' : dbName === 'vision_check_dev' ? ' (teste)' : ''}`)}
 ${line('Status: ', dbStatus)}
 ${line('HR Payroll: ', hrDbStatus)}
 ${line('Frotas (API): ', frotasStatus)}

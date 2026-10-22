@@ -59,6 +59,20 @@ function runAdb(cwd, args) {
   return spawnSync(bin, args, { cwd, encoding: 'utf8', shell: false });
 }
 
+function esperar(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function celularesNoCabo(cwd) {
+  const out = runAdb(cwd, ['devices']);
+  return `${out.stdout || ''}`
+    .split(/\r?\n/)
+    .slice(1)
+    .map((linha) => linha.trim().split(/\s+/))
+    .filter((p) => p[0] && p[1] === 'device' && !p[0].includes(':'))
+    .map((p) => p[0]);
+}
+
 const exe = findScrcpy();
 if (!exe) {
   console.error('scrcpy não encontrado.');
@@ -97,17 +111,39 @@ if (wifiIdx >= 0) {
   }
 
   const host = ipArg.includes(':') ? ipArg : `${ipArg}:5555`;
+  runAdb(cwd, ['start-server']);
+  const noCabo = celularesNoCabo(cwd);
+  if (noCabo.length) {
+    console.log(`Cabo em ${noCabo[0]}. Abrindo a porta 5555…`);
+    const tcp = runAdb(cwd, ['-s', noCabo[0], 'tcpip', '5555']);
+    process.stdout.write(tcp.stdout || '');
+    process.stderr.write(tcp.stderr || '');
+    if (tcp.status !== 0) {
+      console.error('O cabo está aí, mas o celular não liberou o Wi-Fi. Confirme a depuração USB na tela.');
+      process.exit(tcp.status || 1);
+    }
+    esperar(1500);
+  }
   console.log(`Conectando em ${host}…`);
-  const conn = runAdb(cwd, ['connect', host]);
+  let conn = runAdb(cwd, ['connect', host]);
+  const textoConn = () => `${conn.stdout || ''}\n${conn.stderr || ''}`;
+  if (/daemon not running/i.test(textoConn())) {
+    conn = runAdb(cwd, ['connect', host]);
+  }
   process.stdout.write(conn.stdout || '');
   process.stderr.write(conn.stderr || '');
-  if (conn.status !== 0) {
-    console.error('Não conectou. Celular e PC na mesma Wi‑Fi? Já rodou npm run mobile -- wifi com o cabo?');
+  const texto = textoConn();
+  const conectou = conn.status === 0 && /connected to /i.test(texto);
+  if (!conectou) {
+    console.error('Não conectou. A porta 5555 do celular está fechada.');
+    console.error('Deixa o cabo, confirma a depuração USB e roda de novo:');
+    console.error(`  npm run mobile -- wifi ${ipArg}`);
+    console.error('Quando a imagem aparecer, tira o cabo.');
     process.exit(conn.status || 1);
   }
 
   console.log('Espelhando via Wi‑Fi…');
-  const child = spawn(exe, scrcpyArgs, { cwd, stdio: 'inherit', shell: false });
+  const child = spawn(exe, ['-s', host, ...scrcpyArgs], { cwd, stdio: 'inherit', shell: false });
   child.on('exit', (code) => process.exit(code ?? 0));
 } else {
   console.log('Espelhando celular (USB)…');

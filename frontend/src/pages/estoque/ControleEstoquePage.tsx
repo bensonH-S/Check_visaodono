@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import Popover from '@mui/material/Popover';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
@@ -8,13 +9,12 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
+import Drawer from '@mui/material/Drawer';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import MenuItem from '@mui/material/MenuItem';
-import MenuList from '@mui/material/MenuList';
 import Paper from '@mui/material/Paper';
-import ClickAwayListener from '@mui/material/ClickAwayListener';
 import Tab from '@mui/material/Tab';
 import Tabs from '@mui/material/Tabs';
 import Table from '@mui/material/Table';
@@ -26,14 +26,14 @@ import TableRow from '@mui/material/TableRow';
 import ToggleButton from '@mui/material/ToggleButton';
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
 import TextField from '@mui/material/TextField';
+import InputAdornment from '@mui/material/InputAdornment';
 import Typography from '@mui/material/Typography';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
-import EditIcon from '@mui/icons-material/Edit';
-import Inventory2Icon from '@mui/icons-material/Inventory2';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import AddIcon from '@mui/icons-material/Add';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import SearchIcon from '@mui/icons-material/Search';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
@@ -58,11 +58,13 @@ import {
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { compararOrdemPlanilha } from '../../components/estoque/estoqueOrdemPlanilha';
+import { assetUrl } from '../../config/paths';
+import { ehLojaPopeyes } from '../../components/escalas/escalaVisitasUtils';
 import { colors } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import PageLoading from '../../components/PageLoading';
-import EstoqueOperacionalPanels, { type AbaOp } from './EstoqueOperacionalPanels';
+import EstoqueOperacionalPanels, { BarraSegmento, CabecalhoDrawer, papelDrawerSx, type AbaOp } from './EstoqueOperacionalPanels';
 import EstoqueConferenciaDetalhe from './EstoqueConferenciaDetalhe';
 import {
   CONTAGEM_SEMANAL_ATIVA,
@@ -112,37 +114,41 @@ function abaInicialPermitida(): AbaEstoque {
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
 const chipAbertaSx = {
-  bgcolor: '#FEF08A',
-  color: '#854D0E',
-  fontWeight: 700,
-  border: '1px solid #FACC15',
+  height: 22,
+  bgcolor: 'rgba(196, 122, 42, 0.14)',
+  color: '#C47A2A',
+  fontWeight: 650,
+  fontSize: 11,
+  border: '1px solid rgba(196, 122, 42, 0.35)',
 } as const;
 
 const chipFinalizadaSx = {
-  bgcolor: '#BBF7D0',
-  color: '#166534',
-  fontWeight: 700,
-  border: '1px solid #86EFAC',
+  height: 22,
+  bgcolor: 'rgba(125, 146, 112, 0.16)',
+  color: '#5C7052',
+  fontWeight: 650,
+  fontSize: 11,
+  border: '1px solid rgba(125, 146, 112, 0.4)',
 } as const;
 
 const toggleRelatorioSx = {
-  bgcolor: colors.canvasAlt,
-  borderRadius: 2,
+  bgcolor: 'var(--ga-canvas-alt)',
+  borderRadius: '8px',
   p: 0.35,
   '& .MuiToggleButtonGroup-grouped': {
     border: 0,
-    borderRadius: '8px !important',
+    borderRadius: '6px !important',
     px: 1.25,
-    py: 0.7,
+    py: 0.45,
     textTransform: 'none',
-    fontWeight: 700,
-    fontSize: '0.95rem',
-    color: colors.textSecondary,
+    fontWeight: 600,
+    fontSize: 13,
+    color: 'var(--ga-text-secondary)',
     '&.Mui-selected': {
-      bgcolor: colors.surface,
-      color: (theme: any) => (theme.palette.mode === 'dark' ? colors.orange : colors.navy),
-      boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
-      '&:hover': { bgcolor: colors.surface },
+      bgcolor: 'var(--ga-surface)',
+      color: 'var(--ga-text-primary)',
+      boxShadow: 'none',
+      '&:hover': { bgcolor: 'var(--ga-surface)' },
     },
   },
 } as const;
@@ -150,23 +156,27 @@ const toggleRelatorioSx = {
 /** Fundo opaco no sticky — adapta ao tema escuro e claro */
 const thCenter = {
   textAlign: 'center',
-  fontWeight: 700,
-  bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? '#1e293b !important' : '#FFFFFF !important'),
-  color: (theme: any) => (theme.palette.mode === 'dark' ? '#94A3B8' : colors.textSecondary),
+  fontWeight: 650,
+  fontSize: 11,
+  letterSpacing: '0.02em',
+  bgcolor: 'var(--ga-surface) !important',
+  color: 'var(--ga-text-secondary)',
   backgroundImage: 'none !important',
   backgroundClip: 'padding-box',
   zIndex: 4,
-  boxShadow: (theme: any) => `inset 0 -1px 0 ${theme.palette.mode === 'dark' ? '#334155' : colors.border}`,
+  boxShadow: 'inset 0 -1px 0 var(--ga-border)',
 } as const;
 
 const thLeft = {
-  fontWeight: 700,
-  bgcolor: (theme: any) => (theme.palette.mode === 'dark' ? '#1e293b !important' : '#FFFFFF !important'),
-  color: (theme: any) => (theme.palette.mode === 'dark' ? '#94A3B8' : colors.textSecondary),
+  fontWeight: 650,
+  fontSize: 11,
+  letterSpacing: '0.02em',
+  bgcolor: 'var(--ga-surface) !important',
+  color: 'var(--ga-text-secondary)',
   backgroundImage: 'none !important',
   backgroundClip: 'padding-box',
   zIndex: 4,
-  boxShadow: (theme: any) => `inset 0 -1px 0 ${theme.palette.mode === 'dark' ? '#334155' : colors.border}`,
+  boxShadow: 'inset 0 -1px 0 var(--ga-border)',
 } as const;
 
 function fmtBrl(v: number | null | undefined) {
@@ -206,6 +216,18 @@ function tituloLoja(l: Loja) {
 function subtituloLoja(l: Loja) {
   const cidadeNoNome = l.city && l.name.toUpperCase().includes(l.city.toUpperCase());
   return [l.bk_number, cidadeNoNome ? null : l.city].filter(Boolean).join(' · ');
+}
+
+function MarcaLoja({ nome, size = 28 }: { nome?: string | null; size?: number }) {
+  const icone = ehLojaPopeyes(nome) ? 'Popeyes.png' : 'BK_logo.png';
+  return (
+    <Box
+      component="img"
+      src={assetUrl(icone)}
+      alt=""
+      sx={{ width: size, height: size, objectFit: 'contain', flexShrink: 0, borderRadius: '6px' }}
+    />
+  );
 }
 
 const ABAS_VENDAS = ['vendas', 'rede', 'piloto'] as const;
@@ -299,21 +321,22 @@ function AbasControleEstoque({
       variant="scrollable"
       scrollButtons="auto"
       sx={{
-        minHeight: 40,
+        minHeight: 36,
         minWidth: 0,
-        borderBottom: `1px solid ${colors.border}`,
-        '& .MuiTabs-indicator': { bgcolor: '#1B6EF3', height: 2 },
+        '& .MuiTabs-indicator': { display: 'none' },
         '& .MuiTab-root': {
-          minHeight: 40,
+          minHeight: 36,
           minWidth: 0,
           textTransform: 'none',
-          letterSpacing: 0,
+          letterSpacing: '-0.01em',
           fontWeight: 600,
-          fontSize: '0.8125rem',
-          color: colors.textMuted,
-          px: { xs: 1.25, md: 1.75 },
+          fontSize: 13,
+          color: 'var(--ga-text-muted)',
+          px: { xs: 1.1, md: 1.4 },
+          borderBottom: '2px solid transparent',
           '&.Mui-selected': {
-            color: `${colors.textPrimary} !important`,
+            color: 'var(--ga-text-primary) !important',
+            borderBottomColor: '#1B6EF3',
           },
         },
       }}
@@ -364,6 +387,8 @@ export default function ControleEstoquePage() {
       : abaRaw;
 
   const [headerActions, setHeaderActions] = useState<React.ReactNode>(null);
+  const [lojaAnchor, setLojaAnchor] = useState<HTMLElement | null>(null);
+  const [lojaBusca, setLojaBusca] = useState('');
 
   const irParaAba = useCallback(
     (proxima: AbaEstoque) => {
@@ -383,7 +408,6 @@ export default function ControleEstoquePage() {
     const saved = Number(localStorage.getItem(LOJA_STORAGE_KEY) || '');
     return Number.isFinite(saved) && saved > 0 ? saved : '';
   });
-  const [lojaMenuAberto, setLojaMenuAberto] = useState(false);
   const [loadingLojas, setLoadingLojas] = useState(true);
   const [loading, setLoading] = useState(false);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
@@ -413,6 +437,15 @@ export default function ControleEstoquePage() {
     () => lojas.find((l) => l.id_loja === idLoja) || null,
     [lojas, idLoja],
   );
+  const lojasFiltradas = useMemo(() => {
+    const q = lojaBusca.trim().toLowerCase();
+    if (!q) return lojas;
+    return lojas.filter((l) =>
+      [l.name, l.bk_number, l.city, tituloLoja(l), subtituloLoja(l)].some((v) =>
+        String(v || '').toLowerCase().includes(q),
+      ),
+    );
+  }, [lojas, lojaBusca]);
 
   useEffect(() => {
     let cancel = false;
@@ -887,7 +920,8 @@ export default function ControleEstoquePage() {
     aba === 'rede' ||
     aba === 'piloto' ||
     aba === 'pedido' ||
-    aba === 'break';
+    aba === 'break' ||
+    aba === 'fichas';
   const noGrupoVendas = moduloVendas || (ABAS_VENDAS as readonly string[]).includes(aba);
 
   if (loadingLojas) {
@@ -896,155 +930,170 @@ export default function ControleEstoquePage() {
 
   return (
     <Box
+      className="cc-page-main"
       sx={{
         display: 'flex',
         flexDirection: 'column',
-        gap: chromeCompacto ? 1.75 : 2.5,
+        gap: 1.25,
         height: '100%',
         minHeight: 0,
         overflow: chromeCompacto ? 'hidden' : 'auto',
+        '& .MuiButton-root': {
+          textTransform: 'none',
+          fontWeight: 600,
+          fontSize: 13,
+          borderRadius: '8px',
+          boxShadow: 'none',
+        },
+        '& .MuiButton-contained:hover': { boxShadow: 'none' },
+        '& .MuiChip-root': { borderRadius: '6px' },
       }}
     >
-      <Box sx={{ flexShrink: 0, position: 'relative', zIndex: lojaMenuAberto ? 10000 : 10, overflow: 'visible' }}>
+      <Box sx={{ flexShrink: 0 }}>
         <Box
           sx={{
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             justifyContent: 'space-between',
             gap: 2,
             flexWrap: 'wrap',
           }}
         >
-          <Box sx={{ minWidth: 0, flex: '1 1 240px' }}>
-            {bloqueiaOutrasAbas ? (
-              <Typography
-                sx={{
-                  fontWeight: 600,
-                  fontSize: { xs: '1.4rem', md: chromeCompacto ? '1.65rem' : '1.85rem' },
-                  letterSpacing: '-0.03em',
-                  lineHeight: 1.15,
-                  color: colors.textPrimary,
-                }}
-              >
-                {lojaAtual ? tituloLoja(lojaAtual) : '—'}
-              </Typography>
-            ) : (
-              <ClickAwayListener onClickAway={() => setLojaMenuAberto(false)}>
-                <Box sx={{ position: 'relative', maxWidth: '100%', zIndex: lojaMenuAberto ? 10000 : 'auto' }}>
-                  <Box
-                    role="button"
-                    tabIndex={0}
-                    aria-haspopup="listbox"
-                    aria-expanded={lojaMenuAberto}
-                    onClick={() => lojas.length > 1 && setLojaMenuAberto((v) => !v)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        if (lojas.length > 1) setLojaMenuAberto((v) => !v);
-                      }
-                    }}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 0.75,
-                      maxWidth: '100%',
-                      cursor: lojas.length > 1 ? 'pointer' : 'default',
-                      userSelect: 'none',
-                    }}
-                  >
-                    <Typography
+          <Box sx={{ flex: '0 1 auto' }}>
+            <Box
+              component={lojas.length > 1 && !bloqueiaOutrasAbas ? 'button' : 'div'}
+              type={lojas.length > 1 && !bloqueiaOutrasAbas ? 'button' : undefined}
+              onClick={(e) => {
+                if (bloqueiaOutrasAbas || lojas.length <= 1) return;
+                setLojaBusca('');
+                setLojaAnchor(e.currentTarget);
+              }}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 0.75,
+                border: 0,
+                p: 0,
+                bgcolor: 'transparent',
+                color: 'inherit',
+                font: 'inherit',
+                cursor: !bloqueiaOutrasAbas && lojas.length > 1 ? 'pointer' : 'default',
+                textAlign: 'left',
+              }}
+            >
+              <MarcaLoja nome={lojaAtual?.name} size={18} />
+              <Box>
+                <Typography sx={{ fontSize: 15, fontWeight: 650, letterSpacing: '-0.02em', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                  {lojaAtual ? tituloLoja(lojaAtual) : 'Selecione a loja'}
+                </Typography>
+                {lojaAtual ? (
+                  <Typography sx={{ fontSize: 11, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                    {subtituloLoja(lojaAtual)}
+                  </Typography>
+                ) : null}
+              </Box>
+              {!bloqueiaOutrasAbas && lojas.length > 1 ? (
+                <KeyboardArrowDownIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+              ) : null}
+            </Box>
+            <Popover
+              open={Boolean(lojaAnchor)}
+              anchorEl={lojaAnchor}
+              onClose={() => setLojaAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+              disableScrollLock
+              slotProps={{
+                paper: {
+                  sx: {
+                    mt: 0.75,
+                    width: 360,
+                    maxWidth: 'calc(100vw - 24px)',
+                    borderRadius: '8px',
+                    border: '1px solid var(--ga-border)',
+                    bgcolor: 'var(--ga-surface)',
+                    backgroundImage: 'none',
+                    boxShadow: '0 12px 32px rgba(15, 23, 42, 0.12)',
+                    overflow: 'hidden',
+                  },
+                },
+              }}
+            >
+              <Box sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <TextField
+                  autoFocus
+                  size="small"
+                  fullWidth
+                  placeholder="Buscar loja…"
+                  value={lojaBusca}
+                  onChange={(e) => setLojaBusca(e.target.value)}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                        </InputAdornment>
+                      ),
+                    },
+                  }}
+                  sx={{ '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
+                />
+              </Box>
+              <Box sx={{ maxHeight: 320, overflow: 'auto', py: 0.5 }}>
+                {lojasFiltradas.map((l) => {
+                  const ativa = l.id_loja === idLoja;
+                  return (
+                    <Box
+                      key={l.id_loja}
+                      component="button"
+                      type="button"
+                      onClick={() => {
+                        selecionarLoja(l.id_loja);
+                        setLojaAnchor(null);
+                      }}
                       sx={{
-                        fontWeight: 600,
-                        fontSize: { xs: '1.4rem', md: chromeCompacto ? '1.65rem' : '1.85rem' },
-                        letterSpacing: '-0.03em',
-                        lineHeight: 1.15,
-                        color: colors.textPrimary,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        minWidth: 0,
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        px: 1.25,
+                        py: 0.75,
+                        border: 0,
+                        bgcolor: ativa ? 'var(--ga-canvas-alt)' : 'transparent',
+                        color: 'inherit',
+                        font: 'inherit',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        '&:hover': { bgcolor: 'var(--ga-canvas-alt)' },
                       }}
                     >
-                      {lojaAtual ? tituloLoja(lojaAtual) : 'Selecione a loja'}
-                    </Typography>
-                    {lojas.length > 1 ? (
-                      <KeyboardArrowDownIcon
-                        sx={{
-                          fontSize: 22,
-                          color: colors.textMuted,
-                          flexShrink: 0,
-                          transform: lojaMenuAberto ? 'rotate(180deg)' : 'none',
-                          transition: 'transform 0.15s',
-                        }}
-                      />
-                    ) : null}
-                  </Box>
-                  {lojaMenuAberto && lojas.length > 1 ? (
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
-                        mt: 0.5,
-                        zIndex: 10000,
-                        width: 'max-content',
-                        minWidth: 280,
-                        maxWidth: 'min(520px, 92vw)',
-                        maxHeight: 360,
-                        overflowY: 'auto',
-                        borderRadius: '12px',
-                        border: `1px solid ${colors.border}`,
-                        bgcolor: colors.surface,
-                        backgroundImage: 'none',
-                        boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
-                      }}
-                    >
-                      <MenuList dense disablePadding>
-                        {lojas.map((l) => (
-                          <MenuItem
-                            key={l.id_loja}
-                            selected={l.id_loja === idLoja}
-                            onClick={() => {
-                              selecionarLoja(l.id_loja);
-                              setLojaMenuAberto(false);
-                            }}
-                            sx={{
-                              color: colors.textPrimary,
-                              fontSize: '0.8125rem',
-                              gap: 1,
-                              py: 1,
-                              whiteSpace: 'normal',
-                              alignItems: 'flex-start',
-                            }}
-                          >
-                            <StorefrontOutlinedIcon
-                              sx={{ fontSize: 18, color: '#0548d1', mt: '1px', flexShrink: 0 }}
-                            />
-                            <Box component="span" sx={{ lineHeight: 1.35 }}>
-                              {rotuloLoja(l)}
-                            </Box>
-                          </MenuItem>
-                        ))}
-                      </MenuList>
-                    </Paper>
-                  ) : null}
-                </Box>
-              </ClickAwayListener>
-            )}
-            {lojaAtual ? (
-              <Typography sx={{ mt: chromeCompacto ? 0.3 : 0.45, fontSize: '0.8rem', color: colors.textMuted }}>
-                {subtituloLoja(lojaAtual) || '—'}
-              </Typography>
-            ) : null}
+                      <MarcaLoja nome={l.name} size={22} />
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography noWrap sx={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>
+                          {tituloLoja(l)}
+                        </Typography>
+                        <Typography noWrap sx={{ fontSize: 11, color: 'text.secondary', lineHeight: 1.2 }}>
+                          {subtituloLoja(l) || '—'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                })}
+                {!lojasFiltradas.length ? (
+                  <Typography sx={{ px: 1.5, py: 1.5, fontSize: 13, color: 'text.secondary' }}>
+                    Nenhuma loja
+                  </Typography>
+                ) : null}
+              </Box>
+            </Popover>
           </Box>
           {headerActions ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', pt: 0.15, ml: { md: 'auto' } }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', ml: { md: 'auto' } }}>
               {headerActions}
             </Box>
           ) : null}
         </Box>
-        <Box sx={{ mt: chromeCompacto ? 1.15 : 1.75 }}>
+        <Box sx={{ mt: 1, borderBottom: '1px solid var(--ga-border)' }}>
           <AbasControleEstoque
             value={idLoja ? abaDaBarra(aba) : false}
             onChange={(proxima) => {
@@ -1077,7 +1126,7 @@ export default function ControleEstoquePage() {
       </Box>
 
       {!idLoja ? (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
+        <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: '8px' }}>
           <Typography color="text.secondary">Selecione a loja para começar</Typography>
         </Paper>
       ) : loading ? (
@@ -1096,27 +1145,19 @@ export default function ControleEstoquePage() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: verDetalhe ? 1 : 1.5, flex: 1, minHeight: 0, overflow: 'hidden' }}>
               {!verDetalhe ? (
                 <>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      gap: 1.5,
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <Box>
-                      <Typography
-                        variant="subtitle1"
-                        sx={{
-                          fontWeight: 700,
-                          color: (theme: any) => (theme.palette.mode === 'dark' ? '#F8FAFC' : colors.navy),
-                        }}
-                      >
-                        Contagens
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <BarraSegmento
+                    itens={[
+                      { id: 'todas', label: 'Todas', qtd: listaContagens.length, ativo: filtroStatus === 'todas', onClick: () => setFiltroStatus('todas') },
+                      { id: 'aberta', label: 'Abertas', qtd: abertasCount, ativo: filtroStatus === 'aberta', cor: '#C47A2A', onClick: () => setFiltroStatus('aberta') },
+                      { id: 'finalizada', label: 'Finalizadas', qtd: fechadasCount, ativo: filtroStatus === 'finalizada', cor: '#5C7052', onClick: () => setFiltroStatus('finalizada') },
+                    ]}
+                  />
+
+                  <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap' }}>
+                      <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Contagens</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{listaFiltrada.length}</Typography>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', ml: 'auto' }}>
                       {podeEditarConferencia && (
                         <>
                           {!ehDiaContagemCompletaObrigatoria() && (
@@ -1171,54 +1212,6 @@ export default function ControleEstoquePage() {
                       </IconButton>
                     </Box>
                   </Box>
-
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {(
-                      [
-                        ['todas', `Todas (${listaContagens.length})`],
-                        ['aberta', `Abertas (${abertasCount})`],
-                        ['finalizada', `Finalizadas (${fechadasCount})`],
-                      ] as const
-                    ).map(([value, label]) => {
-                      const ativo = filtroStatus === value;
-                      const sxFiltro =
-                        value === 'aberta'
-                          ? {
-                              ...chipAbertaSx,
-                              bgcolor: ativo ? '#FEF08A' : '#FEF9C3',
-                              opacity: ativo ? 1 : 0.92,
-                            }
-                          : value === 'finalizada'
-                            ? {
-                                ...chipFinalizadaSx,
-                                bgcolor: ativo ? '#86EFAC' : '#DCFCE7',
-                                opacity: ativo ? 1 : 0.92,
-                              }
-                            : ativo
-                              ? {
-                                  bgcolor: (theme: any) =>
-                                    theme.palette.mode === 'dark' ? 'rgba(5, 72, 209, 0.15)' : colors.navyMuted,
-                                  color: (theme: any) =>
-                                    theme.palette.mode === 'dark' ? colors.orange : colors.navy,
-                                  fontWeight: 700,
-                                  border: (theme: any) =>
-                                    `1px solid ${theme.palette.mode === 'dark' ? colors.orange : colors.navyBorder}`,
-                                }
-                              : undefined;
-                          return (
-                            <Chip
-                              key={value}
-                              label={label}
-                              clickable
-                              onClick={() => setFiltroStatus(value)}
-                              variant="outlined"
-                              sx={sxFiltro}
-                            />
-                          );
-                        })}
-                      </Box>
-
-                      <Paper sx={tablePaperSx}>
                         <TableContainer sx={tableContainerSx}>
                           <Table stickyHeader size="small" sx={tableSx}>
                             <TableHead>
@@ -1412,57 +1405,56 @@ export default function ControleEstoquePage() {
             </Box>
           )}
 
-      <Dialog
+      <Drawer
+        anchor="right"
         open={dlgProduto}
         onClose={() => {
           setDlgProduto(false);
           setEditando(null);
         }}
-        fullWidth
-        maxWidth="sm"
+        disableScrollLock
+        disableAutoFocus
+        disableRestoreFocus
+        ModalProps={{ disableScrollLock: true, disableAutoFocus: true, disableRestoreFocus: true }}
+        slotProps={{
+          paper: { sx: papelDrawerSx },
+        }}
       >
-        <DialogTitleWithIcon
-          plainIcon
-          divider
-          icon={editando ? <EditIcon /> : <Inventory2Icon />}
-        >
-          {editando ? 'Editar insumo' : 'Cadastrar insumo'}
-        </DialogTitleWithIcon>
-        <DialogContent sx={{ ...dialogContentSx, gap: 2.5 }}>
-          <Typography variant="body2" color="text.secondary">
-            Loja: {lojaAtual ? rotuloLoja(lojaAtual) : '—'}
-          </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <CabecalhoDrawer
+            titulo={editando ? 'Editar insumo' : 'Novo insumo'}
+            icone={<AddIcon sx={{ fontSize: 22 }} />}
+            onClose={() => {
+              setDlgProduto(false);
+              setEditando(null);
+            }}
+          />
+          <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
           <TextField
+            {...dialogFieldProps}
+            size="small"
             label="Código"
             required
-            {...dialogFieldProps}
             value={formProduto.codigo}
             onChange={(e) => setFormProduto((f) => ({ ...f, codigo: e.target.value.toUpperCase() }))}
           />
           <TextField
-            label="Descrição insumo"
-            required
             {...dialogFieldProps}
+            size="small"
+            label="Descrição"
+            required
             value={formProduto.descricao}
             onChange={(e) => setFormProduto((f) => ({ ...f, descricao: e.target.value }))}
+            placeholder="Nome como aparece na contagem"
             multiline
             minRows={2}
           />
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-              gap: 2,
-              alignItems: 'stretch',
-              '& .MuiFormControl-root': { height: '100%' },
-              '& .MuiOutlinedInput-root': { minHeight: 56 },
-            }}
-          >
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
             <TextField
+              {...dialogFieldProps}
+              size="small"
               select
               label="Unidade do saldo"
-              helperText="Canônica — o estoque fica nesta unidade"
-              {...dialogFieldProps}
               value={formProduto.unidade_contagem}
               onChange={(e) => {
                 const next = String(e.target.value).toUpperCase();
@@ -1479,10 +1471,10 @@ export default function ControleEstoquePage() {
               <MenuItem value="CX">CX</MenuItem>
             </TextField>
             <TextField
-              select
-              label="Unidade da contagem fracionada"
-              helperText="Sobra/avulso que o gestor informa (campo KG/UND)"
               {...dialogFieldProps}
+              size="small"
+              select
+              label="Unidade avulsa"
               value={formProduto.unidade_fracionada}
               onChange={(e) =>
                 setFormProduto((f) => ({
@@ -1504,19 +1496,14 @@ export default function ControleEstoquePage() {
                 )}
             </TextField>
           </Box>
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-              gap: 2,
-              alignItems: 'stretch',
-              '& .MuiFormControl-root': { height: '100%' },
-              '& .MuiOutlinedInput-root': { minHeight: 56 },
-            }}
-          >
+          <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: 'text.secondary', mt: -0.5 }}>
+            O saldo fica na unidade da esquerda. A da direita é a sobra que o gestor conta.
+          </Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
             <TextField
-              label="Preço da caixa"
               {...dialogFieldProps}
+              size="small"
+              label="Preço da caixa"
               value={formProduto.preco_caixa}
               onChange={(e) => setFormProduto((f) => ({ ...f, preco_caixa: e.target.value }))}
               slotProps={{
@@ -1525,8 +1512,9 @@ export default function ControleEstoquePage() {
               }}
             />
             <TextField
-              label="UND convertida"
               {...dialogFieldProps}
+              size="small"
+              label="Unid. na caixa"
               value={formProduto.und_convertida}
               onChange={(e) => setFormProduto((f) => ({ ...f, und_convertida: e.target.value }))}
               slotProps={{
@@ -1535,51 +1523,56 @@ export default function ControleEstoquePage() {
               }}
             />
           </Box>
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Campos de contagem liberados na conferência:
+          <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: 'text.secondary', mt: -0.5 }}>
+            Custo de uma unidade = preço da caixa dividido pelas unidades que vêm nela.
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, border: '1px solid', borderColor: 'divider', borderRadius: 1, px: 1.5, py: 1 }}>
+            <Typography sx={{ fontSize: 12, fontWeight: 650, color: 'text.secondary', mb: 0.25 }}>
+              O gestor pode contar em
             </Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formProduto.permite_contagem_caixa}
-                    onChange={(e) => setCampoContagemForm('permite_contagem_caixa', e.target.checked)}
-                    size="small"
-                  />
-                }
-                label="Caixa (CX)"
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formProduto.permite_contagem_pc_fd}
-                    onChange={(e) => setCampoContagemForm('permite_contagem_pc_fd', e.target.checked)}
-                    size="small"
-                  />
-                }
-                label="Pacote / Fardo (PC/FD)"
-              />
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={formProduto.permite_contagem_kg_und}
-                    onChange={(e) => setCampoContagemForm('permite_contagem_kg_und', e.target.checked)}
-                    size="small"
-                  />
-                }
-                label="Kg / Unidade avulsa (KG/UND)"
-              />
-            </Box>
+            <FormControlLabel
+              sx={{ m: 0 }}
+              control={
+                <Checkbox
+                  checked={formProduto.permite_contagem_caixa}
+                  onChange={(e) => setCampoContagemForm('permite_contagem_caixa', e.target.checked)}
+                  size="small"
+                />
+              }
+              label="Caixa"
+            />
+            <FormControlLabel
+              sx={{ m: 0 }}
+              control={
+                <Checkbox
+                  checked={formProduto.permite_contagem_pc_fd}
+                  onChange={(e) => setCampoContagemForm('permite_contagem_pc_fd', e.target.checked)}
+                  size="small"
+                />
+              }
+              label="Pacote ou fardo"
+            />
+            <FormControlLabel
+              sx={{ m: 0 }}
+              control={
+                <Checkbox
+                  checked={formProduto.permite_contagem_kg_und}
+                  onChange={(e) => setCampoContagemForm('permite_contagem_kg_und', e.target.checked)}
+                  size="small"
+                />
+              }
+              label="Kg ou unidade avulsa"
+            />
           </Box>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-          <Button onClick={() => setDlgProduto(false)}>Cancelar</Button>
-          <Button variant="contained" disabled={salvandoProduto} onClick={() => void salvarProduto()}>
-            Salvar
-          </Button>
-        </DialogActions>
-      </Dialog>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'var(--ga-surface)' }}>
+            <Button onClick={() => { setDlgProduto(false); setEditando(null); }} sx={{ color: 'text.secondary' }}>Cancelar</Button>
+            <Button variant="contained" disableElevation disabled={salvandoProduto} onClick={() => void salvarProduto()}>
+              Salvar
+            </Button>
+          </Box>
+        </Box>
+      </Drawer>
 
       <Dialog
         open={dlgRelatorio}

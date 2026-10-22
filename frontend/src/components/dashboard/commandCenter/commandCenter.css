@@ -1,4 +1,4 @@
-/* Escopo: só a rota /dashboard (classe .cc-page no PortalLayout). */
+/* Escopo: Command Center e a aba Estoque (classe .cc-page no PortalLayout). */
 
 /* O Command Center usa o tema global do portal, igual às outras telas. */
 .cc-page .cc-page-main {
@@ -27,6 +27,10 @@
   padding-top: 10px !important;
   padding-bottom: 10px !important;
   overflow: visible !important;
+}
+
+.cc-page .MuiPaper-root {
+  box-shadow: none;
 }
 
 .cc-page .MuiTableRow-root {

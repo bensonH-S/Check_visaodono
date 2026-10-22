@@ -116,8 +116,9 @@ export async function executarSyncFornecedor(row, { forcar = false, soNfe = fals
     pass = cred.pass;
     if (!user || !pass) {
       await marcarStatus(idSync, {
-        ultimo_status: null,
+        ultimo_status: 'sem_credencial',
         ultimo_erro: null,
+        ultima_execucao_dia: agoraSP().dia,
       });
       return { id_sync: idSync, status: 'sem_credencial', skipped: true };
     }
@@ -317,12 +318,25 @@ function hmToMinutos(hm) {
   return Number(m[1]) * 60 + Number(m[2]);
 }
 
+function diaGravado(value) {
+  if (!value) return '';
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Sao_Paulo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    return fmt.format(value);
+  }
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(value));
+  return m ? m[1] : '';
+}
+
 /** Já passou do horário de hoje e ainda não rodou — puxa a fila (não espera o minuto exato). */
 function syncPendenteHoje(row, { dia, hm }) {
   if (row.ultimo_status === 'rodando') return false;
-  const jaHoje =
-    row.ultima_execucao_dia && String(row.ultima_execucao_dia).slice(0, 10) === dia;
-  if (jaHoje) return false;
+  if (diaGravado(row.ultima_execucao_dia) === dia) return false;
   const alvo = timeToHm(row.horario);
   const alvoMin = hmToMinutos(alvo);
   const agoraMin = hmToMinutos(hm);

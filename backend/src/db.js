@@ -6,14 +6,20 @@ pg.types.setTypeParser(1082, (value) => value);
 
 /**
  * Local (`npm run dev`): sempre vision_check_dev.
- * Produção (`--production` / NODE_ENV=production): DB_NAME ou vision_check.
+ * `npm run pro`: DB_PRO_ESCOLHA 0 = vision_check, 1 = vision_check_dev.
+ * `--db-prod` força vision_check, sem herdar DB_NAME de teste do .env.
+ * Servidor `--production`: DB_NAME ou vision_check.
  */
 export function resolveDbName({
   env = process.env,
   argv = process.argv,
 } = {}) {
-  const isProd = argv.includes('--production') || env.NODE_ENV === 'production' || env.DB_USE_PROD === '1';
-  if (!isProd) return 'vision_check_dev';
+  const escolha = String(env.DB_PRO_ESCOLHA || '').trim();
+  if (escolha === '1' || escolha === 'teste' || escolha === 'vision_check_dev') return 'vision_check_dev';
+  if (escolha === '0' || escolha === 'producao' || escolha === 'vision_check') return 'vision_check';
+  if (argv.includes('--db-prod')) return 'vision_check';
+  const useProdDb = argv.includes('--production') || env.NODE_ENV === 'production' || env.DB_USE_PROD === '1';
+  if (!useProdDb) return 'vision_check_dev';
   return String(env.DB_NAME || '').trim() || 'vision_check';
 }
 
