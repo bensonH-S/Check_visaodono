@@ -440,13 +440,15 @@ export function BarraSegmento({
         display: 'inline-flex',
         alignSelf: 'flex-start',
         flexShrink: 0,
+        gap: '2px',
+        p: '3px',
         border: '1px solid',
         borderColor: 'divider',
         borderRadius: '8px',
-        bgcolor: 'var(--ga-surface)',
+        bgcolor: 'var(--ga-canvas-alt)',
       }}
     >
-      {itens.map((f, i, arr) => (
+      {itens.map((f) => (
         <Box
           key={f.id}
           component="button"
@@ -456,26 +458,23 @@ export function BarraSegmento({
             font: 'inherit',
             color: 'inherit',
             display: 'flex',
-            alignItems: 'baseline',
+            alignItems: 'center',
             gap: 0.75,
             px: 1.25,
-            pt: 0.6,
-            pb: '2px',
+            py: 0.45,
             cursor: 'pointer',
-            borderTop: 0,
-            borderLeft: 0,
-            borderRight: i < arr.length - 1 ? '1px solid var(--ga-border)' : 0,
-            borderBottom: `2px solid ${f.ativo ? (f.cor || '#C47A2A') : 'transparent'}`,
-            borderRadius: i === 0 ? '7px 0 0 7px' : i === arr.length - 1 ? '0 7px 7px 0' : 0,
-            bgcolor: f.ativo ? 'var(--ga-canvas-alt)' : 'transparent',
-            '&:hover': { bgcolor: 'var(--ga-canvas-alt)' },
+            border: 0,
+            borderRadius: '6px',
+            bgcolor: f.ativo ? 'var(--ga-surface)' : 'transparent',
+            boxShadow: f.ativo ? '0 1px 2px rgba(15, 23, 42, 0.06)' : 'none',
+            '&:hover': { bgcolor: f.ativo ? 'var(--ga-surface)' : 'rgba(15, 23, 42, 0.04)' },
           }}
         >
           <Typography component="span" sx={{ fontSize: 11, fontWeight: 650, letterSpacing: '0.04em', textTransform: 'uppercase', color: f.ativo ? 'text.primary' : 'text.secondary' }}>
             {f.label}
           </Typography>
           {f.qtd != null ? (
-            <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: f.ativo ? f.cor || 'var(--ga-orange)' : 'text.primary' }}>
+            <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: f.ativo ? f.cor || '#C47A2A' : 'text.secondary' }}>
               {f.qtd}
             </Typography>
           ) : null}
@@ -3788,38 +3787,81 @@ function PainelProdutos({
     });
 
   const qtdInsumos = insumos.filter((i) => i.ativo !== false).length;
+  const modosCadastro = [
+    { id: 'produtos', label: 'Produtos', qtd: lista.length, ativo: abaCadastro === 'produtos', onClick: () => setAbaCadastro('produtos') },
+    { id: 'insumos', label: 'Insumos', qtd: qtdInsumos, ativo: abaCadastro === 'insumos', onClick: () => setAbaCadastro('insumos') },
+  ];
+  const filtrosCadastro = abaCadastro === 'produtos'
+    ? [
+        { id: 'todos', label: 'Todos', qtd: lista.length, ativo: filtroInsumo === 'todos', onClick: () => setFiltroInsumo('todos') },
+        { id: 'sem', label: 'Falta ficha', qtd: semInsumos, ativo: filtroInsumo === 'sem', onClick: () => setFiltroInsumo(filtroInsumo === 'sem' ? 'todos' : 'sem') },
+        { id: 'unitario', label: 'Unitário', qtd: lista.filter(isUnitario).length, ativo: filtroInsumo === 'unitario', onClick: () => setFiltroInsumo(filtroInsumo === 'unitario' ? 'todos' : 'unitario') },
+      ]
+    : [
+        { id: 'todos', label: 'Todos', qtd: qtdInsumos, ativo: filtroCusto === 'todos', onClick: () => setFiltroCusto('todos') },
+        { id: 'sem', label: 'Sem custo', qtd: semCustoCount, ativo: filtroCusto === 'sem', onClick: () => setFiltroCusto(filtroCusto === 'sem' ? 'todos' : 'sem') },
+        { id: 'com', label: 'Com custo', qtd: comCustoCount, ativo: filtroCusto === 'com', onClick: () => setFiltroCusto(filtroCusto === 'com' ? 'todos' : 'com') },
+      ];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1, minHeight: 0 }}>
-      <BarraSegmento
-        itens={[
-          { id: 'produtos', label: 'Produtos', qtd: lista.length, ativo: abaCadastro === 'produtos', onClick: () => setAbaCadastro('produtos') },
-          { id: 'insumos', label: 'Insumos', qtd: qtdInsumos, ativo: abaCadastro === 'insumos', cor: '#C47A2A', onClick: () => setAbaCadastro('insumos') },
-        ]}
-      />
-      {abaCadastro === 'produtos' ? (
-        <BarraSegmento
-          itens={[
-            { id: 'todos', label: 'Todos', qtd: lista.length, ativo: filtroInsumo === 'todos', onClick: () => setFiltroInsumo('todos') },
-            { id: 'sem', label: 'Falta ficha', qtd: semInsumos, ativo: filtroInsumo === 'sem', cor: '#C47A2A', onClick: () => setFiltroInsumo(filtroInsumo === 'sem' ? 'todos' : 'sem') },
-            { id: 'unitario', label: 'Unitário', qtd: lista.filter(isUnitario).length, ativo: filtroInsumo === 'unitario', onClick: () => setFiltroInsumo(filtroInsumo === 'unitario' ? 'todos' : 'unitario') },
-          ]}
-        />
-      ) : (
-        <BarraSegmento
-          itens={[
-            { id: 'todos', label: 'Todos', qtd: qtdInsumos, ativo: filtroCusto === 'todos', onClick: () => setFiltroCusto('todos') },
-            { id: 'sem', label: 'Sem custo', qtd: semCustoCount, ativo: filtroCusto === 'sem', cor: '#C4452D', onClick: () => setFiltroCusto(filtroCusto === 'sem' ? 'todos' : 'sem') },
-            { id: 'com', label: 'Com custo', qtd: comCustoCount, ativo: filtroCusto === 'com', cor: '#5C7052', onClick: () => setFiltroCusto(filtroCusto === 'com' ? 'todos' : 'com') },
-          ]}
-        />
-      )}
-
       {abaCadastro === 'insumos' ? (
         <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)' }}>
+          <Box sx={{ display: 'flex', px: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+            {modosCadastro.map((m) => (
+              <Box
+                key={m.id}
+                component="button"
+                type="button"
+                onClick={m.onClick}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 0.75,
+                  px: 1.5,
+                  py: 1.1,
+                  border: 0,
+                  borderBottom: '2px solid',
+                  borderBottomColor: m.ativo ? '#1B6EF3' : 'transparent',
+                  mb: '-1px',
+                  bgcolor: 'transparent',
+                  color: 'inherit',
+                  font: 'inherit',
+                  cursor: 'pointer',
+                }}
+              >
+                <Typography component="span" sx={{ fontSize: 13, fontWeight: m.ativo ? 650 : 550, color: m.ativo ? 'text.primary' : 'text.secondary' }}>{m.label}</Typography>
+                <Typography component="span" sx={{ fontSize: 12, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: m.ativo ? '#1B6EF3' : 'text.secondary' }}>{m.qtd}</Typography>
+              </Box>
+            ))}
+          </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Insumos</Typography>
-            <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{insumosFiltrados.length}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+              {filtrosCadastro.map((f) => (
+                <Box
+                  key={f.id}
+                  component="button"
+                  type="button"
+                  onClick={f.onClick}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: 0.5,
+                    px: 1,
+                    py: 0.4,
+                    border: 0,
+                    borderRadius: '6px',
+                    bgcolor: f.ativo ? 'rgba(27, 110, 243, 0.08)' : 'transparent',
+                    color: 'inherit',
+                    font: 'inherit',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Typography component="span" sx={{ fontSize: 12, fontWeight: 650, color: f.ativo ? '#1B6EF3' : 'text.secondary' }}>{f.label}</Typography>
+                  <Typography component="span" sx={{ fontSize: 12, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: f.ativo ? '#1B6EF3' : 'text.secondary' }}>{f.qtd}</Typography>
+                </Box>
+              ))}
+            </Box>
             <TextField
               size="small"
               placeholder="Buscar insumo"
@@ -3947,9 +3989,61 @@ function PainelProdutos({
         </Paper>
       ) : (
       <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)' }}>
+        <Box sx={{ display: 'flex', px: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          {modosCadastro.map((m) => (
+            <Box
+              key={m.id}
+              component="button"
+              type="button"
+              onClick={m.onClick}
+              sx={{
+                display: 'flex',
+                alignItems: 'baseline',
+                gap: 0.75,
+                px: 1.5,
+                py: 1.1,
+                border: 0,
+                borderBottom: '2px solid',
+                borderBottomColor: m.ativo ? '#1B6EF3' : 'transparent',
+                mb: '-1px',
+                bgcolor: 'transparent',
+                color: 'inherit',
+                font: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              <Typography component="span" sx={{ fontSize: 13, fontWeight: m.ativo ? 650 : 550, color: m.ativo ? 'text.primary' : 'text.secondary' }}>{m.label}</Typography>
+              <Typography component="span" sx={{ fontSize: 12, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: m.ativo ? '#1B6EF3' : 'text.secondary' }}>{m.qtd}</Typography>
+            </Box>
+          ))}
+        </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Produtos</Typography>
-          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{listaFiltrada.length}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+            {filtrosCadastro.map((f) => (
+              <Box
+                key={f.id}
+                component="button"
+                type="button"
+                onClick={f.onClick}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: 0.5,
+                  px: 1,
+                  py: 0.4,
+                  border: 0,
+                  borderRadius: '6px',
+                  bgcolor: f.ativo ? 'rgba(27, 110, 243, 0.08)' : 'transparent',
+                  color: 'inherit',
+                  font: 'inherit',
+                  cursor: 'pointer',
+                }}
+              >
+                <Typography component="span" sx={{ fontSize: 12, fontWeight: 650, color: f.ativo ? '#1B6EF3' : 'text.secondary' }}>{f.label}</Typography>
+                <Typography component="span" sx={{ fontSize: 12, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: f.ativo ? '#1B6EF3' : 'text.secondary' }}>{f.qtd}</Typography>
+              </Box>
+            ))}
+          </Box>
           <TextField
             size="small"
             placeholder="Buscar produto"

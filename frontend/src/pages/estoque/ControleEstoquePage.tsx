@@ -325,7 +325,6 @@ function AbasControleEstoque({
         minWidth: 0,
         borderBottom: '1px solid var(--ga-border)',
         '& .MuiTabs-indicator': { display: 'none' },
-        '& .MuiTabs-scroller': { overflow: 'hidden !important' },
         '& .MuiTab-root': {
           minHeight: 36,
           minWidth: 0,
@@ -335,11 +334,8 @@ function AbasControleEstoque({
           fontSize: 13,
           color: 'var(--ga-text-muted)',
           px: { xs: 1.1, md: 1.4 },
-          borderBottom: '2px solid transparent',
-          mb: '-1px',
           '&.Mui-selected': {
             color: 'var(--ga-text-primary) !important',
-            borderBottomColor: '#1B6EF3',
           },
         },
       }}
