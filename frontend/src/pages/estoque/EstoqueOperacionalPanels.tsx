@@ -3260,22 +3260,44 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1, minHeight: 0, color: 'var(--ga-text-primary)' }}>
       {cmp ? (
-        <Box sx={{ display: 'inline-flex', alignSelf: 'flex-start', flexShrink: 0, border: '1px solid', borderColor: 'divider', borderRadius: '8px', overflow: 'hidden', bgcolor: 'var(--ga-surface)' }}>
-          {[
-            { rotulo: 'CMP do mês', valor: cmp.cmp_atual_pct != null ? `${fmtNum(cmp.cmp_atual_pct, 1)}%` : '—', cor: '#1B6EF3' },
-            { rotulo: 'Já comprado', valor: brl(cmp.compras_mes), cor: '#C47A2A' },
-            { rotulo: 'Ainda cabe', valor: brl(cmp.teto_restante), cor: '#5C7052' },
-            { rotulo: 'Este pedido', valor: brl(valorAjustado), cor: valorAjustado > cmp.teto_restante ? '#C4452D' : '#1B6EF3' },
-          ].map((f, i, arr) => (
-            <Box key={f.rotulo} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, px: 1.25, py: 0.6, borderRight: i < arr.length - 1 ? '1px solid' : 0, borderColor: 'divider' }}>
-              <Typography component="span" sx={{ fontSize: 11, fontWeight: 650, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary' }}>
-                {f.rotulo}
-              </Typography>
-              <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: f.cor }}>
-                {f.valor}
-              </Typography>
-            </Box>
-          ))}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
+          <Box sx={{ display: 'inline-flex', flexShrink: 0, border: '1px solid', borderColor: 'divider', borderRadius: '8px', bgcolor: 'var(--ga-surface)' }}>
+            {(() => {
+              const estourou = Math.max(0, cmp.compras_mes - cmp.teto_mes);
+              const cmpAlto = cmp.cmp_atual_pct != null && cmp.cmp_atual_pct > cmp.meta_pct;
+              const fatias = [
+                {
+                  rotulo: 'CMP do mês',
+                  valor: cmp.cmp_atual_pct != null ? `${fmtNum(cmp.cmp_atual_pct, 1)}%` : '—',
+                  cor: cmpAlto ? '#C4452D' : '#1B6EF3',
+                },
+                { rotulo: 'Já comprado', valor: brl(cmp.compras_mes), cor: '#C47A2A' },
+                estourou > 0
+                  ? { rotulo: 'Estourou', valor: brl(estourou), cor: '#C4452D' }
+                  : { rotulo: 'Ainda cabe', valor: brl(cmp.teto_restante), cor: '#5C7052' },
+                {
+                  rotulo: 'Este pedido',
+                  valor: brl(valorAjustado),
+                  cor: valorAjustado > cmp.teto_restante ? '#C4452D' : '#1B6EF3',
+                },
+              ];
+              return fatias.map((f, i) => (
+                <Box key={f.rotulo} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, px: 1.25, py: 0.6, borderRight: i < fatias.length - 1 ? '1px solid' : 0, borderColor: 'divider' }}>
+                  <Typography component="span" sx={{ fontSize: 11, fontWeight: 650, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary' }}>
+                    {f.rotulo}
+                  </Typography>
+                  <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: f.cor }}>
+                    {f.valor}
+                  </Typography>
+                </Box>
+              ));
+            })()}
+          </Box>
+          {cmp.teto_restante <= 0 && cmp.teto_aplicado ? (
+            <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: 'text.secondary' }}>
+              O mês já passou do teto de {fmtNum(cmp.meta_pct, 0)}%. As caixas deste pedido foram zeradas.
+            </Typography>
+          ) : null}
         </Box>
       ) : null}
 
@@ -3283,9 +3305,28 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap', py: 0.75 }}>
           <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Pedido da semana</Typography>
           <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{visiveis.length}</Typography>
-          <TextField size="small" label="Dias" value={dias} onChange={(e) => setDias(e.target.value)} sx={{ ...finCampoSx, width: 72, ml: 0.5 }} />
-          <TextField size="small" label="Segurança" value={seguranca} onChange={(e) => setSeguranca(e.target.value)} sx={{ ...finCampoSx, width: 96 }} />
-          <TextField size="small" label="Teto %" value={metaCmp} onChange={(e) => setMetaCmp(e.target.value)} sx={{ ...finCampoSx, width: 80 }} />
+          {(
+            [
+              ['Dias', dias, setDias],
+              ['Segurança', seguranca, setSeguranca],
+              ['Teto %', metaCmp, setMetaCmp],
+            ] as const
+          ).map(([rotulo, valor, definir]) => (
+            <Box key={rotulo} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, ml: rotulo === 'Dias' ? 0.5 : 0 }}>
+              <Typography sx={{ fontSize: 11, fontWeight: 650, color: 'text.secondary', whiteSpace: 'nowrap' }}>{rotulo}</Typography>
+              <TextField
+                size="small"
+                hiddenLabel
+                value={valor}
+                onChange={(e) => definir(e.target.value)}
+                sx={{
+                  width: 52,
+                  '& .MuiOutlinedInput-root': { height: 32, borderRadius: '8px' },
+                  '& .MuiOutlinedInput-input': { textAlign: 'center', py: 0, fontSize: 13, fontWeight: 650 },
+                }}
+              />
+            </Box>
+          ))}
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', ml: 'auto' }}>
             <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()} sx={finBtnOutlinedSx}>
               Recalcular
