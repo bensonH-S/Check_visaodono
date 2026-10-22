@@ -3488,7 +3488,7 @@ function PainelProdutos({
   const [abaCadastro, setAbaCadastro] = useState<'produtos' | 'insumos'>('produtos');
   const [filtroInsumo, setFiltroInsumo] = useState<'todos' | 'com' | 'sem' | 'unitario'>('todos');
   /** Filtro da aba Insumos: custo automático (nf/catalogo/manual com valor). */
-  const [filtroCusto, setFiltroCusto] = useState<'todos' | 'sem' | 'com'>('todos');
+  const [filtroCusto, setFiltroCusto] = useState<'todos' | 'nf' | 'catalogo' | 'manual' | 'sem'>('todos');
   const [promovendo, setPromovendo] = useState(false);
   const [open, setOpen] = useState(false);
   const [carregandoFicha, setCarregandoFicha] = useState(false);
@@ -3769,7 +3769,10 @@ function PainelProdutos({
     return '—';
   };
   const semCustoCount = insumos.filter((i) => i.ativo !== false && !temCustoAutomatico(i)).length;
-  const comCustoCount = insumos.filter((i) => i.ativo !== false && temCustoAutomatico(i)).length;
+  const qtdFonte = (fonte: string) =>
+    insumos.filter(
+      (i) => i.ativo !== false && temCustoAutomatico(i) && String(i.custo_fonte || '').toLowerCase() === fonte,
+    ).length;
 
   const insumosFiltrados = insumos
     .filter((i) => i.ativo !== false)
@@ -3781,8 +3784,11 @@ function PainelProdutos({
       );
     })
     .filter((i) => {
+      const fonte = String(i.custo_fonte || '').toLowerCase();
       if (filtroCusto === 'sem') return !temCustoAutomatico(i);
-      if (filtroCusto === 'com') return temCustoAutomatico(i);
+      if (filtroCusto === 'nf') return fonte === 'nf' && temCustoAutomatico(i);
+      if (filtroCusto === 'catalogo') return fonte === 'catalogo' && temCustoAutomatico(i);
+      if (filtroCusto === 'manual') return fonte === 'manual' && temCustoAutomatico(i);
       return true;
     });
 
@@ -3793,15 +3799,41 @@ function PainelProdutos({
   ];
   const filtrosCadastro = abaCadastro === 'produtos'
     ? [
-        { id: 'todos', label: 'Todos', qtd: lista.length, ativo: filtroInsumo === 'todos', onClick: () => setFiltroInsumo('todos') },
+        { id: 'com', label: 'Com ficha', qtd: lista.filter(temFicha).length, ativo: filtroInsumo === 'com', onClick: () => setFiltroInsumo(filtroInsumo === 'com' ? 'todos' : 'com') },
         { id: 'sem', label: 'Falta ficha', qtd: semInsumos, ativo: filtroInsumo === 'sem', onClick: () => setFiltroInsumo(filtroInsumo === 'sem' ? 'todos' : 'sem') },
         { id: 'unitario', label: 'Unitário', qtd: lista.filter(isUnitario).length, ativo: filtroInsumo === 'unitario', onClick: () => setFiltroInsumo(filtroInsumo === 'unitario' ? 'todos' : 'unitario') },
       ]
     : [
-        { id: 'todos', label: 'Todos', qtd: qtdInsumos, ativo: filtroCusto === 'todos', onClick: () => setFiltroCusto('todos') },
+        { id: 'nf', label: 'Nota', qtd: qtdFonte('nf'), ativo: filtroCusto === 'nf', onClick: () => setFiltroCusto(filtroCusto === 'nf' ? 'todos' : 'nf') },
+        { id: 'catalogo', label: 'Catálogo', qtd: qtdFonte('catalogo'), ativo: filtroCusto === 'catalogo', onClick: () => setFiltroCusto(filtroCusto === 'catalogo' ? 'todos' : 'catalogo') },
+        { id: 'manual', label: 'Manual', qtd: qtdFonte('manual'), ativo: filtroCusto === 'manual', onClick: () => setFiltroCusto(filtroCusto === 'manual' ? 'todos' : 'manual') },
         { id: 'sem', label: 'Sem custo', qtd: semCustoCount, ativo: filtroCusto === 'sem', onClick: () => setFiltroCusto(filtroCusto === 'sem' ? 'todos' : 'sem') },
-        { id: 'com', label: 'Com custo', qtd: comCustoCount, ativo: filtroCusto === 'com', onClick: () => setFiltroCusto(filtroCusto === 'com' ? 'todos' : 'com') },
       ];
+  const selectFiltro = (
+    <TextField
+      select
+      size="small"
+      value={abaCadastro === 'produtos' ? filtroInsumo : filtroCusto}
+      onChange={(e) => {
+        const v = e.target.value;
+        if (abaCadastro === 'produtos') setFiltroInsumo(v as typeof filtroInsumo);
+        else setFiltroCusto(v as typeof filtroCusto);
+      }}
+      sx={{
+        width: 168,
+        flexShrink: 0,
+        '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 },
+      }}
+    >
+      <MenuItem value="todos" sx={{ fontSize: 13 }}>Todos</MenuItem>
+      {filtrosCadastro.filter((f) => f.qtd > 0).map((f) => (
+        <MenuItem key={f.id} value={f.id} sx={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+          {f.label}
+          <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{f.qtd}</Typography>
+        </MenuItem>
+      ))}
+    </TextField>
+  );
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1, minHeight: 0 }}>
@@ -3836,38 +3868,14 @@ function PainelProdutos({
             ))}
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-              {filtrosCadastro.map((f) => (
-                <Box
-                  key={f.id}
-                  component="button"
-                  type="button"
-                  onClick={f.onClick}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'baseline',
-                    gap: 0.5,
-                    px: 1,
-                    py: 0.4,
-                    border: 0,
-                    borderRadius: '6px',
-                    bgcolor: f.ativo ? 'rgba(27, 110, 243, 0.08)' : 'transparent',
-                    color: 'inherit',
-                    font: 'inherit',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <Typography component="span" sx={{ fontSize: 12, fontWeight: 650, color: f.ativo ? '#1B6EF3' : 'text.secondary' }}>{f.label}</Typography>
-                  <Typography component="span" sx={{ fontSize: 12, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: f.ativo ? '#1B6EF3' : 'text.secondary' }}>{f.qtd}</Typography>
-                </Box>
-              ))}
-            </Box>
+            <Box sx={{ flex: 1 }} />
+            {selectFiltro}
             <TextField
               size="small"
               placeholder="Buscar insumo"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              sx={{ ml: 'auto', width: { xs: 160, sm: 220 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
+              sx={{ width: { xs: 160, sm: 220 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
             />
             <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()} sx={{ height: 32 }}>
               Atualizar
@@ -3969,10 +3977,14 @@ function PainelProdutos({
                     <TableCell colSpan={6}>
                       <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
                         {filtroCusto === 'sem'
-                          ? 'Nenhum insumo sem custo automático nesta loja.'
-                          : filtroCusto === 'com'
-                            ? 'Nenhum insumo com custo automático nesta loja.'
-                            : 'Nenhum insumo nesta loja. A conferência usa esta lista para contar.'}
+                          ? 'Nenhum insumo sem custo nesta loja.'
+                          : filtroCusto === 'nf'
+                            ? 'Nenhum insumo com custo vindo de nota.'
+                            : filtroCusto === 'catalogo'
+                              ? 'Nenhum insumo com custo do catálogo.'
+                              : filtroCusto === 'manual'
+                                ? 'Nenhum insumo com custo manual.'
+                                : 'Nenhum insumo nesta loja. A conferência usa esta lista para contar.'}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -3980,7 +3992,7 @@ function PainelProdutos({
               </TableBody>
             </Table>
           </TableContainer>
-          {filtroCusto !== 'com' && semCustoCount > 0 && (
+          {filtroCusto === 'todos' && semCustoCount > 0 && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 2, py: 1 }}>
               * Preço da planilha sem fonte automática (NF/catálogo/manual) — o CMV em R$ ignora esses
               valores.
@@ -4018,38 +4030,14 @@ function PainelProdutos({
           ))}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-            {filtrosCadastro.map((f) => (
-              <Box
-                key={f.id}
-                component="button"
-                type="button"
-                onClick={f.onClick}
-                sx={{
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: 0.5,
-                  px: 1,
-                  py: 0.4,
-                  border: 0,
-                  borderRadius: '6px',
-                  bgcolor: f.ativo ? 'rgba(27, 110, 243, 0.08)' : 'transparent',
-                  color: 'inherit',
-                  font: 'inherit',
-                  cursor: 'pointer',
-                }}
-              >
-                <Typography component="span" sx={{ fontSize: 12, fontWeight: 650, color: f.ativo ? '#1B6EF3' : 'text.secondary' }}>{f.label}</Typography>
-                <Typography component="span" sx={{ fontSize: 12, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: f.ativo ? '#1B6EF3' : 'text.secondary' }}>{f.qtd}</Typography>
-              </Box>
-            ))}
-          </Box>
+          <Box sx={{ flex: 1 }} />
+          {selectFiltro}
           <TextField
             size="small"
             placeholder="Buscar produto"
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            sx={{ ml: 'auto', width: { xs: 160, sm: 220 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
+            sx={{ width: { xs: 160, sm: 220 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
           />
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()} sx={{ height: 32 }}>
             Atualizar
