@@ -577,11 +577,11 @@ function prioridadeStatus(status) {
 }
 
 function escolherEntre(candidatos, data, folgaDias) {
-  if (!candidatos.length) return null
-  if (candidatos.length === 1) return candidatos[0]
-  const ordenados = [...candidatos].sort((a, b) => prioridadeStatus(a.status) - prioridadeStatus(b.status))
+  const naJanela = candidatos.filter((item) => naFolga(data, item, folgaDias))
+  if (naJanela.length === 1) return naJanela[0]
+  if (!naJanela.length) return null
+  const ordenados = [...naJanela].sort((a, b) => prioridadeStatus(a.status) - prioridadeStatus(b.status))
   return unico(ordenados.filter((item) => noDia(data, item)))
-    || unico(ordenados.filter((item) => naFolga(data, item, folgaDias)))
     || unico(ordenados.filter((item) => prioridadeStatus(item.status) <= 1))
     || null
 }
@@ -615,25 +615,25 @@ export function escolherConciliacaoAutomatica(lancamento, despesas, folgaDias = 
   if (documentosDoLancamento(lancamento).length) {
     const porDoc = mesmos.filter((item) => mesmoDocumento(lancamento, item))
     const escolhidoDoc = escolherEntre(porDoc, data, folgaDias)
-      || (porDoc.length === 1 ? porDoc[0] : null)
       || escolherEntre(porDoc.filter((item) => nomeParece(lancamento, item)), data, folgaDias)
     if (escolhidoDoc) return escolhidoDoc
   }
 
   const peloNome = mesmos.filter((item) => nomeParece(lancamento, item))
-  const escolhidoNome = escolherEntre(peloNome, data, folgaDias) || (peloNome.length === 1 ? peloNome[0] : null)
+  const escolhidoNome = escolherEntre(peloNome, data, folgaDias)
   if (escolhidoNome) return escolhidoNome
 
   const doDia = mesmos.filter((item) => noDia(data, item))
-  const escolhidoDia = escolherEntre(doDia, data, folgaDias) || (doDia.length === 1 ? doDia[0] : null)
+  const escolhidoDia = escolherEntre(doDia, data, folgaDias)
   if (escolhidoDia) return escolhidoDia
 
   const perto = mesmos.filter((item) => naFolga(data, item, folgaDias))
-  const escolhidoPerto = escolherEntre(perto, data, folgaDias) || (perto.length === 1 ? perto[0] : null)
+  const escolhidoPerto = escolherEntre(perto, data, folgaDias)
   if (escolhidoPerto) return escolhidoPerto
 
-  // Valor único na loja no período: fecha sem ficar pedindo casamento manual.
-  if (mesmos.length === 1) return mesmos[0]
+  // Valor único só fecha sozinho quando o vencimento está na folga.
+  // Boleto recorrente (mesmo valor, outro vencimento) não pode herdar o pagamento.
+  if (mesmos.length === 1 && naFolga(data, mesmos[0], folgaDias)) return mesmos[0]
   return null
 }
 

@@ -7,7 +7,7 @@ function digitos(valor) {
 }
 
 export function numeroNota(valor) {
-  const base = String(valor ?? '').split(/[-/]/)[0]
+  const base = String(valor ?? '').trim().split(/[-/\s]/)[0]
   return digitos(base).replace(/^0+/, '')
 }
 

@@ -10,7 +10,7 @@ function raizCnpj(valor) {
 }
 
 export function chaveNota(valor) {
-  const base = String(valor ?? '').split(/[-/]/)[0]
+  const base = String(valor ?? '').trim().split(/[-/\s]/)[0]
   return digitos(base).replace(/^0+/, '')
 }
 
@@ -124,6 +124,62 @@ export function cruzarNotas(despesas, notas) {
       ciclo,
       divergente: ciclo === 'divergente',
       confirmada: ciclo === 'confirmada' || ciclo === 'divergente',
+    })
+  }
+  return pares
+}
+
+function diasEntreIso(a, b) {
+  const da = isoDate(a)
+  const db = isoDate(b)
+  if (!da || !db) return null
+  const ms = Date.parse(`${da}T12:00:00Z`) - Date.parse(`${db}T12:00:00Z`)
+  if (!Number.isFinite(ms)) return null
+  return Math.abs(Math.round(ms / 86400000))
+}
+
+function mesmoValor(a, b) {
+  const va = Number(a)
+  const vb = Number(b)
+  if (!Number.isFinite(va) || !Number.isFinite(vb)) return false
+  return Math.abs(va - vb) <= 0.05
+}
+
+/**
+ * NF conferida cujo número não está no boleto (ex.: Brasal grava outro documento).
+ * Casa loja + emitente + valor + vencimento, e só quando sobra um boleto.
+ */
+export function cruzarPorValor(despesas, notas, usadosDespesa = new Set(), usadosNfe = new Set()) {
+  const pares = []
+  for (const nota of notas) {
+    const ciclo = cicloNfDeStatus(nota.status_entrega)
+    if (ciclo !== 'confirmada' && ciclo !== 'divergente') continue
+    const nfeId = String(nota.id)
+    if (usadosNfe.has(nfeId)) continue
+    const loja = digitos(nota.cnpj_loja)
+    const emitente = raizCnpj(nota.emitente_cnpj)
+    const vencNota = isoDate(nota.data_vencimento) || isoDate(nota.data_entrega)
+    if (!loja || !vencNota) continue
+    const candidatas = despesas.filter((despesa) => {
+      if (usadosDespesa.has(String(despesa.id))) return false
+      if (digitos(despesa.cnpj_empresa) !== loja) return false
+      const cedente = raizCnpj(despesa.cnpj_fornecedor)
+      if (emitente && cedente && emitente !== cedente) return false
+      if (!mesmoValor(nota.valor_total, despesa.valor)) return false
+      const gap = diasEntreIso(vencNota, despesa.vencimento)
+      return gap != null && gap <= 3
+    })
+    if (candidatas.length !== 1) continue
+    const despesa = candidatas[0]
+    usadosDespesa.add(String(despesa.id))
+    usadosNfe.add(nfeId)
+    pares.push({
+      despesa_id: despesa.id,
+      nfe_id: nfeId,
+      status_entrega: nota.status_entrega,
+      ciclo,
+      divergente: ciclo === 'divergente',
+      confirmada: true,
     })
   }
   return pares
@@ -310,6 +366,97 @@ async function criarDespesasNfeSemDda({ financePool, notas, nfeIdsJaLigados }) {
   return { criadas, reativadas, sem_empresa: semEmpresa }
 }
 
+const STATUS_AGENDA = new Set(['pronta', 'autorizada', 'enviada'])
+const STATUS_INBOX = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
+
+/**
+ * A confirmação criou uma linha fonte=nfe ao lado do boleto DDA.
+ * O boleto fica (tem código de barras) e a linha extra sai da agenda.
+ */
+async function fundirDuplicataNfeNoBoleto(financePool) {
+  const { rows } = await financePool.query(`
+    select b.id as id_nfe,
+           a.id as id_dda,
+           b.status as st_nfe,
+           a.status as st_dda,
+           b.nfe_id,
+           b.nf_ciclo,
+           coalesce(b.nf_confirmada, false) as nf_confirmada,
+           coalesce(b.nf_divergente, false) as nf_divergente
+    from despesas b
+    join despesas a
+      on a.empresa_origem_id = b.empresa_origem_id
+     and a.vencimento is not distinct from b.vencimento
+     and abs(a.valor - b.valor) < 0.05
+     and a.id <> b.id
+     and a.status <> 'cancelada'
+     and coalesce(a.fonte, '') = 'dda'
+    left join fornecedores fa on fa.id = a.fornecedor_id
+    left join fornecedores fb on fb.id = b.fornecedor_id
+    where b.status <> 'cancelada'
+      and coalesce(b.fonte, '') = 'nfe'
+      and b.documento_ref like 'ESTOQUE-NFE|%'
+      and (
+        nullif(btrim(a.nfe_id), '') is null
+        or nullif(btrim(a.nfe_id), '') = nullif(btrim(b.nfe_id), '')
+      )
+      and left(regexp_replace(coalesce(fa.cpf_cnpj, a.cnpj_cedente, ''), '\\D', '', 'g'), 8)
+        = left(regexp_replace(coalesce(fb.cpf_cnpj, b.cnpj_cedente, ''), '\\D', '', 'g'), 8)
+      and length(regexp_replace(coalesce(fa.cpf_cnpj, a.cnpj_cedente, ''), '\\D', '', 'g')) >= 8
+  `)
+
+  const porNfe = new Map()
+  const porDda = new Map()
+  for (const row of rows) {
+    const nfe = String(row.id_nfe)
+    const dda = String(row.id_dda)
+    porNfe.set(nfe, (porNfe.get(nfe) || 0) + 1)
+    porDda.set(dda, (porDda.get(dda) || 0) + 1)
+  }
+
+  let fundidas = 0
+  let puladas = 0
+  for (const row of rows) {
+    if (porNfe.get(String(row.id_nfe)) !== 1 || porDda.get(String(row.id_dda)) !== 1) {
+      puladas += 1
+      continue
+    }
+    if (row.st_nfe === 'paga' || row.st_nfe === 'conciliada') {
+      puladas += 1
+      continue
+    }
+    const promover = STATUS_AGENDA.has(row.st_nfe) && STATUS_INBOX.has(row.st_dda)
+    await financePool.query(
+      `update despesas set
+         nfe_id = coalesce(nullif(btrim(nfe_id), ''), $2),
+         nf_ciclo = coalesce($3, nf_ciclo),
+         nf_confirmada = $4,
+         nf_divergente = $5,
+         status = case when $6::boolean and status in ('rascunho', 'classificada', 'bloqueada_duplicata')
+                       then 'pronta' else status end,
+         pendente_inbox = case when $6::boolean and status in ('rascunho', 'classificada', 'bloqueada_duplicata')
+                               then false else pendente_inbox end
+       where id = $1`,
+      [
+        row.id_dda,
+        row.nfe_id,
+        row.nf_ciclo,
+        row.nf_confirmada === true,
+        row.nf_divergente === true,
+        promover,
+      ],
+    )
+    await financePool.query(
+      `update despesas
+         set status = 'cancelada', pendente_inbox = false
+       where id = $1 and status not in ('paga', 'conciliada', 'cancelada')`,
+      [row.id_nfe],
+    )
+    fundidas += 1
+  }
+  return { fundidas, puladas }
+}
+
 /**
  * Atualiza selos da Agenda com o ciclo da NF no estoque.
  * Conferidas sem DDA → cria lançamento fonte=nfe direto na Agenda.
@@ -320,6 +467,8 @@ export async function sincronizarNfesConferidas({ financePool, portalPool }) {
   // DDA (e similares) com número — para refletir trânsito x pendente x confirmada.
   const despesas = await financePool.query(`
     select d.id, d.numero_nf, d.status, d.nfe_id,
+           d.valor::float8 as valor,
+           to_char(d.vencimento, 'YYYY-MM-DD') as vencimento,
            coalesce(f.cpf_cnpj, d.cnpj_cedente) as cnpj_fornecedor,
            eo.cnpj as cnpj_empresa
     from despesas d
@@ -346,7 +495,11 @@ export async function sincronizarNfesConferidas({ financePool, portalPool }) {
     )
   `)
 
-  const pares = cruzarNotas(despesas.rows, notas.rows)
+  const paresNumero = cruzarNotas(despesas.rows, notas.rows)
+  const usadosDespesa = new Set(paresNumero.map((p) => String(p.despesa_id)))
+  const usadosNfe = new Set(paresNumero.map((p) => String(p.nfe_id)))
+  const paresValor = cruzarPorValor(despesas.rows, notas.rows, usadosDespesa, usadosNfe)
+  const pares = [...paresNumero, ...paresValor]
   const idsCruzados = new Set(pares.map((p) => String(p.despesa_id)))
   const nfeIdsJaLigados = new Set(pares.map((p) => String(p.nfe_id)))
 
@@ -402,7 +555,7 @@ export async function sincronizarNfesConferidas({ financePool, portalPool }) {
 
   // DDA com número de NF sem match no estoque → em_transito (selo Agenda: NF Pendente).
   const semMatchIds = despesas.rows
-    .filter((d) => !idsCruzados.has(String(d.id)))
+    .filter((d) => !idsCruzados.has(String(d.id)) && !String(d.nfe_id || '').trim())
     .map((d) => d.id)
   let semMatch = 0
   if (semMatchIds.length) {
@@ -429,6 +582,8 @@ export async function sincronizarNfesConferidas({ financePool, portalPool }) {
     nfeIdsJaLigados,
   })
 
+  const fusao = await fundirDuplicataNfeNoBoleto(financePool)
+
   const totais = await financePool.query(`
     select
       count(*) filter (where nf_ciclo = 'em_transito')::int as em_transito,
@@ -449,6 +604,8 @@ export async function sincronizarNfesConferidas({ financePool, portalPool }) {
     conferidas: notas.rowCount,
     ciclos_atualizados: ciclos,
     sem_match_transito: semMatch,
+    fundidas: fusao.fundidas,
+    fundidas_puladas: fusao.puladas,
     totais: totais.rows[0],
     divergentes_total: totais.rows[0]?.divergente ?? 0,
   }

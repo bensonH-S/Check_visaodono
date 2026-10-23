@@ -80,6 +80,11 @@ DATA:OFXSGML
       [{ id: 'd9', empresa_origem_id: 'e1', valor: 15446.67, vencimento: '2026-10-12', status: 'pronta', descricao: 'PLATLOG' }],
     )
     assert.equal(unico.id, 'd9')
+    const longe = escolherConciliacaoAutomatica(
+      { operacao: 'D', estorno: false, valor: 2781.13, data_contabil: '2026-10-05', empresa_id: 'e1', historico: 'BOLETO PAGO PLATLOG IMPORTACAO' },
+      [{ id: 'd26', empresa_origem_id: 'e1', valor: 2781.13, vencimento: '2026-10-26', status: 'pronta', descricao: 'PLATLOG IMP LOG E DISTRIBUICAO LTDA' }],
+    )
+    assert.equal(longe, null)
     assert.equal(pareceNaoTitulo({ operacao: 'C', historico: 'CIELO VISA' }), true)
     assert.equal(pareceNaoTitulo({ operacao: 'D', historico: 'TARIFA PACOTE' }), true)
     assert.equal(pareceNaoTitulo({ operacao: 'D', historico: 'APL APLIC AUT MAIS' }), true)

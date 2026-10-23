@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { cruzarDdaComNotas, escolherDdaParaNota, pontuarDdaComNota } from './cruzarDdaNfe.mjs'
+import { cruzarDdaComNotas, escolherDdaParaNota, numeroNota, pontuarDdaComNota } from './cruzarDdaNfe.mjs'
 
 describe('cruzar DDA com NF-e', () => {
   const nota = {
@@ -12,6 +12,11 @@ describe('cruzar DDA com NF-e', () => {
     emissao: '2026-10-09',
     valor_total: 1296.5,
   }
+
+  it('ignora a parcela depois do espaço no número do boleto', () => {
+    assert.equal(numeroNota('00168866 1'), '168866')
+    assert.equal(numeroNota('014431-01'), '14431')
+  })
 
   it('casa quando CNPJ, número da NF, valor e vencimento batem', () => {
     const dda = {

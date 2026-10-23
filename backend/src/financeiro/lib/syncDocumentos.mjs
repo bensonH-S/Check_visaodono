@@ -12,7 +12,7 @@ function raizMeridian(root) {
 }
 
 function numeroNota(valor) {
-  return String(valor || '').split(/[-/]/)[0].replace(/\D/g, '').replace(/^0+/, '')
+  return String(valor || '').trim().split(/[-/\s]/)[0].replace(/\D/g, '').replace(/^0+/, '')
 }
 
 function valorCentavos(valor) {
