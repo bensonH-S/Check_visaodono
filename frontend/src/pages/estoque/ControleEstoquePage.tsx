@@ -4,7 +4,6 @@ import Popover from '@mui/material/Popover';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
-import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
@@ -64,8 +63,17 @@ import { colors } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
 import PageLoading from '../../components/PageLoading';
-import EstoqueOperacionalPanels, { BarraSegmento, CabecalhoDrawer, papelDrawerSx, type AbaOp } from './EstoqueOperacionalPanels';
+import EstoqueOperacionalPanels, { CabecalhoDrawer, papelDrawerSx, type AbaOp } from './EstoqueOperacionalPanels';
 import EstoqueConferenciaDetalhe from './EstoqueConferenciaDetalhe';
+import {
+  PainelIndicadores,
+  SeletorFiltro,
+  Selo,
+  cabecaTabelaSx,
+  cartaoSx,
+  corEstoque,
+  linhasTabelaSx,
+} from './estoquePadrao';
 import {
   CONTAGEM_SEMANAL_ATIVA,
   ehDiaContagemCompletaObrigatoria,
@@ -112,15 +120,6 @@ function abaInicialPermitida(): AbaEstoque {
 }
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
-
-const chipAbertaSx = {
-  height: 22,
-  bgcolor: 'rgba(196, 122, 42, 0.14)',
-  color: '#C47A2A',
-  fontWeight: 650,
-  fontSize: 11,
-  border: '1px solid rgba(196, 122, 42, 0.35)',
-} as const;
 
 const chipFinalizadaSx = {
   height: 22,
@@ -912,6 +911,14 @@ export default function ControleEstoquePage() {
     if (filtroStatus === 'todas') return listaContagens;
     return listaContagens.filter((c) => c.status === filtroStatus);
   }, [listaContagens, filtroStatus]);
+  const ultimaFinalizada = useMemo(
+    () =>
+      listaContagens
+        .filter((c) => c.status === 'finalizada')
+        .sort((a, b) => String(b.finalizado_em || b.criado_em || '').localeCompare(String(a.finalizado_em || a.criado_em || '')))[0] ||
+      null,
+    [listaContagens],
+  );
   const chromeCompacto =
     aba === 'saldo' ||
     aba === 'conferencia' ||
@@ -1144,19 +1151,55 @@ export default function ControleEstoquePage() {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: verDetalhe ? 1 : 1.5, flex: 1, minHeight: 0, overflow: 'hidden' }}>
               {!verDetalhe ? (
                 <>
-                  <BarraSegmento
+                  <PainelIndicadores
                     itens={[
-                      { id: 'todas', label: 'Todas', qtd: listaContagens.length, ativo: filtroStatus === 'todas', onClick: () => setFiltroStatus('todas') },
-                      { id: 'aberta', label: 'Abertas', qtd: abertasCount, ativo: filtroStatus === 'aberta', cor: '#C47A2A', onClick: () => setFiltroStatus('aberta') },
-                      { id: 'finalizada', label: 'Finalizadas', qtd: fechadasCount, ativo: filtroStatus === 'finalizada', cor: '#5C7052', onClick: () => setFiltroStatus('finalizada') },
+                      {
+                        rotulo: 'Última contagem',
+                        valor: ultimaFinalizada ? fmtDataHora(ultimaFinalizada.finalizado_em || ultimaFinalizada.criado_em) : '—',
+                        sub: ultimaFinalizada
+                          ? [rotuloTipoContagem(ultimaFinalizada.tipo), ultimaFinalizada.criado_por_nome ? `por ${ultimaFinalizada.criado_por_nome}` : null]
+                              .filter(Boolean)
+                              .join(' · ')
+                          : 'Nenhuma contagem finalizada',
+                      },
+                      {
+                        rotulo: 'Abertas',
+                        valor: abertasCount,
+                        sub: abertasCount ? 'em andamento' : 'nenhuma em aberto',
+                        cor: abertasCount ? corEstoque.laranja : undefined,
+                      },
+                      {
+                        rotulo: 'Divergências',
+                        valor: ultimaFinalizada ? ultimaFinalizada.divergencias ?? 0 : '—',
+                        sub: 'na última contagem',
+                        cor: ultimaFinalizada?.divergencias ? corEstoque.vermelho : corEstoque.verde,
+                      },
+                      {
+                        rotulo: 'Valor do estoque',
+                        valor: ultimaFinalizada ? fmtBrl(ultimaFinalizada.valor_atual ?? ultimaFinalizada.total_valor) : '—',
+                        sub: `${fechadasCount} ${fechadasCount === 1 ? 'contagem finalizada' : 'contagens finalizadas'}`,
+                      },
                     ]}
                   />
 
-                  <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap' }}>
-                      <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Contagens</Typography>
-                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{listaFiltrada.length}</Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', ml: 'auto' }}>
+                  <Paper variant="outlined" sx={{ ...tablePaperSx, ...cartaoSx }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2, py: 1.25, borderBottom: '1px solid var(--ga-border)', flexShrink: 0, flexWrap: 'wrap' }}>
+                      <Box sx={{ minWidth: 0 }}>
+                        <Typography sx={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Contagens</Typography>
+                        <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                          {listaFiltrada.length} {listaFiltrada.length === 1 ? 'contagem' : 'contagens'}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center', ml: 'auto' }}>
+                      <SeletorFiltro
+                        valor={filtroStatus}
+                        onChange={(v) => setFiltroStatus(v as typeof filtroStatus)}
+                        opcoes={[
+                          { id: 'todas', label: 'Todas', qtd: listaContagens.length },
+                          { id: 'aberta', label: 'Abertas', qtd: abertasCount },
+                          { id: 'finalizada', label: 'Finalizadas', qtd: fechadasCount },
+                        ]}
+                      />
                       {podeEditarConferencia && (
                         <>
                           {!ehDiaContagemCompletaObrigatoria() && (
@@ -1203,17 +1246,21 @@ export default function ControleEstoquePage() {
                       >
                         Baixar relatório
                       </Button>
-                      <IconButton
-                        onClick={() => void carregarListaContagens()}
-                        aria-label="Atualizar"
-                      >
-                        <RefreshIcon />
-                      </IconButton>
+                      <Tooltip title="Atualizar">
+                        <IconButton
+                          size="small"
+                          onClick={() => void carregarListaContagens()}
+                          aria-label="Atualizar"
+                          sx={{ border: '1px solid var(--ga-border)', borderRadius: '8px', width: 32, height: 32 }}
+                        >
+                          <RefreshIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
                   </Box>
                         <TableContainer sx={tableContainerSx}>
-                          <Table stickyHeader size="small" sx={tableSx}>
-                            <TableHead>
+                          <Table stickyHeader size="small" sx={{ ...tableSx, ...linhasTabelaSx }}>
+                            <TableHead sx={cabecaTabelaSx}>
                               <TableRow>
                                 <TableCell sx={thCenter}>Status</TableCell>
                                 <TableCell sx={thLeft}>Título</TableCell>
@@ -1239,20 +1286,11 @@ export default function ControleEstoquePage() {
                                     onClick={() => void abrirContagem(c.id_contagem)}
                                   >
                                     <TableCell sx={tdCenter}>
-                                      <Chip
-                                        size="small"
-                                        label={aberta ? 'Aberta' : 'Finalizada'}
-                                        color={aberta ? undefined : 'success'}
-                                        sx={
-                                          aberta
-                                            ? chipAbertaSx
-                                            : {
-                                                bgcolor: 'rgba(22, 163, 74, 0.15)',
-                                                color: '#166534',
-                                                fontWeight: 700,
-                                              }
-                                        }
-                                      />
+                                      {aberta ? (
+                                        <Selo label="Aberta" cor={corEstoque.laranja} fundo="rgba(196, 122, 42, 0.1)" />
+                                      ) : (
+                                        <Selo label="Finalizada" cor={corEstoque.verde} fundo="rgba(46, 125, 91, 0.1)" />
+                                      )}
                                     </TableCell>
                                     <TableCell sx={{ fontWeight: aberta ? 700 : 500 }}>
                                       {c.titulo || `Conferência #${c.id_contagem}`}
@@ -1283,7 +1321,7 @@ export default function ControleEstoquePage() {
                                       sx={{
                                         ...tdCenter,
                                         fontWeight: divergencias ? 700 : 500,
-                                        color: divergencias ? '#991b1b' : '#166534',
+                                        color: divergencias ? corEstoque.vermelho : 'text.secondary',
                                       }}
                                     >
                                       {divergencias}

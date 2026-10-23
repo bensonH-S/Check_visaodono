@@ -2,7 +2,6 @@ import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } f
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Checkbox from '@mui/material/Checkbox';
-import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import LinearProgress from '@mui/material/LinearProgress';
 import Dialog from '@mui/material/Dialog';
@@ -30,7 +29,6 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import SearchIcon from '@mui/icons-material/Search';
 import ChecklistRtlIcon from '@mui/icons-material/ChecklistRtl';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -40,6 +38,7 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined';
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
+import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   api,
@@ -58,6 +57,9 @@ import {
   type EstoqueNfeResumo,
   type EstoquePedidoRascunho,
   type EstoquePedidoRascunhoItem,
+  type EstoquePedidoPlatlog,
+  type EstoquePedidosPlatlog,
+  type EstoqueSituacaoPreco,
   type EstoqueMovimento,
   type EstoqueSaldoItem,
   type EstoqueSyncLojaStatus,
@@ -89,6 +91,18 @@ import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLa
 import { colors, portalPanelSx } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import EstoquePilotoAuditoriaPanel from './EstoquePilotoAuditoriaPanel';
+import {
+  CabecalhoCartao,
+  CampoBusca,
+  PainelIndicadores,
+  SeletorFiltro,
+  Selo,
+  cabecaTabelaSx,
+  cartaoSx,
+  corEstoque,
+  linhasTabelaSx,
+  rotuloSx as rotuloSxPadrao,
+} from './estoquePadrao';
 import LojaBkMarca from '../../components/escalas/LojaBkMarca';
 
 type AbaOp = 'cmv' | 'vendas' | 'rede' | 'piloto' | 'break' | 'pedido' | 'fichas' | 'saldo';
@@ -2739,6 +2753,7 @@ function rotuloGrupoSaldo(g: string | null | undefined) {
     refil: 'Copo / xarope',
     vegetais: 'Vegetais',
     mix_sobremesa: 'Mix',
+    brinde: 'Brinde',
   };
   return mapa[String(g || '')] || g || 'Outros';
 }
@@ -2873,41 +2888,51 @@ function PainelSaldoKardex({
     );
   }
 
+  const qtdGrupos = new Set(itens.map((i) => i.grupo_diario || 'outros')).size;
+  const ultimaAtualizacao = itens.reduce<string | null>((max, i) => {
+    const t = i.atualizado_em ? String(i.atualizado_em) : '';
+    return t && (!max || t > max) ? t : max;
+  }, null);
+  const comSaldo = itens.length - qtdZerado;
+  const noRecorte = grupos.reduce((s, [, rows]) => s + rows.length, 0);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 1.25 }}>
-      <BarraSegmento
+      <PainelIndicadores
         itens={[
-          { id: 'todos', label: 'Todos', qtd: itens.length, ativo: filtro === 'todos', onClick: () => setFiltro('todos') },
-          { id: 'zerado', label: 'Zerado', qtd: qtdZerado, ativo: filtro === 'zerado', cor: '#C4452D', onClick: () => setFiltro('zerado') },
+          {
+            rotulo: 'Itens no saldo',
+            valor: itens.length,
+            sub: `${comSaldo} com saldo · ${qtdGrupos} ${qtdGrupos === 1 ? 'grupo' : 'grupos'}`,
+            barra: itens.length ? comSaldo / itens.length : null,
+            corBarra: qtdZerado ? corEstoque.laranja : corEstoque.verde,
+          },
+          { rotulo: 'Com saldo', valor: comSaldo, sub: 'disponível na loja', cor: corEstoque.verde },
+          {
+            rotulo: 'Zerados',
+            valor: qtdZerado,
+            sub: qtdZerado ? 'sem nada na loja' : 'nenhum item zerado',
+            cor: qtdZerado ? corEstoque.vermelho : undefined,
+          },
+          { rotulo: 'Atualizado', valor: ultimaAtualizacao ? fmtHoraBR(ultimaAtualizacao) || '—' : '—', sub: 'última movimentação' },
         ]}
       />
 
-      <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Saldo</Typography>
-          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
-            {grupos.reduce((s, [, rows]) => s + rows.length, 0)}
-          </Typography>
-          <TextField
-            size="small"
-            placeholder="Buscar insumo"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                  </InputAdornment>
-                ),
-              },
-            }}
-            sx={{ ml: 'auto', width: { xs: 160, sm: 240 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
+      <Paper variant="outlined" sx={{ ...tablePaperSx, ...cartaoSx }}>
+        <CabecalhoCartao titulo="Saldo" sub={`${noRecorte} ${noRecorte === 1 ? 'item' : 'itens'}`}>
+          <SeletorFiltro
+            valor={filtro}
+            onChange={(v) => setFiltro(v as typeof filtro)}
+            opcoes={[
+              { id: 'todos', label: 'Todos', qtd: itens.length },
+              { id: 'zerado', label: 'Zerados', qtd: qtdZerado },
+            ]}
           />
-        </Box>
+          <CampoBusca valor={busca} onChange={setBusca} placeholder="Buscar insumo" largura={240} />
+        </CabecalhoCartao>
         <TableContainer sx={tableContainerSx}>
           <Table stickyHeader sx={tableSx} size="small">
-            <TableHead>
+            <TableHead sx={cabecaTabelaSx}>
               <TableRow>
                 <TableCell sx={{ ...vendasThSx, pl: 2.5 }}>Insumo</TableCell>
                 <TableCell sx={{ ...vendasThSx, textAlign: 'right', pr: 2.5 }} width={160}>
@@ -2929,16 +2954,21 @@ function PainelSaldoKardex({
                       <TableCell
                         colSpan={2}
                         sx={{
-                          py: 1,
+                          py: 0.75,
                           pl: 2.5,
-                          bgcolor: colors.canvasAlt,
-                          borderBottom: `1px solid ${colors.border}`,
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          color: colors.textSecondary,
+                          bgcolor: 'var(--ga-canvas)',
+                          borderBottom: '1px solid var(--ga-border)',
+                          fontSize: 11,
+                          fontWeight: 650,
+                          letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                          color: 'text.secondary',
                         }}
                       >
                         {rotuloGrupoSaldo(grupo)}
+                        <Box component="span" sx={{ ml: 1, fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>
+                          {rows.length}
+                        </Box>
                       </TableCell>
                     </TableRow>
                     {rows.map((r) => {
@@ -2953,22 +2983,25 @@ function PainelSaldoKardex({
                           onClick={() => setAberto(r)}
                           sx={{
                             cursor: 'pointer',
-                            '& td': { borderBottom: `1px solid ${colors.border}`, py: 1.15 },
-                            '&.Mui-selected': { bgcolor: 'rgba(15, 26, 69, 0.05)' },
-                            '&.Mui-selected:hover': { bgcolor: 'rgba(15, 26, 69, 0.07)' },
+                            '& td': { borderBottom: '1px solid var(--ga-border)', py: 1.1 },
+                            '&.Mui-selected': { bgcolor: 'rgba(27, 110, 243, 0.06)', boxShadow: 'inset 3px 0 0 #1B6EF3' },
+                            '&.Mui-selected:hover': { bgcolor: 'rgba(27, 110, 243, 0.08)' },
                           }}
                         >
-                          <TableCell sx={{ pl: 2.5, fontSize: '0.875rem', fontWeight: 600, color: colors.textPrimary }}>
-                            {nomeProdutoBreak(r.descricao) || r.descricao}
+                          <TableCell sx={{ pl: 2.5, fontSize: 13, fontWeight: 600, color: 'text.primary' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Box sx={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, bgcolor: zerado ? corEstoque.vermelho : corEstoque.verde }} />
+                              {nomeProdutoBreak(r.descricao) || r.descricao}
+                            </Box>
                           </TableCell>
                           <TableCell
                             sx={{
                               pr: 2.5,
                               textAlign: 'right',
-                              fontSize: '0.875rem',
+                              fontSize: 13,
                               fontWeight: 700,
                               fontVariantNumeric: 'tabular-nums',
-                              color: zerado ? '#B42318' : colors.textPrimary,
+                              color: zerado ? corEstoque.vermelho : 'text.primary',
                               whiteSpace: 'nowrap',
                             }}
                           >
@@ -2992,63 +3025,44 @@ function PainelSaldoKardex({
           setAberto(null);
           setMovs([]);
         }}
-        slotProps={{
-          paper: {
-            sx: {
-              width: { xs: '100%', sm: 420 },
-              borderLeft: `1px solid ${colors.border}`,
-              boxShadow: '-8px 0 24px rgba(15, 26, 69, 0.06)',
-            },
-          },
-        }}
+        {...drawerSemTranco}
+        ModalProps={drawerSemTranco}
+        slotProps={{ paper: { sx: papelDrawerSx } }}
       >
         {aberto ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'space-between',
-                gap: 1,
-                px: 2.5,
-                pt: 2.25,
-                pb: 2,
-                borderBottom: `1px solid ${colors.border}`,
+            <CabecalhoDrawer
+              titulo="Histórico do item"
+              icone={<ChecklistRtlIcon fontSize="small" />}
+              onClose={() => {
+                setAberto(null);
+                setMovs([]);
               }}
-            >
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em', color: 'var(--ga-text-primary)', lineHeight: 1.25 }}>
-                  {nomeProdutoBreak(aberto.descricao) || aberto.descricao}
-                </Typography>
-                <Typography
-                  sx={{
-                    fontSize: '1rem',
-                    fontWeight: 700,
-                    mt: 0.7,
-                    color: Number(aberto.quantidade) <= 0.001 ? '#B42318' : colors.textPrimary,
-                  }}
-                >
-                  {fmtQtdSaldo(aberto.quantidade, aberto.unidade_contagem)}
-                </Typography>
-                <Typography sx={{ fontSize: '0.78rem', color: colors.textSecondary, mt: 0.35 }}>
-                  {[
-                    rotuloGrupoSaldo(aberto.grupo_diario),
-                    aberto.atualizado_em ? fmtHoraBR(aberto.atualizado_em) : null,
-                  ]
-                    .filter(Boolean)
-                    .join('  ·  ')}
-                </Typography>
-              </Box>
-              <IconButton
-                size="small"
-                aria-label="Fechar"
-                onClick={() => {
-                  setAberto(null);
-                  setMovs([]);
+            />
+            <Box sx={{ px: 3, pt: 2.5, pb: 2, borderBottom: '1px solid var(--ga-border)', bgcolor: 'var(--ga-surface)' }}>
+              <Typography sx={{ fontSize: 13, fontWeight: 600, lineHeight: 1.3 }}>
+                {nomeProdutoBreak(aberto.descricao) || aberto.descricao}
+              </Typography>
+              <Typography
+                sx={{
+                  fontSize: 28,
+                  fontWeight: 700,
+                  letterSpacing: '-0.02em',
+                  fontVariantNumeric: 'tabular-nums',
+                  mt: 0.5,
+                  color: Number(aberto.quantidade) <= 0.001 ? corEstoque.vermelho : 'text.primary',
                 }}
               >
-                <CloseIcon fontSize="small" />
-              </IconButton>
+                {fmtQtdSaldo(aberto.quantidade, aberto.unidade_contagem)}
+              </Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.25 }}>
+                {[
+                  rotuloGrupoSaldo(aberto.grupo_diario),
+                  aberto.atualizado_em ? `atualizado ${fmtHoraBR(aberto.atualizado_em)}` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Typography>
             </Box>
             <Box sx={{ flex: 1, overflow: 'auto', px: 2.5, py: 2 }}>
               {carregandoMovs ? (
@@ -3127,14 +3141,465 @@ function PainelSaldoKardex({
   );
 }
 
+const SELO_PRECO: Record<EstoqueSituacaoPreco, { label: string; cor: string; fundo: string }> = {
+  acima: { label: 'Acima da tabela', cor: corEstoque.vermelho, fundo: 'rgba(196, 69, 45, 0.08)' },
+  igual: { label: 'Na tabela', cor: corEstoque.verde, fundo: 'rgba(46, 125, 91, 0.08)' },
+  abaixo: { label: 'Abaixo', cor: corEstoque.azul, fundo: 'rgba(27, 110, 243, 0.08)' },
+  sem_tabela: { label: 'Fora da tabela', cor: corEstoque.cinza, fundo: 'rgba(100, 116, 139, 0.08)' },
+  conferir_unidade: { label: 'Conferir unidade', cor: corEstoque.laranja, fundo: 'rgba(196, 122, 42, 0.1)' },
+};
+
+function seloStatusPedido(status: string | null) {
+  const s = String(status || '').toLowerCase();
+  if (s.includes('entreg')) return { label: status || 'Entregue', cor: corEstoque.verde, fundo: 'rgba(46, 125, 91, 0.08)' };
+  if (s.includes('expedi') || s.includes('fatur')) return { label: status || 'Expedido', cor: corEstoque.azul, fundo: 'rgba(27, 110, 243, 0.08)' };
+  if (s.includes('cancel')) return { label: status || 'Cancelado', cor: corEstoque.cinza, fundo: 'rgba(100, 116, 139, 0.08)' };
+  if (s.includes('bloq')) return { label: status || 'Bloqueado', cor: corEstoque.vermelho, fundo: 'rgba(196, 69, 45, 0.08)' };
+  return { label: status || 'Em processo', cor: corEstoque.laranja, fundo: 'rgba(196, 122, 42, 0.1)' };
+}
+
+function mesCurto(mes: string) {
+  const [y, m] = mes.split('-');
+  const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+  return `${nomes[Number(m) - 1] || m}/${String(y).slice(2)}`;
+}
+
+/** Espelho dos pedidos feitos no eSupri: preço × Tabela BKC, faturado nas NFs e CMP do mês. */
+function PainelPedidosPortal({
+  idLoja,
+  rascunho,
+  alternar,
+}: {
+  idLoja: number;
+  rascunho: EstoquePedidoRascunhoItem[];
+  alternar: ReactNode;
+}) {
+  const [dados, setDados] = useState<EstoquePedidosPlatlog | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [lendo, setLendo] = useState(false);
+  const [filtro, setFiltro] = useState('todos');
+  const [aberto, setAberto] = useState<number | null>(null);
+  const [baixando, setBaixando] = useState(false);
+
+  const carregar = useCallback(async () => {
+    setLoading(true);
+    try {
+      setDados(await api.estoquePedidosPlatlog(idLoja, 90));
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao abrir pedidos do portal', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [idLoja]);
+
+  useEffect(() => {
+    void carregar();
+  }, [carregar]);
+
+  useEffect(() => {
+    if (!dados?.sincronizando) return;
+    const t = window.setTimeout(() => {
+      api.estoquePedidosPlatlog(idLoja, 90).then(setDados).catch(() => {});
+    }, 15000);
+    return () => window.clearTimeout(t);
+  }, [dados, idLoja]);
+
+  const lerPortal = async () => {
+    setLendo(true);
+    try {
+      const r = await api.estoqueSincronizarPedidosPlatlog(idLoja);
+      showToast(
+        r.erros.length
+          ? `Leitura parcial: ${r.erros[0].erro}`
+          : `${r.pedidos} pedido(s) lidos no eSupri${r.novos ? `, ${r.novos} novo(s)` : ''}.`,
+        r.erros.length ? 'error' : 'success',
+      );
+      await carregar();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Falha ao ler o eSupri', 'error');
+    } finally {
+      setLendo(false);
+    }
+  };
+
+  const baixarRelatorio = async () => {
+    setBaixando(true);
+    try {
+      await api.estoqueBaixarNfAcimaTabela({ idLoja, de: dados?.vigencia_tabela || undefined });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao gerar relatório', 'error');
+    } finally {
+      setBaixando(false);
+    }
+  };
+
+  const pedidos = dados?.pedidos || [];
+  const ativos = pedidos.filter((p) => !/cancel/i.test(String(p.status || '')));
+  const emAberto = (p: EstoquePedidoPlatlog) => !/entreg|cancel/i.test(String(p.status || ''));
+  const notaDiferente = (p: EstoquePedidoPlatlog) =>
+    (p.faturamento.itens_faltando || 0) > 0 || p.faturamento.itens_trocados > 0 || p.faturamento.extras.length > 0;
+  const opcoes = [
+    { id: 'todos', label: 'Todos', qtd: pedidos.length },
+    { id: 'acima', label: 'Acima da tabela', qtd: ativos.filter((p) => p.preco.acima > 0).length },
+    { id: 'teto', label: 'Fora do teto CMP', qtd: ativos.filter((p) => p.cmp?.dentro_teto === false).length },
+    { id: 'faltou', label: 'Nota diferente', qtd: ativos.filter((p) => notaDiferente(p)).length },
+    { id: 'aberto', label: 'Em aberto', qtd: pedidos.filter(emAberto).length },
+  ];
+  const lista = pedidos.filter((p) => {
+    if (filtro === 'acima') return p.preco.acima > 0;
+    if (filtro === 'teto') return p.cmp?.dentro_teto === false;
+    if (filtro === 'faltou') return notaDiferente(p);
+    if (filtro === 'aberto') return emAberto(p);
+    return true;
+  });
+  const rp = dados?.resumo_preco;
+  const sugestao = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const i of rascunho) m.set(String(i.codigo).replace(/^0+/, ''), Number(i.pedido_ajustado) || 0);
+    return m;
+  }, [rascunho]);
+  const pedidoAberto = pedidos.find((p) => p.id_pedido === aberto) || null;
+  const lidoEm = dados?.sincronizado_em ? fmtHoraBR(dados.sincronizado_em) : null;
+
+  return (
+    <Paper variant="outlined" sx={{ ...tablePaperSx, ...cartaoSx, minHeight: 0 }}>
+      <CabecalhoCartao
+        titulo={
+          <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.25 }}>
+            {alternar}
+            Pedidos no portal
+          </Box>
+        }
+        sub={
+          dados
+            ? `${pedidos.length} pedido(s) em 90 dias · ${lidoEm ? `lido do eSupri em ${lidoEm}` : 'ainda não lido do eSupri'} · Tabela ${dados.tabela}${dados.vigencia_tabela ? ` de ${fmtDataBR(dados.vigencia_tabela)}` : ''}`
+            : 'Carregando…'
+        }
+      >
+        <SeletorFiltro valor={filtro} onChange={setFiltro} opcoes={opcoes} largura={176} />
+        <Button variant="outlined" onClick={() => void baixarRelatorio()} disabled={baixando} sx={finBtnOutlinedSx}>
+          {baixando ? 'Gerando…' : 'Relatório de preço'}
+        </Button>
+        <Button variant="contained" disableElevation onClick={() => void lerPortal()} disabled={lendo || Boolean(dados?.sincronizando)} sx={finBtnContainedSx}>
+          {lendo || dados?.sincronizando ? 'Lendo eSupri…' : 'Ler do eSupri'}
+        </Button>
+      </CabecalhoCartao>
+
+      {dados && (rp?.acima || dados.meses.length) ? (
+        <Box sx={{ display: 'flex', gap: 1, px: 2, py: 1.25, borderBottom: '1px solid var(--ga-border)', flexWrap: 'wrap', flexShrink: 0 }}>
+          {rp && rp.acima > 0 ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.75, borderRadius: '8px', bgcolor: 'rgba(196, 69, 45, 0.07)' }}>
+              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: corEstoque.vermelho, flexShrink: 0 }} />
+              <Typography sx={{ fontSize: 12.5, color: '#8F2F1D', fontVariantNumeric: 'tabular-nums' }}>
+                <b>{rp.acima}</b> de {rp.itens_comparados} itens pedidos acima da tabela · <b>{fmtMoeda(rp.valor_acima)}</b> a mais
+                {rp.conferir_unidade ? ` · ${rp.conferir_unidade} para conferir unidade` : ''}
+              </Typography>
+            </Box>
+          ) : null}
+          {dados.meses.map((m) => {
+            const fora = m.pct_pedidos != null && m.pct_pedidos > m.meta_pct;
+            return (
+              <Tooltip
+                key={m.mes}
+                title={`Venda ${m.base_projecao === 'mes_fechado' ? 'do mês' : 'projetada'} ${fmtMoeda(m.venda_projetada)} · teto ${fmtNum(m.meta_pct * 100, 0)}% = ${fmtMoeda(m.teto)} · pedidos no portal ${fmtMoeda(m.pedidos_portal)} · NFs do mês (vencimento) ${fmtMoeda(m.compras_nf)}`}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.75, borderRadius: '8px', border: '1px solid var(--ga-border)' }}>
+                  <Typography sx={{ fontSize: 12, color: 'text.secondary', textTransform: 'capitalize' }}>{mesCurto(m.mes)}</Typography>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: fora ? corEstoque.vermelho : 'text.primary' }}>
+                    {m.pct_pedidos != null ? `${fmtNum(m.pct_pedidos * 100, 1)}%` : '—'}
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                    {fmtMoeda(m.pedidos_portal)} de {fmtMoeda(m.teto)}
+                  </Typography>
+                </Box>
+              </Tooltip>
+            );
+          })}
+        </Box>
+      ) : null}
+
+      <TableContainer sx={tableContainerSx}>
+        <Table size="small" stickyHeader sx={{ ...tableSx, ...linhasTabelaSx }}>
+          <TableHead sx={cabecaTabelaSx}>
+            <TableRow>
+              <TableCell sx={{ pl: 2 }}>Pedido</TableCell>
+              <TableCell>Situação</TableCell>
+              <TableCell>Entrega</TableCell>
+              <TableCell align="right">Valor</TableCell>
+              <TableCell align="right">Acima da tabela</TableCell>
+              <TableCell align="right">CMP do mês</TableCell>
+              <TableCell sx={{ pr: 2 }}>Nota</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {lista.map((p) => {
+              const st = seloStatusPedido(p.status);
+              const cancelado = /cancel/i.test(String(p.status || ''));
+              const nfs = p.faturamento.nfs;
+              return (
+                <TableRow key={p.id_pedido} hover onClick={() => setAberto(p.id_pedido)} sx={{ cursor: 'pointer', opacity: cancelado ? 0.55 : 1 }}>
+                  <TableCell sx={{ pl: 2 }}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums' }}>{p.codigo}</Typography>
+                    <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                      {fmtDataBR(p.data_pedido)}
+                      {p.hora_pedido ? ` ${String(p.hora_pedido).slice(0, 5)}` : ''} · {p.qtd_itens} itens
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Selo label={st.label} cor={st.cor} fundo={st.fundo} />
+                  </TableCell>
+                  <TableCell sx={{ fontVariantNumeric: 'tabular-nums', color: 'text.secondary' }}>{fmtDataBR(p.data_entrega)}</TableCell>
+                  <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 650 }}>{fmtMoeda(p.valor_total)}</TableCell>
+                  <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                    {!p.itens_lidos ? (
+                      <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>Itens não lidos</Typography>
+                    ) : p.preco.acima ? (
+                      <Box>
+                        <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, color: corEstoque.vermelho }}>
+                          {fmtMoeda(p.preco.valor_acima)}
+                        </Typography>
+                        <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>{p.preco.acima} item(ns)</Typography>
+                      </Box>
+                    ) : (
+                      <Typography component="span" sx={{ fontSize: 12.5, color: corEstoque.verde, fontWeight: 600 }}>Dentro</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                    {p.cmp?.pct_venda != null ? (
+                      <Tooltip title={`Pedidos do mês até aqui: ${fmtMoeda(p.cmp.acumulado_mes)}`}>
+                        <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, color: p.cmp.dentro_teto === false ? corEstoque.vermelho : 'text.primary' }}>
+                          {fmtNum(p.cmp.pct_venda * 100, 1)}%
+                        </Typography>
+                      </Tooltip>
+                    ) : (
+                      '—'
+                    )}
+                  </TableCell>
+                  <TableCell sx={{ pr: 2, whiteSpace: 'nowrap' }}>
+                    {nfs.length ? (
+                      <Box>
+                        <Typography sx={{ fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>NF {nfs.map((n) => n.numero).join(', ')}</Typography>
+                        {(p.faturamento.itens_faltando || 0) > 0 || p.faturamento.itens_trocados > 0 ? (
+                          <Typography sx={{ fontSize: 11.5 }}>
+                            {(p.faturamento.itens_faltando || 0) > 0 ? (
+                              <Box component="span" sx={{ color: corEstoque.vermelho }}>{p.faturamento.itens_faltando} a menos</Box>
+                            ) : null}
+                            {(p.faturamento.itens_faltando || 0) > 0 && p.faturamento.itens_trocados > 0 ? ' · ' : ''}
+                            {p.faturamento.itens_trocados > 0 ? (
+                              <Box component="span" sx={{ color: corEstoque.laranja }}>{p.faturamento.itens_trocados} trocado(s)</Box>
+                            ) : null}
+                          </Typography>
+                        ) : (
+                          <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{fmtMoeda(p.faturamento.valor_faturado)}</Typography>
+                        )}
+                      </Box>
+                    ) : (
+                      <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>{emAberto(p) ? 'Aguardando' : 'Sem NF ligada'}</Typography>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+            {!lista.length ? (
+              <TableRow>
+                <TableCell colSpan={7}>
+                  <Typography color="text.secondary" align="center" sx={{ py: 3, fontSize: 13 }}>
+                    {loading
+                      ? 'Carregando…'
+                      : pedidos.length
+                        ? 'Nenhum pedido neste filtro.'
+                        : 'Nenhum pedido espelhado ainda. Toque em Ler do eSupri.'}
+                  </Typography>
+                </TableCell>
+              </TableRow>
+            ) : null}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <Drawer
+        anchor="right"
+        open={pedidoAberto != null}
+        onClose={() => setAberto(null)}
+        {...drawerSemTranco}
+        ModalProps={drawerSemTranco}
+        slotProps={{ paper: { sx: { ...papelDrawerSx, width: 640 } } }}
+      >
+        {pedidoAberto ? (
+          (() => {
+            const p = pedidoAberto;
+            const st = seloStatusPedido(p.status);
+            const comparaSugestao = emAberto(p) && rascunho.length > 0;
+            const itensOrd = [...p.itens].sort((a, b) => (b.diferenca_total || 0) - (a.diferenca_total || 0));
+            return (
+              <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <CabecalhoDrawer titulo={`Pedido ${p.codigo}`} icone={<ReceiptLongOutlinedIcon fontSize="small" />} onClose={() => setAberto(null)} />
+                <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <Box>
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                      Feito no eSupri em {fmtDataBR(p.data_pedido)}
+                      {p.hora_pedido ? ` às ${String(p.hora_pedido).slice(0, 5)}` : ''}
+                    </Typography>
+                    <Typography sx={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+                      {fmtMoeda(p.valor_total)}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 0.75, mt: 1, flexWrap: 'wrap' }}>
+                      <Selo label={st.label} cor={st.cor} fundo={st.fundo} />
+                      {p.preco.acima ? (
+                        <Selo label={`${p.preco.acima} acima da tabela`} cor={corEstoque.vermelho} fundo="rgba(196, 69, 45, 0.08)" />
+                      ) : null}
+                      {p.cmp?.dentro_teto === false ? (
+                        <Selo label="Mês acima do teto CMP" cor={corEstoque.vermelho} fundo="rgba(196, 69, 45, 0.08)" />
+                      ) : null}
+                    </Box>
+                    {p.observacao ? (
+                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 1, fontStyle: 'italic' }}>{p.observacao}</Typography>
+                    ) : null}
+                  </Box>
+
+                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', border: '1px solid var(--ga-border)', borderRadius: '10px', bgcolor: 'var(--ga-surface)' }}>
+                    {[
+                      ['Entrega', fmtDataBR(p.data_entrega), 'text.primary'],
+                      ['Cobrado a mais', p.preco.acima ? fmtMoeda(p.preco.valor_acima) : '—', p.preco.acima ? corEstoque.vermelho : 'text.primary'],
+                      [
+                        'CMP do mês',
+                        p.cmp?.pct_venda != null ? `${fmtNum(p.cmp.pct_venda * 100, 1)}%` : '—',
+                        p.cmp?.dentro_teto === false ? corEstoque.vermelho : 'text.primary',
+                      ],
+                      [
+                        'Faturado',
+                        p.faturamento.nfs.length ? fmtMoeda(p.faturamento.valor_faturado) : '—',
+                        (p.faturamento.itens_faltando || 0) > 0 ? corEstoque.vermelho : 'text.primary',
+                      ],
+                    ].map(([rot, val, cor], idx) => (
+                      <Box key={rot} sx={{ px: 1.5, py: 1.1, borderLeft: idx ? '1px solid var(--ga-border)' : 0, minWidth: 0 }}>
+                        <Typography sx={rotuloSxPadrao}>{rot}</Typography>
+                        <Typography noWrap sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums', mt: 0.25, color: cor }}>{val}</Typography>
+                      </Box>
+                    ))}
+                  </Box>
+
+                  {p.faturamento.nfs.length ? (
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                      Notas deste pedido: {p.faturamento.nfs.map((n) => `NF ${n.numero} (${fmtDataBR(n.emissao)})`).join(', ')}
+                    </Typography>
+                  ) : null}
+
+                  <Box>
+                    <Typography sx={{ ...rotuloSxPadrao, mb: 1 }}>
+                      Itens · preço cobrado × Tabela {dados?.tabela}
+                      {comparaSugestao ? ' · sugestão Meridian' : ''}
+                    </Typography>
+                    <Box sx={{ border: '1px solid var(--ga-border)', borderRadius: '10px', bgcolor: 'var(--ga-surface)', overflow: 'hidden' }}>
+                      {itensOrd.map((it, idx) => {
+                        const sp = SELO_PRECO[it.situacao_preco];
+                        const sug = sugestao.get(String(it.codigo).replace(/^0+/, ''));
+                        const faltouFat = p.faturamento.nfs.length > 0 && !it.trocado_por && (it.qtd_faturada || 0) + 1e-6 < it.quantidade;
+                        return (
+                          <Box key={`${it.codigo}-${idx}`} sx={{ px: 1.75, py: 1.1, borderTop: idx ? '1px solid var(--ga-border)' : 0, bgcolor: it.situacao_preco === 'acima' ? 'rgba(196, 69, 45, 0.035)' : undefined }}>
+                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
+                              <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography noWrap sx={{ fontSize: 13, fontWeight: 600 }} title={it.descricao}>{it.descricao}</Typography>
+                                <Typography noWrap sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                                  {it.codigo} · {fmtNum(it.quantidade, 3)} {it.unidade} × {fmtMoeda(it.valor_unitario)}
+                                  {it.preco_tabela != null ? ` · tabela ${fmtMoeda(it.preco_tabela)}` : ''}
+                                </Typography>
+                              </Box>
+                              <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                                <Typography sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums' }}>{fmtMoeda(it.valor_total)}</Typography>
+                                {it.situacao_preco === 'acima' || it.situacao_preco === 'abaixo' ? (
+                                  <Typography sx={{ fontSize: 11.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: sp.cor }}>
+                                    {(it.diferenca_total || 0) > 0 ? '+' : ''}
+                                    {fmtMoeda(it.diferenca_total)}
+                                  </Typography>
+                                ) : null}
+                              </Box>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.6, flexWrap: 'wrap' }}>
+                              <Selo label={sp.label} cor={sp.cor} fundo={sp.fundo} />
+                              {faltouFat ? (
+                                <Selo label={`Faturou ${fmtNum(it.qtd_faturada || 0, 3)} de ${fmtNum(it.quantidade, 3)}`} cor={corEstoque.vermelho} fundo="rgba(196, 69, 45, 0.08)" />
+                              ) : null}
+                              {it.trocado_por ? (
+                                <Tooltip title={`Na nota veio ${it.trocado_por.codigo} ${it.trocado_por.descricao} · ${fmtNum(it.trocado_por.quantidade, 3)} ${it.trocado_por.unidade} · ${fmtMoeda(it.trocado_por.valor)}`}>
+                                  <Box component="span">
+                                    <Selo label={`Trocado por ${it.trocado_por.codigo}`} cor={corEstoque.laranja} fundo="rgba(196, 122, 42, 0.1)" />
+                                  </Box>
+                                </Tooltip>
+                              ) : null}
+                              {comparaSugestao ? (
+                                <Typography sx={{ fontSize: 11.5, color: sug != null && Math.round(sug) !== Math.round(it.quantidade) ? corEstoque.laranja : 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                                  {sug == null ? 'Meridian não sugeriu' : `Meridian sugere ${fmtNum(sug, 0)} cx`}
+                                </Typography>
+                              ) : null}
+                            </Box>
+                          </Box>
+                        );
+                      })}
+                      {!itensOrd.length ? (
+                        <Typography sx={{ fontSize: 13, color: 'text.secondary', px: 1.75, py: 2, textAlign: 'center' }}>
+                          Itens ainda não lidos. Toque em Ler do eSupri.
+                        </Typography>
+                      ) : null}
+                    </Box>
+                  </Box>
+
+                  {p.faturamento.extras.length ? (
+                    <Box>
+                      <Typography sx={{ ...rotuloSxPadrao, mb: 1 }}>Faturado sem estar no pedido</Typography>
+                      <Box sx={{ border: '1px solid var(--ga-border)', borderRadius: '10px', bgcolor: 'var(--ga-surface)', overflow: 'hidden' }}>
+                        {p.faturamento.extras.map((x, idx) => (
+                          <Box key={x.codigo} sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, px: 1.75, py: 1, borderTop: idx ? '1px solid var(--ga-border)' : 0 }}>
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Typography noWrap sx={{ fontSize: 13, fontWeight: 600 }}>{x.descricao}</Typography>
+                              <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                                {x.codigo} · {fmtNum(x.quantidade, 3)} {x.unidade}
+                              </Typography>
+                            </Box>
+                            <Typography sx={{ fontSize: 13, fontWeight: 650, color: corEstoque.laranja, fontVariantNumeric: 'tabular-nums' }}>{fmtMoeda(x.valor)}</Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Box>
+                  ) : null}
+                </Box>
+              </Box>
+            );
+          })()
+        ) : null}
+      </Drawer>
+    </Paper>
+  );
+}
+
 function PainelPedido({ idLoja }: { idLoja: number }) {
   const [loading, setLoading] = useState(true);
   const [dados, setDados] = useState<EstoquePedidoRascunho | null>(null);
   const [itens, setItens] = useState<EstoquePedidoRascunhoItem[]>([]);
+  const [notas, setNotas] = useState<EstoqueNfeResumo[]>([]);
+  const [filtroNota, setFiltroNota] = useState('entregue');
+  const [notaAberta, setNotaAberta] = useState<number | null>(null);
+  const [detalhesNota, setDetalhesNota] = useState<Record<number, EstoqueNfeDetalhe | 'carregando' | 'erro'>>({});
+
+  const abrirNota = (idNfe: number) => {
+    if (notaAberta === idNfe) {
+      setNotaAberta(null);
+      return;
+    }
+    setNotaAberta(idNfe);
+    const atual = detalhesNota[idNfe];
+    if (atual && atual !== 'erro') return;
+    setDetalhesNota((d) => ({ ...d, [idNfe]: 'carregando' }));
+    api
+      .estoqueNfeDetalhe(idNfe)
+      .then((det) => setDetalhesNota((d) => ({ ...d, [idNfe]: det })))
+      .catch(() => setDetalhesNota((d) => ({ ...d, [idNfe]: 'erro' })));
+  };
   const [dias, setDias] = useState('7');
   const [seguranca, setSeguranca] = useState('1');
   const [metaCmp, setMetaCmp] = useState('38');
   const [soPlatlog, setSoPlatlog] = useState(true);
+  const [visao, setVisao] = useState<'rascunho' | 'portal'>('rascunho');
   const [montando, setMontando] = useState(false);
   const [printCarrinho, setPrintCarrinho] = useState<{
     png: string;
@@ -3150,13 +3615,17 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
     setLoading(true);
     try {
       const meta = Number(String(metaCmp).replace(',', '.')) / 100;
-      const r = await api.estoquePedidoRascunho(idLoja, {
-        dias: Number(dias) || 7,
-        estoque_seguranca_dias: Number(seguranca) || 0,
-        meta_cmp: Number.isFinite(meta) ? meta : 0.38,
-      });
+      const [r, nfs] = await Promise.all([
+        api.estoquePedidoRascunho(idLoja, {
+          dias: Number(dias) || 7,
+          estoque_seguranca_dias: Number(seguranca) || 0,
+          meta_cmp: Number.isFinite(meta) ? meta : 0.38,
+        }),
+        api.estoqueNfes(idLoja, { dias: 120, limit: 200 }).catch(() => [] as EstoqueNfeResumo[]),
+      ]);
       setDados(r);
       setItens(r.itens.map((i) => ({ ...i })));
+      setNotas(nfs.filter((n) => String(n.fornecedor || '').toLowerCase() === 'platlog'));
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao calcular pedido', 'error');
     } finally {
@@ -3255,165 +3724,707 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
   const cmp = dados?.cmp;
   const brl = (v: number) =>
     v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const brlCurto = (v: number) =>
+    v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  const hoje = hojeISO();
+  const em7 = (() => {
+    const d = new Date(`${hoje}T12:00:00`);
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().slice(0, 10);
+  })();
+  const portalNota = (s?: string | null) => String(s || '').trim().toUpperCase();
+  const vencNota = (n: EstoqueNfeResumo) => (n.data_vencimento ? String(n.data_vencimento).slice(0, 10) : '');
+  const etapasNota = (
+    [
+      {
+        id: 'entregue',
+        label: 'Entregue',
+        dica: 'Saiu da Platlog e o gestor ainda não conferiu. Cobrar a conferência.',
+        cor: '#C47A2A',
+        fundo: 'rgba(196, 122, 42, 0.08)',
+        teste: (n: EstoqueNfeResumo) => n.status_entrega === 'aguardando_conferencia',
+      },
+      {
+        id: 'atraso',
+        label: 'Em atraso',
+        dica: 'Título vencido no eSupri.',
+        cor: '#C4452D',
+        fundo: 'rgba(196, 69, 45, 0.07)',
+        teste: (n: EstoqueNfeResumo) => !n.pago && portalNota(n.status_portal) === 'ATRASO',
+      },
+      {
+        id: 'apagar',
+        label: 'A pagar',
+        dica: (() => {
+          const semana = notas.filter((n) => {
+            const v = vencNota(n);
+            return !n.pago && portalNota(n.status_portal) === 'ABERTO' && Boolean(v) && v >= hoje && v <= em7;
+          }).length;
+          return semana
+            ? `Em aberto e no prazo. ${semana} ${semana === 1 ? 'vence' : 'vencem'} nos próximos 7 dias.`
+            : 'Em aberto e no prazo.';
+        })(),
+        cor: '#1B6EF3',
+        fundo: 'rgba(27, 110, 243, 0.07)',
+        teste: (n: EstoqueNfeResumo) => {
+          const v = vencNota(n);
+          return !n.pago && portalNota(n.status_portal) === 'ABERTO' && (!v || v >= hoje);
+        },
+      },
+      {
+        id: 'pago',
+        label: 'Pago',
+        dica: 'Título conciliado no financeiro.',
+        cor: '#7C5CC4',
+        fundo: 'rgba(124, 92, 196, 0.07)',
+        teste: (n: EstoqueNfeResumo) => Boolean(n.pago),
+      },
+      {
+        id: 'confirmada',
+        label: 'Confirmada',
+        dica: 'O gestor conferiu e a mercadoria entrou no estoque.',
+        cor: '#2E7D5B',
+        fundo: 'rgba(46, 125, 91, 0.07)',
+        teste: (n: EstoqueNfeResumo) => n.status_entrega === 'conferida',
+      },
+      {
+        id: 'divergente',
+        label: 'Divergente',
+        dica: 'O gestor conferiu e faltou quantidade.',
+        cor: '#B42318',
+        fundo: 'rgba(180, 35, 24, 0.06)',
+        teste: (n: EstoqueNfeResumo) => n.status_entrega === 'divergente',
+      },
+    ] as const
+  )
+    .map((e) => {
+      const lista = notas.filter(e.teste);
+      return { ...e, qtd: lista.length, valor: lista.reduce((s, n) => s + (Number(n.valor_total) || 0), 0) };
+    });
+  const etapaAtiva =
+    etapasNota.find((e) => e.id === filtroNota && e.qtd > 0) || etapasNota.find((e) => e.qtd > 0) || null;
+  const notasLista = etapaAtiva
+    ? notas.filter(etapaAtiva.teste).sort((a, b) => (vencNota(a) || '9999').localeCompare(vencNota(b) || '9999'))
+    : [];
+
+  const alvoDias = Number(dias) || 7;
+  const comCaixa = visiveis.filter((i) => Number(i.pedido_ajustado) > 0).length;
+  const definirCaixas = (codigo: string, valor: number) => {
+    setItens((atual) =>
+      atual.map((row) => (row.codigo === codigo ? { ...row, pedido_ajustado: Math.max(0, valor) } : row)),
+    );
+  };
+  const cardSx = {
+    border: '1px solid var(--ga-border)',
+    borderRadius: '10px',
+    bgcolor: 'var(--ga-surface)',
+    boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+  } as const;
+  const rotuloSx = {
+    fontSize: 11,
+    fontWeight: 650,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    color: 'text.secondary',
+  } as const;
+  const cabecaSx = {
+    '& th': {
+      fontSize: 11,
+      fontWeight: 650,
+      letterSpacing: '0.05em',
+      textTransform: 'uppercase',
+      color: 'text.secondary',
+      bgcolor: 'var(--ga-surface)',
+      borderBottom: '1px solid var(--ga-border)',
+      py: 1,
+      whiteSpace: 'nowrap',
+    },
+  } as const;
+
+  const estourou = cmp ? Math.max(0, cmp.compras_mes - cmp.teto_mes) : 0;
+  const cmpAlto = Boolean(cmp && cmp.cmp_atual_pct != null && cmp.cmp_atual_pct > cmp.meta_pct);
+  const usoTeto = cmp && cmp.teto_mes > 0 ? cmp.compras_mes / cmp.teto_mes : 0;
+  const alternarVisao = (
+    <BarraSegmento
+      itens={[
+        { id: 'rascunho', label: 'Sugestão', ativo: visao === 'rascunho', onClick: () => setVisao('rascunho') },
+        { id: 'portal', label: 'No portal', ativo: visao === 'portal', onClick: () => setVisao('portal') },
+      ]}
+    />
+  );
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1, minHeight: 0, color: 'var(--ga-text-primary)' }}>
       {cmp ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, alignItems: 'flex-start' }}>
-          <Box sx={{ display: 'inline-flex', flexShrink: 0, border: '1px solid', borderColor: 'divider', borderRadius: '8px', bgcolor: 'var(--ga-surface)' }}>
-            {(() => {
-              const estourou = Math.max(0, cmp.compras_mes - cmp.teto_mes);
-              const cmpAlto = cmp.cmp_atual_pct != null && cmp.cmp_atual_pct > cmp.meta_pct;
-              const fatias = [
-                {
-                  rotulo: 'CMP do mês',
-                  valor: cmp.cmp_atual_pct != null ? `${fmtNum(cmp.cmp_atual_pct, 1)}%` : '—',
-                  cor: cmpAlto ? '#C4452D' : '#1B6EF3',
-                },
-                { rotulo: 'Já comprado', valor: brl(cmp.compras_mes), cor: '#C47A2A' },
-                estourou > 0
-                  ? { rotulo: 'Estourou', valor: brl(estourou), cor: '#C4452D' }
-                  : { rotulo: 'Ainda cabe', valor: brl(cmp.teto_restante), cor: '#5C7052' },
-                {
-                  rotulo: 'Este pedido',
-                  valor: brl(valorAjustado),
-                  cor: valorAjustado > cmp.teto_restante ? '#C4452D' : '#1B6EF3',
-                },
-              ];
-              return fatias.map((f, i) => (
-                <Box key={f.rotulo} sx={{ display: 'flex', alignItems: 'baseline', gap: 0.75, px: 1.25, py: 0.6, borderRight: i < fatias.length - 1 ? '1px solid' : 0, borderColor: 'divider' }}>
-                  <Typography component="span" sx={{ fontSize: 11, fontWeight: 650, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'text.secondary' }}>
-                    {f.rotulo}
-                  </Typography>
-                  <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: f.cor }}>
-                    {f.valor}
-                  </Typography>
-                </Box>
-              ));
-            })()}
-          </Box>
-          {cmp.teto_restante <= 0 && cmp.teto_aplicado ? (
-            <Typography sx={{ fontSize: 12, lineHeight: 1.4, color: 'text.secondary' }}>
-              O mês já passou do teto de {fmtNum(cmp.meta_pct, 0)}%. As caixas deste pedido foram zeradas.
-            </Typography>
-          ) : null}
-        </Box>
-      ) : null}
-
-      <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)', flex: 1, minHeight: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap', py: 0.75 }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Pedido da semana</Typography>
-          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{visiveis.length}</Typography>
-          {(
-            [
-              ['Dias', dias, setDias],
-              ['Segurança', seguranca, setSeguranca],
-              ['Teto %', metaCmp, setMetaCmp],
-            ] as const
-          ).map(([rotulo, valor, definir]) => (
-            <Box key={rotulo} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, ml: rotulo === 'Dias' ? 0.5 : 0 }}>
-              <Typography sx={{ fontSize: 11, fontWeight: 650, color: 'text.secondary', whiteSpace: 'nowrap' }}>{rotulo}</Typography>
-              <TextField
-                size="small"
-                hiddenLabel
-                value={valor}
-                onChange={(e) => definir(e.target.value)}
+        <Paper
+          variant="outlined"
+          sx={{
+            ...cardSx,
+            flexShrink: 0,
+            px: 2.25,
+            py: 1.75,
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr 1fr', md: 'minmax(280px, 1.3fr) repeat(3, minmax(0, 1fr))' },
+            columnGap: 2.5,
+            rowGap: 1.5,
+            alignItems: 'center',
+          }}
+        >
+          <Box sx={{ gridColumn: { xs: '1 / -1', md: 'auto' } }}>
+            <Typography sx={rotuloSx}>CMP do mês</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, mt: 0.25 }}>
+              <Typography sx={{ fontSize: 30, fontWeight: 700, lineHeight: 1.1, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: cmpAlto ? '#C4452D' : 'text.primary' }}>
+                {cmp.cmp_atual_pct != null ? `${fmtNum(cmp.cmp_atual_pct, 1)}%` : '—'}
+              </Typography>
+              <Typography sx={{ fontSize: 13, color: 'text.secondary' }}>meta {fmtNum(cmp.meta_pct, 0)}%</Typography>
+            </Box>
+            <Box sx={{ position: 'relative', height: 6, borderRadius: 3, bgcolor: 'var(--ga-border)', mt: 1, overflow: 'hidden' }}>
+              <Box
                 sx={{
-                  width: 52,
-                  '& .MuiOutlinedInput-root': { height: 32, borderRadius: '8px' },
-                  '& .MuiOutlinedInput-input': { textAlign: 'center', py: 0, fontSize: 13, fontWeight: 650 },
+                  position: 'absolute',
+                  inset: 0,
+                  width: `${Math.min(1, usoTeto) * 100}%`,
+                  borderRadius: 3,
+                  bgcolor: usoTeto > 1 ? '#C4452D' : usoTeto > 0.85 ? '#C47A2A' : '#1B6EF3',
                 }}
               />
             </Box>
-          ))}
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', ml: 'auto' }}>
-            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()} sx={finBtnOutlinedSx}>
-              Recalcular
-            </Button>
-            <Button variant="outlined" onClick={() => setSoPlatlog((v) => !v)} sx={finBtnOutlinedSx}>
-              {soPlatlog ? 'Só Platlog' : 'Todos'}
-            </Button>
-            <Button variant="outlined" onClick={copiar} disabled={!visiveis.length} sx={finBtnOutlinedSx}>
-              Copiar
-            </Button>
-            <Button
-              variant="contained"
-              disableElevation
-              onClick={() => void montarCarrinho()}
-              disabled={montando || Boolean(dados?.piloto_carrinho_bloqueado) || !visiveis.length}
-              sx={finBtnContainedSx}
-            >
-              {montando ? 'Abrindo eSupri…' : 'Montar no eSupri'}
-            </Button>
+            <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.75, fontVariantNumeric: 'tabular-nums' }}>
+              {brlCurto(cmp.compras_mes)} de {brlCurto(cmp.teto_mes)} de teto
+            </Typography>
           </Box>
-        </Box>
-        <TableContainer sx={tableContainerSx}>
-          <Table size="small" stickyHeader sx={tableSx}>
-            <TableHead>
-              <TableRow>
-                <TableCell>Código</TableCell>
-                <TableCell>Insumo</TableCell>
-                <TableCell>Fornecedor</TableCell>
-                <TableCell align="right">Dias de estoque</TableCell>
-                <TableCell align="right">Na nota</TableCell>
-                <TableCell align="right">Conta</TableCell>
-                <TableCell align="right">Cabe no mês</TableCell>
-                <TableCell align="right">R$</TableCell>
-                <TableCell align="right">Caixas</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {visiveis.map((i) => {
-                const idx = itens.findIndex((row) => row.codigo === i.codigo);
-                const valorLinha = Math.max(0, Number(i.pedido_ajustado) || 0) * Number(i.preco_caixa || 0);
-                return (
-                  <TableRow key={i.codigo} hover>
-                    <TableCell sx={{ fontWeight: 700 }}>{i.codigo}</TableCell>
-                    <TableCell>{i.descricao}</TableCell>
-                    <TableCell>{i.fornecedor || '—'}</TableCell>
-                    <TableCell align="right">
-                      {i.cobertura_dias == null ? '—' : `${fmtNum(i.cobertura_dias, 1)} d`}
-                    </TableCell>
-                    <TableCell align="right">{fmtNum(i.a_caminho, 1)}</TableCell>
-                    <TableCell align="right">{fmtNum(i.caixas_calculo, 0)}</TableCell>
-                    <TableCell align="right" sx={{ color: i.cortado ? '#B42318' : undefined }}>
-                      {fmtNum(i.caixas_pedidas, 0)}
-                    </TableCell>
-                    <TableCell align="right">
-                      {i.vende_esupri === false ? 'não vende' : brl(valorLinha)}
-                    </TableCell>
-                    <TableCell align="right" sx={{ minWidth: 110 }}>
-                      <TextField
-                        size="small"
-                        value={String(i.pedido_ajustado)}
-                        onChange={(e) => {
-                          const next = [...itens];
-                          if (idx < 0) return;
-                          next[idx] = {
-                            ...next[idx],
-                            pedido_ajustado: Number(String(e.target.value).replace(',', '.')) || 0,
-                          };
-                          setItens(next);
-                        }}
-                        slotProps={{ htmlInput: { style: { textAlign: 'right' } } }}
-                      />
+          {[
+            { rotulo: 'Já comprado', valor: brl(cmp.compras_mes), sub: `Venda do mês ${brlCurto(cmp.venda_mes)}`, cor: 'text.primary' },
+            estourou > 0
+              ? { rotulo: 'Estourou', valor: brl(estourou), sub: `Acima do teto de ${fmtNum(cmp.meta_pct, 0)}%`, cor: '#C4452D' }
+              : { rotulo: 'Ainda cabe', valor: brl(cmp.teto_restante), sub: `Teto ${brlCurto(cmp.teto_mes)}`, cor: '#2E7D5B' },
+            {
+              rotulo: 'Este pedido',
+              valor: brl(valorAjustado),
+              sub: comCaixa ? `${comCaixa} ${comCaixa === 1 ? 'item' : 'itens'} com caixa` : 'Nenhuma caixa',
+              cor: valorAjustado > cmp.teto_restante && valorAjustado > 0 ? '#C4452D' : '#1B6EF3',
+            },
+          ].map((s) => (
+            <Box key={s.rotulo} sx={{ borderLeft: { md: '1px solid var(--ga-border)' }, pl: { md: 2.5 }, minWidth: 0 }}>
+              <Typography sx={rotuloSx}>{s.rotulo}</Typography>
+              <Typography noWrap sx={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums', color: s.cor, mt: 0.25 }}>
+                {s.valor}
+              </Typography>
+              <Typography noWrap sx={{ fontSize: 12, color: 'text.secondary', mt: 0.25 }}>{s.sub}</Typography>
+            </Box>
+          ))}
+          {cmp.teto_restante <= 0 && cmp.teto_aplicado ? (
+            <Box sx={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.9, borderRadius: '8px', bgcolor: 'rgba(196, 69, 45, 0.07)' }}>
+              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#C4452D', flexShrink: 0 }} />
+              <Typography sx={{ fontSize: 12.5, color: '#8F2F1D' }}>
+                O mês já passou do teto de {fmtNum(cmp.meta_pct, 0)}%. As sugestões foram zeradas; o que entrar agora aumenta o estouro.
+              </Typography>
+            </Box>
+          ) : null}
+        </Paper>
+      ) : null}
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 380px' },
+          gridAutoRows: { xs: 'minmax(360px, auto)', lg: 'minmax(0, 1fr)' },
+          gap: 1.25,
+          flex: 1,
+          minHeight: 0,
+          overflow: { xs: 'auto', lg: 'visible' },
+        }}
+      >
+        {visao === 'portal' ? (
+          <PainelPedidosPortal idLoja={idLoja} rascunho={itens} alternar={alternarVisao} />
+        ) : (
+        <Paper variant="outlined" sx={{ ...tablePaperSx, ...cardSx, minHeight: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2, py: 1.25, borderBottom: '1px solid var(--ga-border)', flexShrink: 0, flexWrap: 'wrap' }}>
+            {alternarVisao}
+            <Box sx={{ minWidth: 0 }}>
+              <Typography sx={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Pedido da semana</Typography>
+              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+                {visiveis.length} {visiveis.length === 1 ? 'insumo' : 'insumos'} · {comCaixa} com caixa
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, height: 32, px: 1.25, ml: 1, border: '1px solid var(--ga-border)', borderRadius: '8px' }}>
+              {(
+                [
+                  ['Dias', dias, setDias, ''],
+                  ['Segurança', seguranca, setSeguranca, ''],
+                  ['Teto', metaCmp, setMetaCmp, '%'],
+                ] as const
+              ).map(([rotulo, valor, definir, sufixo]) => (
+                <Box key={rotulo} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Typography sx={{ fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{rotulo}</Typography>
+                  <TextField
+                    variant="standard"
+                    value={valor}
+                    onChange={(e) => definir(e.target.value)}
+                    slotProps={{ input: { disableUnderline: true } }}
+                    sx={{
+                      width: sufixo ? 22 : 18,
+                      '& .MuiInputBase-input': { p: 0, textAlign: 'center', fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
+                    }}
+                  />
+                  {sufixo ? <Typography sx={{ fontSize: 12, color: 'text.secondary', ml: -0.25 }}>{sufixo}</Typography> : null}
+                </Box>
+              ))}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', ml: 'auto' }}>
+              <Tooltip title="Recalcular">
+                <IconButton size="small" onClick={() => void carregar()} sx={{ border: '1px solid var(--ga-border)', borderRadius: '8px', width: 32, height: 32 }}>
+                  {loading ? <CircularProgress size={14} /> : <RefreshIcon sx={{ fontSize: 18 }} />}
+                </IconButton>
+              </Tooltip>
+              <Button variant="outlined" onClick={() => setSoPlatlog((v) => !v)} sx={finBtnOutlinedSx}>
+                {soPlatlog ? 'Só Platlog' : 'Todos'}
+              </Button>
+              <Button variant="outlined" onClick={copiar} disabled={!comCaixa} sx={finBtnOutlinedSx}>
+                Copiar
+              </Button>
+              <Button
+                variant="contained"
+                disableElevation
+                onClick={() => void montarCarrinho()}
+                disabled={montando || Boolean(dados?.piloto_carrinho_bloqueado) || !comCaixa}
+                sx={finBtnContainedSx}
+              >
+                {montando ? 'Abrindo eSupri…' : 'Montar no eSupri'}
+              </Button>
+            </Box>
+          </Box>
+          <TableContainer sx={tableContainerSx}>
+            <Table size="small" stickyHeader sx={{ ...tableSx, '& td': { borderColor: 'var(--ga-border)', py: 1 } }}>
+              <TableHead sx={cabecaSx}>
+                <TableRow>
+                  <TableCell sx={{ pl: 2 }}>Insumo</TableCell>
+                  {!soPlatlog ? <TableCell>Fornecedor</TableCell> : null}
+                  <TableCell>Cobertura</TableCell>
+                  <TableCell align="right">A caminho</TableCell>
+                  <TableCell align="right">Sugestão</TableCell>
+                  <TableCell align="right">Valor</TableCell>
+                  <TableCell align="center" sx={{ pr: 2 }}>Caixas</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {visiveis.map((i) => {
+                  const caixas = Math.max(0, Number(i.pedido_ajustado) || 0);
+                  const valorLinha = caixas * Number(i.preco_caixa || 0);
+                  const cob = i.cobertura_dias == null ? null : Math.max(0, Number(i.cobertura_dias));
+                  const corCob = cob == null ? 'var(--ga-border)' : cob < alvoDias * 0.5 ? '#C4452D' : cob < alvoDias ? '#C47A2A' : '#2E7D5B';
+                  const cortou = i.cortado && Number(i.caixas_calculo) > Number(i.caixas_pedidas);
+                  return (
+                    <TableRow key={i.codigo} hover sx={{ bgcolor: caixas > 0 ? 'rgba(27, 110, 243, 0.035)' : undefined }}>
+                      <TableCell sx={{ pl: 2, maxWidth: 360 }}>
+                        <Typography noWrap sx={{ fontSize: 13, fontWeight: 600 }} title={i.descricao}>
+                          {i.descricao}
+                        </Typography>
+                        <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{i.codigo}</Typography>
+                      </TableCell>
+                      {!soPlatlog ? (
+                        <TableCell sx={{ color: 'text.secondary', textTransform: 'capitalize' }}>{i.fornecedor || '—'}</TableCell>
+                      ) : null}
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ width: 64, height: 5, borderRadius: 3, bgcolor: 'var(--ga-border)', overflow: 'hidden', flexShrink: 0 }}>
+                            <Box sx={{ width: `${cob == null ? 0 : Math.min(1, cob / (alvoDias * 2)) * 100}%`, height: '100%', bgcolor: corCob }} />
+                          </Box>
+                          <Typography sx={{ fontSize: 12.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: cob != null && cob < alvoDias ? corCob : 'text.secondary', whiteSpace: 'nowrap' }}>
+                            {cob == null ? '—' : `${fmtNum(cob, 1)} d`}
+                          </Typography>
+                        </Box>
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', color: 'text.secondary' }}>
+                        {Number(i.a_caminho) > 0 ? fmtNum(i.a_caminho, 1) : '—'}
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                        {cortou ? (
+                          <Tooltip title="Cortado pelo teto do CMP">
+                            <Box component="span">
+                              <Box component="span" sx={{ textDecoration: 'line-through', color: 'text.secondary', mr: 0.75 }}>
+                                {fmtNum(i.caixas_calculo, 0)}
+                              </Box>
+                              <Box component="span" sx={{ color: '#C4452D', fontWeight: 650 }}>{fmtNum(i.caixas_pedidas, 0)}</Box>
+                            </Box>
+                          </Tooltip>
+                        ) : (
+                          <Box component="span" sx={{ color: 'text.secondary' }}>{fmtNum(i.caixas_calculo, 0)}</Box>
+                        )}
+                      </TableCell>
+                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: caixas > 0 ? 650 : 400, color: caixas > 0 ? 'text.primary' : 'text.secondary', whiteSpace: 'nowrap' }}>
+                        {i.vende_esupri === false ? 'Não vende' : caixas > 0 ? brl(valorLinha) : '—'}
+                      </TableCell>
+                      <TableCell align="center" sx={{ pr: 2, width: 128 }}>
+                        <Box sx={{ display: 'inline-flex', alignItems: 'center', height: 30, border: '1px solid', borderColor: caixas > 0 ? 'rgba(27, 110, 243, 0.45)' : 'var(--ga-border)', borderRadius: '8px', bgcolor: 'var(--ga-surface)' }}>
+                          <IconButton size="small" disabled={caixas <= 0} onClick={() => definirCaixas(i.codigo, caixas - 1)} sx={{ width: 28, height: 28 }}>
+                            <RemoveIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                          <TextField
+                            variant="standard"
+                            value={String(i.pedido_ajustado)}
+                            onChange={(e) => definirCaixas(i.codigo, Number(String(e.target.value).replace(',', '.')) || 0)}
+                            slotProps={{ input: { disableUnderline: true } }}
+                            sx={{
+                              width: 34,
+                              '& .MuiInputBase-input': { p: 0, textAlign: 'center', fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: caixas > 0 ? '#1B6EF3' : 'text.secondary' },
+                            }}
+                          />
+                          <IconButton size="small" onClick={() => definirCaixas(i.codigo, caixas + 1)} sx={{ width: 28, height: 28 }}>
+                            <AddIcon sx={{ fontSize: 16 }} />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {!visiveis.length && (
+                  <TableRow>
+                    <TableCell colSpan={7}>
+                      <Typography color="text.secondary" align="center" sx={{ py: 3, fontSize: 13 }}>
+                        Sem consumo recente para montar o rascunho. Confira vendas BK Office e fichas.
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                );
-              })}
-              {!visiveis.length && (
-                <TableRow>
-                  <TableCell colSpan={9}>
-                    <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
-                      Sem consumo recente para montar o rascunho. Confira vendas BK Office e fichas.
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
+        )}
+
+        <Paper variant="outlined" sx={{ ...cardSx, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid var(--ga-border)', flexShrink: 0 }}>
+            <Typography sx={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Notas Platlog</Typography>
+            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+              {notas.length} {notas.length === 1 ? 'nota' : 'notas'} nos últimos 120 dias
+            </Typography>
+          </Box>
+          {notas.length ? (
+            <>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1, p: 1.5, flexShrink: 0 }}>
+                {etapasNota.map((e) => {
+                  const ativo = etapaAtiva?.id === e.id;
+                  const vazio = e.qtd === 0;
+                  return (
+                    <Box
+                      key={e.id}
+                      component="button"
+                      type="button"
+                      disabled={vazio}
+                      onClick={() => setFiltroNota(e.id)}
+                      sx={{
+                        textAlign: 'left',
+                        font: 'inherit',
+                        color: 'inherit',
+                        cursor: vazio ? 'default' : 'pointer',
+                        opacity: vazio ? 0.45 : 1,
+                        '&:disabled': { borderColor: 'var(--ga-border)' },
+                        px: 1.25,
+                        py: 1,
+                        borderRadius: '8px',
+                        border: '1px solid',
+                        borderColor: ativo ? e.cor : 'var(--ga-border)',
+                        bgcolor: ativo ? e.fundo : 'transparent',
+                        transition: 'border-color 120ms, background-color 120ms',
+                        '&:hover': { borderColor: vazio ? 'var(--ga-border)' : e.cor },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                        <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: e.cor, flexShrink: 0 }} />
+                        <Typography noWrap sx={{ fontSize: 12, fontWeight: 600, color: ativo ? e.cor : 'text.secondary' }}>{e.label}</Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mt: 0.5 }}>
+                        <Typography sx={{ fontSize: 20, fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{e.qtd}</Typography>
+                        <Typography noWrap sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{brlCurto(e.valor)}</Typography>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+              {etapaAtiva ? (
+                <Box sx={{ px: 2, py: 1, borderTop: '1px solid var(--ga-border)', borderBottom: '1px solid var(--ga-border)', bgcolor: etapaAtiva.fundo, flexShrink: 0 }}>
+                  <Typography sx={{ fontSize: 12, color: etapaAtiva.cor, fontWeight: 600 }}>{etapaAtiva.dica}</Typography>
+                </Box>
+              ) : null}
+              <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+                {notasLista.map((n) => {
+                  const venc = vencNota(n);
+                  const vencida = Boolean(!n.pago && venc && venc < hoje && portalNota(n.status_portal) === 'ATRASO');
+                  const aberta = notaAberta === n.id_nfe;
+                  return (
+                    <Box key={n.id_nfe} sx={{ borderBottom: '1px solid var(--ga-border)' }}>
+                    <Box
+                      component="button"
+                      type="button"
+                      onClick={() => abrirNota(n.id_nfe)}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.25,
+                        width: '100%',
+                        px: 2,
+                        py: 1.1,
+                        border: 0,
+                        font: 'inherit',
+                        color: 'inherit',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        bgcolor: aberta ? 'rgba(27, 110, 243, 0.06)' : 'transparent',
+                        boxShadow: aberta ? 'inset 3px 0 0 #1B6EF3' : 'none',
+                        '&:hover': { bgcolor: aberta ? 'rgba(27, 110, 243, 0.06)' : 'rgba(15, 23, 42, 0.03)' },
+                        '&:hover .seta-nota': { opacity: 1, transform: 'translateX(2px)' },
+                      }}
+                    >
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums' }}>NF {n.numero || '—'}</Typography>
+                        <Typography noWrap sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                          Emitida {fmtDataBR(n.emissao)}
+                          {n.status_portal ? ` · ${n.status_portal.charAt(0).toUpperCase()}${n.status_portal.slice(1).toLowerCase()}` : ''}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                        <Typography sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums' }}>
+                          {n.valor_total != null ? brl(Number(n.valor_total)) : '—'}
+                        </Typography>
+                        <Typography sx={{ fontSize: 11.5, fontVariantNumeric: 'tabular-nums', color: vencida ? '#C4452D' : 'text.secondary' }}>
+                          {n.pago ? `Pago · venceu ${fmtDataBR(venc)}` : venc ? `Vence ${fmtDataBR(venc)}` : 'Sem vencimento'}
+                        </Typography>
+                      </Box>
+                      <ChevronRightIcon
+                        className="seta-nota"
+                        sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0, opacity: aberta ? 1 : 0.4, transition: 'opacity 120ms, transform 120ms' }}
+                      />
+                    </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </>
+          ) : (
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
+              <Typography sx={{ fontSize: 13, color: 'text.secondary', textAlign: 'center' }}>
+                Nenhuma nota Platlog desta loja nos últimos 120 dias.
+              </Typography>
+            </Box>
+          )}
+        </Paper>
+      </Box>
+
+      <Drawer
+        anchor="right"
+        open={notaAberta != null}
+        onClose={() => setNotaAberta(null)}
+        {...drawerSemTranco}
+        ModalProps={drawerSemTranco}
+        slotProps={{ paper: { sx: { ...papelDrawerSx, width: 520 } } }}
+      >
+        {(() => {
+          const n = notas.find((x) => x.id_nfe === notaAberta);
+          if (!n) return null;
+          const det = detalhesNota[n.id_nfe];
+          const venc = vencNota(n);
+          const entrega =
+            n.status_entrega === 'divergente'
+              ? { label: 'Divergente', cor: '#B42318', fundo: 'rgba(180, 35, 24, 0.08)' }
+              : n.status_entrega === 'conferida'
+                ? { label: 'Confirmada', cor: '#2E7D5B', fundo: 'rgba(46, 125, 91, 0.1)' }
+                : n.status_entrega === 'aguardando_conferencia'
+                  ? { label: 'Entregue · falta conferir', cor: '#C47A2A', fundo: 'rgba(196, 122, 42, 0.1)' }
+                  : n.status_entrega === 'em_transito'
+                    ? { label: 'Em trânsito', cor: '#3B6FD8', fundo: 'rgba(59, 111, 216, 0.1)' }
+                    : { label: 'Pendente', cor: '#64748B', fundo: 'rgba(100, 116, 139, 0.1)' };
+          const financeiro = n.pago
+            ? { label: 'Pago', cor: '#7C5CC4', fundo: 'rgba(124, 92, 196, 0.1)' }
+            : portalNota(n.status_portal) === 'ATRASO'
+              ? { label: 'Em atraso', cor: '#C4452D', fundo: 'rgba(196, 69, 45, 0.1)' }
+              : { label: 'A pagar', cor: '#1B6EF3', fundo: 'rgba(27, 110, 243, 0.1)' };
+          const selo = (s: { label: string; cor: string; fundo: string }) => (
+            <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.6, px: 1, height: 24, borderRadius: '999px', bgcolor: s.fundo, color: s.cor, fontSize: 12, fontWeight: 650 }}>
+              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: s.cor }} />
+              {s.label}
+            </Box>
+          );
+          const linhas =
+            det && det !== 'carregando' && det !== 'erro'
+              ? det.itens
+                  .map((it) => {
+                    const nf = Number(it.qtd_estoque ?? it.q_com ?? 0);
+                    const conf = it.qtd_conferida != null ? Number(it.qtd_conferida) : det.entrada_registrada ? nf : null;
+                    const conferido = det.entrada_registrada && conf != null;
+                    const falta = conferido ? Math.max(0, nf - (conf ?? 0)) : 0;
+                    const valorFalta = nf > 0 ? (Number(it.v_prod) || 0) * (falta / nf) : 0;
+                    return { it, nf, conf, conferido, falta, valorFalta };
+                  })
+                  .sort((a, b) => b.valorFalta - a.valorFalta)
+              : [];
+          const comFalta = linhas.filter((l) => l.falta > 0.0001);
+          const certos = linhas.filter((l) => l.conferido && l.falta <= 0.0001).length;
+          const valorFaltaTotal = comFalta.reduce((s, l) => s + l.valorFalta, 0);
+          const conferida = Boolean(det && det !== 'carregando' && det !== 'erro' && det.entrada_registrada);
+
+          return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <CabecalhoDrawer titulo={`NF ${n.numero || '—'}`} icone={<ReceiptLongOutlinedIcon fontSize="small" />} onClose={() => setNotaAberta(null)} />
+              <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Box>
+                  <Typography sx={{ fontSize: 12, color: 'text.secondary' }} noWrap>
+                    {n.emitente_nome || 'Platlog'}
+                  </Typography>
+                  <Typography sx={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
+                    {n.valor_total != null ? brl(Number(n.valor_total)) : '—'}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.75, mt: 1, flexWrap: 'wrap' }}>
+                    {selo(entrega)}
+                    {selo(financeiro)}
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', border: '1px solid var(--ga-border)', borderRadius: '10px', bgcolor: 'var(--ga-surface)' }}>
+                  {[
+                    ['Emissão', fmtDataBR(n.emissao)],
+                    ['Saída', fmtDataBR(n.data_saida)],
+                    ['Entrada', fmtDataBR(n.data_entrega)],
+                    ['Vencimento', fmtDataBR(venc)],
+                  ].map(([rot, val], idx) => (
+                    <Box key={rot} sx={{ px: 1.5, py: 1.1, borderLeft: idx ? '1px solid var(--ga-border)' : 0 }}>
+                      <Typography sx={rotuloSx}>{rot}</Typography>
+                      <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', mt: 0.25, color: rot === 'Vencimento' && financeiro.label === 'Em atraso' ? '#C4452D' : 'text.primary' }}>
+                        {val}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+
+                {det === 'carregando' || !det ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                    <CircularProgress size={22} />
+                  </Box>
+                ) : det === 'erro' ? (
+                  <Typography sx={{ fontSize: 13, color: '#C4452D' }}>Não abriu os itens desta nota.</Typography>
+                ) : (
+                  <>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1 }}>
+                      {[
+                        { rot: 'Itens', val: String(linhas.length), cor: 'text.primary', sub: conferida ? 'conferidos' : 'na nota' },
+                        { rot: 'Chegou certo', val: conferida ? String(certos) : '—', cor: '#2E7D5B', sub: conferida ? 'sem diferença' : 'aguardando o gestor' },
+                        {
+                          rot: 'Com falta',
+                          val: conferida ? String(comFalta.length) : '—',
+                          cor: comFalta.length ? '#C4452D' : 'text.secondary',
+                          sub: comFalta.length ? brl(valorFaltaTotal) : conferida ? 'nada faltou' : 'aguardando o gestor',
+                        },
+                      ].map((c) => (
+                        <Box key={c.rot} sx={{ px: 1.5, py: 1.25, border: '1px solid var(--ga-border)', borderRadius: '10px', bgcolor: 'var(--ga-surface)' }}>
+                          <Typography sx={rotuloSx}>{c.rot}</Typography>
+                          <Typography sx={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', color: c.cor, mt: 0.25 }}>{c.val}</Typography>
+                          <Typography noWrap sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{c.sub}</Typography>
+                        </Box>
+                      ))}
+                    </Box>
+
+                    {(() => {
+                      const acima = det.itens.filter((it) => it.situacao_preco === 'acima');
+                      if (!acima.length) return null;
+                      const total = acima.reduce((s, it) => s + Number(it.diferenca_total || 0), 0);
+                      return (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, borderRadius: '8px', bgcolor: 'rgba(196, 69, 45, 0.07)' }}>
+                          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: corEstoque.vermelho, flexShrink: 0 }} />
+                          <Typography sx={{ fontSize: 12.5, color: '#8F2F1D', fontVariantNumeric: 'tabular-nums' }}>
+                            {acima.length} {acima.length === 1 ? 'item cobrado' : 'itens cobrados'} acima da Tabela BKC · {brl(total)} a mais
+                            {det.pedido_esupri ? ` · pedido ${det.pedido_esupri}` : ''}
+                          </Typography>
+                        </Box>
+                      );
+                    })()}
+
+                    {!conferida ? (
+                      <Box sx={{ px: 1.5, py: 1, borderRadius: '8px', bgcolor: 'rgba(196, 122, 42, 0.1)' }}>
+                        <Typography sx={{ fontSize: 12.5, color: '#8A5418' }}>
+                          O gestor ainda não conferiu esta nota. As quantidades abaixo são as da nota.
+                        </Typography>
+                      </Box>
+                    ) : null}
+
+                    <Box>
+                      <Typography sx={{ ...rotuloSx, mb: 1 }}>Itens da nota</Typography>
+                      <Box sx={{ border: '1px solid var(--ga-border)', borderRadius: '10px', bgcolor: 'var(--ga-surface)', overflow: 'hidden' }}>
+                        {linhas.map(({ it, nf, conf, conferido, falta, valorFalta }, idx) => {
+                          const und = String(it.unidade_contagem || it.u_com || '').toUpperCase();
+                          const temFalta = falta > 0.0001;
+                          const cor = !conferido ? 'var(--ga-border-strong)' : temFalta ? '#C4452D' : '#2E7D5B';
+                          const pct = !conferido ? 0 : nf > 0 ? Math.min(1, (conf ?? 0) / nf) : 1;
+                          return (
+                            <Box key={it.id_item} sx={{ px: 1.75, py: 1.25, borderTop: idx ? '1px solid var(--ga-border)' : 0, bgcolor: temFalta ? 'rgba(196, 69, 45, 0.035)' : undefined }}>
+                              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
+                                <Box sx={{ minWidth: 0, flex: 1 }}>
+                                  <Typography noWrap sx={{ fontSize: 13, fontWeight: 600 }} title={it.descricao || ''}>
+                                    {it.descricao_insumo || it.descricao || 'Item'}
+                                  </Typography>
+                                  <Typography noWrap sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                                    {[it.codigo_insumo || it.codigo_nf, it.v_prod != null ? brl(Number(it.v_prod)) : null].filter(Boolean).join(' · ')}
+                                  </Typography>
+                                  {it.preco_tabela != null && (it.situacao_preco === 'acima' || it.situacao_preco === 'conferir_unidade') ? (
+                                    <Typography noWrap sx={{ fontSize: 11.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: SELO_PRECO[it.situacao_preco].cor }}>
+                                      {it.situacao_preco === 'acima'
+                                        ? `Cobrou ${brl(Number(it.v_un_com))} · tabela ${brl(it.preco_tabela)} · +${brl(Number(it.diferenca_total || 0))}`
+                                        : `Cobrou ${brl(Number(it.v_un_com))} · tabela ${brl(it.preco_tabela)} · conferir unidade`}
+                                    </Typography>
+                                  ) : null}
+                                </Box>
+                                <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: temFalta ? '#C4452D' : conferido ? '#2E7D5B' : 'text.primary' }}>
+                                  {conferido ? `${fmtNum(conf, 2)} / ${fmtNum(nf, 2)}` : fmtNum(nf, 2)}
+                                  <Box component="span" sx={{ fontSize: 11.5, fontWeight: 500, color: 'text.secondary', ml: 0.5 }}>{und}</Box>
+                                </Typography>
+                              </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75 }}>
+                                <Box sx={{ flex: 1, height: 4, borderRadius: 2, bgcolor: 'var(--ga-border)', overflow: 'hidden' }}>
+                                  <Box sx={{ width: `${pct * 100}%`, height: '100%', bgcolor: cor }} />
+                                </Box>
+                                <Typography sx={{ fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap', color: !conferido ? 'text.secondary' : cor, fontVariantNumeric: 'tabular-nums' }}>
+                                  {!conferido ? 'Não conferido' : temFalta ? `Faltou ${fmtNum(falta, 2)} · ${brl(valorFalta)}` : 'Chegou certo'}
+                                </Typography>
+                              </Box>
+                              {!it.id_insumo ? (
+                                <Typography sx={{ fontSize: 11.5, color: '#8A5418', mt: 0.5 }}>
+                                  Sem insumo no cadastro. Foi conferido, mas não entrou no estoque.
+                                </Typography>
+                              ) : null}
+                              {it.divergencia_obs ? (
+                                <Typography sx={{ fontSize: 11.5, color: 'text.secondary', mt: 0.5, fontStyle: 'italic' }}>{it.divergencia_obs}</Typography>
+                              ) : null}
+                            </Box>
+                          );
+                        })}
+                        {!linhas.length ? (
+                          <Typography sx={{ fontSize: 13, color: 'text.secondary', px: 1.75, py: 2, textAlign: 'center' }}>Nota sem itens no XML.</Typography>
+                        ) : null}
+                      </Box>
+                    </Box>
+                  </>
+                )}
+              </Box>
+              {n.tem_xml ? (
+                <Box sx={{ px: 3, py: 1.5, borderTop: '1px solid var(--ga-border)', bgcolor: 'var(--ga-surface)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<PictureAsPdfOutlinedIcon />}
+                    sx={finBtnOutlinedSx}
+                    onClick={() => {
+                      api
+                        .estoqueNfeDanfePdf(n.id_nfe)
+                        .then((blob) => window.open(URL.createObjectURL(blob), '_blank'))
+                        .catch((e) => showToast(e instanceof Error ? e.message : 'Erro ao abrir DANFE', 'error'));
+                    }}
+                  >
+                    Abrir DANFE
+                  </Button>
+                </Box>
+              ) : null}
+            </Box>
+          );
+        })()}
+      </Drawer>
 
       <Dialog open={Boolean(printCarrinho)} onClose={() => setPrintCarrinho(null)} maxWidth="md" fullWidth>
         <DialogContent>
@@ -3810,35 +4821,49 @@ function PainelProdutos({
         { id: 'sem', label: 'Sem custo', qtd: semCustoCount, ativo: filtroCusto === 'sem', onClick: () => setFiltroCusto(filtroCusto === 'sem' ? 'todos' : 'sem') },
       ];
   const selectFiltro = (
-    <TextField
-      select
-      size="small"
-      value={abaCadastro === 'produtos' ? filtroInsumo : filtroCusto}
-      onChange={(e) => {
-        const v = e.target.value;
+    <SeletorFiltro
+      valor={abaCadastro === 'produtos' ? filtroInsumo : filtroCusto}
+      onChange={(v) => {
         if (abaCadastro === 'produtos') setFiltroInsumo(v as typeof filtroInsumo);
         else setFiltroCusto(v as typeof filtroCusto);
       }}
-      sx={{
-        width: 168,
-        flexShrink: 0,
-        '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 },
-      }}
-    >
-      <MenuItem value="todos" sx={{ fontSize: 13 }}>Todos</MenuItem>
-      {filtrosCadastro.filter((f) => f.qtd > 0).map((f) => (
-        <MenuItem key={f.id} value={f.id} sx={{ fontSize: 13, display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-          {f.label}
-          <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{f.qtd}</Typography>
-        </MenuItem>
-      ))}
-    </TextField>
+      opcoes={[
+        { id: 'todos', label: 'Todos', qtd: abaCadastro === 'produtos' ? lista.length : qtdInsumos },
+        ...filtrosCadastro.map((f) => ({ id: f.id, label: f.label, qtd: f.qtd })),
+      ]}
+    />
   );
+  const qtdComFicha = lista.filter((p) => temFicha(p) || isUnitario(p)).length;
+  const qtdComCusto = qtdInsumos - semCustoCount;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1, minHeight: 0 }}>
+      <PainelIndicadores
+        itens={[
+          {
+            rotulo: 'Produtos',
+            valor: lista.length,
+            sub: lista.length ? `${Math.round((qtdComFicha / lista.length) * 100)}% com ficha ou unitário` : 'nenhum produto',
+            barra: lista.length ? qtdComFicha / lista.length : null,
+            corBarra: semInsumos ? corEstoque.laranja : corEstoque.verde,
+          },
+          {
+            rotulo: 'Falta ficha',
+            valor: semInsumos,
+            sub: semInsumos ? 'produto sem composição' : 'todos com ficha',
+            cor: semInsumos ? corEstoque.laranja : corEstoque.verde,
+          },
+          { rotulo: 'Insumos', valor: qtdInsumos, sub: `${qtdComCusto} com custo válido` },
+          {
+            rotulo: 'Sem custo',
+            valor: semCustoCount,
+            sub: semCustoCount ? 'fora do CMV em R$' : 'todos com custo',
+            cor: semCustoCount ? corEstoque.vermelho : corEstoque.verde,
+          },
+        ]}
+      />
       {abaCadastro === 'insumos' ? (
-        <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)' }}>
+        <Paper variant="outlined" sx={{ ...tablePaperSx, ...cartaoSx }}>
           <Box sx={{ display: 'flex', px: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
             {modosCadastro.map((m) => (
               <Box
@@ -3870,16 +4895,17 @@ function PainelProdutos({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap' }}>
             <Box sx={{ flex: 1 }} />
             {selectFiltro}
-            <TextField
-              size="small"
-              placeholder="Buscar insumo"
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              sx={{ width: { xs: 160, sm: 220 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
-            />
-            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()} sx={{ height: 32 }}>
-              Atualizar
-            </Button>
+            <CampoBusca valor={busca} onChange={setBusca} placeholder="Buscar insumo" />
+            <Tooltip title="Atualizar">
+              <IconButton
+                size="small"
+                onClick={() => void carregar()}
+                aria-label="Atualizar"
+                sx={{ border: '1px solid var(--ga-border)', borderRadius: '8px', width: 32, height: 32 }}
+              >
+                <RefreshIcon sx={{ fontSize: 18 }} />
+              </IconButton>
+            </Tooltip>
             {semCustoCount > 0 && (
               <Button
                 size="small"
@@ -3924,8 +4950,8 @@ function PainelProdutos({
             ) : null}
           </Box>
           <TableContainer sx={tableContainerSx}>
-            <Table size="small" stickyHeader sx={tableSx}>
-              <TableHead>
+            <Table size="small" stickyHeader sx={{ ...tableSx, ...linhasTabelaSx }}>
+              <TableHead sx={cabecaTabelaSx}>
                 <TableRow>
                   <TableCell>Código</TableCell>
                   <TableCell>Descrição (insumo)</TableCell>
@@ -3954,12 +4980,17 @@ function PainelProdutos({
                         {String(i.unidade_fracionada || i.unidade_contagem || 'UND').toUpperCase()}
                       </TableCell>
                       <TableCell align="center">
-                        <Chip
-                          size="small"
-                          label={rotuloFonte(i.custo_fonte)}
-                          color={okCusto ? (i.custo_fonte === 'manual' ? 'default' : 'success') : 'warning'}
-                          variant={okCusto ? 'outlined' : 'filled'}
-                          sx={{ fontWeight: 700, minWidth: 72 }}
+                        <Selo
+                          label={okCusto ? rotuloFonte(i.custo_fonte) : 'Sem custo'}
+                          cor={
+                            !okCusto
+                              ? corEstoque.vermelho
+                              : i.custo_fonte === 'manual'
+                                ? corEstoque.cinza
+                                : i.custo_fonte === 'catalogo'
+                                  ? corEstoque.roxo
+                                  : corEstoque.verde
+                          }
                         />
                       </TableCell>
                       <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
@@ -4000,7 +5031,7 @@ function PainelProdutos({
           )}
         </Paper>
       ) : (
-      <Paper variant="outlined" sx={{ ...tablePaperSx, boxShadow: 'none', borderRadius: '8px', borderColor: 'var(--ga-border)' }}>
+      <Paper variant="outlined" sx={{ ...tablePaperSx, ...cartaoSx }}>
         <Box sx={{ display: 'flex', px: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
           {modosCadastro.map((m) => (
             <Box
@@ -4032,16 +5063,17 @@ function PainelProdutos({
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0, flexWrap: 'wrap' }}>
           <Box sx={{ flex: 1 }} />
           {selectFiltro}
-          <TextField
-            size="small"
-            placeholder="Buscar produto"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            sx={{ width: { xs: 160, sm: 220 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
-          />
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => void carregar()} sx={{ height: 32 }}>
-            Atualizar
-          </Button>
+          <CampoBusca valor={busca} onChange={setBusca} placeholder="Buscar produto" />
+          <Tooltip title="Atualizar">
+            <IconButton
+              size="small"
+              onClick={() => void carregar()}
+              aria-label="Atualizar"
+              sx={{ border: '1px solid var(--ga-border)', borderRadius: '8px', width: 32, height: 32 }}
+            >
+              <RefreshIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </Tooltip>
           <Button variant="contained" disableElevation startIcon={<AddIcon />} onClick={() => abrirNovo()} sx={{ height: 32 }}>
             Novo produto
           </Button>
@@ -4052,11 +5084,12 @@ function PainelProdutos({
             stickyHeader
             sx={{
               ...tableSx,
+              ...linhasTabelaSx,
               tableLayout: 'fixed',
               '& th, & td': { verticalAlign: 'middle' },
             }}
           >
-            <TableHead>
+            <TableHead sx={cabecaTabelaSx}>
               <TableRow>
                 <TableCell sx={{ width: '12%' }}>Código</TableCell>
                 <TableCell sx={{ width: '36%' }}>Produto</TableCell>
@@ -4099,13 +5132,7 @@ function PainelProdutos({
                     </TableCell>
                     <TableCell align="center">
                       {unitario ? (
-                        <Chip
-                          size="small"
-                          label="Unitário"
-                          color="info"
-                          variant="outlined"
-                          sx={{ fontWeight: 600 }}
-                        />
+                        <Selo label="Unitário" cor={corEstoque.azul} />
                       ) : comFicha ? (
                         <Tooltip
                           arrow
@@ -4148,22 +5175,15 @@ function PainelProdutos({
                             </Box>
                           }
                         >
-                          <Chip
-                            size="small"
-                            label={`${p.itens_ficha ?? 0} iten${p.itens_ficha !== 1 ? 's' : ''}`}
-                            color="primary"
-                            variant="outlined"
-                            sx={{ fontWeight: 600, cursor: 'help' }}
-                          />
+                          <Box component="span" sx={{ cursor: 'help' }}>
+                            <Selo
+                              label={`${p.itens_ficha ?? 0} iten${p.itens_ficha !== 1 ? 's' : ''}`}
+                              cor={corEstoque.verde}
+                            />
+                          </Box>
                         </Tooltip>
                       ) : (
-                        <Chip
-                          size="small"
-                          label="Falta ficha"
-                          color="warning"
-                          variant="outlined"
-                          sx={{ fontWeight: 600 }}
-                        />
+                        <Selo label="Falta ficha" cor={corEstoque.laranja} />
                       )}
                     </TableCell>
                     <TableCell
@@ -4173,11 +5193,9 @@ function PainelProdutos({
                       {fmtMoeda(p.valor_venda ?? 0)}
                     </TableCell>
                     <TableCell align="center">
-                      <Chip
-                        size="small"
+                      <Selo
                         label={produtoAtivo ? 'Ativo' : 'Inativo'}
-                        color={produtoAtivo ? 'success' : 'default'}
-                        variant="outlined"
+                        cor={produtoAtivo ? corEstoque.verde : corEstoque.cinza}
                       />
                     </TableCell>
                     <TableCell align="right" onClick={(e) => e.stopPropagation()}>
@@ -5147,99 +6165,66 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
     );
   }
 
-  const filtrosBarra: Array<{ id: typeof filtro; label: string; qtd: number; cor: string; hide?: boolean }> = [
-    { id: 'todos', label: 'Todos', qtd: qtdFiltro.todos, cor: 'var(--ga-orange)' },
-    { id: 'refeicao', label: 'Break', qtd: qtdFiltro.refeicao, cor: '#E8520A' },
-    { id: 'desperdicio', label: 'Desperdício', qtd: qtdFiltro.desperdicio, cor: '#C4452D' },
-    { id: 'emprestimo', label: 'Empréstimo', qtd: qtdFiltro.emprestimo, cor: '#C47A2A', hide: !qtdFiltro.emprestimo },
-  ];
+  const hojeBreak = hojeISO();
+  const lancadosHoje = lista.filter((b) => String(b.data_break || '').slice(0, 10) === hojeBreak).length;
+  const pendentesEmp = aReceber.length + aDevolver.length;
+  const noRecorteBreak = grupos.reduce((s, [, rows]) => s + rows.length, 0);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: 1.25 }}>
-      <Box
-        sx={{
-          display: 'inline-flex',
-          alignSelf: 'flex-start',
-          flexShrink: 0,
-          border: '1px solid',
-          borderColor: 'divider',
-          borderRadius: '8px',
-          overflow: 'hidden',
-          bgcolor: 'var(--ga-surface)',
-        }}
-      >
-        {filtrosBarra.filter((f) => !f.hide).map((f, i, arr) => {
-          const ativo = filtro === f.id;
-          return (
-            <Box
-              key={f.id}
-              component="button"
-              type="button"
-              onClick={() => setFiltro(f.id)}
-              sx={{
-                font: 'inherit',
-                color: 'inherit',
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: 0.75,
-                px: 1.25,
-                py: 0.6,
-                cursor: 'pointer',
-                border: 0,
-                borderRight: i < arr.length - 1 ? '1px solid' : 0,
-                borderColor: 'divider',
-                bgcolor: ativo ? 'var(--ga-canvas-alt)' : 'transparent',
-                boxShadow: ativo ? `inset 0 -2px 0 ${f.cor}` : 'none',
-                '&:hover': { bgcolor: 'var(--ga-canvas-alt)' },
-              }}
-            >
-              <Typography component="span" sx={{ fontSize: 11, fontWeight: 650, letterSpacing: '0.04em', textTransform: 'uppercase', color: ativo ? 'text.primary' : 'text.secondary' }}>
-                {f.label}
-              </Typography>
-              <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums', color: ativo ? f.cor : 'text.primary' }}>
-                {f.qtd}
-              </Typography>
-            </Box>
-          );
-        })}
-      </Box>
+      <PainelIndicadores
+        itens={[
+          {
+            rotulo: 'Lançamentos',
+            valor: qtdFiltro.todos,
+            sub: lancadosHoje ? `${lancadosHoje} hoje` : 'nenhum lançamento hoje',
+          },
+          { rotulo: 'Break', valor: qtdFiltro.refeicao, sub: 'refeição de colaborador', cor: '#E8520A' },
+          {
+            rotulo: 'Desperdício',
+            valor: qtdFiltro.desperdicio,
+            sub: 'completo e incompleto',
+            cor: qtdFiltro.desperdicio ? corEstoque.vermelho : undefined,
+          },
+          {
+            rotulo: 'Empréstimos',
+            valor: pendentesEmp,
+            sub: pendentesEmp
+              ? [aReceber.length ? `${aReceber.length} a receber` : null, aDevolver.length ? `${aDevolver.length} a devolver` : null]
+                  .filter(Boolean)
+                  .join(' · ')
+              : 'nada pendente',
+            cor: pendentesEmp ? corEstoque.laranja : undefined,
+          },
+        ]}
+      />
 
-      <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: '8px' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, minHeight: 44, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
-          <Typography sx={{ fontSize: 13, fontWeight: 650, letterSpacing: '-0.01em' }}>Lançamentos</Typography>
-          <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
-            {grupos.reduce((s, [, rows]) => s + rows.length, 0)}
-          </Typography>
-          {aReceber.length + aDevolver.length > 0 ? (
+      <Paper variant="outlined" sx={{ ...cartaoSx, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <CabecalhoCartao titulo="Lançamentos" sub={`${noRecorteBreak} ${noRecorteBreak === 1 ? 'lançamento' : 'lançamentos'}`}>
+          {pendentesEmp > 0 ? (
             <Button
-              size="small"
-              variant="text"
+              variant="outlined"
               onClick={() => {
                 setAberto(null);
                 setDetalhe(null);
                 setPendenciasAbertas(true);
               }}
-              sx={{ height: 28, px: 1, fontSize: 12, fontWeight: 650, color: '#C47A2A' }}
+              sx={{ ...finBtnOutlinedSx, color: corEstoque.laranja, borderColor: 'rgba(196, 122, 42, 0.45)' }}
             >
-              {aReceber.length + aDevolver.length} empréstimos
+              {pendentesEmp} {pendentesEmp === 1 ? 'empréstimo pendente' : 'empréstimos pendentes'}
             </Button>
           ) : null}
-          <TextField
-            size="small"
-            placeholder="Buscar colaborador ou pedido"
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
-                  </InputAdornment>
-                ),
-              },
-            }}
-            sx={{ ml: 'auto', width: { xs: 160, sm: 240 }, '& .MuiOutlinedInput-root': { height: 32, fontSize: 13 } }}
+          <SeletorFiltro
+            valor={filtro}
+            onChange={(v) => setFiltro(v as typeof filtro)}
+            opcoes={[
+              { id: 'todos', label: 'Todos', qtd: qtdFiltro.todos },
+              { id: 'refeicao', label: 'Break', qtd: qtdFiltro.refeicao },
+              { id: 'desperdicio', label: 'Desperdício', qtd: qtdFiltro.desperdicio },
+              { id: 'emprestimo', label: 'Empréstimo', qtd: qtdFiltro.emprestimo },
+            ]}
           />
+          <CampoBusca valor={busca} onChange={setBusca} placeholder="Buscar colaborador ou pedido" largura={240} />
           <Button
             variant="contained"
             disableElevation
@@ -5248,11 +6233,11 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
               resetForm();
               setOpen(true);
             }}
-            sx={{ height: 32 }}
+            sx={finBtnContainedSx}
           >
             Lançar
           </Button>
-        </Box>
+        </CabecalhoCartao>
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           {!grupos.length ? (
             <Box sx={{ py: 6, textAlign: 'center' }}>
@@ -5266,18 +6251,21 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                     position: 'sticky',
                     top: 0,
                     zIndex: 1,
-                    px: 1.5,
-                    py: 0.6,
-                    bgcolor: 'var(--ga-canvas-alt)',
-                    borderBottom: '1px solid',
-                    borderColor: 'divider',
+                    px: 2,
+                    py: 0.75,
+                    bgcolor: 'var(--ga-canvas)',
+                    borderBottom: '1px solid var(--ga-border)',
                     fontSize: 11,
                     fontWeight: 650,
-                    letterSpacing: '0.02em',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
                     color: 'text.secondary',
                   }}
                 >
                   {rotuloDiaBreak(dia, true)}
+                  <Box component="span" sx={{ ml: 1, fontWeight: 500, letterSpacing: 0, textTransform: 'none' }}>
+                    {rows.length}
+                  </Box>
                 </Box>
                 {rows.map((b) => {
                   const ativo = aberto?.id_break === b.id_break;
@@ -5303,13 +6291,12 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 1.25,
-                        px: 1.5,
-                        py: 1,
+                        px: 2,
+                        py: 1.1,
                         cursor: 'pointer',
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
+                        borderBottom: '1px solid var(--ga-border)',
                         bgcolor: ativo ? 'rgba(27, 110, 243, 0.06)' : 'transparent',
-                        '&:hover': { bgcolor: ativo ? 'rgba(27, 110, 243, 0.08)' : 'var(--ga-canvas-alt)' },
+                        '&:hover': { bgcolor: ativo ? 'rgba(27, 110, 243, 0.08)' : 'rgba(15, 23, 42, 0.03)' },
                       }}
                     >
                       <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 1, bgcolor: cor, flexShrink: 0 }} />
@@ -5324,20 +6311,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                       {turno !== '—' ? (
                         <Typography sx={{ fontSize: 11, color: 'text.secondary', flexShrink: 0 }}>{turno}</Typography>
                       ) : null}
-                      <Box
-                        sx={{
-                          flexShrink: 0,
-                          px: 0.75,
-                          py: 0.2,
-                          borderRadius: '6px',
-                          fontSize: 11,
-                          fontWeight: 650,
-                          color: cor,
-                          bgcolor: 'var(--ga-canvas-alt)',
-                        }}
-                      >
-                        {tipoCurtoBreak(b.tipo)}
-                      </Box>
+                      <Selo label={tipoCurtoBreak(b.tipo)} cor={cor} />
                       <ChevronRightIcon sx={{ fontSize: 16, color: 'text.disabled', flexShrink: 0 }} />
                     </Box>
                   );

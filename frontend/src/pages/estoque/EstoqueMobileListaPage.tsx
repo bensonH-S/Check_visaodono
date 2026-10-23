@@ -119,6 +119,7 @@ function rotuloGrupoHub(g: string | null | undefined) {
     refil: 'Copo / xarope',
     vegetais: 'Vegetais',
     mix_sobremesa: 'Mix',
+    brinde: 'Brinde',
   };
   return mapa[String(g || '')] || g || '?';
 }

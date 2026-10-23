@@ -104,8 +104,8 @@ export async function persistirEstoqueNfe({
       `INSERT INTO estoque_nfe (
          id_loja, fornecedor, chave, numero, serie, emissao,
          emitente_cnpj, emitente_nome, valor_total, xml_path, status,
-         data_saida, status_portal, status_entrega, data_vencimento
-       ) VALUES ($1,$2,$3,$4,$5,$6::date,$7,$8,$9,$10,'importada',$11::date,$12,$13,$14::date)
+         data_saida, status_portal, status_entrega, data_vencimento, pedido_esupri
+       ) VALUES ($1,$2,$3,$4,$5,$6::date,$7,$8,$9,$10,'importada',$11::date,$12,$13,$14::date,$15)
        RETURNING id_nfe`,
       [
         idLoja,
@@ -124,6 +124,7 @@ export async function persistirEstoqueNfe({
           ? 'aguardando_conferencia'
           : statusEntrega,
         nfe.data_vencimento || nfe.emissao || null,
+        nfe.pedido_esupri || null,
       ],
     );
     const idNfe = nfeRows[0].id_nfe;

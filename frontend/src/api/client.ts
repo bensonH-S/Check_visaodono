@@ -1958,6 +1958,41 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  estoquePedidosPlatlog: (idLoja: number, dias = 90) =>
+    request<EstoquePedidosPlatlog>(`/estoque/pedidos-platlog?id_loja=${idLoja}&dias=${dias}`),
+  estoqueSincronizarPedidosPlatlog: (idLoja: number) =>
+    request<{ lojas: number; pedidos: number; novos: number; itens_lidos: number; erros: Array<{ erro: string }> }>(
+      '/estoque/pedidos-platlog/sincronizar',
+      { method: 'POST', body: JSON.stringify({ id_loja: idLoja }) },
+    ),
+  estoqueNfAcimaTabela: (opts: { idLoja?: number; de?: string; ate?: string }) => {
+    const q = new URLSearchParams();
+    if (opts.idLoja != null) q.set('id_loja', String(opts.idLoja));
+    if (opts.de) q.set('de', opts.de);
+    if (opts.ate) q.set('ate', opts.ate);
+    return request<EstoqueNfAcimaTabela>(`/estoque/precos-tabela/acima?${q}`);
+  },
+  estoqueBaixarNfAcimaTabela: async (opts: { idLoja?: number; de?: string; ate?: string }) => {
+    const q = new URLSearchParams({ formato: 'csv' });
+    if (opts.idLoja != null) q.set('id_loja', String(opts.idLoja));
+    if (opts.de) q.set('de', opts.de);
+    if (opts.ate) q.set('ate', opts.ate);
+    const res = await fetch(`${BASE}/estoque/precos-tabela/acima?${q}`, { headers: authHeaders() });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao gerar relatório de preço');
+    }
+    const blob = await res.blob();
+    const match = (res.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = match?.[1] || 'preco-acima-tabela-platlog.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
   estoqueMetaVendas: (idLoja: number, opts?: { crescimento?: number }) => {
     const params = new URLSearchParams({ id_loja: String(idLoja) });
     if (opts?.crescimento != null) params.set('crescimento', String(opts.crescimento));
@@ -3866,6 +3901,8 @@ export interface EstoqueNfeResumo {
   tem_xml?: boolean;
   itens?: number;
   itens_casados?: number;
+  /** Título conciliado no financeiro. */
+  pago?: boolean;
 }
 
 export interface EstoqueNfeItem {
@@ -3882,12 +3919,126 @@ export interface EstoqueNfeItem {
   qtd_estoque?: number | null;
   qtd_conferida?: number | null;
   conferido?: boolean;
+  divergencia_obs?: string | null;
   id_insumo?: number | null;
   unidade_contagem?: string | null;
+  preco_tabela?: number | null;
+  vigencia_tabela?: string | null;
+  situacao_preco?: EstoqueSituacaoPreco;
+  diferenca_unit?: number | null;
+  diferenca_total?: number | null;
 }
 
 export interface EstoqueNfeDetalhe extends Omit<EstoqueNfeResumo, 'itens'> {
   itens: EstoqueNfeItem[];
+  pedido_esupri?: string | null;
+}
+
+export type EstoqueSituacaoPreco = 'acima' | 'igual' | 'abaixo' | 'sem_tabela' | 'conferir_unidade';
+
+export interface EstoquePedidoPlatlogItem {
+  codigo: string;
+  descricao: string;
+  quantidade: number;
+  unidade: string;
+  valor_unitario: number;
+  valor_total: number;
+  preco_tabela: number | null;
+  vigencia_tabela: string | null;
+  situacao_preco: EstoqueSituacaoPreco;
+  diferenca_unit: number | null;
+  diferenca_total: number | null;
+  qtd_faturada: number | null;
+  valor_faturado: number | null;
+  trocado_por: EstoquePedidoPlatlogFaturado | null;
+}
+
+export interface EstoquePedidoPlatlogFaturado {
+  codigo: string;
+  descricao: string;
+  quantidade: number;
+  unidade: string;
+  valor: number;
+}
+
+export interface EstoquePedidoPlatlog {
+  id_pedido: number;
+  codigo: string;
+  data_pedido: string;
+  hora_pedido: string | null;
+  valor_total: number;
+  qtd_itens: number;
+  peso_bruto: number;
+  data_entrega: string | null;
+  status: string | null;
+  flag_status: string | null;
+  observacao: string | null;
+  itens_lidos: boolean;
+  itens: EstoquePedidoPlatlogItem[];
+  preco: { acima: number; valor_acima: number; conferir_unidade: number; sem_tabela: number };
+  faturamento: {
+    nfs: Array<{ id_nfe: number; numero: string; emissao: string; valor: number }>;
+    valor_faturado: number;
+    itens_com_nf: number;
+    itens_faltando: number | null;
+    itens_trocados: number;
+    extras: EstoquePedidoPlatlogFaturado[];
+  };
+  cmp: { mes: string; acumulado_mes: number; pct_venda: number | null; dentro_teto: boolean | null } | null;
+}
+
+export interface EstoquePedidosPlatlogMes {
+  mes: string;
+  meta_pct: number;
+  venda_realizada: number;
+  venda_projetada: number;
+  base_projecao: string;
+  teto: number;
+  compras_nf: number;
+  pedidos_portal: number;
+  pct_pedidos: number | null;
+  pct_compras_nf: number | null;
+}
+
+export interface EstoquePedidosPlatlog {
+  tabela: string;
+  vigencia_tabela: string | null;
+  sincronizado_em: string | null;
+  sincronizando?: boolean;
+  pedidos: EstoquePedidoPlatlog[];
+  meses: EstoquePedidosPlatlogMes[];
+  resumo_preco: {
+    itens_comparados: number;
+    acima: number;
+    valor_acima: number;
+    conferir_unidade: number;
+    sem_tabela: number;
+  };
+}
+
+export interface EstoqueNfAcimaTabela {
+  tabela: string;
+  resumo: { notas: number; itens_comparados: number; acima: number; valor_acima: number; conferir_unidade: number };
+  por_loja: Array<{ id_loja: number; loja: string; itens: number; valor_acima: number }>;
+  linhas: Array<{
+    id_nfe: number;
+    id_loja: number;
+    loja: string;
+    numero: string;
+    emissao: string;
+    pedido_esupri: string | null;
+    codigo: string;
+    descricao: string;
+    unidade: string;
+    quantidade: number;
+    preco_pago: number;
+    preco_tabela: number;
+    vigencia_tabela: string;
+    diferenca_unit: number;
+    diferenca_pct: number;
+    diferenca_total: number;
+    situacao_preco: EstoqueSituacaoPreco;
+  }>;
 }
 
 export interface EstoqueDisciplinaAlerta {

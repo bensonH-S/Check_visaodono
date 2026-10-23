@@ -266,7 +266,7 @@ router.get('/saldos', permSaldo, async (req, res, next) => {
            WHEN 'carne' THEN 1 WHEN 'frango' THEN 2 WHEN 'queijo' THEN 3
            WHEN 'bacon' THEN 4 WHEN 'pao' THEN 5 WHEN 'batata' THEN 6
            WHEN 'oleo' THEN 7 WHEN 'refil' THEN 8 WHEN 'vegetais' THEN 9
-           WHEN 'mix_sobremesa' THEN 10 ELSE 99
+           WHEN 'mix_sobremesa' THEN 10 WHEN 'brinde' THEN 11 ELSE 99
          END,
          p.descricao`,
       params,
@@ -1731,6 +1731,106 @@ router.post('/pedido-rascunho/carrinho-esupri', permOp, async (req, res, next) =
   }
 });
 
+/** Espelho dos pedidos do eSupri: itens × tabela de preço, faturado nas NFs e CMP do mês. */
+router.get('/pedidos-platlog', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    const { listarPedidosPlatlogEspelho } = await import('../services/estoqueTabelaPreco.js');
+    const dias = req.query.dias != null ? Number(req.query.dias) : 90;
+    const dados = await listarPedidosPlatlogEspelho(idLoja, { dias });
+    const idade = dados.sincronizado_em ? Date.now() - new Date(dados.sincronizado_em).getTime() : Infinity;
+    if (idade > LEITURA_PEDIDOS_VELHA_MS && !syncPedidosEmAndamento.has(idLoja)) {
+      void lerPedidosLojaEmSegundoPlano(idLoja);
+    }
+    res.json({ ...dados, sincronizando: syncPedidosEmAndamento.has(idLoja) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+const syncPedidosEmAndamento = new Set();
+const LEITURA_PEDIDOS_VELHA_MS = 4 * 3600 * 1000;
+
+async function lerPedidosLojaEmSegundoPlano(idLoja) {
+  syncPedidosEmAndamento.add(idLoja);
+  try {
+    const { sincronizarPedidosPlatlog } = await import('../services/platlog/syncPedidosPlatlog.js');
+    const r = await sincronizarPedidosPlatlog({ idLoja, dias: 60 });
+    console.log(`[esupri-pedidos] loja ${idLoja}: ${r.pedidos} pedidos, ${r.novos} novos`);
+  } catch (e) {
+    console.error(`[esupri-pedidos] loja ${idLoja}: ${e.message}`);
+  } finally {
+    syncPedidosEmAndamento.delete(idLoja);
+  }
+}
+
+/** Lê os pedidos no portal (só consulta, nunca confirma). */
+router.post('/pedidos-platlog/sincronizar', permOp, async (req, res, next) => {
+  const idLoja = parseIdLoja(req.body?.id_loja);
+  try {
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    if (syncPedidosEmAndamento.has(idLoja)) {
+      return res.status(409).json({ error: 'Já estou lendo os pedidos desta loja. Aguarde.' });
+    }
+    syncPedidosEmAndamento.add(idLoja);
+    const { sincronizarPedidosPlatlog } = await import('../services/platlog/syncPedidosPlatlog.js');
+    const dias = req.body?.dias != null ? Number(req.body.dias) : 60;
+    const resumo = await sincronizarPedidosPlatlog({
+      idLoja,
+      dias: Math.min(Math.max(dias || 60, 7), 120),
+      onLog: (m) => console.log(`[esupri-pedidos] ${m}`),
+    });
+    if (resumo.erros.length && !resumo.pedidos) {
+      return res.status(502).json({ error: resumo.erros[0].erro, ...resumo });
+    }
+    res.json(resumo);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  } finally {
+    syncPedidosEmAndamento.delete(idLoja);
+  }
+});
+
+/** NF Platlog cobrada acima da Tabela de Preço BKC (JSON ou CSV para cobrança). */
+router.get('/precos-tabela/acima', permDivergenciasNf, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.query.id_loja);
+    let idsLoja = null;
+    if (idLoja) {
+      const bloqueio = acessoLoja(req, idLoja);
+      if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    } else if (!acessoTodasLojas(req.user)) {
+      const ids = Array.isArray(req.user?.lojas_ids_estoque)
+        ? req.user.lojas_ids_estoque
+        : req.user?.lojas_ids || [];
+      idsLoja = ids.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+      if (!idsLoja.length) return res.status(403).json({ error: 'Sem acesso a lojas de estoque' });
+    }
+    const { listarNfAcimaTabela, csvNfAcimaTabela } = await import('../services/estoqueTabelaPreco.js');
+    const dados = await listarNfAcimaTabela({
+      idLoja,
+      idsLoja,
+      de: req.query.de ? String(req.query.de).slice(0, 10) : null,
+      ate: req.query.ate ? String(req.query.ate).slice(0, 10) : null,
+    });
+    if (String(req.query.formato || 'json').toLowerCase() !== 'csv') return res.json(dados);
+    const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+    const tag = idLoja ? `loja-${idLoja}` : 'rede';
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="preco-acima-tabela-platlog-${tag}-${hoje}.csv"`,
+    );
+    res.send(csvNfAcimaTabela(dados));
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/insumos/custo', permOp, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.body?.id_loja);
@@ -2015,6 +2115,10 @@ router.get('/nfes/:id', permNfe, async (req, res, next) => {
     const bloqueio = acessoLoja(req, det.id_loja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
     const semItens = !(det.itens || []).length && !det.entrada_registrada;
+    if (String(det.emitente_cnpj || '').startsWith('02229804') && (det.itens || []).length) {
+      const { enriquecerItensComTabela } = await import('../services/estoqueTabelaPreco.js');
+      det.itens = await enriquecerItensComTabela(det.itens, det.emissao);
+    }
     res.json({
       ...det,
       xml_ok: !semItens || !!xmlStatus?.ok || !!xmlStatus?.ja,

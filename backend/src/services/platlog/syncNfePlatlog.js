@@ -138,7 +138,23 @@ export async function syncNfePlatlog({
     }
 
     if (jaTem) {
-      processadas.push({ ...resumo, ok: true, aplicado: false, pulada: true });
+      const statusPortal = dl.statusLabel || null;
+      const dataSaida = nfe.data_saida || null;
+      const statusEntrega = classificarStatusPortal(statusPortal, {
+        temDataSaida: !!dataSaida,
+      });
+      await pool.query(
+        `UPDATE estoque_nfe
+         SET status_portal = COALESCE($3, status_portal),
+             data_vencimento = COALESCE($4::date, data_vencimento),
+             data_saida = COALESCE($5::date, data_saida),
+             status_entrega = CASE WHEN entrada_registrada THEN status_entrega ELSE $6 END,
+             pedido_esupri = COALESCE(pedido_esupri, $7),
+             atualizado_em = NOW()
+         WHERE id_loja = $1 AND chave = $2`,
+        [idLoja, nfe.chave, statusPortal, nfe.data_vencimento || null, dataSaida, statusEntrega, nfe.pedido_esupri || null],
+      );
+      processadas.push({ ...resumo, ok: true, aplicado: false, pulada: true, status_atualizado: true });
       continue;
     }
 
@@ -157,8 +173,8 @@ export async function syncNfePlatlog({
         `INSERT INTO estoque_nfe (
            id_loja, fornecedor, chave, numero, serie, emissao,
            emitente_cnpj, emitente_nome, valor_total, xml_path, status,
-           data_saida, status_portal, status_entrega, data_vencimento
-         ) VALUES ($1,'platlog',$2,$3,$4,$5::date,$6,$7,$8,$9,'importada',$10::date,$11,$12,$13::date)
+           data_saida, status_portal, status_entrega, data_vencimento, pedido_esupri
+         ) VALUES ($1,'platlog',$2,$3,$4,$5::date,$6,$7,$8,$9,'importada',$10::date,$11,$12,$13::date,$14)
          RETURNING id_nfe`,
         [
           idLoja,
@@ -174,6 +190,7 @@ export async function syncNfePlatlog({
           statusPortal,
           statusEntrega,
           nfe.data_vencimento || null,
+          nfe.pedido_esupri || null,
         ],
       );
       const idNfe = nfeRows[0].id_nfe;

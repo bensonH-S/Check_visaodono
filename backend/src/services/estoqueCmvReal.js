@@ -700,18 +700,24 @@ export async function conferirRecebimentoNfe({
     }
   }
 
-  // Todos marcados como não chegaram: grava ocorrência sem lançar estoque
+  // Nada para lançar: ou nada chegou, ou os itens não têm insumo no cadastro.
   if (!entradasItens.length) {
+    const { rows: conf } = await pool.query(
+      `SELECT COALESCE(SUM(qtd_conferida), 0)::float8 AS total FROM estoque_nfe_itens WHERE id_nfe = $1`,
+      [idNfe],
+    );
+    const nadaChegou = num(conf[0]?.total) <= 0;
+    const statusFinal = nadaChegou || temDivergencia ? 'divergente' : 'conferida';
     await pool.query(
       `UPDATE estoque_nfe
        SET data_entrega = $1::date,
            entrada_registrada = TRUE,
            entrada_em = NOW(),
            entrada_por = $2,
-           status_entrega = 'divergente',
+           status_entrega = $4,
            atualizado_em = NOW()
        WHERE id_nfe = $3`,
-      [dataEntrega, criado_por, idNfe],
+      [dataEntrega, criado_por, idNfe, statusFinal],
     );
     return {
       ok: true,
@@ -719,11 +725,13 @@ export async function conferirRecebimentoNfe({
       data_entrega: dataEntrega,
       data_saida: nfe.data_saida,
       emissao: nfe.emissao,
-      status_entrega: 'divergente',
-      divergente: true,
-      nenhum_chegou: true,
+      status_entrega: statusFinal,
+      divergente: statusFinal === 'divergente',
+      nenhum_chegou: nadaChegou,
       entradas: [],
-      erros: ['Nenhum item chegou — NF registrada sem entrada de estoque'],
+      erros: nadaChegou
+        ? ['Nenhum item chegou — NF registrada sem entrada de estoque']
+        : ['Itens sem insumo no cadastro — conferidos sem entrada de estoque'],
     };
   }
 
@@ -1029,6 +1037,7 @@ export async function obterNfeDetalhe(idNfe) {
     status_entrega: nfe.status_entrega,
     emitente_nome: nfe.emitente_nome,
     emitente_cnpj: nfe.emitente_cnpj,
+    pedido_esupri: nfe.pedido_esupri || null,
     valor_total: nfe.valor_total != null ? num(nfe.valor_total) : null,
     entrada_registrada: !!nfe.entrada_registrada,
     tem_xml: !!(nfe.xml_path && String(nfe.xml_path).trim()),
@@ -1111,12 +1120,29 @@ export async function listarNfesEstoque(
     params,
   );
 
+  const pagas = new Set();
+  const numeros = [...new Set(rows.map((r) => String(r.numero || '').trim()).filter(Boolean))];
+  if (numeros.length) {
+    try {
+      const { rows: desp } = await pool.query(
+        `SELECT numero_nf, valor::float8 AS valor
+         FROM finance.despesas
+         WHERE status = 'conciliada' AND numero_nf = ANY($1::text[])`,
+        [numeros],
+      );
+      for (const d of desp) pagas.add(`${String(d.numero_nf).trim()}|${Math.round(num(d.valor) * 100)}`);
+    } catch {
+      /* banco sem schema finance */
+    }
+  }
+
   return rows.map((r) => ({
     id_nfe: r.id_nfe,
     id_loja: r.id_loja,
     fornecedor: r.fornecedor,
     numero: r.numero,
     chave: r.chave,
+    pago: pagas.has(`${String(r.numero || '').trim()}|${Math.round(num(r.valor_total) * 100)}`),
     emissao: r.emissao,
     data_saida: r.data_saida,
     data_entrega: r.data_entrega,

@@ -66,6 +66,16 @@ export function unzipFirstXml(zipBuf) {
   throw Object.assign(new Error('XML não encontrado no ZIP da NF-e'), { status: 400 });
 }
 
+/** Platlog grava o pedido no item: <xPed>E-Supri: U50491</xPed>. */
+export function pedidoEsupriDoXml(xml) {
+  const brutos = [...String(xml || '').matchAll(/<xPed>([^<]*)<\/xPed>/gi)].map((m) => m[1]);
+  for (const b of brutos) {
+    const m = String(b).match(/\b([A-Z]\d{4,})\b/i);
+    if (m) return m[1].toUpperCase();
+  }
+  return null;
+}
+
 export function parseNfeXml(xmlRaw) {
   const xml = String(xmlRaw || '').replace(/^\uFEFF/, '').trim();
   if (!xml) throw Object.assign(new Error('XML vazio'), { status: 400 });
@@ -115,6 +125,7 @@ export function parseNfeXml(xmlRaw) {
   }
 
   return {
+    pedido_esupri: pedidoEsupriDoXml(inf),
     chave,
     numero: String(tag(ide, 'nNF') || '').trim(),
     serie: String(tag(ide, 'serie') || '').trim(),

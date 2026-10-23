@@ -212,6 +212,7 @@ async function gravarItensNaNota({ idNfe, idLoja, doc, xml }) {
        emitente_nome = COALESCE(NULLIF($7, ''), emitente_nome),
        valor_total = COALESCE($8, valor_total),
        data_vencimento = COALESCE($9::date, data_vencimento),
+       pedido_esupri = COALESCE($10, pedido_esupri),
        status_portal = 'Recebida na Receita Federal',
        atualizado_em = NOW()
      WHERE id_nfe = $1`,
@@ -225,6 +226,7 @@ async function gravarItensNaNota({ idNfe, idLoja, doc, xml }) {
       nfe.emitente?.nome || doc.emitente_nome || '',
       nfe.valor_total ?? null,
       nfe.data_vencimento || null,
+      nfe.pedido_esupri || null,
     ],
   )
   await appPool.query('DELETE FROM estoque_nfe_itens WHERE id_nfe = $1', [idNfe])

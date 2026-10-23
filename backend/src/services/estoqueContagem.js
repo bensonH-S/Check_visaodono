@@ -58,6 +58,7 @@ const GRUPOS_DIARIOS = [
   'refil',
   'vegetais',
   'mix_sobremesa',
+  'brinde',
 ];
 
 const MARCA_BAG_REFRI = /\b(PEPSI|COCA|GUARAN|SPRITE|FANTA|SUKITA|SODA|LIPTON|CHA |REFRI)\b/;
@@ -215,6 +216,7 @@ export function rotuloGrupoContagem(grupo) {
     refil: 'Refil / copo',
     vegetais: 'Vegetais',
     mix_sobremesa: 'Mix (baunilha / doce de leite)',
+    brinde: 'Brinde',
     mix: 'Mix (Coca 18L / demais 10L)',
     lata: 'Lata',
   };
