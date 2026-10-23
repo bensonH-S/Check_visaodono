@@ -182,6 +182,17 @@ function descricaoLinha(linha) {
   return nomeFornecedor(texto)
 }
 
+function diaPlanilha(linha) {
+  const dia = String(linha?.vencimento || '').slice(0, 10)
+  return /^\d{4}-\d{2}-\d{2}$/.test(dia) ? dia : '9999-12-31'
+}
+
+function ordemPlanilha(a, b) {
+  return diaPlanilha(a).localeCompare(diaPlanilha(b))
+    || dinheiro(b.valor) - dinheiro(a.valor)
+    || descricaoLinha(a).localeCompare(descricaoLinha(b), 'pt-BR')
+}
+
 function codigoLinha(linha) {
   const forma = String(linha.forma_pagamento || '')
   const pagamento = String(linha.pagamento || '').trim()
@@ -334,7 +345,7 @@ export async function montarPlanilhaBanco({ de, ate, empresas, linhas }) {
   for (const empresa of blocos) {
     const itens = (grupos.get(empresa.id) || grupos.get(empresa.apelido) || [])
       .slice()
-      .sort((a, b) => dinheiro(b.valor) - dinheiro(a.valor) || String(a.vencimento).localeCompare(String(b.vencimento)) || descricaoLinha(a).localeCompare(descricaoLinha(b), 'pt-BR'))
+      .sort((a, b) => ordemPlanilha(a, b))
     const nome = rotuloEmpresa(empresa)
     const cabecalho = semNf(empresa)
       ? ['', nome, 'VALOR', ' VENCIMENTO', 'CÓDIGO', 'STATUS NF']

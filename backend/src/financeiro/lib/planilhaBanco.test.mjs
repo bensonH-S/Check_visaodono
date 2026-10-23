@@ -97,4 +97,27 @@ describe('planilha do banco', () => {
     assert.equal(nomeArquivoPlanilha('2026-10-10', '2026-10-17'), 'BANCO 10.10 A 17.10.xlsx')
     assert.equal(rotuloEmpresa({ apelido: 'POPVAL' }), 'POPOYES VAL')
   })
+
+  it('ordena cada loja por vencimento e, no mesmo dia, pelo valor maior', async () => {
+    const buf = await montarPlanilhaBanco({
+      de: '2026-10-25',
+      ate: '2026-10-31',
+      empresas: [{ id: '1', apelido: 'REI', razao_social: 'REI ALVIM' }],
+      linhas: [
+        { origem_id: '1', apelido: 'REI', descricao: 'MENOR NO DIA', valor: 30, vencimento: '2026-10-26', forma_pagamento: 'boleto' },
+        { origem_id: '1', apelido: 'REI', descricao: 'TARDE E ALTO', valor: 900, vencimento: '2026-10-28', forma_pagamento: 'boleto' },
+        { origem_id: '1', apelido: 'REI', descricao: 'MAIOR NO DIA', valor: 400, vencimento: '2026-10-26', forma_pagamento: 'boleto' },
+        { origem_id: '1', apelido: 'REI', descricao: 'DIA ANTERIOR', valor: 10, vencimento: '2026-10-25', forma_pagamento: 'boleto' },
+      ],
+    })
+    const wb = XLSX.read(buf, { type: 'buffer' })
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets.Plan1, { header: 1, defval: '' })
+    const dados = rows.filter((r) => ['DIA ANTERIOR', 'MAIOR NO DIA', 'MENOR NO DIA', 'TARDE E ALTO'].includes(r[1]))
+    assert.deepEqual(dados.map((r) => [r[1], r[2]]), [
+      ['DIA ANTERIOR', 10],
+      ['MAIOR NO DIA', 400],
+      ['MENOR NO DIA', 30],
+      ['TARDE E ALTO', 900],
+    ])
+  })
 })

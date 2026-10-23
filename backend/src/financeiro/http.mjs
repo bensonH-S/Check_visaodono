@@ -1019,7 +1019,7 @@ export async function handleFinance(req, res) {
             )
           )
           ${empresaId ? 'and d.empresa_origem_id = $3' : ''}
-        order by d.valor desc, d.vencimento, coalesce(nullif(trim(d.descricao), ''), f.nome, d.numero_nf)
+        order by d.vencimento, d.valor desc, coalesce(nullif(trim(d.descricao), ''), f.nome, d.numero_nf)
       `, params)
       const { classificarTributo } = await import('./lib/classificarTributo.mjs')
       const linhasPlanilha = linhas.rows.map((row) => {
