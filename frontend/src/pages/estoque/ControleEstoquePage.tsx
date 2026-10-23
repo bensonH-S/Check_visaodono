@@ -326,6 +326,9 @@ function AbasControleEstoque({
         },
       }}
     >
+      {podeOperacional && (
+        <Tab disableRipple value="pedido" label="Pedido" disabled={semLoja || bloqueiaOutrasAbas} />
+      )}
       {podeConferencia && (
         <Tab disableRipple value="conferencia" label="Conferência" disabled={semLoja} />
       )}
@@ -334,9 +337,6 @@ function AbasControleEstoque({
       )}
       {podeOperacional && (
         <Tab disableRipple value="saldo" label="Saldo" disabled={semLoja || bloqueiaOutrasAbas} />
-      )}
-      {podeOperacional && (
-        <Tab disableRipple value="pedido" label="Pedido" disabled={semLoja || bloqueiaOutrasAbas} />
       )}
       {podeOperacional && (
         <Tab disableRipple value="fichas" label="Cadastro" disabled={semLoja || bloqueiaOutrasAbas} />

@@ -3224,7 +3224,7 @@ function FiltroLojaPedidos({
 
 /** Pedidos feitos no eSupri: preço cobrado × Tabela BKC, por loja ou da rede. */
 function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: ReactNode }) {
-  const [de, setDe] = useState(() => somarDiasISO(hojeISO(), -89) || hojeISO());
+  const [de, setDe] = useState(() => `${hojeISO().slice(0, 7)}-01`);
   const [ate, setAte] = useState(hojeISO);
   const [escopo, setEscopo] = useState(String(idLoja));
   const [dados, setDados] = useState<EstoquePedidosTabelaPeriodo | null>(null);
@@ -3320,6 +3320,8 @@ function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: R
       : null;
   const pctPedido = resumo.valor_pedidos ? resumo.valor_acima / resumo.valor_pedidos : 0;
   const maxLoja = Math.max(...resumo.por_loja.map((l) => l.valor_acima), 1);
+  const nomeTabelas = (resumo.tabelas.length ? resumo.tabelas : dados?.tabelas || []).join(' / ') || dados?.tabela || '';
+  const freteKg = (v: number | null | undefined) => (v != null ? `${fmtMoeda(v)}/kg` : '—');
 
   return (
     <Paper variant="outlined" sx={{ ...tablePaperSx, ...cartaoSx, minHeight: 0 }}>
@@ -3332,7 +3334,7 @@ function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: R
         }
         sub={
           dados
-            ? `Preço cobrado pela Platlog × Tabela BKC de ${fmtDataBR(dados.vigencia_tabela)}${lidoEm ? ` · lido do eSupri ${lidoEm}` : ''}${leituraAuto ? ` · ${leituraAuto}` : ''}`
+            ? `Preço cobrado pela Platlog × Tabela BKC ${nomeTabelas} de ${fmtDataBR(dados.vigencia_tabela)}${lidoEm ? ` · lido do eSupri ${lidoEm}` : ''}${leituraAuto ? ` · ${leituraAuto}` : ''}`
             : 'Carregando…'
         }
       >
@@ -3358,7 +3360,7 @@ function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: R
       </CabecalhoCartao>
 
       {dados ? (
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', borderBottom: '1px solid var(--ga-border)', flexShrink: 0 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', borderBottom: '1px solid var(--ga-border)', flexShrink: 0 }}>
           {[
             {
               rot: 'Cobrado a mais',
@@ -3376,6 +3378,14 @@ function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: R
               rot: 'Pedidos com cobrança a mais',
               val: `${resumo.pedidos_acima} de ${resumo.pedidos}`,
               sub: rede ? `${resumo.por_loja.filter((l) => l.valor_acima > 0).length} de ${resumo.por_loja.length} lojas` : `${fmtDataBR(de)} a ${fmtDataBR(ate)}`,
+              cor: 'text.primary',
+            },
+            {
+              rot: 'Frete cobrado na NF',
+              val: resumo.frete.pedidos_com_nf ? fmtMoeda(resumo.frete.valor) : '—',
+              sub: resumo.frete.pedidos_com_nf
+                ? `${freteKg(resumo.frete.por_kg)} · ${fmtNum((resumo.frete.pct_nf || 0) * 100, 1)}% da NF · ${resumo.frete.pedidos_com_nf} de ${resumo.pedidos} faturados`
+                : 'nenhum pedido faturado ainda',
               cor: 'text.primary',
             },
           ].map((c, idx) => (
@@ -3397,14 +3407,18 @@ function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: R
                 <TableCell align="right">Pedidos</TableCell>
                 <TableCell align="right">Valor dos pedidos</TableCell>
                 <TableCell align="right">Itens acima</TableCell>
-                <TableCell sx={{ width: '28%' }}>Cobrado a mais</TableCell>
-                <TableCell align="right" sx={{ pr: 2 }}>% do pedido</TableCell>
+                <TableCell sx={{ width: '24%' }}>Cobrado a mais</TableCell>
+                <TableCell align="right">% do pedido</TableCell>
+                <TableCell align="right" sx={{ pr: 2 }}>Frete na NF</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {resumo.por_loja.map((l) => (
                 <TableRow key={l.id_loja} hover onClick={() => setEscopo(String(l.id_loja))} sx={{ cursor: 'pointer' }}>
-                  <TableCell sx={{ pl: 2, fontWeight: 650 }}>{l.loja}</TableCell>
+                  <TableCell sx={{ pl: 2 }}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 650 }}>{l.loja}</Typography>
+                    {l.tabela ? <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>Tabela {l.tabela}</Typography> : null}
+                  </TableCell>
                   <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                     {l.pedidos_acima} de {l.pedidos}
                   </TableCell>
@@ -3422,14 +3436,22 @@ function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: R
                       </Typography>
                     </Box>
                   </TableCell>
-                  <TableCell align="right" sx={{ pr: 2, fontVariantNumeric: 'tabular-nums', color: 'text.secondary' }}>
+                  <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', color: 'text.secondary' }}>
                     {l.valor_pedidos ? `${fmtNum((l.valor_acima / l.valor_pedidos) * 100, 2)}%` : '—'}
+                  </TableCell>
+                  <TableCell align="right" sx={{ pr: 2, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                    {l.frete.pedidos_com_nf ? (
+                      <>
+                        <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{fmtMoeda(l.frete.valor)}</Typography>
+                        <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{freteKg(l.frete.por_kg)}</Typography>
+                      </>
+                    ) : '—'}
                   </TableCell>
                 </TableRow>
               ))}
               {!resumo.por_loja.length ? (
                 <TableRow>
-                  <TableCell colSpan={6}>
+                  <TableCell colSpan={7}>
                     <Typography color="text.secondary" align="center" sx={{ py: 3, fontSize: 13 }}>
                       {loading ? 'Carregando…' : 'Nenhum pedido no período.'}
                     </Typography>
@@ -3447,7 +3469,8 @@ function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: R
               <TableCell sx={{ pl: 2 }}>Pedido</TableCell>
               <TableCell align="right">Valor do pedido</TableCell>
               <TableCell align="right">Itens acima da tabela</TableCell>
-              <TableCell align="right" sx={{ pr: 2 }}>Cobrado a mais</TableCell>
+              <TableCell align="right">Cobrado a mais</TableCell>
+              <TableCell align="right" sx={{ pr: 2 }}>Frete na NF</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -3461,14 +3484,24 @@ function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: R
                 <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                   {p.itens_lidos ? `${p.preco.acima} de ${p.itens.length}` : '—'}
                 </TableCell>
-                <TableCell align="right" sx={{ pr: 2, fontVariantNumeric: 'tabular-nums', fontWeight: 650, color: p.preco.valor_acima > 0 ? corEstoque.vermelho : 'text.secondary' }}>
+                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 650, color: p.preco.valor_acima > 0 ? corEstoque.vermelho : 'text.secondary' }}>
                   {p.preco.valor_acima > 0 ? fmtMoeda(p.preco.valor_acima) : '—'}
+                </TableCell>
+                <TableCell align="right" sx={{ pr: 2, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                  {p.frete ? (
+                    <>
+                      <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{fmtMoeda(p.frete.valor)}</Typography>
+                      <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{freteKg(p.frete.por_kg)}</Typography>
+                    </>
+                  ) : (
+                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>sem NF ainda</Typography>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
             {!lista.length ? (
               <TableRow>
-                <TableCell colSpan={4}>
+                <TableCell colSpan={5}>
                   <Typography color="text.secondary" align="center" sx={{ py: 3, fontSize: 13 }}>
                     {loading
                       ? 'Carregando…'
@@ -3514,6 +3547,10 @@ function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: R
                   </Box>
                   <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: -1 }}>
                     {nomeLojaCurto(p.loja)} · pedido feito em {fmtDataBR(p.data_pedido)}
+                    {p.tabela ? ` · Tabela ${p.tabela}` : ''}
+                    {p.frete
+                      ? ` · frete na NF ${fmtMoeda(p.frete.valor)} (${freteKg(p.frete.por_kg)}, ${fmtNum((p.frete.pct_nf || 0) * 100, 1)}% da NF, ${fmtNum(p.frete.peso_kg, 0)} kg)`
+                      : ' · ainda sem NF, frete aparece quando faturar'}
                   </Typography>
 
                   <Box>

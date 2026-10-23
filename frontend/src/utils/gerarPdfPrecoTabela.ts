@@ -163,6 +163,7 @@ export async function gerarPdfPrecoTabela({ dados, pedidos, escopo, rede }: Opco
   const icone = await carregarIcone();
   const r = resumirPedidosTabela(pedidos);
   const periodo = `${data(dados.de)} a ${data(dados.ate)}`;
+  const nomeTabelas = (r.tabelas.length ? r.tabelas : dados.tabelas || [dados.tabela]).join(' / ');
   const pctValor = r.valor_pedidos ? r.valor_acima / r.valor_pedidos : 0;
 
   fill(doc, NAVY);
@@ -193,7 +194,7 @@ export async function gerarPdfPrecoTabela({ dados, pedidos, escopo, rede }: Opco
   doc.setFontSize(7);
   color(doc, GRUPO_TXT);
   doc.text(
-    txt(`Tabela ${dados.tabela}${dados.vigencia_tabela ? ` vigente desde ${data(dados.vigencia_tabela)}` : ''}`),
+    txt(`Tabela ${nomeTabelas}${dados.vigencia_tabela ? ` vigente desde ${data(dados.vigencia_tabela)}` : ''}`),
     PAGE_W - MARGIN,
     29.5,
     { align: 'right' },
@@ -224,9 +225,16 @@ export async function gerarPdfPrecoTabela({ dados, pedidos, escopo, rede }: Opco
     { rot: 'PEDIDOS COM SOBREPREÇO', val: inteiro(r.pedidos_acima), dica: `${pct(r.pedidos ? r.pedidos_acima / r.pedidos : 0, 0)} dos pedidos` },
     { rot: 'ITENS ACIMA DA TABELA', val: inteiro(r.acima), dica: `${pct(r.itens_comparados ? r.acima / r.itens_comparados : 0, 0)} dos itens` },
     { rot: rede ? 'LOJAS AFETADAS' : 'MÉDIA POR PEDIDO', val: rede ? inteiro(r.por_loja.filter((l) => l.valor_acima > 0).length) : moedaCurta(r.pedidos_acima ? r.valor_acima / r.pedidos_acima : 0), dica: rede ? `de ${r.por_loja.length} lojas` : 'nos pedidos afetados' },
+    {
+      rot: 'FRETE NA NF',
+      val: r.frete.pedidos_com_nf ? moedaCurta(r.frete.valor) : '—',
+      dica: r.frete.pedidos_com_nf
+        ? `${r.frete.por_kg != null ? `${moeda(r.frete.por_kg)}/kg · ` : ''}${pct(r.frete.pct_nf || 0, 1)} da NF`
+        : 'sem NF no período',
+    },
   ];
   const gap = 3;
-  const cw = (CONTENT_W - gap * 3) / 4;
+  const cw = (CONTENT_W - gap * (cards.length - 1)) / cards.length;
   cards.forEach((c, i) => {
     const x = MARGIN + i * (cw + gap);
     fill(doc, WHITE);
@@ -478,8 +486,9 @@ export async function gerarPdfPrecoTabela({ dados, pedidos, escopo, rede }: Opco
   doc.setFontSize(6.8);
   color(doc, MUTED);
   const nota = [
-    `Preço unitário de cada item do pedido no portal eSupri comparado com o preço da Tabela ${dados.tabela} (BKC) vigente na data do pedido. Valor a mais = (preço cobrado - preço da tabela) x quantidade pedida.`,
+    `Preço unitário de cada item do pedido no portal eSupri comparado com o preço da Tabela BKC da região da loja (BB5 Franquia N/NE/CO para DF e GO, BB4 Franquia S/SDE para MG), vigente na data do pedido. Valor a mais = (preço cobrado - preço da tabela) x quantidade pedida.`,
     `Pedidos cancelados não entram. Diferenças acima de 50% indicam unidade diferente entre pedido e tabela e ficaram fora do total${r.conferir_unidade ? ` (${r.conferir_unidade} item(ns) para conferir)` : ''}.`,
+    `Frete = vFrete das NFs Platlog vinculadas ao pedido (${inteiro(r.frete.pedidos_com_nf)} de ${inteiro(r.pedidos)} pedidos já faturados), por kg de peso bruto da NF; não entra no valor a mais.`,
   ];
   doc.text(doc.splitTextToSize(txt(nota.join(' ')), CONTENT_W), MARGIN, y + 9.5);
 

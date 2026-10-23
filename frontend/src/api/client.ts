@@ -4043,14 +4043,32 @@ export interface EstoquePedidoTabela {
   data_pedido: string;
   valor_total: number;
   itens_lidos: boolean;
+  tabela?: string;
   itens: EstoquePedidoTabelaItem[];
   preco: { acima: number; valor_acima: number };
+  frete?: (EstoqueFreteCobrado & { nfs: number }) | null;
+}
+
+/** Frete cobrado nas NFs Platlog (vFrete do XML). */
+export interface EstoqueFreteCobrado {
+  valor: number;
+  valor_nf: number;
+  peso_kg: number;
+  pct_nf: number | null;
+  por_kg: number | null;
+}
+
+export interface EstoqueFreteResumo extends EstoqueFreteCobrado {
+  pedidos_com_nf: number;
 }
 
 export interface EstoquePedidosTabelaLoja {
   id_loja: number;
   loja: string;
   bk_number: string | null;
+  uf?: string | null;
+  tabela?: string;
+  frete?: EstoqueFreteResumo;
   pedidos: number;
   pedidos_acima: number;
   valor_pedidos: number;
@@ -4077,7 +4095,9 @@ export interface EstoquePedidosTabelaPeriodo {
     valor_acima: number;
     conferir_unidade: number;
     sem_tabela: number;
+    frete?: EstoqueFreteResumo;
   };
+  tabelas?: string[];
   por_loja: EstoquePedidosTabelaLoja[];
   pedidos: EstoquePedidoTabela[];
 }

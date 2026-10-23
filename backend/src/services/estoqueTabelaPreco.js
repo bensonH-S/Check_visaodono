@@ -5,8 +5,24 @@
 import { pool } from '../db.js';
 import { META_CMP_PADRAO } from './estoquePedidoRascunho.js';
 
-/** BB5 = Franquia N/NE/CO, mesma tabela que o portal aplica às lojas (PC_TAPRE). */
+/** BB5 = Franquia N/NE/CO; BB4 = Franquia S/SDE (conferido no PC_TAPRE do portal: Unaí-MG em BB4, DF/GO em BB5). */
 export const TABELA_PRECO_PADRAO = 'BB5';
+const UFS_TABELA_BB4 = ['MG', 'RJ', 'ES', 'PR', 'SC', 'RS'];
+
+/** Tabela BKC que a Platlog aplica à loja, pela UF do cadastro. */
+export function tabelaDaUf(uf) {
+  return UFS_TABELA_BB4.includes(String(uf || '').trim().toUpperCase()) ? 'BB4' : TABELA_PRECO_PADRAO;
+}
+
+function sqlTabelaDaUf(colUf) {
+  return `(CASE WHEN UPPER(TRIM(COALESCE(${colUf}, ''))) IN (${UFS_TABELA_BB4.map((u) => `'${u}'`).join(', ')})
+    THEN 'BB4' ELSE '${TABELA_PRECO_PADRAO}' END)`;
+}
+
+export async function tabelaDaLoja(idLoja) {
+  const { rows } = await pool.query('SELECT state FROM lojas WHERE id_loja = $1', [Number(idLoja)]);
+  return tabelaDaUf(rows[0]?.state);
+}
 /** Diferença acima disso (em %) provavelmente é unidade diferente (caixa × pacote), não sobrepreço. */
 export const LIMITE_CONFERIR_UNIDADE = 0.5;
 const CNPJ_PLATLOG = '02229804';
@@ -74,11 +90,11 @@ function semelhanca(a, b) {
 }
 
 /** LATERAL com o preço vigente na data (última vigência <= data). */
-function lateralTabela(colCodigo, colData, paramTabela) {
+function lateralTabela(colCodigo, colData, exprTabela) {
   return `LEFT JOIN LATERAL (
-    SELECT tp.preco, tp.vigencia, tp.unidade AS unidade_tabela
+    SELECT tp.preco, tp.vigencia, tp.unidade AS unidade_tabela, tp.tabela
     FROM estoque_tabela_preco tp
-    WHERE tp.tabela = ${paramTabela}
+    WHERE tp.tabela = ${exprTabela}
       AND tp.codigo = NULLIF(LTRIM(${colCodigo}, '0'), '')
       AND tp.vigencia <= ${colData}
     ORDER BY tp.vigencia DESC
@@ -206,8 +222,9 @@ async function cmpPorMes(idLoja, meses) {
 /**
  * Espelho dos pedidos do portal com preço de tabela, faturado nas NFs (xPed) e CMP do mês.
  */
-export async function listarPedidosPlatlogEspelho(idLoja, { dias = 90, tabela = TABELA_PRECO_PADRAO } = {}) {
+export async function listarPedidosPlatlogEspelho(idLoja, { dias = 90, tabela = null } = {}) {
   const id = Number(idLoja);
+  if (!tabela) tabela = await tabelaDaLoja(id);
   const nDias = Math.min(Math.max(Number(dias) || 90, 7), 400);
 
   const { rows: pedidos } = await pool.query(
@@ -435,6 +452,46 @@ export async function listarPedidosPlatlogEspelho(idLoja, { dias = 90, tabela = 
 }
 
 /**
+ * Frete cobrado nas NFs Platlog de cada pedido (xPed), lido do total da nota no XML.
+ * @returns {Promise<Map<number, {nfs: number, valor: number, valor_nf: number, peso_kg: number, pct_nf: number|null, por_kg: number|null}>>}
+ */
+async function fretePedidosPlatlog(pedidos) {
+  const mapa = new Map();
+  if (!pedidos.length) return mapa;
+  const lojas = [...new Set(pedidos.map((p) => Number(p.id_loja)))];
+  const codigos = [...new Set(pedidos.map((p) => String(p.codigo)))];
+  const { rows } = await pool.query(
+    `WITH ${cteNotasPlatlog('n.id_loja = ANY($1::int[]) AND n.pedido_esupri = ANY($2::text[])')}
+     SELECT nf.id_loja, nf.pedido_esupri,
+            COUNT(*)::int AS nfs,
+            SUM(COALESCE(substring(x.xml FROM '<ICMSTot>.*?<vFrete>([0-9.]+)</vFrete>'), '0')::numeric) AS frete,
+            SUM(COALESCE(substring(x.xml FROM '<ICMSTot>.*?<vNF>([0-9.]+)</vNF>'), '0')::numeric) AS valor_nf,
+            SUM(COALESCE(substring(x.xml FROM '<pesoB>([0-9.]+)</pesoB>'), '0')::numeric) AS peso
+     FROM nf
+     JOIN finance.nfe_recebida x ON x.chave = nf.chave AND x.xml IS NOT NULL
+     GROUP BY 1, 2`,
+    [lojas, codigos],
+  );
+  const porChave = new Map(rows.map((r) => [`${r.id_loja}|${r.pedido_esupri}`, r]));
+  for (const p of pedidos) {
+    const r = porChave.get(`${p.id_loja}|${p.codigo}`);
+    if (!r) continue;
+    const valor = r2(r.frete);
+    const valorNf = r2(r.valor_nf);
+    const peso = num(r.peso) || num(p.peso_bruto);
+    mapa.set(p.id_pedido, {
+      nfs: r.nfs,
+      valor,
+      valor_nf: valorNf,
+      peso_kg: r2(peso),
+      pct_nf: valorNf > 0 ? r4(valor / valorNf) : null,
+      por_kg: peso > 0 ? r4(valor / peso) : null,
+    });
+  }
+  return mapa;
+}
+
+/**
  * Pedidos do eSupri × Tabela BKC num período, de uma loja ou da rede (relatório de cobrança).
  * @param {object} o
  * @param {number|null} [o.idLoja]
@@ -442,7 +499,7 @@ export async function listarPedidosPlatlogEspelho(idLoja, { dias = 90, tabela = 
  * @param {string} o.de
  * @param {string} o.ate
  */
-export async function listarPedidosTabelaPeriodo({ idLoja = null, idsLoja = null, de, ate, tabela = TABELA_PRECO_PADRAO }) {
+export async function listarPedidosTabelaPeriodo({ idLoja = null, idsLoja = null, de, ate }) {
   const params = [String(de).slice(0, 10), String(ate).slice(0, 10)];
   let filtro = `p.data_pedido BETWEEN $1::date AND $2::date AND COALESCE(p.status, '') !~* 'cancel'`;
   if (idLoja) {
@@ -454,25 +511,27 @@ export async function listarPedidosTabelaPeriodo({ idLoja = null, idsLoja = null
   }
 
   const { rows: pedidos } = await pool.query(
-    `SELECT p.id_pedido, p.id_loja, l.name AS loja, l.bk_number, p.codigo, p.data_pedido,
-            p.valor_total, p.itens_lidos_em, p.sincronizado_em
+    `SELECT p.id_pedido, p.id_loja, l.name AS loja, l.bk_number, l.state AS uf, p.codigo, p.data_pedido,
+            p.valor_total, p.peso_bruto, p.itens_lidos_em, p.sincronizado_em
      FROM estoque_pedido_platlog p
      JOIN lojas l ON l.id_loja = p.id_loja
      WHERE ${filtro}
      ORDER BY p.data_pedido DESC, p.hora_pedido DESC NULLS LAST, p.codigo DESC`,
     params,
   );
-  params.push(tabela);
   const { rows: itens } = await pool.query(
     `SELECT it.id_pedido, it.codigo, it.descricao, it.quantidade, it.unidade,
             it.valor_unitario, it.valor_total, tp.preco AS preco_tabela
      FROM estoque_pedido_platlog_itens it
      JOIN estoque_pedido_platlog p ON p.id_pedido = it.id_pedido
-     ${lateralTabela('it.codigo', 'p.data_pedido', `$${params.length}`)}
+     JOIN lojas l ON l.id_loja = p.id_loja
+     ${lateralTabela('it.codigo', 'p.data_pedido', sqlTabelaDaUf('l.state'))}
      WHERE ${filtro}
      ORDER BY it.id_pedido, it.id_item`,
     params,
   );
+
+  const fretePorPedido = await fretePedidosPlatlog(pedidos);
 
   const itensPorPedido = new Map();
   for (const it of itens) {
@@ -494,24 +553,50 @@ export async function listarPedidosTabelaPeriodo({ idLoja = null, idsLoja = null
     itensPorPedido.set(it.id_pedido, arr);
   }
 
+  const freteVazio = () => ({ pedidos_com_nf: 0, valor: 0, valor_nf: 0, peso_kg: 0 });
+  const somarFrete = (alvo, f) => {
+    if (!f) return;
+    alvo.pedidos_com_nf += 1;
+    alvo.valor += f.valor;
+    alvo.valor_nf += f.valor_nf;
+    alvo.peso_kg += f.peso_kg;
+  };
+  const fecharFrete = (f) => ({
+    pedidos_com_nf: f.pedidos_com_nf,
+    valor: r2(f.valor),
+    valor_nf: r2(f.valor_nf),
+    peso_kg: r2(f.peso_kg),
+    pct_nf: f.valor_nf > 0 ? r4(f.valor / f.valor_nf) : null,
+    por_kg: f.peso_kg > 0 ? r4(f.valor / f.peso_kg) : null,
+  });
+
   const resumo = {
     lojas: 0, pedidos: 0, pedidos_acima: 0, valor_pedidos: 0,
     itens_comparados: 0, acima: 0, valor_acima: 0, conferir_unidade: 0, sem_tabela: 0,
   };
+  const freteRede = freteVazio();
+  const tabelasUsadas = new Set();
   const porLoja = new Map();
   const lista = pedidos.map((p) => {
     const its = itensPorPedido.get(p.id_pedido) || [];
     const acima = its.filter((i) => i.situacao_preco === 'acima');
     const valorAcima = r2(acima.reduce((s, i) => s + num(i.diferenca_total), 0));
+    const tabelaLoja = tabelaDaUf(p.uf);
+    tabelasUsadas.add(tabelaLoja);
+    const frete = fretePorPedido.get(p.id_pedido) || null;
     const pl = porLoja.get(p.id_loja) || {
-      id_loja: p.id_loja, loja: p.loja, bk_number: p.bk_number, pedidos: 0, pedidos_acima: 0,
+      id_loja: p.id_loja, loja: p.loja, bk_number: p.bk_number, uf: p.uf || null, tabela: tabelaLoja,
+      pedidos: 0, pedidos_acima: 0,
       valor_pedidos: 0, itens_comparados: 0, acima: 0, valor_acima: 0, sincronizado_em: null,
+      frete: freteVazio(),
     };
     pl.pedidos += 1;
     pl.valor_pedidos += num(p.valor_total);
     pl.valor_acima += valorAcima;
     pl.acima += acima.length;
     if (acima.length) pl.pedidos_acima += 1;
+    somarFrete(pl.frete, frete);
+    somarFrete(freteRede, frete);
     if (!pl.sincronizado_em || p.sincronizado_em > pl.sincronizado_em) pl.sincronizado_em = p.sincronizado_em;
     for (const i of its) {
       if (i.situacao_preco === 'sem_tabela') resumo.sem_tabela += 1;
@@ -535,23 +620,27 @@ export async function listarPedidosTabelaPeriodo({ idLoja = null, idsLoja = null
       data_pedido: p.data_pedido,
       valor_total: r2(p.valor_total),
       itens_lidos: !!p.itens_lidos_em,
+      tabela: tabelaLoja,
       itens: its,
       preco: { acima: acima.length, valor_acima: valorAcima },
+      frete,
     };
   });
 
   resumo.lojas = porLoja.size;
   resumo.valor_pedidos = r2(resumo.valor_pedidos);
   resumo.valor_acima = r2(resumo.valor_acima);
-  const vig = await vigenciasTabela(tabela);
+  const tabelas = [...tabelasUsadas].sort();
+  const vig = await vigenciasTabela(tabelas[0] || TABELA_PRECO_PADRAO);
   return {
-    tabela,
+    tabela: tabelas.join(' / ') || TABELA_PRECO_PADRAO,
+    tabelas,
     vigencia_tabela: vig[0]?.vigencia || null,
     de: params[0],
     ate: params[1],
-    resumo,
+    resumo: { ...resumo, frete: fecharFrete(freteRede) },
     por_loja: [...porLoja.values()]
-      .map((l) => ({ ...l, valor_pedidos: r2(l.valor_pedidos), valor_acima: r2(l.valor_acima) }))
+      .map((l) => ({ ...l, valor_pedidos: r2(l.valor_pedidos), valor_acima: r2(l.valor_acima), frete: fecharFrete(l.frete) }))
       .sort((a, b) => b.valor_acima - a.valor_acima || a.loja.localeCompare(b.loja)),
     pedidos: lista,
   };
@@ -568,7 +657,7 @@ export async function listarNfAcimaTabela({
   idsLoja = null,
   de = null,
   ate = null,
-  tabela = TABELA_PRECO_PADRAO,
+  tabela = null,
   incluirConferir = true,
 } = {}) {
   const params = [tabela];
@@ -598,7 +687,7 @@ export async function listarNfAcimaTabela({
      FROM nf
      JOIN lojas l ON l.id_loja = nf.id_loja
      JOIN estoque_nfe_itens ni ON ni.id_nfe = nf.id_nfe
-     ${lateralTabela('ni.codigo_nf', 'nf.emissao', '$1')}
+     ${lateralTabela('ni.codigo_nf', 'nf.emissao', `COALESCE($1::text, ${sqlTabelaDaUf('l.state')})`)}
      WHERE tp.preco IS NOT NULL
      ORDER BY nf.emissao DESC, l.name, nf.numero, ni.n_item`,
     params,
@@ -646,7 +735,7 @@ export async function listarNfAcimaTabela({
     });
   }
   return {
-    tabela,
+    tabela: tabela || 'por loja (UF)',
     resumo: {
       notas: resumo.notas.size,
       itens_comparados: resumo.itens_comparados,

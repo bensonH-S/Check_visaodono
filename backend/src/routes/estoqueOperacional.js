@@ -2154,8 +2154,8 @@ router.get('/nfes/:id', permNfe, async (req, res, next) => {
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
     const semItens = !(det.itens || []).length && !det.entrada_registrada;
     if (String(det.emitente_cnpj || '').startsWith('02229804') && (det.itens || []).length) {
-      const { enriquecerItensComTabela } = await import('../services/estoqueTabelaPreco.js');
-      det.itens = await enriquecerItensComTabela(det.itens, det.emissao);
+      const { enriquecerItensComTabela, tabelaDaLoja } = await import('../services/estoqueTabelaPreco.js');
+      det.itens = await enriquecerItensComTabela(det.itens, det.emissao, await tabelaDaLoja(det.id_loja));
     }
     res.json({
       ...det,
