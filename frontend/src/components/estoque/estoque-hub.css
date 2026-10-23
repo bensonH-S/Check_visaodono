@@ -1426,8 +1426,29 @@
   backdrop-filter: blur(8px);
 }
 
+.ck-estoque-hub--nfe.ck-estoque-hub--hero {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+}
+
 .ck-estoque-hub--nfe .ck-estoque-hub__scroll {
-  padding-bottom: 88px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+}
+
+.ck-estoque-hub__nfe-pagina {
+  margin: 0 0 8px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--eh-muted);
 }
 
 .ck-estoque-hub__table--nf {
@@ -1726,16 +1747,25 @@
 }
 
 .ck-estoque-hub--nfe .ck-estoque-hub__foot {
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
 }
 
-.ck-estoque-hub--nfe .ck-estoque-hub__foot button {
-  flex: 1 1 calc(50% - 8px);
+.ck-estoque-hub--nfe .ck-estoque-hub__foot-acoes {
+  display: flex;
+  gap: 8px;
+}
+
+.ck-estoque-hub--nfe .ck-estoque-hub__foot-acoes button {
+  flex: 1 1 0;
   min-width: 0;
 }
 
 .ck-estoque-hub--nfe .ck-estoque-hub__foot button.is-pri {
-  flex: 1 1 100%;
+  order: -1;
+  flex: none;
+  width: 100%;
+  min-height: 48px;
 }
 
 .ck-estoque-hub--nfe .ck-estoque-hub__brand-row {

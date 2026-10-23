@@ -2,7 +2,7 @@
  * Conferência de recebimento NF no mobile.
  * Fluxo: NF do fornecedor → lista itens → OK chegou / X não chegou → lança estoque.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
@@ -63,6 +63,9 @@ function rotuloFornecedor(codigo: string | null | undefined, emitente?: string |
   if (emitente && String(emitente).trim()) return String(emitente).trim();
   return codigo || 'Fornecedor';
 }
+
+/** Quantos produtos cabem na tela do celular sem depender da rolagem. */
+const ITENS_POR_PAGINA = 4;
 
 function qtdEsperada(it: EstoqueNfeItem) {
   const q = it.qtd_estoque ?? it.q_com ?? 0;
@@ -175,12 +178,15 @@ export default function EstoqueMobileNfePage() {
     null,
   );
   const [abrindoCobranca, setAbrindoCobranca] = useState(false);
+  const [pagina, setPagina] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const carregarDetalhe = useCallback(
     async (id: number, opts?: { avisoXml?: boolean }) => {
       setLoading(true);
       try {
         const d = await api.estoqueNfeDetalhe(id);
+        setPagina(0);
         setDet(d);
         const map: Record<number, ItemCheck> = {};
         for (const it of d.itens || []) {
@@ -407,6 +413,21 @@ export default function EstoqueMobileNfePage() {
   };
 
   const jaEntrou = !!det?.entrada_registrada;
+  const itensNota = det?.itens || [];
+  const totalPaginas = Math.max(1, Math.ceil(itensNota.length / ITENS_POR_PAGINA));
+  const paginaAtual = Math.min(pagina, totalPaginas - 1);
+  const itensPagina = itensNota.slice(
+    paginaAtual * ITENS_POR_PAGINA,
+    paginaAtual * ITENS_POR_PAGINA + ITENS_POR_PAGINA,
+  );
+  const temProxima = paginaAtual < totalPaginas - 1;
+  const podeFinalizar = !jaEntrou && resumo.total > 0 && resumo.pend === 0;
+
+  const irPagina = (proxima: number) => {
+    const destino = Math.max(0, Math.min(totalPaginas - 1, proxima));
+    setPagina(destino);
+    scrollRef.current?.scrollTo({ top: 0 });
+  };
 
   const marcarTodosOk = () => {
     if (jaEntrou) return;
@@ -540,7 +561,7 @@ export default function EstoqueMobileNfePage() {
         ) : null}
       </div>
 
-      <div className="ck-estoque-hub__scroll">
+      <div className="ck-estoque-hub__scroll" ref={scrollRef}>
         <div className="ck-estoque-hub__body ck-estoque-hub__body--scroll">
           {det ? (
             <div className="ck-estoque-hub__table ck-estoque-hub__table--body">
@@ -556,7 +577,13 @@ export default function EstoqueMobileNfePage() {
                     </button>
                   </div>
                 ) : null}
-                {(det.itens || []).map((it) => {
+                {totalPaginas > 1 ? (
+                  <p className="ck-estoque-hub__nfe-pagina">
+                    Página {paginaAtual + 1} de {totalPaginas}
+                    {resumo.pend > 0 ? ` · faltam ${resumo.pend}` : ''}
+                  </p>
+                ) : null}
+                {itensPagina.map((it) => {
                   const c = checks[it.id_item];
                   const esp = c?.qtd_esperada ?? qtdEsperada(it);
                   const rec = c?.qtd_recebida ?? esp;
@@ -661,38 +688,60 @@ export default function EstoqueMobileNfePage() {
 
       {det ? (
         <div className="ck-estoque-hub__foot">
-          <button type="button" onClick={voltarHubNf}>
-            Voltar
-          </button>
           {jaEntrou ? (
-            <button type="button" className="is-feita" disabled>
-              Entrada já feita
-            </button>
+            <>
+              <button type="button" onClick={voltarHubNf}>
+                Voltar
+              </button>
+              <button type="button" className="is-feita" disabled>
+                Entrada já feita
+              </button>
+            </>
           ) : (
             <>
               <button
                 type="button"
-                className="is-no"
-                disabled={salvando}
-                onClick={() => void marcarNotaNaoChegou()}
-              >
-                Não chegou
-              </button>
-              <button type="button" className="is-ghost" disabled={salvando} onClick={marcarTodosOk}>
-                Todos OK
-              </button>
-              <button
-                type="button"
                 className="is-pri"
-                disabled={salvando || resumo.pend > 0 || resumo.total === 0}
-                onClick={() => void finalizar()}
+                disabled={salvando || (!podeFinalizar && !temProxima)}
+                onClick={() => {
+                  if (podeFinalizar) {
+                    void finalizar();
+                    return;
+                  }
+                  if (temProxima) irPagina(paginaAtual + 1);
+                }}
               >
                 {salvando
                   ? 'Salvando…'
-                  : resumo.parcial > 0
-                    ? `Continuar (${resumo.ok + resumo.parcial}/${resumo.total} · ${resumo.parcial} parcial)`
-                    : `Continuar (${resumo.ok}/${resumo.total})`}
+                  : podeFinalizar
+                    ? resumo.parcial > 0
+                      ? `Continuar (${resumo.ok + resumo.parcial}/${resumo.total} · ${resumo.parcial} parcial)`
+                      : `Continuar (${resumo.ok}/${resumo.total})`
+                    : temProxima
+                      ? `Próxima página (${paginaAtual + 2}/${totalPaginas})`
+                      : `Continuar (${resumo.ok}/${resumo.total})`}
               </button>
+              <div className="ck-estoque-hub__foot-acoes">
+                <button type="button" onClick={voltarHubNf}>
+                  Voltar
+                </button>
+                {paginaAtual > 0 ? (
+                  <button type="button" className="is-ghost" onClick={() => irPagina(paginaAtual - 1)}>
+                    Anterior
+                  </button>
+                ) : null}
+                <button type="button" className="is-ghost" disabled={salvando} onClick={marcarTodosOk}>
+                  Todos OK
+                </button>
+                <button
+                  type="button"
+                  className="is-no"
+                  disabled={salvando}
+                  onClick={() => void marcarNotaNaoChegou()}
+                >
+                  Não chegou
+                </button>
+              </div>
             </>
           )}
         </div>
