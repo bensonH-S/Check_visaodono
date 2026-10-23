@@ -406,7 +406,9 @@ export async function listarPedidosPlatlogEspelho(idLoja, { dias = 90, tabela = 
     };
   });
 
+  const inicioJanela = new Date(Date.now() - nDias * 864e5).toISOString().slice(0, 10);
   const meses_cmp = [...cmp.values()]
+    .filter((c) => `${c.mes}-01` >= inicioJanela && c.venda_projetada > 0)
     .map((c) => ({
       ...c,
       pedidos_portal: r2(acumMes.get(c.mes) || 0),
@@ -429,6 +431,129 @@ export async function listarPedidosPlatlogEspelho(idLoja, { dias = 90, tabela = 
     pedidos: lista,
     meses: meses_cmp,
     resumo_preco: resumoPreco,
+  };
+}
+
+/**
+ * Pedidos do eSupri × Tabela BKC num período, de uma loja ou da rede (relatório de cobrança).
+ * @param {object} o
+ * @param {number|null} [o.idLoja]
+ * @param {number[]|null} [o.idsLoja]
+ * @param {string} o.de
+ * @param {string} o.ate
+ */
+export async function listarPedidosTabelaPeriodo({ idLoja = null, idsLoja = null, de, ate, tabela = TABELA_PRECO_PADRAO }) {
+  const params = [String(de).slice(0, 10), String(ate).slice(0, 10)];
+  let filtro = `p.data_pedido BETWEEN $1::date AND $2::date AND COALESCE(p.status, '') !~* 'cancel'`;
+  if (idLoja) {
+    params.push(Number(idLoja));
+    filtro += ` AND p.id_loja = $${params.length}`;
+  } else if (Array.isArray(idsLoja)) {
+    params.push(idsLoja.map(Number));
+    filtro += ` AND p.id_loja = ANY($${params.length}::int[])`;
+  }
+
+  const { rows: pedidos } = await pool.query(
+    `SELECT p.id_pedido, p.id_loja, l.name AS loja, l.bk_number, p.codigo, p.data_pedido,
+            p.valor_total, p.itens_lidos_em, p.sincronizado_em
+     FROM estoque_pedido_platlog p
+     JOIN lojas l ON l.id_loja = p.id_loja
+     WHERE ${filtro}
+     ORDER BY p.data_pedido DESC, p.hora_pedido DESC NULLS LAST, p.codigo DESC`,
+    params,
+  );
+  params.push(tabela);
+  const { rows: itens } = await pool.query(
+    `SELECT it.id_pedido, it.codigo, it.descricao, it.quantidade, it.unidade,
+            it.valor_unitario, it.valor_total, tp.preco AS preco_tabela
+     FROM estoque_pedido_platlog_itens it
+     JOIN estoque_pedido_platlog p ON p.id_pedido = it.id_pedido
+     ${lateralTabela('it.codigo', 'p.data_pedido', `$${params.length}`)}
+     WHERE ${filtro}
+     ORDER BY it.id_pedido, it.id_item`,
+    params,
+  );
+
+  const itensPorPedido = new Map();
+  for (const it of itens) {
+    const pago = num(it.valor_unitario);
+    const tab = it.preco_tabela != null ? num(it.preco_tabela) : null;
+    const arr = itensPorPedido.get(it.id_pedido) || [];
+    arr.push({
+      codigo: it.codigo,
+      descricao: it.descricao,
+      quantidade: num(it.quantidade),
+      unidade: it.unidade,
+      valor_unitario: r4(pago),
+      valor_total: r2(it.valor_total),
+      preco_tabela: tab,
+      situacao_preco: situacaoPreco(pago, tab),
+      diferenca_unit: tab != null ? r4(pago - tab) : null,
+      diferenca_total: tab != null ? r2((pago - tab) * num(it.quantidade)) : null,
+    });
+    itensPorPedido.set(it.id_pedido, arr);
+  }
+
+  const resumo = {
+    lojas: 0, pedidos: 0, pedidos_acima: 0, valor_pedidos: 0,
+    itens_comparados: 0, acima: 0, valor_acima: 0, conferir_unidade: 0, sem_tabela: 0,
+  };
+  const porLoja = new Map();
+  const lista = pedidos.map((p) => {
+    const its = itensPorPedido.get(p.id_pedido) || [];
+    const acima = its.filter((i) => i.situacao_preco === 'acima');
+    const valorAcima = r2(acima.reduce((s, i) => s + num(i.diferenca_total), 0));
+    const pl = porLoja.get(p.id_loja) || {
+      id_loja: p.id_loja, loja: p.loja, bk_number: p.bk_number, pedidos: 0, pedidos_acima: 0,
+      valor_pedidos: 0, itens_comparados: 0, acima: 0, valor_acima: 0, sincronizado_em: null,
+    };
+    pl.pedidos += 1;
+    pl.valor_pedidos += num(p.valor_total);
+    pl.valor_acima += valorAcima;
+    pl.acima += acima.length;
+    if (acima.length) pl.pedidos_acima += 1;
+    if (!pl.sincronizado_em || p.sincronizado_em > pl.sincronizado_em) pl.sincronizado_em = p.sincronizado_em;
+    for (const i of its) {
+      if (i.situacao_preco === 'sem_tabela') resumo.sem_tabela += 1;
+      else {
+        resumo.itens_comparados += 1;
+        pl.itens_comparados += 1;
+      }
+      if (i.situacao_preco === 'conferir_unidade') resumo.conferir_unidade += 1;
+    }
+    porLoja.set(p.id_loja, pl);
+    resumo.pedidos += 1;
+    resumo.valor_pedidos += num(p.valor_total);
+    resumo.acima += acima.length;
+    resumo.valor_acima += valorAcima;
+    if (acima.length) resumo.pedidos_acima += 1;
+    return {
+      id_pedido: p.id_pedido,
+      id_loja: p.id_loja,
+      loja: p.loja,
+      codigo: p.codigo,
+      data_pedido: p.data_pedido,
+      valor_total: r2(p.valor_total),
+      itens_lidos: !!p.itens_lidos_em,
+      itens: its,
+      preco: { acima: acima.length, valor_acima: valorAcima },
+    };
+  });
+
+  resumo.lojas = porLoja.size;
+  resumo.valor_pedidos = r2(resumo.valor_pedidos);
+  resumo.valor_acima = r2(resumo.valor_acima);
+  const vig = await vigenciasTabela(tabela);
+  return {
+    tabela,
+    vigencia_tabela: vig[0]?.vigencia || null,
+    de: params[0],
+    ate: params[1],
+    resumo,
+    por_loja: [...porLoja.values()]
+      .map((l) => ({ ...l, valor_pedidos: r2(l.valor_pedidos), valor_acima: r2(l.valor_acima) }))
+      .sort((a, b) => b.valor_acima - a.valor_acima || a.loja.localeCompare(b.loja)),
+    pedidos: lista,
   };
 }
 

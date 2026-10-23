@@ -1960,6 +1960,12 @@ export const api = {
     }),
   estoquePedidosPlatlog: (idLoja: number, dias = 90) =>
     request<EstoquePedidosPlatlog>(`/estoque/pedidos-platlog?id_loja=${idLoja}&dias=${dias}`),
+  estoquePedidosTabelaPeriodo: (o: { idLoja?: number | null; de: string; ate: string; lojaAtual?: number }) => {
+    const q = new URLSearchParams({ de: o.de, ate: o.ate });
+    if (o.idLoja) q.set('id_loja', String(o.idLoja));
+    if (o.lojaAtual) q.set('loja_atual', String(o.lojaAtual));
+    return request<EstoquePedidosTabelaPeriodo>(`/estoque/pedidos-platlog/periodo?${q}`);
+  },
   estoqueSincronizarPedidosPlatlog: (idLoja: number) =>
     request<{ lojas: number; pedidos: number; novos: number; itens_lidos: number; erros: Array<{ erro: string }> }>(
       '/estoque/pedidos-platlog/sincronizar',
@@ -4014,6 +4020,66 @@ export interface EstoquePedidosPlatlog {
     conferir_unidade: number;
     sem_tabela: number;
   };
+}
+
+export interface EstoquePedidoTabelaItem {
+  codigo: string;
+  descricao: string;
+  quantidade: number;
+  unidade: string;
+  valor_unitario: number;
+  valor_total: number;
+  preco_tabela: number | null;
+  situacao_preco: EstoqueSituacaoPreco;
+  diferenca_unit: number | null;
+  diferenca_total: number | null;
+}
+
+export interface EstoquePedidoTabela {
+  id_pedido: number;
+  id_loja: number;
+  loja: string;
+  codigo: string;
+  data_pedido: string;
+  valor_total: number;
+  itens_lidos: boolean;
+  itens: EstoquePedidoTabelaItem[];
+  preco: { acima: number; valor_acima: number };
+}
+
+export interface EstoquePedidosTabelaLoja {
+  id_loja: number;
+  loja: string;
+  bk_number: string | null;
+  pedidos: number;
+  pedidos_acima: number;
+  valor_pedidos: number;
+  itens_comparados: number;
+  acima: number;
+  valor_acima: number;
+  sincronizado_em: string | null;
+}
+
+export interface EstoquePedidosTabelaPeriodo {
+  tabela: string;
+  vigencia_tabela: string | null;
+  de: string;
+  ate: string;
+  sincronizando?: boolean;
+  leitura_automatica?: { horarios: string[]; proxima: string };
+  resumo: {
+    lojas: number;
+    pedidos: number;
+    pedidos_acima: number;
+    valor_pedidos: number;
+    itens_comparados: number;
+    acima: number;
+    valor_acima: number;
+    conferir_unidade: number;
+    sem_tabela: number;
+  };
+  por_loja: EstoquePedidosTabelaLoja[];
+  pedidos: EstoquePedidoTabela[];
 }
 
 export interface EstoqueNfAcimaTabela {

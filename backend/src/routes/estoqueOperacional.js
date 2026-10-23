@@ -1750,6 +1750,44 @@ router.get('/pedidos-platlog', permOp, async (req, res, next) => {
   }
 });
 
+/** Pedidos do eSupri × Tabela BKC num período: uma loja (id_loja) ou todas as lojas do usuário. */
+router.get('/pedidos-platlog/periodo', permOp, async (req, res, next) => {
+  try {
+    const isoOk = (v) => /^\d{4}-\d{2}-\d{2}$/.test(String(v || ''));
+    const hoje = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+    const ate = isoOk(req.query.ate) ? String(req.query.ate) : hoje;
+    const de = isoOk(req.query.de)
+      ? String(req.query.de)
+      : new Date(Date.parse(`${ate}T12:00:00Z`) - 90 * 864e5).toISOString().slice(0, 10);
+    if (de > ate) return res.status(400).json({ error: 'Data inicial depois da final' });
+
+    const idLoja = req.query.id_loja ? parseIdLoja(req.query.id_loja) : null;
+    let idsLoja = null;
+    if (idLoja) {
+      const bloqueio = acessoLoja(req, idLoja);
+      if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    } else if (!acessoTodasLojas(req.user)) {
+      const ids = Array.isArray(req.user?.lojas_ids_estoque)
+        ? req.user.lojas_ids_estoque
+        : req.user?.lojas_ids || [];
+      idsLoja = ids.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+      if (!idsLoja.length) return res.status(403).json({ error: 'Sem acesso a lojas de estoque' });
+    }
+
+    const { listarPedidosTabelaPeriodo } = await import('../services/estoqueTabelaPreco.js');
+    const { statusSchedulerPedidos } = await import('../services/platlog/schedulerPedidosPlatlog.js');
+    const dados = await listarPedidosTabelaPeriodo({ idLoja, idsLoja, de, ate });
+    const sched = statusSchedulerPedidos();
+    res.json({
+      ...dados,
+      sincronizando: sched.rodando,
+      leitura_automatica: { horarios: sched.horarios, proxima: sched.proxima },
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 const syncPedidosEmAndamento = new Set();
 const LEITURA_PEDIDOS_VELHA_MS = 4 * 3600 * 1000;
 

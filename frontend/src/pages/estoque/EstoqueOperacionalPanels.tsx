@@ -56,8 +56,7 @@ import {
   type EstoqueNfeResumo,
   type EstoquePedidoRascunho,
   type EstoquePedidoRascunhoItem,
-  type EstoquePedidoPlatlog,
-  type EstoquePedidosPlatlog,
+  type EstoquePedidosTabelaPeriodo,
   type EstoqueSituacaoPreco,
   type EstoqueMovimento,
   type EstoqueSaldoItem,
@@ -84,6 +83,12 @@ import {
 } from '../../components/estoque/estoqueContagemCampo';
 import { custoLinhaReceita, UNIDADES_RECEITA, unidadeReceitaPadrao } from '../../utils/fichaReceitaEstoque';
 import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
+import { nomeLojaCurto, resumirPedidosTabela } from '../../utils/precoTabelaResumo';
+import Autocomplete from '@mui/material/Autocomplete';
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import { assetUrl } from '../../config/paths';
+import { ehLojaPopeyes } from '../../components/escalas/escalaVisitasUtils';
+import { finCampoSx, FIN_MUTED } from '../../financeiro/temaFinanceiroEscuro';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors, portalPanelSx } from '../../theme/tokens';
@@ -3147,48 +3152,105 @@ const SELO_PRECO: Record<EstoqueSituacaoPreco, { label: string; cor: string; fun
   conferir_unidade: { label: 'Conferir unidade', cor: corEstoque.laranja, fundo: 'rgba(196, 122, 42, 0.1)' },
 };
 
-function seloStatusPedido(status: string | null) {
-  const s = String(status || '').toLowerCase();
-  if (s.includes('entreg')) return { label: status || 'Entregue', cor: corEstoque.verde, fundo: 'rgba(46, 125, 91, 0.08)' };
-  if (s.includes('expedi') || s.includes('fatur')) return { label: status || 'Expedido', cor: corEstoque.azul, fundo: 'rgba(27, 110, 243, 0.08)' };
-  if (s.includes('cancel')) return { label: status || 'Cancelado', cor: corEstoque.cinza, fundo: 'rgba(100, 116, 139, 0.08)' };
-  if (s.includes('bloq')) return { label: status || 'Bloqueado', cor: corEstoque.vermelho, fundo: 'rgba(196, 69, 45, 0.08)' };
-  return { label: status || 'Em processo', cor: corEstoque.laranja, fundo: 'rgba(196, 122, 42, 0.1)' };
+type OpcaoLojaFiltro = { id: string; nome: string; detalhe: string };
+
+function MarcaLojaFiltro({ opcao, size }: { opcao: OpcaoLojaFiltro | null; size: number }) {
+  const base = {
+    width: size,
+    height: size,
+    borderRadius: '50%',
+    flexShrink: 0,
+    display: 'grid',
+    placeItems: 'center',
+    bgcolor: 'var(--ga-canvas-alt)',
+    border: '1px solid var(--ga-border)',
+    overflow: 'hidden',
+  } as const;
+  if (!opcao || opcao.id === 'todas') {
+    return (
+      <Box sx={{ ...base, color: corEstoque.azul }}>
+        <StorefrontOutlinedIcon sx={{ fontSize: size * 0.58 }} />
+      </Box>
+    );
+  }
+  return (
+    <Box sx={base}>
+      <img src={assetUrl(ehLojaPopeyes(opcao.nome) ? 'Popeyes.png' : 'BK_logo.png')} alt="" width={size * 0.7} height={size * 0.7} />
+    </Box>
+  );
 }
 
-function mesCurto(mes: string) {
-  const [y, m] = mes.split('-');
-  const nomes = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-  return `${nomes[Number(m) - 1] || m}/${String(y).slice(2)}`;
-}
-
-/** Espelho dos pedidos feitos no eSupri: preço × Tabela BKC, faturado nas NFs e CMP do mês. */
-function PainelPedidosPortal({
-  idLoja,
-  rascunho,
-  alternar,
+function FiltroLojaPedidos({
+  valor,
+  opcoes,
+  onChange,
 }: {
-  idLoja: number;
-  rascunho: EstoquePedidoRascunhoItem[];
-  alternar: ReactNode;
+  valor: string;
+  opcoes: OpcaoLojaFiltro[];
+  onChange: (id: string) => void;
 }) {
-  const [dados, setDados] = useState<EstoquePedidosPlatlog | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [lendo, setLendo] = useState(false);
-  const [filtro, setFiltro] = useState('todos');
-  const [aberto, setAberto] = useState<number | null>(null);
-  const [baixando, setBaixando] = useState(false);
+  const selecionada = opcoes.find((o) => o.id === valor) || null;
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: 280 }}>
+      <MarcaLojaFiltro opcao={selecionada} size={30} />
+      <Autocomplete
+        size="small"
+        fullWidth
+        disableClearable
+        options={opcoes}
+        value={selecionada ?? undefined}
+        onChange={(_, o) => o && onChange(o.id)}
+        getOptionLabel={(o) => o.nome}
+        isOptionEqualToValue={(a, b) => a.id === b.id}
+        noOptionsText="Nenhuma loja"
+        slotProps={{ listbox: { sx: { maxHeight: 320 } } }}
+        renderOption={(props, o) => {
+          const { key, ...rest } = props;
+          return (
+            <Box component="li" key={key ?? o.id} {...rest} sx={{ display: 'flex !important', alignItems: 'center', gap: 1, py: 0.75 }}>
+              <MarcaLojaFiltro opcao={o} size={28} />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }}>{o.nome}</Typography>
+                <Typography sx={{ fontSize: 11, color: FIN_MUTED, lineHeight: 1.2 }}>{o.detalhe}</Typography>
+              </Box>
+            </Box>
+          );
+        }}
+        renderInput={(params) => <TextField {...params} label="Loja" placeholder="Buscar loja…" sx={finCampoSx} />}
+      />
+    </Box>
+  );
+}
 
-  const carregar = useCallback(async () => {
-    setLoading(true);
-    try {
-      setDados(await api.estoquePedidosPlatlog(idLoja, 90));
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao abrir pedidos do portal', 'error');
-    } finally {
-      setLoading(false);
-    }
+/** Pedidos feitos no eSupri: preço cobrado × Tabela BKC, por loja ou da rede. */
+function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: ReactNode }) {
+  const [de, setDe] = useState(() => somarDiasISO(hojeISO(), -89) || hojeISO());
+  const [ate, setAte] = useState(hojeISO);
+  const [escopo, setEscopo] = useState(String(idLoja));
+  const [dados, setDados] = useState<EstoquePedidosTabelaPeriodo | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [filtro, setFiltro] = useState('acima');
+  const [aberto, setAberto] = useState<number | null>(null);
+  const [gerando, setGerando] = useState(false);
+
+  useEffect(() => {
+    setEscopo(String(idLoja));
   }, [idLoja]);
+
+  const carregar = useCallback(
+    async (silencioso = false) => {
+      if (!de || !ate) return;
+      if (!silencioso) setLoading(true);
+      try {
+        setDados(await api.estoquePedidosTabelaPeriodo({ de, ate }));
+      } catch (e) {
+        if (!silencioso) showToast(e instanceof Error ? e.message : 'Erro ao abrir pedidos do portal', 'error');
+      } finally {
+        if (!silencioso) setLoading(false);
+      }
+    },
+    [de, ate],
+  );
 
   useEffect(() => {
     void carregar();
@@ -3196,68 +3258,68 @@ function PainelPedidosPortal({
 
   useEffect(() => {
     if (!dados?.sincronizando) return;
-    const t = window.setTimeout(() => {
-      api.estoquePedidosPlatlog(idLoja, 90).then(setDados).catch(() => {});
-    }, 15000);
+    const t = window.setTimeout(() => void carregar(true), 15000);
     return () => window.clearTimeout(t);
-  }, [dados, idLoja]);
+  }, [dados, carregar]);
 
-  const lerPortal = async () => {
-    setLendo(true);
-    try {
-      const r = await api.estoqueSincronizarPedidosPlatlog(idLoja);
-      showToast(
-        r.erros.length
-          ? `Leitura parcial: ${r.erros[0].erro}`
-          : `${r.pedidos} pedido(s) lidos no eSupri${r.novos ? `, ${r.novos} novo(s)` : ''}.`,
-        r.erros.length ? 'error' : 'success',
-      );
-      await carregar();
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Falha ao ler o eSupri', 'error');
-    } finally {
-      setLendo(false);
-    }
-  };
+  const rede = escopo === 'todas';
+  const idEscopo = rede ? null : Number(escopo);
+  const lojaEscopo = idEscopo ? dados?.por_loja.find((l) => l.id_loja === idEscopo) || null : null;
+  const nomeEscopo = rede
+    ? `Rede · ${dados?.por_loja.length || 0} lojas`
+    : lojaEscopo
+      ? nomeLojaCurto(lojaEscopo.loja)
+      : 'Esta loja';
+  const pedidos = useMemo(
+    () => (dados?.pedidos || []).filter((p) => idEscopo == null || p.id_loja === idEscopo),
+    [dados, idEscopo],
+  );
+  const resumo = useMemo(() => resumirPedidosTabela(pedidos), [pedidos]);
 
-  const baixarRelatorio = async () => {
-    setBaixando(true);
-    try {
-      await api.estoqueBaixarNfAcimaTabela({ idLoja, de: dados?.vigencia_tabela || undefined });
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao gerar relatório', 'error');
-    } finally {
-      setBaixando(false);
-    }
-  };
-
-  const pedidos = dados?.pedidos || [];
-  const ativos = pedidos.filter((p) => !/cancel/i.test(String(p.status || '')));
-  const emAberto = (p: EstoquePedidoPlatlog) => !/entreg|cancel/i.test(String(p.status || ''));
-  const notaDiferente = (p: EstoquePedidoPlatlog) =>
-    (p.faturamento.itens_faltando || 0) > 0 || p.faturamento.itens_trocados > 0 || p.faturamento.extras.length > 0;
-  const opcoes = [
-    { id: 'todos', label: 'Todos', qtd: pedidos.length },
-    { id: 'acima', label: 'Acima da tabela', qtd: ativos.filter((p) => p.preco.acima > 0).length },
-    { id: 'teto', label: 'Fora do teto CMP', qtd: ativos.filter((p) => p.cmp?.dentro_teto === false).length },
-    { id: 'faltou', label: 'Nota diferente', qtd: ativos.filter((p) => notaDiferente(p)).length },
-    { id: 'aberto', label: 'Em aberto', qtd: pedidos.filter(emAberto).length },
+  const detalheLoja = (pedidosQtd: number, valorAcima: number) =>
+    `${pedidosQtd} pedido(s)${valorAcima > 0 ? ` · ${fmtMoeda(valorAcima)} a mais` : ''}`;
+  const opcoesLoja: OpcaoLojaFiltro[] = [
+    {
+      id: 'todas',
+      nome: 'Todas as lojas',
+      detalhe: dados ? `${dados.por_loja.length} lojas · ${detalheLoja(dados.resumo.pedidos, dados.resumo.valor_acima)}` : 'Rede',
+    },
+    ...[...(dados?.por_loja || [])]
+      .sort((a, b) => nomeLojaCurto(a.loja).localeCompare(nomeLojaCurto(b.loja)))
+      .map((l) => ({ id: String(l.id_loja), nome: nomeLojaCurto(l.loja), detalhe: detalheLoja(l.pedidos, l.valor_acima) })),
   ];
-  const lista = pedidos.filter((p) => {
-    if (filtro === 'acima') return p.preco.acima > 0;
-    if (filtro === 'teto') return p.cmp?.dentro_teto === false;
-    if (filtro === 'faltou') return notaDiferente(p);
-    if (filtro === 'aberto') return emAberto(p);
-    return true;
-  });
-  const rp = dados?.resumo_preco;
-  const sugestao = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const i of rascunho) m.set(String(i.codigo).replace(/^0+/, ''), Number(i.pedido_ajustado) || 0);
-    return m;
-  }, [rascunho]);
+  if (!rede && !lojaEscopo) opcoesLoja.splice(1, 0, { id: escopo, nome: 'Esta loja', detalhe: 'Sem pedidos no período' });
+
+  const gerarPdf = async () => {
+    if (!dados) return;
+    setGerando(true);
+    try {
+      const { gerarPdfPrecoTabela } = await import('../../utils/gerarPdfPrecoTabela');
+      await gerarPdfPrecoTabela({ dados, pedidos, escopo: nomeEscopo, rede });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao gerar o PDF', 'error');
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  const opcoes = [
+    { id: 'acima', label: 'Acima da tabela', qtd: resumo.pedidos_acima },
+    { id: 'todos', label: 'Todos', qtd: pedidos.length },
+  ];
+  const lista = filtro === 'acima' ? pedidos.filter((p) => p.preco.acima > 0) : pedidos;
   const pedidoAberto = pedidos.find((p) => p.id_pedido === aberto) || null;
-  const lidoEm = dados?.sincronizado_em ? fmtHoraBR(dados.sincronizado_em) : null;
+  const ultimaLeitura = rede
+    ? (dados?.por_loja || []).reduce<string | null>((m, l) => (l.sincronizado_em && (!m || l.sincronizado_em > m) ? l.sincronizado_em : m), null)
+    : lojaEscopo?.sincronizado_em || null;
+  const lidoEm = ultimaLeitura ? fmtHoraBR(ultimaLeitura) : null;
+  const leituraAuto = dados?.sincronizando
+    ? 'lendo o eSupri agora…'
+    : dados?.leitura_automatica
+      ? `próxima leitura às ${dados.leitura_automatica.proxima}`
+      : null;
+  const pctPedido = resumo.valor_pedidos ? resumo.valor_acima / resumo.valor_pedidos : 0;
+  const maxLoja = Math.max(...resumo.por_loja.map((l) => l.valor_acima), 1);
 
   return (
     <Paper variant="outlined" sx={{ ...tablePaperSx, ...cartaoSx, minHeight: 0 }}>
@@ -3270,143 +3332,149 @@ function PainelPedidosPortal({
         }
         sub={
           dados
-            ? `${pedidos.length} pedido(s) em 90 dias · ${lidoEm ? `lido do eSupri em ${lidoEm}` : 'ainda não lido do eSupri'} · Tabela ${dados.tabela}${dados.vigencia_tabela ? ` de ${fmtDataBR(dados.vigencia_tabela)}` : ''}`
+            ? `Preço cobrado pela Platlog × Tabela BKC de ${fmtDataBR(dados.vigencia_tabela)}${lidoEm ? ` · lido do eSupri ${lidoEm}` : ''}${leituraAuto ? ` · ${leituraAuto}` : ''}`
             : 'Carregando…'
         }
       >
-        <SeletorFiltro valor={filtro} onChange={setFiltro} opcoes={opcoes} largura={176} />
-        <Button variant="outlined" onClick={() => void baixarRelatorio()} disabled={baixando} sx={finBtnOutlinedSx}>
-          {baixando ? 'Gerando…' : 'Relatório de preço'}
-        </Button>
-        <Button variant="contained" disableElevation onClick={() => void lerPortal()} disabled={lendo || Boolean(dados?.sincronizando)} sx={finBtnContainedSx}>
-          {lendo || dados?.sincronizando ? 'Lendo eSupri…' : 'Ler do eSupri'}
+        <FiltroIntervaloDatasFrota variante="texto" dataInicio={de} dataFim={ate} onChangeInicio={setDe} onChangeFim={setAte} />
+        <FiltroLojaPedidos
+          valor={escopo}
+          opcoes={opcoesLoja}
+          onChange={(v) => {
+            setEscopo(v);
+            setFiltro('acima');
+          }}
+        />
+        {!rede ? <SeletorFiltro valor={filtro} onChange={setFiltro} opcoes={opcoes} largura={176} /> : null}
+        <Button
+          variant="outlined"
+          startIcon={<PictureAsPdfOutlinedIcon sx={{ fontSize: 18 }} />}
+          onClick={() => void gerarPdf()}
+          disabled={gerando || !pedidos.length}
+          sx={finBtnOutlinedSx}
+        >
+          {gerando ? 'Gerando…' : 'Relatório PDF'}
         </Button>
       </CabecalhoCartao>
 
-      {dados && (rp?.acima || dados.meses.length) ? (
-        <Box sx={{ display: 'flex', gap: 1, px: 2, py: 1.25, borderBottom: '1px solid var(--ga-border)', flexWrap: 'wrap', flexShrink: 0 }}>
-          {rp && rp.acima > 0 ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.75, borderRadius: '8px', bgcolor: 'rgba(196, 69, 45, 0.07)' }}>
-              <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: corEstoque.vermelho, flexShrink: 0 }} />
-              <Typography sx={{ fontSize: 12.5, color: '#8F2F1D', fontVariantNumeric: 'tabular-nums' }}>
-                <b>{rp.acima}</b> de {rp.itens_comparados} itens pedidos acima da tabela · <b>{fmtMoeda(rp.valor_acima)}</b> a mais
-                {rp.conferir_unidade ? ` · ${rp.conferir_unidade} para conferir unidade` : ''}
-              </Typography>
+      {dados ? (
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', borderBottom: '1px solid var(--ga-border)', flexShrink: 0 }}>
+          {[
+            {
+              rot: 'Cobrado a mais',
+              val: fmtMoeda(resumo.valor_acima),
+              sub: `${fmtNum(pctPedido * 100, 2)}% de ${fmtMoeda(resumo.valor_pedidos)} pedidos`,
+              cor: resumo.valor_acima > 0 ? corEstoque.vermelho : 'text.primary',
+            },
+            {
+              rot: 'Itens acima da tabela',
+              val: `${fmtNum(resumo.acima, 0)} de ${fmtNum(resumo.itens_comparados, 0)}`,
+              sub: resumo.conferir_unidade ? `${resumo.conferir_unidade} para conferir unidade (fora do total)` : 'itens comparados com a tabela',
+              cor: 'text.primary',
+            },
+            {
+              rot: 'Pedidos com cobrança a mais',
+              val: `${resumo.pedidos_acima} de ${resumo.pedidos}`,
+              sub: rede ? `${resumo.por_loja.filter((l) => l.valor_acima > 0).length} de ${resumo.por_loja.length} lojas` : `${fmtDataBR(de)} a ${fmtDataBR(ate)}`,
+              cor: 'text.primary',
+            },
+          ].map((c, idx) => (
+            <Box key={c.rot} sx={{ px: 2, py: 1.25, borderLeft: idx ? '1px solid var(--ga-border)' : 0, minWidth: 0 }}>
+              <Typography sx={rotuloSxPadrao}>{c.rot}</Typography>
+              <Typography sx={{ fontSize: 20, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: c.cor, mt: 0.25 }}>{c.val}</Typography>
+              <Typography noWrap sx={{ fontSize: 12, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{c.sub}</Typography>
             </Box>
-          ) : null}
-          {dados.meses.map((m) => {
-            const fora = m.pct_pedidos != null && m.pct_pedidos > m.meta_pct;
-            return (
-              <Tooltip
-                key={m.mes}
-                title={`Venda ${m.base_projecao === 'mes_fechado' ? 'do mês' : 'projetada'} ${fmtMoeda(m.venda_projetada)} · teto ${fmtNum(m.meta_pct * 100, 0)}% = ${fmtMoeda(m.teto)} · pedidos no portal ${fmtMoeda(m.pedidos_portal)} · NFs do mês (vencimento) ${fmtMoeda(m.compras_nf)}`}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 1.25, py: 0.75, borderRadius: '8px', border: '1px solid var(--ga-border)' }}>
-                  <Typography sx={{ fontSize: 12, color: 'text.secondary', textTransform: 'capitalize' }}>{mesCurto(m.mes)}</Typography>
-                  <Typography sx={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: fora ? corEstoque.vermelho : 'text.primary' }}>
-                    {m.pct_pedidos != null ? `${fmtNum(m.pct_pedidos * 100, 1)}%` : '—'}
-                  </Typography>
-                  <Typography sx={{ fontSize: 12, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                    {fmtMoeda(m.pedidos_portal)} de {fmtMoeda(m.teto)}
-                  </Typography>
-                </Box>
-              </Tooltip>
-            );
-          })}
+          ))}
         </Box>
       ) : null}
 
+      {rede ? (
+        <TableContainer sx={tableContainerSx}>
+          <Table size="small" stickyHeader sx={{ ...tableSx, ...linhasTabelaSx }}>
+            <TableHead sx={cabecaTabelaSx}>
+              <TableRow>
+                <TableCell sx={{ pl: 2 }}>Loja</TableCell>
+                <TableCell align="right">Pedidos</TableCell>
+                <TableCell align="right">Valor dos pedidos</TableCell>
+                <TableCell align="right">Itens acima</TableCell>
+                <TableCell sx={{ width: '28%' }}>Cobrado a mais</TableCell>
+                <TableCell align="right" sx={{ pr: 2 }}>% do pedido</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {resumo.por_loja.map((l) => (
+                <TableRow key={l.id_loja} hover onClick={() => setEscopo(String(l.id_loja))} sx={{ cursor: 'pointer' }}>
+                  <TableCell sx={{ pl: 2, fontWeight: 650 }}>{l.loja}</TableCell>
+                  <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {l.pedidos_acima} de {l.pedidos}
+                  </TableCell>
+                  <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoeda(l.valor_pedidos)}</TableCell>
+                  <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {fmtNum(l.acima, 0)} de {fmtNum(l.itens_comparados, 0)}
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                      <Box sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: 'var(--ga-border)', overflow: 'hidden' }}>
+                        <Box sx={{ width: `${(l.valor_acima / maxLoja) * 100}%`, height: '100%', bgcolor: corEstoque.vermelho, borderRadius: 3 }} />
+                      </Box>
+                      <Typography sx={{ fontSize: 13, fontWeight: 650, color: corEstoque.vermelho, fontVariantNumeric: 'tabular-nums', minWidth: 96, textAlign: 'right' }}>
+                        {fmtMoeda(l.valor_acima)}
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell align="right" sx={{ pr: 2, fontVariantNumeric: 'tabular-nums', color: 'text.secondary' }}>
+                    {l.valor_pedidos ? `${fmtNum((l.valor_acima / l.valor_pedidos) * 100, 2)}%` : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!resumo.por_loja.length ? (
+                <TableRow>
+                  <TableCell colSpan={6}>
+                    <Typography color="text.secondary" align="center" sx={{ py: 3, fontSize: 13 }}>
+                      {loading ? 'Carregando…' : 'Nenhum pedido no período.'}
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : null}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      ) : (
       <TableContainer sx={tableContainerSx}>
         <Table size="small" stickyHeader sx={{ ...tableSx, ...linhasTabelaSx }}>
           <TableHead sx={cabecaTabelaSx}>
             <TableRow>
               <TableCell sx={{ pl: 2 }}>Pedido</TableCell>
-              <TableCell>Situação</TableCell>
-              <TableCell>Entrega</TableCell>
-              <TableCell align="right">Valor</TableCell>
-              <TableCell align="right">Acima da tabela</TableCell>
-              <TableCell align="right">CMP do mês</TableCell>
-              <TableCell sx={{ pr: 2 }}>Nota</TableCell>
+              <TableCell align="right">Valor do pedido</TableCell>
+              <TableCell align="right">Itens acima da tabela</TableCell>
+              <TableCell align="right" sx={{ pr: 2 }}>Cobrado a mais</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {lista.map((p) => {
-              const st = seloStatusPedido(p.status);
-              const cancelado = /cancel/i.test(String(p.status || ''));
-              const nfs = p.faturamento.nfs;
-              return (
-                <TableRow key={p.id_pedido} hover onClick={() => setAberto(p.id_pedido)} sx={{ cursor: 'pointer', opacity: cancelado ? 0.55 : 1 }}>
-                  <TableCell sx={{ pl: 2 }}>
-                    <Typography sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums' }}>{p.codigo}</Typography>
-                    <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                      {fmtDataBR(p.data_pedido)}
-                      {p.hora_pedido ? ` ${String(p.hora_pedido).slice(0, 5)}` : ''} · {p.qtd_itens} itens
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Selo label={st.label} cor={st.cor} fundo={st.fundo} />
-                  </TableCell>
-                  <TableCell sx={{ fontVariantNumeric: 'tabular-nums', color: 'text.secondary' }}>{fmtDataBR(p.data_entrega)}</TableCell>
-                  <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: 650 }}>{fmtMoeda(p.valor_total)}</TableCell>
-                  <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                    {!p.itens_lidos ? (
-                      <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>Itens não lidos</Typography>
-                    ) : p.preco.acima ? (
-                      <Box>
-                        <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, color: corEstoque.vermelho }}>
-                          {fmtMoeda(p.preco.valor_acima)}
-                        </Typography>
-                        <Typography sx={{ fontSize: 11.5, color: 'text.secondary' }}>{p.preco.acima} item(ns)</Typography>
-                      </Box>
-                    ) : (
-                      <Typography component="span" sx={{ fontSize: 12.5, color: corEstoque.verde, fontWeight: 600 }}>Dentro</Typography>
-                    )}
-                  </TableCell>
-                  <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                    {p.cmp?.pct_venda != null ? (
-                      <Tooltip title={`Pedidos do mês até aqui: ${fmtMoeda(p.cmp.acumulado_mes)}`}>
-                        <Typography component="span" sx={{ fontSize: 13, fontWeight: 650, color: p.cmp.dentro_teto === false ? corEstoque.vermelho : 'text.primary' }}>
-                          {fmtNum(p.cmp.pct_venda * 100, 1)}%
-                        </Typography>
-                      </Tooltip>
-                    ) : (
-                      '—'
-                    )}
-                  </TableCell>
-                  <TableCell sx={{ pr: 2, whiteSpace: 'nowrap' }}>
-                    {nfs.length ? (
-                      <Box>
-                        <Typography sx={{ fontSize: 12.5, fontVariantNumeric: 'tabular-nums' }}>NF {nfs.map((n) => n.numero).join(', ')}</Typography>
-                        {(p.faturamento.itens_faltando || 0) > 0 || p.faturamento.itens_trocados > 0 ? (
-                          <Typography sx={{ fontSize: 11.5 }}>
-                            {(p.faturamento.itens_faltando || 0) > 0 ? (
-                              <Box component="span" sx={{ color: corEstoque.vermelho }}>{p.faturamento.itens_faltando} a menos</Box>
-                            ) : null}
-                            {(p.faturamento.itens_faltando || 0) > 0 && p.faturamento.itens_trocados > 0 ? ' · ' : ''}
-                            {p.faturamento.itens_trocados > 0 ? (
-                              <Box component="span" sx={{ color: corEstoque.laranja }}>{p.faturamento.itens_trocados} trocado(s)</Box>
-                            ) : null}
-                          </Typography>
-                        ) : (
-                          <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{fmtMoeda(p.faturamento.valor_faturado)}</Typography>
-                        )}
-                      </Box>
-                    ) : (
-                      <Typography component="span" sx={{ fontSize: 12, color: 'text.secondary' }}>{emAberto(p) ? 'Aguardando' : 'Sem NF ligada'}</Typography>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {lista.map((p) => (
+              <TableRow key={p.id_pedido} hover onClick={() => setAberto(p.id_pedido)} sx={{ cursor: 'pointer' }}>
+                <TableCell sx={{ pl: 2 }}>
+                  <Typography sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums' }}>{p.codigo}</Typography>
+                  <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{fmtDataBR(p.data_pedido)}</Typography>
+                </TableCell>
+                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoeda(p.valor_total)}</TableCell>
+                <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {p.itens_lidos ? `${p.preco.acima} de ${p.itens.length}` : '—'}
+                </TableCell>
+                <TableCell align="right" sx={{ pr: 2, fontVariantNumeric: 'tabular-nums', fontWeight: 650, color: p.preco.valor_acima > 0 ? corEstoque.vermelho : 'text.secondary' }}>
+                  {p.preco.valor_acima > 0 ? fmtMoeda(p.preco.valor_acima) : '—'}
+                </TableCell>
+              </TableRow>
+            ))}
             {!lista.length ? (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={4}>
                   <Typography color="text.secondary" align="center" sx={{ py: 3, fontSize: 13 }}>
                     {loading
                       ? 'Carregando…'
                       : pedidos.length
                         ? 'Nenhum pedido neste filtro.'
-                        : 'Nenhum pedido espelhado ainda. Toque em Ler do eSupri.'}
+                        : 'Nenhum pedido no período.'}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -3414,6 +3482,7 @@ function PainelPedidosPortal({
           </TableBody>
         </Table>
       </TableContainer>
+      )}
 
       <Drawer
         anchor="right"
@@ -3426,140 +3495,78 @@ function PainelPedidosPortal({
         {pedidoAberto ? (
           (() => {
             const p = pedidoAberto;
-            const st = seloStatusPedido(p.status);
-            const comparaSugestao = emAberto(p) && rascunho.length > 0;
             const itensOrd = [...p.itens].sort((a, b) => (b.diferenca_total || 0) - (a.diferenca_total || 0));
             return (
               <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
                 <CabecalhoDrawer titulo={`Pedido ${p.codigo}`} icone={<ReceiptLongOutlinedIcon fontSize="small" />} onClose={() => setAberto(null)} />
                 <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  <Box>
-                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-                      Feito no eSupri em {fmtDataBR(p.data_pedido)}
-                      {p.hora_pedido ? ` às ${String(p.hora_pedido).slice(0, 5)}` : ''}
-                    </Typography>
-                    <Typography sx={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', lineHeight: 1.2 }}>
-                      {fmtMoeda(p.valor_total)}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 0.75, mt: 1, flexWrap: 'wrap' }}>
-                      <Selo label={st.label} cor={st.cor} fundo={st.fundo} />
-                      {p.preco.acima ? (
-                        <Selo label={`${p.preco.acima} acima da tabela`} cor={corEstoque.vermelho} fundo="rgba(196, 69, 45, 0.08)" />
-                      ) : null}
-                      {p.cmp?.dentro_teto === false ? (
-                        <Selo label="Mês acima do teto CMP" cor={corEstoque.vermelho} fundo="rgba(196, 69, 45, 0.08)" />
-                      ) : null}
-                    </Box>
-                    {p.observacao ? (
-                      <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 1, fontStyle: 'italic' }}>{p.observacao}</Typography>
-                    ) : null}
-                  </Box>
-
-                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', border: '1px solid var(--ga-border)', borderRadius: '10px', bgcolor: 'var(--ga-surface)' }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', border: '1px solid var(--ga-border)', borderRadius: '10px', bgcolor: 'var(--ga-surface)' }}>
                     {[
-                      ['Entrega', fmtDataBR(p.data_entrega), 'text.primary'],
-                      ['Cobrado a mais', p.preco.acima ? fmtMoeda(p.preco.valor_acima) : '—', p.preco.acima ? corEstoque.vermelho : 'text.primary'],
-                      [
-                        'CMP do mês',
-                        p.cmp?.pct_venda != null ? `${fmtNum(p.cmp.pct_venda * 100, 1)}%` : '—',
-                        p.cmp?.dentro_teto === false ? corEstoque.vermelho : 'text.primary',
-                      ],
-                      [
-                        'Faturado',
-                        p.faturamento.nfs.length ? fmtMoeda(p.faturamento.valor_faturado) : '—',
-                        (p.faturamento.itens_faltando || 0) > 0 ? corEstoque.vermelho : 'text.primary',
-                      ],
+                      ['Valor do pedido', fmtMoeda(p.valor_total), 'text.primary'],
+                      ['Itens acima da tabela', `${p.preco.acima} de ${p.itens.length}`, 'text.primary'],
+                      ['Cobrado a mais', p.preco.valor_acima > 0 ? fmtMoeda(p.preco.valor_acima) : '—', p.preco.valor_acima > 0 ? corEstoque.vermelho : 'text.primary'],
                     ].map(([rot, val, cor], idx) => (
                       <Box key={rot} sx={{ px: 1.5, py: 1.1, borderLeft: idx ? '1px solid var(--ga-border)' : 0, minWidth: 0 }}>
                         <Typography sx={rotuloSxPadrao}>{rot}</Typography>
-                        <Typography noWrap sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums', mt: 0.25, color: cor }}>{val}</Typography>
+                        <Typography noWrap sx={{ fontSize: 16, fontWeight: 700, fontVariantNumeric: 'tabular-nums', mt: 0.25, color: cor }}>{val}</Typography>
                       </Box>
                     ))}
                   </Box>
-
-                  {p.faturamento.nfs.length ? (
-                    <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-                      Notas deste pedido: {p.faturamento.nfs.map((n) => `NF ${n.numero} (${fmtDataBR(n.emissao)})`).join(', ')}
-                    </Typography>
-                  ) : null}
+                  <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: -1 }}>
+                    {nomeLojaCurto(p.loja)} · pedido feito em {fmtDataBR(p.data_pedido)}
+                  </Typography>
 
                   <Box>
                     <Typography sx={{ ...rotuloSxPadrao, mb: 1 }}>
-                      Itens · preço cobrado × Tabela {dados?.tabela}
-                      {comparaSugestao ? ' · sugestão Meridian' : ''}
+                      Itens · preço cobrado × Tabela BKC
                     </Typography>
-                    <Box sx={{ border: '1px solid var(--ga-border)', borderRadius: '10px', bgcolor: 'var(--ga-surface)', overflow: 'hidden' }}>
-                      {itensOrd.map((it, idx) => {
-                        const sp = SELO_PRECO[it.situacao_preco];
-                        const sug = sugestao.get(String(it.codigo).replace(/^0+/, ''));
-                        const faltouFat = p.faturamento.nfs.length > 0 && !it.trocado_por && (it.qtd_faturada || 0) + 1e-6 < it.quantidade;
-                        return (
-                          <Box key={`${it.codigo}-${idx}`} sx={{ px: 1.75, py: 1.1, borderTop: idx ? '1px solid var(--ga-border)' : 0, bgcolor: it.situacao_preco === 'acima' ? 'rgba(196, 69, 45, 0.035)' : undefined }}>
-                            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
-                              <Box sx={{ minWidth: 0, flex: 1 }}>
-                                <Typography noWrap sx={{ fontSize: 13, fontWeight: 600 }} title={it.descricao}>{it.descricao}</Typography>
-                                <Typography noWrap sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                                  {it.codigo} · {fmtNum(it.quantidade, 3)} {it.unidade} × {fmtMoeda(it.valor_unitario)}
-                                  {it.preco_tabela != null ? ` · tabela ${fmtMoeda(it.preco_tabela)}` : ''}
-                                </Typography>
-                              </Box>
-                              <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                                <Typography sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums' }}>{fmtMoeda(it.valor_total)}</Typography>
-                                {it.situacao_preco === 'acima' || it.situacao_preco === 'abaixo' ? (
-                                  <Typography sx={{ fontSize: 11.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: sp.cor }}>
-                                    {(it.diferenca_total || 0) > 0 ? '+' : ''}
-                                    {fmtMoeda(it.diferenca_total)}
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow sx={cabecaTabelaSx}>
+                          <TableCell>Item</TableCell>
+                          <TableCell align="right">Qtd</TableCell>
+                          <TableCell align="right">Cobrado</TableCell>
+                          <TableCell align="right">Tabela</TableCell>
+                          <TableCell align="right">A mais</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {itensOrd.map((it, idx) => {
+                          const sp = SELO_PRECO[it.situacao_preco];
+                          const acima = it.situacao_preco === 'acima';
+                          return (
+                            <TableRow key={`${it.codigo}-${idx}`} sx={{ bgcolor: acima ? 'rgba(196, 69, 45, 0.035)' : undefined }}>
+                              <TableCell sx={{ maxWidth: 220 }}>
+                                <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 600 }} title={it.descricao}>{it.descricao}</Typography>
+                                <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>{it.codigo}</Typography>
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{fmtNum(it.quantidade, 0)}</TableCell>
+                              <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{fmtMoeda(it.valor_unitario)}</TableCell>
+                              <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', color: 'text.secondary' }}>
+                                {it.preco_tabela != null ? fmtMoeda(it.preco_tabela) : '—'}
+                              </TableCell>
+                              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                                {acima ? (
+                                  <Typography sx={{ fontSize: 12.5, fontWeight: 650, color: corEstoque.vermelho, fontVariantNumeric: 'tabular-nums' }}>
+                                    +{fmtMoeda(it.diferenca_total)}
                                   </Typography>
-                                ) : null}
-                              </Box>
-                            </Box>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.6, flexWrap: 'wrap' }}>
-                              <Selo label={sp.label} cor={sp.cor} fundo={sp.fundo} />
-                              {faltouFat ? (
-                                <Selo label={`Faturou ${fmtNum(it.qtd_faturada || 0, 3)} de ${fmtNum(it.quantidade, 3)}`} cor={corEstoque.vermelho} fundo="rgba(196, 69, 45, 0.08)" />
-                              ) : null}
-                              {it.trocado_por ? (
-                                <Tooltip title={`Na nota veio ${it.trocado_por.codigo} ${it.trocado_por.descricao} · ${fmtNum(it.trocado_por.quantidade, 3)} ${it.trocado_por.unidade} · ${fmtMoeda(it.trocado_por.valor)}`}>
-                                  <Box component="span">
-                                    <Selo label={`Trocado por ${it.trocado_por.codigo}`} cor={corEstoque.laranja} fundo="rgba(196, 122, 42, 0.1)" />
-                                  </Box>
-                                </Tooltip>
-                              ) : null}
-                              {comparaSugestao ? (
-                                <Typography sx={{ fontSize: 11.5, color: sug != null && Math.round(sug) !== Math.round(it.quantidade) ? corEstoque.laranja : 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                                  {sug == null ? 'Meridian não sugeriu' : `Meridian sugere ${fmtNum(sug, 0)} cx`}
-                                </Typography>
-                              ) : null}
-                            </Box>
-                          </Box>
-                        );
-                      })}
-                      {!itensOrd.length ? (
-                        <Typography sx={{ fontSize: 13, color: 'text.secondary', px: 1.75, py: 2, textAlign: 'center' }}>
-                          Itens ainda não lidos. Toque em Ler do eSupri.
-                        </Typography>
-                      ) : null}
-                    </Box>
+                                ) : (
+                                  <Selo label={sp.label} cor={sp.cor} fundo={sp.fundo} />
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                        {!itensOrd.length ? (
+                          <TableRow>
+                            <TableCell colSpan={5} sx={{ textAlign: 'center', color: 'text.secondary', py: 2 }}>
+                              Itens ainda não lidos. Entram na próxima leitura automática.
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                      </TableBody>
+                    </Table>
                   </Box>
-
-                  {p.faturamento.extras.length ? (
-                    <Box>
-                      <Typography sx={{ ...rotuloSxPadrao, mb: 1 }}>Faturado sem estar no pedido</Typography>
-                      <Box sx={{ border: '1px solid var(--ga-border)', borderRadius: '10px', bgcolor: 'var(--ga-surface)', overflow: 'hidden' }}>
-                        {p.faturamento.extras.map((x, idx) => (
-                          <Box key={x.codigo} sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5, px: 1.75, py: 1, borderTop: idx ? '1px solid var(--ga-border)' : 0 }}>
-                            <Box sx={{ minWidth: 0, flex: 1 }}>
-                              <Typography noWrap sx={{ fontSize: 13, fontWeight: 600 }}>{x.descricao}</Typography>
-                              <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                                {x.codigo} · {fmtNum(x.quantidade, 3)} {x.unidade}
-                              </Typography>
-                            </Box>
-                            <Typography sx={{ fontSize: 13, fontWeight: 650, color: corEstoque.laranja, fontVariantNumeric: 'tabular-nums' }}>{fmtMoeda(x.valor)}</Typography>
-                          </Box>
-                        ))}
-                      </Box>
-                    </Box>
-                  ) : null}
                 </Box>
               </Box>
             );
@@ -3934,7 +3941,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
         }}
       >
         {visao === 'portal' ? (
-          <PainelPedidosPortal idLoja={idLoja} rascunho={itens} alternar={alternarVisao} />
+          <PainelPedidosPortal idLoja={idLoja} alternar={alternarVisao} />
         ) : (
         <Paper variant="outlined" sx={{ ...tablePaperSx, ...cardSx, minHeight: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2, py: 1.25, borderBottom: '1px solid var(--ga-border)', flexShrink: 0, flexWrap: 'wrap' }}>

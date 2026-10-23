@@ -125,10 +125,10 @@ export async function sincronizarPedidosPlatlog({ idLoja = null, dias = 60, forc
     throw Object.assign(new Error('Loja sem cadastro no eSupri'), { status: 404 });
   }
 
-  const sessoes = sessoesLoja.map((s) => ({ cred: s.cred, lojas: [s.loja], rotulo: s.loja.name }));
+  const sessoes = sessoesLoja.map((s) => ({ cred: s.cred, lojas: [s.loja], rotulo: s.loja.name, daLoja: true }));
   if (viaRede.length) {
     const rede = credencialPlatlog(viaRede[0].bk_number);
-    if (rede.user && rede.pass) sessoes.push({ cred: rede, lojas: viaRede, rotulo: 'login da rede' });
+    if (rede.user && rede.pass) sessoes.push({ cred: rede, lojas: viaRede, rotulo: 'login da rede', daLoja: false });
   }
 
   const conhecidos = await pedidosConhecidos([...porBk.values()].map((l) => l.id_loja));
@@ -137,7 +137,8 @@ export async function sincronizarPedidosPlatlog({ idLoja = null, dias = 60, forc
   for (const s of sessoes) {
     const idsSessao = new Set(s.lojas.map((l) => l.id_loja));
     const lojaDoPedido = (p) => {
-      if (s.lojas.length === 1) return s.lojas[0];
+      // O login da rede enxerga os pedidos de todas as lojas: a loja sai do fantasia do pedido.
+      if (s.daLoja) return s.lojas[0];
       const e = findEsupriLojaByFantasia(p.fantasia);
       const l = e ? porBk.get(String(e.bk_number)) : null;
       return l && idsSessao.has(l.id_loja) ? l : null;

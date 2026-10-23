@@ -658,6 +658,14 @@ ${row()}
       logger.warn('server', 'Scheduler Platlog NF não iniciado', { error: e.message });
     }
     try {
+      const { iniciarSchedulerPedidosPlatlog } = await import(
+        './backend/src/services/platlog/schedulerPedidosPlatlog.js'
+      );
+      iniciarSchedulerPedidosPlatlog();
+    } catch (e) {
+      logger.warn('server', 'Scheduler pedidos eSupri não iniciado', { error: e.message });
+    }
+    try {
       const { iniciarSchedulerMultasDetran } = await import(
         './backend/src/services/schedulerMultasDetran.js'
       );
