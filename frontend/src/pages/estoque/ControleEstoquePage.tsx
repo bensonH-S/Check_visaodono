@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import Popover from '@mui/material/Popover';
 import Box from '@mui/material/Box';
@@ -121,15 +121,6 @@ function abaInicialPermitida(): AbaEstoque {
 
 const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
-const chipFinalizadaSx = {
-  height: 22,
-  bgcolor: 'rgba(125, 146, 112, 0.16)',
-  color: '#5C7052',
-  fontWeight: 650,
-  fontSize: 11,
-  border: '1px solid rgba(125, 146, 112, 0.4)',
-} as const;
-
 const toggleRelatorioSx = {
   bgcolor: 'var(--ga-canvas-alt)',
   borderRadius: '8px',
@@ -202,10 +193,6 @@ function fmtDataHora(iso: string | null | undefined) {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-function rotuloLoja(l: Loja) {
-  return `${l.bk_number ? `${l.bk_number} · ` : ''}${l.name}`;
 }
 
 function tituloLoja(l: Loja) {
@@ -969,7 +956,7 @@ export default function ControleEstoquePage() {
             <Box
               component={lojas.length > 1 && !bloqueiaOutrasAbas ? 'button' : 'div'}
               type={lojas.length > 1 && !bloqueiaOutrasAbas ? 'button' : undefined}
-              onClick={(e) => {
+              onClick={(e: MouseEvent<HTMLElement>) => {
                 if (bloqueiaOutrasAbas || lojas.length <= 1) return;
                 setLojaBusca('');
                 setLojaAnchor(e.currentTarget);
