@@ -313,10 +313,14 @@ async function empresaDoPdf(parsed) {
        OR upper(coalesce(razao_social, '')) LIKE upper($1)
        OR upper(coalesce(apelido, '')) LIKE upper($2)
        OR upper(coalesce(razao_social, '')) LIKE upper($2)
+       OR upper(regexp_replace(translate(coalesce(apelido, ''), 'ÁÀÂÃÉÊÍÓÔÕÚÇáàâãéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc'), '[^[:alnum:]]', '', 'g'))
+          LIKE upper($3)
+       OR upper(regexp_replace(translate(coalesce(razao_social, ''), 'ÁÀÂÃÉÊÍÓÔÕÚÇáàâãéêíóôõúç', 'AAAAEEIOOOUCaaaaeeiooouc'), '[^[:alnum:]]', '', 'g'))
+          LIKE upper($3)
      )
      ORDER BY CASE WHEN tipo = 'loja' THEN 0 ELSE 1 END, length(apelido)
      LIMIT 1`,
-    [`%${chave}%`, `%${nome}%`],
+    [`%${chave}%`, `%${nome}%`, `%${chave.replace(/[^A-Za-z0-9]/g, '')}%`],
   )
   return rows[0] || null
 }

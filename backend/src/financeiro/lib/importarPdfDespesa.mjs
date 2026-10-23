@@ -95,6 +95,89 @@ function parseGfd(texto) {
   }
 }
 
+function trechoRotulo(texto, rotulo, janela = 70) {
+  const re = new RegExp(rotulo, 'i')
+  const m = re.exec(String(texto || ''))
+  if (!m) return ''
+  const ini = Math.max(0, m.index - 24)
+  const fim = Math.min(texto.length, m.index + m[0].length + janela)
+  return texto.slice(ini, fim)
+}
+
+function moedaPerto(texto, rotulo) {
+  const pedaco = trechoRotulo(texto, rotulo)
+  if (!pedaco) return null
+  const idx = pedaco.search(new RegExp(rotulo, 'i'))
+  const depois = idx >= 0 ? pedaco.slice(idx) : pedaco
+  const aFrente = depois.match(/([\d.]+,\d{2})/)
+  if (aFrente) return moedaBr(aFrente[1])
+  const atras = [...pedaco.matchAll(/([\d.]+,\d{2})/g)]
+  return atras.length ? moedaBr(atras[atras.length - 1][1]) : null
+}
+
+function dataPerto(texto, rotulo) {
+  const pedaco = trechoRotulo(texto, rotulo, 40)
+  if (!pedaco) return null
+  const idx = pedaco.search(new RegExp(rotulo, 'i'))
+  const depois = idx >= 0 ? pedaco.slice(idx) : pedaco
+  const aFrente = depois.match(/(\d{2}[\/.\-]\d{2}[\/.\-]\d{4})/)
+  if (aFrente) return dataIso(aFrente[1].replace(/[.\-]/g, '/'))
+  const atras = [...pedaco.matchAll(/(\d{2}[\/.\-]\d{2}[\/.\-]\d{4})/g)]
+  return atras.length ? dataIso(atras[atras.length - 1][1].replace(/[.\-]/g, '/')) : null
+}
+
+function numeroParcelamento(texto) {
+  const m = String(texto || '').match(/(\d{3,4}\.\d{4,5}\.\d{6,14}\.\d{2}-\d{2})/)
+  return m ? m[1] : ''
+}
+
+function empresaNoNomeArquivo(nomeArquivo) {
+  const base = String(nomeArquivo || '').replace(/\.pdf$/i, '')
+  const m = base.match(/\s[-–]\s+(.+)$/)
+  return m ? limparNome(m[1]) : ''
+}
+
+/**
+ * Guia do Parcelamento Simplificado (Receita/PGFN).
+ * O número e a loja também vêm no nome do arquivo quando o PDF embaralha o texto.
+ */
+function parseParcelamento(texto, nomeArquivo = '') {
+  const junto = `${texto}\n${nomeArquivo}`
+  if (!/PARCELAMENTO\s+SIMPLIFICADO/i.test(junto)) return null
+  const numero = numeroParcelamento(junto)
+  const valor =
+    moedaPerto(texto, 'Valor\\s+Total(?:\\s+do\\s+Documento)?')
+    ?? moedaPerto(texto, 'Valor\\s+da\\s+Parcela')
+    ?? moedaPerto(texto, 'Valor\\s+Original')
+    ?? moedaPerto(texto, 'Total\\s+a\\s+Pagar')
+    ?? moedaPerto(texto, 'Valor\\s+do\\s+Documento')
+    ?? moedaPerto(texto, 'Valor\\s*:')
+  const venc =
+    dataPerto(texto, 'Data\\s+de\\s+Vencimento')
+    ?? dataPerto(texto, 'Pagar\\s+(?:este\\s+documento\\s+)?at[eé]')
+    ?? dataPerto(texto, 'Vencimento\\s+da\\s+Guia')
+    ?? dataPerto(texto, 'Vencimento')
+  const razaoPdf = limparNome(
+    (texto.match(/Raz[aã]o Social(?:\s*\/\s*Nome)?\s*:?\s*\n?\s*([^\n]{5,120})/i) || [])[1],
+  )
+  const razao = razaoPdf || empresaNoNomeArquivo(nomeArquivo)
+  const codigo = linhaDigitavel(texto)
+  if (!valor || !venc) return null
+  const refNum = numero || `${venc}|${valor}`
+  return {
+    tipo: 'parcelamento',
+    descricao: `Parcelamento simplificado${numero ? ` ${numero}` : ''}${razao ? ` — ${razao}` : ''}`.replace(/\s+/g, ' ').trim().slice(0, 200),
+    valor,
+    vencimento: venc,
+    competencia: competenciaDe(venc),
+    cnpj: cnpjPorRotulo(texto, ['CNPJ', 'CPF\\/CNPJ', 'Contribuinte']),
+    razao_social: razao || null,
+    forma_pagamento: 'guia',
+    dados_pagamento: codigo,
+    documento_ref: `PARC|${refNum}|${venc}`,
+  }
+}
+
 function parseDarf(texto) {
   if (!/Documento de Arrecada|Receitas Federais|PGFN-SISPAR|Documento de Arrecadação/i.test(texto)) return null
   const valor =
@@ -213,20 +296,24 @@ export async function lerTextoPdf(buffer) {
   return String(data?.text || '')
 }
 
-/** Extrai campos de GFD, DARF/PGFN, TRCT ou recibo de férias. */
+/** Extrai campos de GFD, DARF/PGFN, parcelamento simplificado, TRCT ou recibo de férias. */
 export function classificarPdfDespesa(texto, nomeArquivo = '') {
   const bruto = String(texto || '')
-  if (!bruto.trim()) {
+  if (!bruto.trim() && !/PARCELAMENTO\s+SIMPLIFICADO/i.test(nomeArquivo)) {
     throw Object.assign(new Error('PDF sem texto legível (pode ser imagem escaneada).'), { status: 400 })
   }
   const parsed =
     parseGfd(bruto)
+    || parseParcelamento(bruto, nomeArquivo)
     || parseDarf(bruto)
     || parseTrct(bruto)
     || parseFerias(bruto, nomeArquivo)
   if (!parsed) {
+    const ehParc = /PARCELAMENTO\s+SIMPLIFICADO/i.test(`${bruto}\n${nomeArquivo}`)
     throw Object.assign(
-      new Error(`PDF não reconhecido (${nomeArquivo || 'arquivo'}). Aceitos: GFD FGTS, DARF/PGFN, TRCT e recibo de férias.`),
+      new Error(ehParc
+        ? `Parcelamento simplificado sem valor ou vencimento legível (${nomeArquivo || 'arquivo'}).`
+        : `PDF não reconhecido (${nomeArquivo || 'arquivo'}). Aceitos: GFD FGTS, DARF/PGFN, parcelamento simplificado, TRCT e recibo de férias.`),
       { status: 400 },
     )
   }

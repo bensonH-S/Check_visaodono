@@ -1085,8 +1085,8 @@ function ImportarArquivosDialog({
     const novos = Array.from(lista).filter((f) => EXT_OK.test(f.name))
     if (!novos.length) {
       setErro(t(
-        'Tipo inválido. Use PDF (GFD, DARF/PGFN, TRCT, férias), DDA (xlsx, csv, ret, txt) ou XML de NF-e.',
-        'Invalid type. Use PDF (GFD, DARF/PGFN, TRCT, vacation), DDA (xlsx, csv, ret, txt) or NF-e XML.',
+        'Tipo inválido. Use PDF (GFD, DARF/PGFN, parcelamento, TRCT, férias), DDA (xlsx, csv, ret, txt) ou XML de NF-e.',
+        'Invalid type. Use PDF (GFD, DARF/PGFN, installment, TRCT, vacation), DDA (xlsx, csv, ret, txt) or NF-e XML.',
       ))
       return
     }
@@ -1167,6 +1167,7 @@ function ImportarArquivosDialog({
       ferias: ['Férias', 'Vacation'],
       gfd: ['GFD FGTS', 'GFD FGTS'],
       darf: ['DARF / PGFN', 'DARF / PGFN'],
+      parcelamento: ['Parcelamento', 'Installment'],
       trct: ['Rescisão', 'Termination'],
       dda: ['DDA', 'DDA'],
       nfe_xml: ['NF-e', 'NF-e'],
@@ -1240,8 +1241,8 @@ function ImportarArquivosDialog({
               </Typography>
               <Typography sx={{ fontSize: 12.5, color: FIN_MUTED, mt: 0.5, maxWidth: 320, mx: 'auto', lineHeight: 1.45 }}>
                 {t(
-                  'PDF (GFD, DARF, TRCT, férias), DDA ou XML de NF-e. A prévia abre na hora.',
-                  'PDF (GFD, DARF, TRCT, vacation), DDA or NF-e XML. Preview opens right away.',
+                  'PDF (GFD, DARF, parcelamento, TRCT, férias), DDA ou XML de NF-e. A prévia abre na hora.',
+                  'PDF (GFD, DARF, installment, TRCT, vacation), DDA or NF-e XML. Preview opens right away.',
                 )}
               </Typography>
               <Button size="small" variant="outlined" sx={{ mt: 1.75, ...finBtnOutlinedSx }} disabled={enviando}>
