@@ -41,6 +41,34 @@ describe('parcelamento simplificado', () => {
     assert.match(parsed.documento_ref, /0104654466\.24-73/)
   })
 
+  it('lê o DARF da SENDA, em que o total vem depois dos rótulos', () => {
+    const parsed = classificarPdfDespesa(`
+      Documento de Arrecadação de Receitas Federais
+      DARF
+      DATA DE VENCIMENTO
+      VALOR DO PRINCIPAL
+      VALOR TOTAL
+      Observações:
+      1124
+      30/10/2026
+      501,69
+      112,93
+      614,62
+      30/10/2026
+      SENDA (Versão:1.8.0)07/10/2026 11:49:26
+      35.238.002/0001-06
+      30/09/2026
+      1a. via
+      REGENTE ALVIM COMERCIO DE ALIMENTOS LTDA
+    `, 'PARCELAMENTO SIMPLIFICADO Nº 0211.00012.0029525797.25-16 - REGENTE ALVIM (VENCIDO).pdf')
+    assert.equal(parsed.tipo, 'parcelamento')
+    assert.equal(parsed.valor, 614.62)
+    assert.equal(parsed.vencimento, '2026-10-30')
+    assert.equal(parsed.cnpj, '35238002000106')
+    assert.equal(parsed.razao_social, 'REGENTE ALVIM COMERCIO DE ALIMENTOS LTDA')
+    assert.match(parsed.documento_ref, /^PARC\|0211\.00012\.0029525797\.25-16\|2026-10-30$/)
+  })
+
   it('não confunde um GFD com parcelamento', () => {
     const parsed = classificarPdfDespesa(`
       GFD - Guia do FGTS Digital

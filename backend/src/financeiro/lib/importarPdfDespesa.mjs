@@ -134,7 +134,43 @@ function numeroParcelamento(texto) {
 function empresaNoNomeArquivo(nomeArquivo) {
   const base = String(nomeArquivo || '').replace(/\.pdf$/i, '')
   const m = base.match(/\s[-–]\s+(.+)$/)
-  return m ? limparNome(m[1]) : ''
+  if (!m) return ''
+  return limparNome(m[1].replace(/\s*\([^)]*\)\s*$/g, ''))
+}
+
+/**
+ * DARF da SENDA (parcelamento simplificado): os rótulos vêm todos juntos
+ * e os valores só aparecem depois de "Observações", nesta ordem:
+ * código, data, principal, multa, [juros], total, vencimento.
+ */
+function darfSenda(texto) {
+  const idx = String(texto || '').toLowerCase().search(/observa/)
+  if (idx < 0) return null
+  const linhas = String(texto).slice(idx).split(/\n/).map((s) => s.trim()).filter(Boolean)
+  const moneys = []
+  let venc = null
+  let viuDinheiro = false
+  for (const linha of linhas) {
+    if (/^SENDA\b/i.test(linha) || /^1a\.\s*via$/i.test(linha)) break
+    const money = linha.match(/^([\d.]+,\d{2})$/)
+    const date = linha.match(/^(\d{2}\/\d{2}\/\d{4})$/)
+    if (money) {
+      viuDinheiro = true
+      const n = moedaBr(money[1])
+      if (n != null) moneys.push(n)
+    } else if (date && viuDinheiro && !venc) {
+      venc = dataIso(date[1])
+      break
+    }
+  }
+  const valor = moneys.length ? moneys[moneys.length - 1] : null
+  if (!valor || !venc) return null
+  return { valor, venc }
+}
+
+function razaoDarf(texto) {
+  const m = String(texto || '').match(/\n\s*1a\.\s*via\s*\n\s*([^\n]{5,120})/i)
+  return limparNome(m?.[1])
 }
 
 /**
@@ -145,21 +181,22 @@ function parseParcelamento(texto, nomeArquivo = '') {
   const junto = `${texto}\n${nomeArquivo}`
   if (!/PARCELAMENTO\s+SIMPLIFICADO/i.test(junto)) return null
   const numero = numeroParcelamento(junto)
-  const valor =
-    moedaPerto(texto, 'Valor\\s+Total(?:\\s+do\\s+Documento)?')
+  const senda = darfSenda(texto)
+  const valor = senda?.valor
+    ?? moedaPerto(texto, 'Valor\\s+Total(?:\\s+do\\s+Documento)?')
     ?? moedaPerto(texto, 'Valor\\s+da\\s+Parcela')
     ?? moedaPerto(texto, 'Valor\\s+Original')
     ?? moedaPerto(texto, 'Total\\s+a\\s+Pagar')
     ?? moedaPerto(texto, 'Valor\\s+do\\s+Documento')
     ?? moedaPerto(texto, 'Valor\\s*:')
-  const venc =
-    dataPerto(texto, 'Data\\s+de\\s+Vencimento')
+  const venc = senda?.venc
+    ?? dataPerto(texto, 'Data\\s+de\\s+Vencimento')
     ?? dataPerto(texto, 'Pagar\\s+(?:este\\s+documento\\s+)?at[eé]')
     ?? dataPerto(texto, 'Vencimento\\s+da\\s+Guia')
     ?? dataPerto(texto, 'Vencimento')
   const razaoPdf = limparNome(
     (texto.match(/Raz[aã]o Social(?:\s*\/\s*Nome)?\s*:?\s*\n?\s*([^\n]{5,120})/i) || [])[1],
-  )
+  ) || razaoDarf(texto)
   const razao = razaoPdf || empresaNoNomeArquivo(nomeArquivo)
   const codigo = linhaDigitavel(texto)
   if (!valor || !venc) return null
