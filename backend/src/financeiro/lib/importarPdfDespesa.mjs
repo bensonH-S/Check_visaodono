@@ -173,6 +173,10 @@ function razaoDarf(texto) {
   return limparNome(m?.[1])
 }
 
+function pareceRotulo(nome) {
+  return /^(PER[IÍ]ODO DE APURA|N[UÚ]MERO DO|C[OÓ]DIGO DA|DATA DE VENC|VALOR |NOME\s*\/|AUTENTICA|OBSERVA)/i.test(String(nome || '').trim())
+}
+
 /**
  * Guia do Parcelamento Simplificado (Receita/PGFN).
  * O número e a loja também vêm no nome do arquivo quando o PDF embaralha o texto.
@@ -194,10 +198,11 @@ function parseParcelamento(texto, nomeArquivo = '') {
     ?? dataPerto(texto, 'Pagar\\s+(?:este\\s+documento\\s+)?at[eé]')
     ?? dataPerto(texto, 'Vencimento\\s+da\\s+Guia')
     ?? dataPerto(texto, 'Vencimento')
-  const razaoPdf = limparNome(
+  const doRotulo = limparNome(
     (texto.match(/Raz[aã]o Social(?:\s*\/\s*Nome)?\s*:?\s*\n?\s*([^\n]{5,120})/i) || [])[1],
-  ) || razaoDarf(texto)
-  const razao = razaoPdf || empresaNoNomeArquivo(nomeArquivo)
+  )
+  const razao = [razaoDarf(texto), doRotulo, empresaNoNomeArquivo(nomeArquivo)]
+    .find((nome) => nome && !pareceRotulo(nome)) || null
   const codigo = linhaDigitavel(texto)
   if (!valor || !venc) return null
   const refNum = numero || `${venc}|${valor}`

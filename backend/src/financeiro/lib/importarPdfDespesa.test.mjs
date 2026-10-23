@@ -45,6 +45,8 @@ describe('parcelamento simplificado', () => {
     const parsed = classificarPdfDespesa(`
       Documento de Arrecadação de Receitas Federais
       DARF
+      NOME / RAZÃO SOCIAL
+      PERÍODO DE APURAÇÃO
       DATA DE VENCIMENTO
       VALOR DO PRINCIPAL
       VALOR TOTAL
