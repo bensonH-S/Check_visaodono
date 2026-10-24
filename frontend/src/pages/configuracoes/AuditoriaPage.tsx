@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Autocomplete from '@mui/material/Autocomplete';
+import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
 import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
@@ -24,7 +26,7 @@ import {
   type Coluna,
 } from '../../financeiro/components/ConfigUi';
 import { PrefsProvider } from '../../financeiro/prefs';
-import { finCampoSx } from '../../financeiro/temaFinanceiroEscuro';
+import { FIN_MUTED, finCampoSx, finMenuSx } from '../../financeiro/temaFinanceiroEscuro';
 import { formatDataHoraBrasilia } from '../../utils/dateBr';
 import { configPageSx } from './configPageSx';
 
@@ -84,6 +86,50 @@ function tomAcao(tipo?: string): 'ok' | 'alerta' | 'erro' | 'info' | 'neutro' {
 function rotuloSeloAcao(item: AuditoriaEvento) {
   if (item.tipo_acao === 'download' || item.acao === 'download') return 'Download';
   return item.acao_label || item.acao;
+}
+
+function iniciaisUsuario(nome?: string | null, inicial?: string | null) {
+  const pronta = (inicial || '').trim().slice(0, 2).toUpperCase();
+  if (pronta) return pronta;
+  const letras = (nome || '?')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase();
+  return letras || '?';
+}
+
+function AvatarUsuario({
+  nome,
+  inicial,
+  url,
+  size = 28,
+}: {
+  nome?: string | null;
+  inicial?: string | null;
+  url?: string | null;
+  size?: number;
+}) {
+  return (
+    <Avatar
+      src={url || undefined}
+      sx={{
+        width: size,
+        height: size,
+        fontSize: size * 0.36,
+        fontWeight: 700,
+        bgcolor: url ? undefined : '#1B6EF3',
+        color: '#fff',
+        border: '2px solid #fff',
+        boxShadow: '0 1px 4px rgba(15,23,42,0.12)',
+        flexShrink: 0,
+      }}
+    >
+      {iniciaisUsuario(nome, inicial)}
+    </Avatar>
+  );
 }
 
 function dispositivoLabel(d: string | null | undefined) {
@@ -147,8 +193,13 @@ export default function AuditoriaPage() {
   }, [idUsuario, status, busca]);
 
   const usuariosOrdenados = useMemo(
-    () => [...usuarios].sort((a, b) => Number(b.ativo) - Number(a.ativo) || a.nome.localeCompare(b.nome)),
+    () => [...usuarios].sort((a, b) => Number(b.ativo) - Number(a.ativo) || a.nome.localeCompare(b.nome, 'pt-BR')),
     [usuarios],
+  );
+
+  const usuarioSelecionado = useMemo(
+    () => usuariosOrdenados.find((u) => String(u.id_usuario) === idUsuario) || null,
+    [usuariosOrdenados, idUsuario],
   );
 
   const filtradas = useMemo(() => {
@@ -294,21 +345,72 @@ export default function AuditoriaPage() {
         </Resumos>
 
         <Barra busca={busca} onBusca={setBusca} placeholder="Buscar usuário, e-mail ou IP">
-          <TextField
-            select
-            size="small"
-            value={idUsuario}
-            onChange={(e) => setIdUsuario(e.target.value)}
-            sx={{ minWidth: 180, ...finCampoSx }}
-          >
-            <MenuItem value="">Todos os usuários</MenuItem>
-            {usuariosOrdenados.map((u) => (
-              <MenuItem key={u.id_usuario} value={String(u.id_usuario)}>
-                {u.nome}
-                {!u.ativo ? ' (inativo)' : ''}
-              </MenuItem>
-            ))}
-          </TextField>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: { xs: '100%', md: 300 }, flexShrink: 0 }}>
+            <AvatarUsuario
+              nome={usuarioSelecionado?.nome}
+              inicial={usuarioSelecionado?.avatar_inicial}
+              url={usuarioSelecionado?.avatar_url}
+              size={30}
+            />
+            <Autocomplete
+              size="small"
+              fullWidth
+              options={usuariosOrdenados}
+              value={usuarioSelecionado}
+              onChange={(_, u) => setIdUsuario(u ? String(u.id_usuario) : '')}
+              getOptionLabel={(u) => u.nome}
+              isOptionEqualToValue={(a, b) => a.id_usuario === b.id_usuario}
+              noOptionsText="Nenhum usuário"
+              filterOptions={(options, state) => {
+                const q = state.inputValue.trim().toLowerCase();
+                if (!q) return options;
+                return options.filter(
+                  (u) =>
+                    u.nome.toLowerCase().includes(q) ||
+                    (u.email || '').toLowerCase().includes(q),
+                );
+              }}
+              slotProps={{
+                listbox: { sx: { maxHeight: 280 } },
+                paper: { sx: finMenuSx },
+              }}
+              renderOption={(props, u) => {
+                const { key, ...rest } = props;
+                return (
+                  <Box
+                    component="li"
+                    key={key ?? u.id_usuario}
+                    {...rest}
+                    sx={{ display: 'flex !important', alignItems: 'center', gap: 1, py: 0.75 }}
+                  >
+                    <AvatarUsuario
+                      nome={u.nome}
+                      inicial={u.avatar_inicial}
+                      url={u.avatar_url}
+                      size={28}
+                    />
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2 }} noWrap>
+                        {u.nome}
+                      </Typography>
+                      <Typography sx={{ fontSize: 11, color: FIN_MUTED, lineHeight: 1.2 }} noWrap>
+                        {u.email}
+                        {!u.ativo ? ' · inativo' : ''}
+                      </Typography>
+                    </Box>
+                  </Box>
+                );
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Usuário"
+                  placeholder="Buscar usuário…"
+                  sx={finCampoSx}
+                />
+              )}
+            />
+          </Box>
           <TextField
             select
             size="small"

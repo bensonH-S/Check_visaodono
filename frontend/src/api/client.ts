@@ -334,6 +334,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  tiTicketEtapaExcluir: (idEtapa: number) =>
+    request<{ id_ticket: number; etapas_total: number; etapas_feitas: number }>(
+      `/ti-tickets/etapas/${idEtapa}`,
+      { method: 'DELETE' },
+    ),
   tiTicketComentar: (id: number, texto: string) =>
     request<TiTicketComentario>(`/ti-tickets/${id}/comentarios`, {
       method: 'POST',
@@ -4709,6 +4714,8 @@ export interface AuditoriaUsuarioFiltro {
   nome: string;
   email: string;
   ativo: boolean;
+  avatar_inicial?: string | null;
+  avatar_url?: string | null;
 }
 
 export interface AuditoriaSessao {

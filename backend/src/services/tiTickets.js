@@ -470,20 +470,35 @@ export async function adicionarEtapa(idTicket, { subcategoria, titulo }) {
 }
 
 export async function marcarEtapa(idEtapa, feita, idUsuario) {
+  const uid = Number(idUsuario);
   const { rows } = await pool.query(
     `UPDATE ti_ticket_etapas
      SET feita = $2,
          feita_em = CASE WHEN $2 THEN NOW() ELSE NULL END,
-         feita_por = CASE WHEN $2 THEN $3 ELSE NULL END
+         feita_por = CASE WHEN $2 THEN $3::int ELSE NULL END
      WHERE id_etapa = $1
      RETURNING id_etapa, id_ticket`,
-    [idEtapa, Boolean(feita), idUsuario || null],
+    [idEtapa, Boolean(feita), Number.isFinite(uid) ? uid : null],
   );
   if (!rows[0]) return null;
   const lista = await listarEtapas(rows[0].id_ticket);
   const etapa = lista.find((e) => e.id_etapa === Number(rows[0].id_etapa));
   return {
     etapa,
+    id_ticket: Number(rows[0].id_ticket),
+    etapas_total: lista.length,
+    etapas_feitas: lista.filter((e) => e.feita).length,
+  };
+}
+
+export async function excluirEtapa(idEtapa) {
+  const { rows } = await pool.query(
+    `DELETE FROM ti_ticket_etapas WHERE id_etapa = $1 RETURNING id_ticket`,
+    [idEtapa],
+  );
+  if (!rows[0]) return null;
+  const lista = await listarEtapas(rows[0].id_ticket);
+  return {
     id_ticket: Number(rows[0].id_ticket),
     etapas_total: lista.length,
     etapas_feitas: lista.filter((e) => e.feita).length,

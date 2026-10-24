@@ -50,18 +50,29 @@ router.get('/eventos', requirePermissao('configuracoes.auditoria'), async (req, 
 router.get('/usuarios-filtro', requirePermissao('configuracoes.auditoria'), async (req, res, next) => {
   try {
     const { rows } = await pool.query(
-      `SELECT id_usuario, nome, email, ativo
+      `SELECT id_usuario, nome, email, ativo, avatar_inicial, avatar_mime, avatar_bytes
        FROM usuarios
        ORDER BY ativo DESC, nome ASC
        LIMIT 500`,
     );
     res.json(
-      rows.map((u) => ({
-        id_usuario: u.id_usuario,
-        nome: u.nome,
-        email: u.email,
-        ativo: u.ativo,
-      })),
+      rows.map((u) => {
+        let avatar_url = null;
+        if (u.avatar_bytes) {
+          const buf = Buffer.isBuffer(u.avatar_bytes) ? u.avatar_bytes : Buffer.from(u.avatar_bytes);
+          if (buf.length) {
+            avatar_url = `data:${u.avatar_mime || 'image/jpeg'};base64,${buf.toString('base64')}`;
+          }
+        }
+        return {
+          id_usuario: Number(u.id_usuario),
+          nome: u.nome,
+          email: u.email,
+          ativo: u.ativo,
+          avatar_inicial: u.avatar_inicial || null,
+          avatar_url,
+        };
+      }),
     );
   } catch (e) {
     next(e);

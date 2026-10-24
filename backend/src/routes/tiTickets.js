@@ -11,6 +11,7 @@ import {
   listarEtapas,
   adicionarEtapa,
   marcarEtapa,
+  excluirEtapa,
   adicionarComentario,
   excluirComentario,
   avaliarTicket,
@@ -391,6 +392,16 @@ router.post('/:id/etapas', requireGerenciar, async (req, res, next) => {
 router.patch('/etapas/:idEtapa', requireGerenciar, async (req, res, next) => {
   try {
     const result = await marcarEtapa(Number(req.params.idEtapa), req.body?.feita, req.user.sub);
+    if (!result) return res.status(404).json({ error: 'Etapa não encontrada' });
+    res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.delete('/etapas/:idEtapa', requireGerenciar, async (req, res, next) => {
+  try {
+    const result = await excluirEtapa(Number(req.params.idEtapa));
     if (!result) return res.status(404).json({ error: 'Etapa não encontrada' });
     res.json(result);
   } catch (e) {

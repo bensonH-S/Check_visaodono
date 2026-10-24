@@ -185,7 +185,6 @@ export default function TicketsTiPage() {
   const [selecionado, setSelecionado] = useState<TiTicket | null>(null);
   const [comentarios, setComentarios] = useState<TiTicketComentario[]>([]);
   const [etapas, setEtapas] = useState<TiTicketEtapa[]>([]);
-  const [novaSubcategoria, setNovaSubcategoria] = useState('Platlog');
   const [mostrarNovaEtapa, setMostrarNovaEtapa] = useState(false);
   const [novaEtapa, setNovaEtapa] = useState('');
   const [anexos, setAnexos] = useState<TiTicketAnexo[]>([]);
@@ -322,7 +321,6 @@ export default function TicketsTiPage() {
     if (!selecionado || !novaEtapa.trim()) return;
     try {
       const criada = await api.tiTicketEtapaCriar(selecionado.id_ticket, {
-        subcategoria: novaSubcategoria,
         titulo: novaEtapa.trim(),
       });
       const proximas = [...etapas, criada].sort((a, b) => a.ordem - b.ordem);
@@ -335,6 +333,17 @@ export default function TicketsTiPage() {
       );
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao criar etapa', 'error');
+    }
+  }
+
+  async function excluirEtapaItem(etapa: TiTicketEtapa) {
+    if (!window.confirm('Excluir esta etapa?')) return;
+    try {
+      const r = await api.tiTicketEtapaExcluir(etapa.id_etapa);
+      setEtapas((prev) => prev.filter((e) => e.id_etapa !== etapa.id_etapa));
+      aplicarContagemEtapas(r.id_ticket, r.etapas_feitas, r.etapas_total);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao excluir etapa', 'error');
     }
   }
 
@@ -992,7 +1001,6 @@ export default function TicketsTiPage() {
                     const feitas = etapas.filter((e) => e.feita).length;
                     const total = etapas.length;
                     const pct = total ? Math.round((feitas / total) * 100) : 0;
-                    const grupos = Array.from(new Set(etapas.map((e) => e.subcategoria)));
                     return (
                       <Box
                         sx={{
@@ -1022,63 +1030,55 @@ export default function TicketsTiPage() {
                             },
                           }}
                         />
-                        <Stack spacing={1.25}>
-                          {grupos.map((sub) => {
-                            const grupo = etapas.filter((e) => e.subcategoria === sub);
-                            const ok = grupo.filter((e) => e.feita).length;
-                            return (
-                              <Box key={sub}>
-                                <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: FIN_MUTED, mb: 0.5 }}>
-                                  {sub} · {ok}/{grupo.length}
+                        <Stack spacing={0.5}>
+                          {etapas.map((etapa, i) => (
+                            <Box
+                              key={etapa.id_etapa}
+                              onClick={() => void alternarEtapa(etapa)}
+                              sx={{
+                                display: 'flex',
+                                gap: 1,
+                                alignItems: 'flex-start',
+                                p: 1,
+                                borderRadius: '10px',
+                                cursor: 'pointer',
+                                bgcolor: etapa.feita ? 'rgba(5, 150, 105, 0.1)' : FIN_SURFACE,
+                                border: `1px solid ${etapa.feita ? 'rgba(5, 150, 105, 0.35)' : FIN_BORDER}`,
+                              }}
+                            >
+                              {etapa.feita ? (
+                                <CheckCircleRoundedIcon sx={{ color: '#059669', fontSize: 20, mt: '1px' }} />
+                              ) : (
+                                <RadioButtonUncheckedRoundedIcon sx={{ color: '#94A3B8', fontSize: 20, mt: '1px' }} />
+                              )}
+                              <Box sx={{ minWidth: 0, flex: 1 }}>
+                                <Typography sx={{ fontSize: 13, fontWeight: 600, color: etapa.feita ? '#047857' : FIN_TEXT }}>
+                                  {i + 1}. {etapa.titulo}
                                 </Typography>
-                                <Stack spacing={0.5}>
-                                  {grupo.map((etapa, i) => (
-                                    <Box
-                                      key={etapa.id_etapa}
-                                      onClick={() => void alternarEtapa(etapa)}
-                                      sx={{
-                                        display: 'flex',
-                                        gap: 1,
-                                        alignItems: 'flex-start',
-                                        p: 1,
-                                        borderRadius: '10px',
-                                        cursor: 'pointer',
-                                        bgcolor: etapa.feita ? 'rgba(5, 150, 105, 0.1)' : FIN_SURFACE,
-                                        border: `1px solid ${etapa.feita ? 'rgba(5, 150, 105, 0.35)' : FIN_BORDER}`,
-                                      }}
-                                    >
-                                      {etapa.feita ? (
-                                        <CheckCircleRoundedIcon sx={{ color: '#059669', fontSize: 20, mt: '1px' }} />
-                                      ) : (
-                                        <RadioButtonUncheckedRoundedIcon sx={{ color: '#94A3B8', fontSize: 20, mt: '1px' }} />
-                                      )}
-                                      <Box sx={{ minWidth: 0 }}>
-                                        <Typography sx={{ fontSize: 13, fontWeight: 600, color: etapa.feita ? '#047857' : FIN_TEXT }}>
-                                          {i + 1}. {etapa.titulo}
-                                        </Typography>
-                                        {etapa.feita && etapa.feita_por_nome ? (
-                                          <Typography sx={{ fontSize: 11, color: '#047857' }}>
-                                            {etapa.feita_por_nome}
-                                            {etapa.feita_em ? ` · ${formatDataHoraBrasilia(etapa.feita_em)}` : ''}
-                                          </Typography>
-                                        ) : null}
-                                      </Box>
-                                    </Box>
-                                  ))}
-                                </Stack>
+                                {etapa.feita && etapa.feita_por_nome ? (
+                                  <Typography sx={{ fontSize: 11, color: '#047857' }}>
+                                    {etapa.feita_por_nome}
+                                    {etapa.feita_em ? ` · ${formatDataHoraBrasilia(etapa.feita_em)}` : ''}
+                                  </Typography>
+                                ) : null}
                               </Box>
-                            );
-                          })}
+                              <Tooltip title="Excluir etapa">
+                                <IconButton
+                                  size="small"
+                                  onClick={(ev) => {
+                                    ev.stopPropagation();
+                                    void excluirEtapaItem(etapa);
+                                  }}
+                                  sx={{ color: '#f87171', mt: -0.25 }}
+                                >
+                                  <DeleteOutlineIcon sx={{ fontSize: 18 }} />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          ))}
                         </Stack>
                         {mostrarNovaEtapa ? (
                           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 1.25 }}>
-                            <TextField
-                              size="small"
-                              label="Grupo"
-                              value={novaSubcategoria}
-                              onChange={(e) => setNovaSubcategoria(e.target.value)}
-                              sx={{ ...finCampoSx, minWidth: { sm: 140 } }}
-                            />
                             <TextField
                               size="small"
                               fullWidth
