@@ -552,12 +552,9 @@ export async function obterNota(idNota) {
 }
 
 export async function listarNotas(user) {
-  const ti = user ? await usuarioPodeGerenciarTickets(user) : false;
   const uid = Number(user?.sub);
   let rows;
-  if (ti) {
-    ({ rows } = await pool.query(`${SQL_NOTA} ORDER BY n.ordem ASC, n.id_nota ASC`));
-  } else if (Number.isFinite(uid)) {
+  if (Number.isFinite(uid)) {
     ({ rows } = await pool.query(
       `${SQL_NOTA}
        WHERE n.id_usuario = $1
@@ -616,11 +613,11 @@ export async function criarNota(
   return obterNota(rows[0].id_nota);
 }
 
-export async function salvarNota(idNota, { titulo, corpo }, idUsuario, { isTi = false } = {}) {
+export async function salvarNota(idNota, { titulo, corpo }, idUsuario) {
   const atual = await obterNota(idNota);
   if (!atual) return null;
   const uid = Number(idUsuario);
-  if (!isTi && atual.id_usuario != null && atual.id_usuario !== uid) {
+  if (!Number.isFinite(uid) || atual.id_usuario !== uid) {
     const err = new Error('Sem permissão para editar esta anotação');
     err.status = 403;
     throw err;
@@ -642,11 +639,11 @@ export async function salvarNota(idNota, { titulo, corpo }, idUsuario, { isTi = 
   return obterNota(idNota);
 }
 
-export async function excluirNota(idNota, idUsuario, { isTi = false } = {}) {
+export async function excluirNota(idNota, idUsuario) {
   const atual = await obterNota(idNota);
   if (!atual) return false;
   const uid = Number(idUsuario);
-  if (!isTi && atual.id_usuario != null && atual.id_usuario !== uid) {
+  if (!Number.isFinite(uid) || atual.id_usuario !== uid) {
     const err = new Error('Sem permissão para excluir esta anotação');
     err.status = 403;
     throw err;

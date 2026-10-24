@@ -147,8 +147,7 @@ router.post('/notas', requireAbrir, async (req, res, next) => {
 
 router.put('/notas/:id', requireAbrir, async (req, res, next) => {
   try {
-    const isTi = await usuarioPodeGerenciarTickets(req.user);
-    const nota = await salvarNota(Number(req.params.id), req.body || {}, req.user.sub, { isTi });
+    const nota = await salvarNota(Number(req.params.id), req.body || {}, req.user.sub);
     if (!nota) return res.status(404).json({ error: 'Lista não encontrada' });
     res.json(nota);
   } catch (e) {
@@ -159,8 +158,7 @@ router.put('/notas/:id', requireAbrir, async (req, res, next) => {
 
 router.delete('/notas/:id', requireAbrir, async (req, res, next) => {
   try {
-    const isTi = await usuarioPodeGerenciarTickets(req.user);
-    const ok = await excluirNota(Number(req.params.id), req.user.sub, { isTi });
+    const ok = await excluirNota(Number(req.params.id), req.user.sub);
     if (!ok) return res.status(404).json({ error: 'Lista não encontrada' });
     res.json({ ok: true });
   } catch (e) {

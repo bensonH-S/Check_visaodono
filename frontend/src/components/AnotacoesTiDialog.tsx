@@ -57,7 +57,7 @@ export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
   async function abrir() {
     setErro('');
     try {
-      const lista = await api.tiNotas();
+      const lista = (await api.tiNotas()).filter((n) => n.id_usuario === user?.id_usuario);
       setNotas(lista);
       if (lista[0]) selecionar(lista[0]);
       else {
@@ -160,8 +160,8 @@ export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
           Anotações
           <Typography sx={{ fontSize: 12, color: FIN_MUTED, fontWeight: 400, mt: 0.25 }}>
             {isTi
-              ? 'TI: todas as listas · negrito e marca-texto no editor'
-              : `Até ${MAX_COLAB} listas · ${minhas}/${MAX_COLAB}`}
+              ? 'Somente as suas listas · negrito e marca-texto no editor'
+              : `Somente as suas · até ${MAX_COLAB} listas · ${minhas}/${MAX_COLAB}`}
           </Typography>
         </DialogTitle>
         <DialogContent
@@ -235,7 +235,6 @@ export default function AnotacoesTiDialog({ variante = 'portal' }: Props) {
                         {n.titulo || 'Sem título'}
                       </Typography>
                       <Typography sx={{ fontSize: 10.5, color: FIN_MUTED }} noWrap>
-                        {isTi && n.dono_nome ? `${n.dono_nome} · ` : ''}
                         {formatDataHoraBrasilia(n.updated_at)}
                       </Typography>
                     </Box>
