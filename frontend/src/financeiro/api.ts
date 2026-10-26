@@ -597,6 +597,8 @@ export type PlatlogNfesLista = {
   sem_xml: number
   valor: number
   por_mes: Array<{ mes: string; qtd: number; com_xml: number; valor: number }>
+  por_loja?: Array<{ pasta: string; loja: string; bk: string | null; qtd: number; com_xml: number; valor: number }>
+  cruzamento?: { ambas: number; so_esupri: number; so_receita: number }
   notas: PlatlogNfeItem[]
 }
 

@@ -422,8 +422,8 @@ function AbaPlatlog({ t }: { t: (pt: string, en: string) => string }) {
       {resultado ? (
         <Alert severity="success">
           {t(
-            `Pasta pronta: ${resultado.pasta} — ${resultado.copiados} DANFE(s) (nome: numero-loja-data.pdf)${resultado.faltando_xml ? `, ${resultado.faltando_xml} sem XML` : ''}.`,
-            `Folder ready: ${resultado.pasta} — ${resultado.copiados} DANFE(s) (name: number-store-date.pdf)${resultado.faltando_xml ? `, ${resultado.faltando_xml} missing XML` : ''}.`,
+            `Pasta pronta: ${resultado.pasta} — ${resultado.copiados} DANFE(s) por loja (numero-loja-data.pdf)${resultado.faltando_xml ? `, ${resultado.faltando_xml} sem XML` : ''}.`,
+            `Folder ready: ${resultado.pasta} — ${resultado.copiados} DANFE(s) per store${resultado.faltando_xml ? `, ${resultado.faltando_xml} missing XML` : ''}.`,
           )}
         </Alert>
       ) : null}
@@ -432,21 +432,24 @@ function AbaPlatlog({ t }: { t: (pt: string, en: string) => string }) {
         <Stack direction="row" spacing={1.25} sx={{ width: '100%', alignItems: 'stretch' }}>
           <Resumo
             cor="#1B6EF3"
-            rotulo={t('NFs emitidas', 'Issued NFs')}
+            rotulo={t('NFs cruzadas', 'Matched NFs')}
             valor={numTxt(dados.total)}
-            detalhe={t('Platlog no período', 'Platlog in period')}
+            detalhe={t(
+              `eSupri∩Receita ${dados.cruzamento?.ambas ?? '—'}`,
+              `eSupri∩Tax ${dados.cruzamento?.ambas ?? '—'}`,
+            )}
           />
           <Resumo
             cor="#10B981"
             rotulo={t('Com XML', 'With XML')}
             valor={numTxt(dados.com_xml)}
-            detalhe={t('prontos p/ export', 'ready to export')}
+            detalhe={t('prontos p/ DANFE', 'ready for DANFE')}
           />
           <Resumo
             cor={dados.sem_xml > 0 ? '#EF4444' : '#64748B'}
             rotulo={t('Sem XML', 'Missing XML')}
             valor={numTxt(dados.sem_xml)}
-            detalhe={t('só no banco', 'DB only')}
+            detalhe={t('falta baixar', 'need download')}
             alerta={dados.sem_xml > 0}
           />
           <Resumo

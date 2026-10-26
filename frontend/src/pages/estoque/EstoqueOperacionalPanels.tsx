@@ -3667,7 +3667,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
       ]);
       setDados(r);
       setItens(r.itens.map((i) => ({ ...i })));
-      setNotas(nfs.filter((n) => String(n.fornecedor || '').toLowerCase() === 'platlog'));
+      setNotas(nfs.filter((n) => grupoFornecedorNfe(n) === 'Platlog'));
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao calcular pedido', 'error');
     } finally {

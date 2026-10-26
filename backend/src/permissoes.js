@@ -261,6 +261,25 @@ export async function resolverPermissoesUsuario(_perfil, permissoes) {
 export async function syncUsuarioPermissoes(idUsuario, codigos) {
   await ensureCatalogoPermissoes();
   const lista = await normalizarPermissoes(codigos);
+  // Preserva override de rede (lojas.todas) ao espelhar o perfil
+  const { rows: tinhaTodas } = await pool.query(
+    `SELECT 1
+     FROM usuarios u
+     WHERE u.id_usuario = $1
+       AND (
+         EXISTS (
+           SELECT 1 FROM usuario_permissoes up
+           WHERE up.id_usuario = u.id_usuario AND up.codigo = 'lojas.todas'
+         )
+         OR lower(u.nome) ~* '(^| )igor( |$)'
+         OR lower(coalesce(u.email, '')) LIKE '%igor%'
+         OR lower(u.nome) ~* 'clemerson'
+         OR lower(coalesce(u.email, '')) LIKE '%clemerson%'
+       )
+     LIMIT 1`,
+    [idUsuario],
+  );
+  const manterTodas = tinhaTodas.length > 0 || lista.includes('lojas.todas');
   await pool.query('DELETE FROM usuario_permissoes WHERE id_usuario = $1', [idUsuario]);
   if (lista.length) {
     await pool.query(
@@ -268,6 +287,13 @@ export async function syncUsuarioPermissoes(idUsuario, codigos) {
        SELECT $1, unnest($2::text[])
        ON CONFLICT DO NOTHING`,
       [idUsuario, lista],
+    );
+  }
+  if (manterTodas && !lista.includes('lojas.todas')) {
+    await pool.query(
+      `INSERT INTO usuario_permissoes (id_usuario, codigo) VALUES ($1, 'lojas.todas')
+       ON CONFLICT DO NOTHING`,
+      [idUsuario],
     );
   }
   return lista;

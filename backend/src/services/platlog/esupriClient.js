@@ -744,6 +744,61 @@ export async function baixarNfesFinanceiroVariasLojasEsupri({
   }
 }
 
+/**
+ * Baixa XMLs/ZIPs por chave NF-e (findfile) — útil p/ completar notas antigas sem XML.
+ * @param {{ chave: string, label?: string }[]} chaves
+ */
+export async function baixarXmlsPorChavesEsupri({
+  user,
+  pass,
+  chaves = [],
+  baseUrl = DEFAULT_BASE,
+  headless = true,
+  onLog = () => {},
+  pausaMs = 400,
+} = {}) {
+  if (!user || !pass) {
+    throw Object.assign(new Error('Informe usuário e senha eSupri'), { status: 400 });
+  }
+  const alvos = (chaves || [])
+    .map((c) => ({
+      chave: String(c.chave || c).replace(/\D/g, ''),
+      label: c.label || '',
+    }))
+    .filter((c) => c.chave.length === 44);
+  if (!alvos.length) return [];
+
+  const { page, context, browser } = await abrirSessaoFinanceiroEsupri({
+    user,
+    pass,
+    baseUrl,
+    headless,
+    onLog,
+  });
+  const out = [];
+  try {
+    for (let i = 0; i < alvos.length; i += 1) {
+      const item = alvos[i];
+      onLog(`chave ${i + 1}/${alvos.length}: ${item.chave.slice(0, 20)}… ${item.label}`);
+      try {
+        const dl = await baixarZipNfe(page, context, {
+          chave: item.chave,
+          notaLabel: item.label || item.chave,
+          onLog,
+        });
+        out.push({ ...item, ok: true, zipBuffer: dl.zipBuffer, fileName: dl.fileName });
+      } catch (e) {
+        out.push({ ...item, ok: false, erro: String(e.message || e).slice(0, 160) });
+        onLog(`falha ${item.chave}: ${String(e.message || e).slice(0, 100)}`);
+      }
+      if (pausaMs > 0) await page.waitForTimeout(pausaMs).catch(() => {});
+    }
+    return out;
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
 async function baixarZipNfe(page, context, { chave, notaLabel, onLog }) {
   if (chave) {
     const found = await postForm(page, '/ajax/findfile.php', { Tipo: 'NFe', Chave: chave });

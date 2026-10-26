@@ -358,3 +358,71 @@ export async function syncUsuarioLojas(idUsuario, lojasIds, temTodasLojas) {
     );
   }
 }
+
+/** Regiões em que o usuário é regional (frota_regiao_regionais + id_regional). */
+export async function carregarRegioesIdsUsuario(idUsuario) {
+  const { rows } = await pool.query(
+    `SELECT DISTINCT r.id_regiao
+     FROM frota_regioes r
+     WHERE r.ativo = TRUE
+       AND (
+         r.id_regional = $1
+         OR EXISTS (
+           SELECT 1 FROM frota_regiao_regionais rr
+           WHERE rr.id_regiao = r.id_regiao AND rr.id_usuario = $1
+         )
+       )
+     ORDER BY r.id_regiao`,
+    [idUsuario],
+  );
+  return rows.map((r) => r.id_regiao);
+}
+
+export async function lojasIdsDasRegioes(regioesIds) {
+  const ids = [...new Set((regioesIds || []).map(Number).filter(Boolean))];
+  if (!ids.length) return [];
+  const { rows } = await pool.query(
+    `SELECT DISTINCT rl.id_loja
+     FROM frota_regiao_lojas rl
+     JOIN lojas l ON l.id_loja = rl.id_loja AND l.is_active = TRUE
+     WHERE rl.id_regiao = ANY($1::int[])
+     ORDER BY rl.id_loja`,
+    [ids],
+  );
+  return rows.map((r) => r.id_loja);
+}
+
+/**
+ * Vincula o usuário como regional nas regiões informadas.
+ * Espelha em frota_regiao_regionais e preenche id_regional quando a região ainda não tem.
+ */
+export async function syncUsuarioRegioes(idUsuario, regioesIds) {
+  const ids = [...new Set((regioesIds || []).map(Number).filter(Boolean))];
+  await pool.query('DELETE FROM frota_regiao_regionais WHERE id_usuario = $1', [idUsuario]);
+  await pool.query(
+    `UPDATE frota_regioes
+     SET id_regional = NULL, updated_at = NOW()
+     WHERE id_regional = $1
+       AND NOT (id_regiao = ANY($2::int[]))`,
+    [idUsuario, ids.length ? ids : [0]],
+  );
+  for (const idRegiao of ids) {
+    await pool.query(
+      `INSERT INTO frota_regiao_regionais (id_regiao, id_usuario) VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [idRegiao, idUsuario],
+    );
+    await pool.query(
+      `UPDATE frota_regioes
+       SET id_regional = COALESCE(id_regional, $2), updated_at = NOW()
+       WHERE id_regiao = $1 AND ativo = TRUE`,
+      [idRegiao, idUsuario],
+    );
+  }
+  return ids;
+}
+
+export function cargoEhSupervisorRegional(cargoCodigo) {
+  const c = String(cargoCodigo || '').toLowerCase();
+  return c === 'supervisor_regional' || c === 'regional' || c === 'supervisor';
+}

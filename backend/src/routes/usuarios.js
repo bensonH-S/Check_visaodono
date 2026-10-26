@@ -1,7 +1,15 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { pool } from '../db.js';
-import { syncUsuarioLojas, carregarLojasDetalhe } from '../lojasUsuario.js';
+import {
+  syncUsuarioLojas,
+  syncUsuarioRegioes,
+  carregarLojasDetalhe,
+  carregarRegioesIdsUsuario,
+  carregarRegioesAtuacaoTecnico,
+  lojasIdsDasRegioes,
+  cargoEhSupervisorRegional,
+} from '../lojasUsuario.js';
 import {
   acessoTodasLojas,
   carregarPermissoesUsuario,
@@ -10,6 +18,7 @@ import {
   resolverPermissoesUsuario,
   syncUsuarioPermissoes,
   listarCatalogoPermissoes,
+  temPermissao,
 } from '../permissoes.js';
 import { validarCodigoCargo, nomeCargo } from './cargos.js';
 import { normalizarTelefoneBr } from '../utils/telefone.js';
@@ -52,8 +61,16 @@ function parseAvatarBase64(valor) {
 
 async function mapUsuarioGestao(row, { comAvatar = false } = {}) {
   const permissoes = await carregarPermissoesUsuario(row.id_usuario);
-  const userCtx = { sub: row.id_usuario, perfil: row.perfil, permissoes };
-  const lojas = await carregarLojasDetalhe(userCtx);
+  const userCtx = {
+    sub: row.id_usuario,
+    perfil: row.perfil,
+    permissoes,
+    cargo_aprovacao: row.cargo_aprovacao || null,
+  };
+  const [lojas, regioes] = await Promise.all([
+    carregarLojasDetalhe(userCtx),
+    carregarRegioesAtuacaoTecnico(row.id_usuario),
+  ]);
   return {
     id_usuario: row.id_usuario,
     nome: row.nome,
@@ -67,6 +84,8 @@ async function mapUsuarioGestao(row, { comAvatar = false } = {}) {
     perfil: row.perfil,
     lojas,
     lojas_ids: lojas.map((l) => l.id_loja),
+    regioes,
+    regioes_ids: regioes.map((r) => r.id_regiao),
     permissoes,
     ativo: row.ativo,
     acesso_todas_lojas: acessoTodasLojas(userCtx),
@@ -143,6 +162,22 @@ router.get('/gestao', requirePermissao('usuarios.gerenciar'), async (_req, res, 
   }
 });
 
+/** Catálogo de regiões para vincular supervisor regional no perfil do usuário. */
+router.get('/gestao/regioes', requirePermissao('usuarios.gerenciar'), async (_req, res, next) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT r.id_regiao, r.nome,
+              (SELECT COUNT(*)::int FROM frota_regiao_lojas rl WHERE rl.id_regiao = r.id_regiao) AS qtd_lojas
+       FROM frota_regioes r
+       WHERE r.ativo = TRUE
+       ORDER BY r.nome`,
+    );
+    res.json(rows);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, res, next) => {
   try {
     const { rows } = await pool.query(`${SQL_USUARIO_COM_AVATAR} WHERE u.id_usuario = $1`, [req.params.id]);
@@ -195,11 +230,44 @@ async function resolverCargoUsuario(cargoCodigo, permissoes, { obrigatorio = fal
   };
 }
 
-function validarLojas(permissoes, lojasIds) {
+function validarLojas(permissoes, lojasIds, { cargoCodigo, regioesIds } = {}) {
   if (acessoTodasLojas({ permissoes })) return null;
+  const regional =
+    cargoEhSupervisorRegional(cargoCodigo) ||
+    temPermissao({ permissoes }, 'frota.regioes') ||
+    temPermissao({ permissoes }, 'escalas.visitas.editar_regiao');
+  if (regional) {
+    const regs = [...new Set((regioesIds || []).map(Number).filter(Boolean))];
+    if (!regs.length) {
+      return 'Supervisor regional: selecione a região de atuação (lojas da região).';
+    }
+    return null;
+  }
   const ids = [...new Set((lojasIds || []).map(Number).filter(Boolean))];
-  if (!ids.length) return 'Selecione ao menos uma loja (ou marque "Acesso a todas as lojas")';
+  if (!ids.length) return 'Selecione ao menos uma loja (ou ative «Todas as lojas» no perfil).';
   return null;
+}
+
+async function aplicarEscopoLojasUsuario(idUsuario, { perms, cargoCodigo, lojasIds, regioesIds }) {
+  const todas = acessoTodasLojas({ permissoes: perms });
+  if (todas) {
+    await syncUsuarioRegioes(idUsuario, []);
+    await syncUsuarioLojas(idUsuario, [], true);
+    return;
+  }
+  const regional =
+    cargoEhSupervisorRegional(cargoCodigo) ||
+    temPermissao({ permissoes: perms }, 'frota.regioes') ||
+    temPermissao({ permissoes: perms }, 'escalas.visitas.editar_regiao');
+  if (regional && regioesIds !== undefined) {
+    const regs = await syncUsuarioRegioes(idUsuario, regioesIds);
+    const lojasReg = await lojasIdsDasRegioes(regs);
+    await syncUsuarioLojas(idUsuario, lojasReg, false);
+    return;
+  }
+  if (lojasIds !== undefined) {
+    await syncUsuarioLojas(idUsuario, lojasIds, false);
+  }
 }
 
 router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, next) => {
@@ -209,6 +277,7 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
       email,
       senha,
       lojas_ids,
+      regioes_ids,
       permissoes,
       ativo,
       cargo_aprovacao,
@@ -228,7 +297,10 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
 
     // Permissões vêm só do perfil (aba Permissões)
     const perms = await carregarPermissoesCargo(cargoRes.codigo);
-    const errLojas = validarLojas(perms, lojas_ids);
+    const errLojas = validarLojas(perms, lojas_ids, {
+      cargoCodigo: cargoRes.codigo,
+      regioesIds: regioes_ids,
+    });
     if (errLojas) return res.status(400).json({ error: errLojas });
 
     const telWpp = telefone_whatsapp !== undefined ? normalizarTelefoneBr(telefone_whatsapp) : null;
@@ -265,7 +337,12 @@ router.post('/gestao', requirePermissao('usuarios.gerenciar'), async (req, res, 
 
     const idNovo = rows[0].id_usuario;
     await syncUsuarioPermissoes(idNovo, perms);
-    await syncUsuarioLojas(idNovo, lojas_ids, acessoTodasLojas({ permissoes: perms }));
+    await aplicarEscopoLojasUsuario(idNovo, {
+      perms,
+      cargoCodigo: cargoRes.codigo,
+      lojasIds: lojas_ids,
+      regioesIds: regioes_ids,
+    });
     const { rows: completo } = await pool.query(`${SQL_USUARIO_COM_AVATAR} WHERE u.id_usuario = $1`, [idNovo]);
     const criado = await mapUsuarioGestao(completo[0], { comAvatar: true });
     await auditar(req, {
@@ -294,6 +371,7 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       email,
       senha,
       lojas_ids,
+      regioes_ids,
       permissoes,
       ativo,
       cargo_aprovacao,
@@ -335,8 +413,15 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       permsAtuais = await carregarPermissoesUsuario(id);
     }
 
-    if (lojas_ids !== undefined || deveSyncPerms) {
+    const cargoMudou =
+      cargo_aprovacao !== undefined &&
+      String(cargo_aprovacao || '') !== String(atual.rows[0].cargo_aprovacao || '');
+    const deveSyncEscopo =
+      lojas_ids !== undefined || regioes_ids !== undefined || cargoMudou;
+
+    if (deveSyncEscopo) {
       let idsValidar = lojas_ids;
+      let regsValidar = regioes_ids;
       if (idsValidar === undefined) {
         const { rows: atuais } = await pool.query(
           'SELECT id_loja FROM usuario_lojas WHERE id_usuario = $1',
@@ -344,7 +429,13 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
         );
         idsValidar = atuais.map((r) => r.id_loja);
       }
-      const errLojas = validarLojas(permsAtuais, idsValidar);
+      if (regsValidar === undefined) {
+        regsValidar = await carregarRegioesIdsUsuario(id);
+      }
+      const errLojas = validarLojas(permsAtuais, idsValidar, {
+        cargoCodigo: cargoCodigoEfetivo,
+        regioesIds: regsValidar,
+      });
       if (errLojas) return res.status(400).json({ error: errLojas });
     }
 
@@ -420,9 +511,9 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       await syncUsuarioPermissoes(id, permsAtuais);
     }
 
-    if (lojas_ids !== undefined || deveSyncPerms) {
-      const perms = permsAtuais;
+    if (deveSyncEscopo) {
       let idsLoja = lojas_ids;
+      let idsRegiao = regioes_ids;
       if (idsLoja === undefined) {
         const { rows: atuais } = await pool.query(
           'SELECT id_loja FROM usuario_lojas WHERE id_usuario = $1',
@@ -430,7 +521,17 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
         );
         idsLoja = atuais.map((r) => r.id_loja);
       }
-      await syncUsuarioLojas(id, idsLoja, acessoTodasLojas({ permissoes: perms }));
+      if (idsRegiao === undefined) {
+        idsRegiao = await carregarRegioesIdsUsuario(id);
+      }
+      // Inclui override lojas.todas do usuário (Igor etc.), não só a matriz do cargo
+      const permsEfetivas = await carregarPermissoesUsuario(id);
+      await aplicarEscopoLojasUsuario(id, {
+        perms: permsEfetivas,
+        cargoCodigo: cargoCodigoEfetivo,
+        lojasIds: idsLoja,
+        regioesIds: idsRegiao,
+      });
     }
 
     const { rows } = await pool.query(`${SQL_USUARIO_COM_AVATAR} WHERE u.id_usuario = $1`, [id]);
@@ -444,6 +545,7 @@ router.patch('/gestao/:id', requirePermissao('usuarios.gerenciar'), async (req, 
       'cargo_aprovacao',
       'permissoes',
       'lojas_ids',
+      'regioes_ids',
       'acesso_todas_lojas',
       'telefone_whatsapp',
       'notifica_whatsapp',

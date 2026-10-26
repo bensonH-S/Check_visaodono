@@ -69,8 +69,31 @@ function formaDePagamento(pag, pixKey) {
   return { forma: 'chave_pix', dados: chave || null }
 }
 
-function docRef(periodKey, linha) {
-  const base = [
+function formaPagamentoChave(pag) {
+  const p = String(pag || '').toUpperCase()
+  return p === 'FOLHA' || p.startsWith('FOLHA') ? 'folha' : 'chave_pix'
+}
+
+function hashRef(periodKey, parts) {
+  const hash = crypto.createHash('sha1').update(parts.join('|')).digest('hex').slice(0, 16)
+  return `FC|${periodKey}|${hash}`
+}
+
+/** Identidade estável da pessoa na semana — valor/horas não entram, senão o ajuste vira outra linha. */
+function docRefEstavel(periodKey, linha) {
+  const nome = norm(limparDescricaoFreecontrol(linha.descricao || ''))
+  const codigo = String(linha.codigo_ref || '').trim()
+  return hashRef(periodKey, [
+    periodKey,
+    norm(linha.secao || ''),
+    codigo || nome,
+    formaPagamentoChave(linha.pagamento),
+  ])
+}
+
+/** Hash antigo (incluía valor) — ainda usado para achar lançamento já importado. */
+function docRefLegado(periodKey, linha) {
+  return hashRef(periodKey, [
     periodKey,
     linha.secao || '',
     linha.descricao || '',
@@ -78,9 +101,7 @@ function docRef(periodKey, linha) {
     linha.pagamento || '',
     linha.pix_key || '',
     linha.codigo_ref || '',
-  ].join('|')
-  const hash = crypto.createHash('sha1').update(base).digest('hex').slice(0, 16)
-  return `FC|${periodKey}|${hash}`
+  ])
 }
 
 async function carregarEmpresas(pool) {
@@ -191,10 +212,14 @@ export async function receberLoteFreecontrol(pool, req, env = process.env) {
 
   const empresas = await carregarEmpresas(pool)
   let criadas = 0
+  let atualizadas = 0
   let existentes = 0
   let ignoradas = 0
   const erros = []
   const ids = []
+  const refsKeep = []
+  const empresasOk = new Set()
+  const vencimentoFinal = /^\d{4}-\d{2}-\d{2}$/.test(vencimento) ? vencimento : periodTo
 
   for (const raw of linhas) {
     const valor = Number(raw.valor)
@@ -218,29 +243,86 @@ export async function receberLoteFreecontrol(pool, req, env = process.env) {
     }
     const registro = resolverRegistro(empresas, raw.alocacao)
     const { forma, dados } = formaDePagamento(raw.pagamento, raw.pix_key)
-    const documento_ref = docRef(periodKey, {
+    const chaveLinha = {
       secao: raw.secao,
       descricao,
       valor,
       pagamento: raw.pagamento,
       pix_key: raw.pix_key,
       codigo_ref: raw.codigo_ref,
-    })
+    }
+    const documento_ref = docRefEstavel(periodKey, chaveLinha)
+    const documento_legado = docRefLegado(periodKey, chaveLinha)
+    const descFinal = limparDescricaoFreecontrol(descricao).slice(0, 240)
 
     const dup = await pool.query(
-      `select id::text as id from despesas
-       where empresa_origem_id = $1 and documento_ref = $2 and status <> 'cancelada'
+      `select id::text as id, documento_ref, status, valor::float8 as valor
+       from despesas
+       where empresa_origem_id = $1
+         and fonte = 'freecontrol'
+         and status <> 'cancelada'
+         and (
+           documento_ref = $2
+           or documento_ref = $3
+           or (
+             documento_ref like $4
+             and upper(btrim(descricao)) = upper(btrim($5))
+             and forma_pagamento = $6
+           )
+         )
+       order by
+         case
+           when documento_ref = $2 then 0
+           when documento_ref = $3 then 1
+           else 2
+         end,
+         id desc
        limit 1`,
-      [empresa.id, documento_ref],
+      [empresa.id, documento_ref, documento_legado, `FC|${periodKey}|%`, descFinal, forma],
     )
+
+    refsKeep.push(documento_ref)
+    empresasOk.add(empresa.id)
+
     if (dup.rows[0]) {
-      existentes += 1
-      ids.push(dup.rows[0].id)
+      const atual = dup.rows[0]
+      ids.push(atual.id)
+      const pago = atual.status === 'paga' || atual.status === 'conciliada'
+      if (pago) {
+        existentes += 1
+        continue
+      }
+      await pool.query(
+        `update despesas set
+           descricao = $2,
+           documento_ref = $3,
+           numero_nf = $4,
+           competencia = $5::date,
+           vencimento = $6::date,
+           valor = $7,
+           forma_pagamento = $8,
+           dados_pagamento = $9,
+           freecontrol_tipo = $10,
+           empresa_registro_id = coalesce($11, empresa_registro_id),
+           conferencia_status = coalesce(conferencia_status, 'ok')
+         where id = $1::uuid`,
+        [
+          atual.id,
+          descFinal,
+          documento_ref,
+          raw.codigo_ref ? String(raw.codigo_ref).trim().slice(0, 60) : null,
+          periodFrom,
+          vencimentoFinal,
+          valor,
+          forma,
+          dados,
+          tipo,
+          registro?.id || null,
+        ],
+      )
+      atualizadas += 1
       continue
     }
-
-    // Tipo vai no selo (FREE/TREIN/DESP); descrição fica só com o nome/info.
-    const descFinal = limparDescricaoFreecontrol(descricao)
 
     const { rows } = await pool.query(
       `
@@ -256,13 +338,13 @@ export async function receberLoteFreecontrol(pool, req, env = process.env) {
       returning id::text as id
       `,
       [
-        descFinal.slice(0, 240),
+        descFinal,
         empresa.id,
         registro?.id || null,
         documento_ref,
         raw.codigo_ref ? String(raw.codigo_ref).trim().slice(0, 60) : null,
         periodFrom,
-        /^\d{4}-\d{2}-\d{2}$/.test(vencimento) ? vencimento : periodTo,
+        vencimentoFinal,
         valor,
         forma,
         dados,
@@ -273,12 +355,37 @@ export async function receberLoteFreecontrol(pool, req, env = process.env) {
     if (rows[0]?.id) ids.push(rows[0].id)
   }
 
+  if (empresasOk.size && refsKeep.length) {
+    await pool.query(
+      `update despesas
+       set status = 'cancelada'
+       where fonte = 'freecontrol'
+         and status not in ('paga', 'conciliada', 'cancelada')
+         and empresa_origem_id::text = any($1::text[])
+         and documento_ref like $2
+         and documento_ref <> all($3::text[])`,
+      [[...empresasOk], `FC|${periodKey}|%`, refsKeep],
+    ).catch(() => undefined)
+  }
+
+  await pool.query(
+    `update despesas
+     set vencimento = $1::date
+     where fonte = 'freecontrol'
+       and status not in ('paga', 'conciliada', 'cancelada')
+       and documento_ref like $2
+       and vencimento is distinct from $1::date`,
+    [vencimentoFinal, `FC|${periodKey}|%`],
+  ).catch(() => undefined)
+
   return {
     ok: true,
     period_key: periodKey,
     period_from: periodFrom,
     period_to: periodTo,
+    vencimento: vencimentoFinal,
     criadas,
+    atualizadas,
     existentes,
     ignoradas,
     erros: erros.slice(0, 40),

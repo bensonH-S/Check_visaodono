@@ -36,7 +36,7 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import { Link as RouterLink } from 'react-router-dom';
-import { api, type UsuarioGestao, type Loja, type Cargo } from '../api/client';
+import { api, type UsuarioGestao, type Loja, type Cargo, type UsuarioGestaoRegiaoOpcao } from '../api/client';
 import { atualizarUsuarioSessao, getToken, getUsuario, iniciaisUsuario } from '../lib/auth';
 import { redimensionarFotoPerfil } from '../utils/fotoPerfil';
 import { tableContainerSx, tableSx } from '../utils/tablePageLayout';
@@ -84,11 +84,17 @@ const emptyForm = {
   senha: '',
   cargo_aprovacao: '',
   lojas_ids: [] as number[],
+  regioes_ids: [] as number[],
   permissoes: [] as string[],
   ativo: true,
   telefone_whatsapp: '',
   notifica_whatsapp: true,
 };
+
+function cargoEhSupervisorRegional(codigo: string) {
+  const c = String(codigo || '').toLowerCase();
+  return c === 'supervisor_regional' || c === 'regional' || c === 'supervisor';
+}
 
 const campoSx = { ...finCampoSx, width: '100%' };
 
@@ -96,6 +102,7 @@ type FormUsuarioProps = {
   usuario: UsuarioGestao | null;
   cargos: Cargo[];
   lojas: Loja[];
+  regioes: UsuarioGestaoRegiaoOpcao[];
   idSessao?: number;
   onFechar: () => void;
   onSalvo: () => void;
@@ -128,6 +135,7 @@ function FormUsuario({
   usuario,
   cargos,
   lojas,
+  regioes,
   idSessao,
   onFechar,
   onSalvo,
@@ -143,6 +151,7 @@ function FormUsuario({
           senha: '',
           cargo_aprovacao: codigoInicial,
           lojas_ids: usuario.lojas_ids || [],
+          regioes_ids: usuario.regioes_ids || [],
           permissoes: usuario.permissoes || [],
           ativo: usuario.ativo !== false,
           telefone_whatsapp: usuario.telefone_whatsapp || '',
@@ -193,7 +202,9 @@ function FormUsuario({
   const permsPerfil = cargoAtual?.permissoes?.length
     ? cargoAtual.permissoes
     : form.permissoes;
-  const todasLojas = permsPerfil.includes('lojas.todas');
+  const todasLojas =
+    permsPerfil.includes('lojas.todas') || Boolean(usuario?.acesso_todas_lojas);
+  const porRegiao = !todasLojas && cargoEhSupervisorRegional(form.cargo_aprovacao);
   const acessosMenu = resumoAcessosPerfil(
     cargoAtual ? { ...cargoAtual, permissoes: permsPerfil } : undefined,
   );
@@ -206,6 +217,7 @@ function FormUsuario({
       cargo_aprovacao: codigo,
       permissoes: perms,
       lojas_ids: perms.includes('lojas.todas') ? [] : f.lojas_ids,
+      regioes_ids: cargoEhSupervisorRegional(codigo) ? f.regioes_ids : [],
     }));
   }
 
@@ -218,11 +230,17 @@ function FormUsuario({
         setSalvando(false);
         return;
       }
+      if (porRegiao && !form.regioes_ids.length) {
+        setErro('Supervisor regional: selecione a região de atuação.');
+        setSalvando(false);
+        return;
+      }
       const body = {
         nome: form.nome.trim(),
         email: form.email.trim(),
         cargo_aprovacao: form.cargo_aprovacao,
-        lojas_ids: todasLojas ? [] : form.lojas_ids,
+        lojas_ids: todasLojas || porRegiao ? [] : form.lojas_ids,
+        regioes_ids: todasLojas ? [] : form.regioes_ids,
         ativo: form.ativo,
         telefone_whatsapp: form.telefone_whatsapp.trim() || null,
         notifica_whatsapp: form.notifica_whatsapp,
@@ -231,8 +249,8 @@ function FormUsuario({
           ? { avatar_base64: avatarDraft || null }
           : {}),
       };
-      if (!todasLojas && !body.lojas_ids.length) {
-        setErro('Selecione ao menos uma loja (ou use um perfil com acesso a todas as lojas).');
+      if (!todasLojas && !porRegiao && !body.lojas_ids.length) {
+        setErro('Selecione ao menos uma loja (ou use um perfil com «Todas as lojas»).');
         setSalvando(false);
         return;
       }
@@ -519,10 +537,66 @@ function FormUsuario({
 
           <Stack spacing={1.25}>
             <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: FIN_MUTED }}>
-              Lojas
+              Escopo (região / lojas)
             </Typography>
             {todasLojas ? (
-              <TextField size="small" label="Lojas vinculadas" value="Todas as lojas" disabled helperText="Permissão «Todas as lojas» ativa" sx={campoSx} />
+              <TextField
+                size="small"
+                label="Escopo"
+                value="Todas as lojas da rede"
+                disabled
+                helperText="Permissão «Todas as lojas» no perfil — auditoria e dados em toda a rede."
+                sx={campoSx}
+              />
+            ) : porRegiao ? (
+              <>
+                <TextField
+                  size="small"
+                  select
+                  label="Região de atuação"
+                  value={form.regioes_ids}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setForm((f) => ({
+                      ...f,
+                      regioes_ids: typeof v === 'string' ? [] : (v as number[]),
+                    }));
+                  }}
+                  helperText="Supervisor só audita e vê dados das lojas desta região."
+                  sx={campoSx}
+                  slotProps={{
+                    select: {
+                      multiple: true,
+                      renderValue: (selected: unknown) => {
+                        const ids = selected as number[];
+                        return regioes
+                          .filter((r) => ids.includes(r.id_regiao))
+                          .map((r) => r.nome)
+                          .join(', ');
+                      },
+                    },
+                  }}
+                >
+                  {regioes.map((r) => (
+                    <MenuItem key={r.id_regiao} value={r.id_regiao} dense>
+                      <Checkbox checked={form.regioes_ids.includes(r.id_regiao)} size="small" sx={{ mr: 1 }} />
+                      <ListItemText
+                        primary={r.nome}
+                        secondary={`${r.qtd_lojas} loja(s)`}
+                        slotProps={{
+                          primary: { sx: { fontSize: 13 } },
+                          secondary: { sx: { fontSize: 11 } },
+                        }}
+                      />
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {!regioes.length ? (
+                  <Alert severity="warning">
+                    Nenhuma região cadastrada. Cadastre em Frota → Regiões e vincule as lojas.
+                  </Alert>
+                ) : null}
+              </>
             ) : (
               <TextField
                 size="small"
@@ -597,6 +671,7 @@ function FormUsuario({
 export default function UsuariosPage() {
   const [lista, setLista] = useState<UsuarioGestao[]>([]);
   const [lojas, setLojas] = useState<Loja[]>([]);
+  const [regioes, setRegioes] = useState<UsuarioGestaoRegiaoOpcao[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [loading, setLoading] = useState(true);
   const [erroLista, setErroLista] = useState('');
@@ -633,14 +708,16 @@ export default function UsuariosPage() {
   async function carregar() {
     setLoading(true);
     try {
-      const [u, l, cargosLista] = await Promise.all([
+      const [u, l, cargosLista, regs] = await Promise.all([
         api.usuariosGestao(),
         api.lojas({ ativas: true }),
         api.cargos(),
+        api.usuarioGestaoRegioes().catch(() => [] as UsuarioGestaoRegiaoOpcao[]),
       ]);
       setLista(u);
       setLojas(l);
       setCargos(cargosLista);
+      setRegioes(regs);
       setErroLista('');
     } catch (e) {
       setErroLista(e instanceof Error ? e.message : 'Erro ao carregar');
@@ -671,6 +748,11 @@ export default function UsuariosPage() {
 
   function lojasLabel(u: UsuarioGestao) {
     if (u.acesso_todas_lojas) return 'Todas as lojas';
+    if (u.regioes?.length) {
+      const nomes = u.regioes.map((r) => r.nome).join(', ');
+      const n = u.lojas?.length || 0;
+      return n ? `${nomes} · ${n} loja(s)` : nomes;
+    }
     if (!u.lojas?.length) return '—';
     if (u.lojas.length <= 2) return u.lojas.map((l) => l.nome).join(', ');
     return `${u.lojas.length} lojas`;
@@ -804,6 +886,7 @@ export default function UsuariosPage() {
           usuario={editando === 'novo' ? null : editando}
           cargos={cargos}
           lojas={lojas}
+          regioes={regioes}
           idSessao={sessao?.id_usuario}
           onFechar={() => setEditando(null)}
           onSalvo={() => {

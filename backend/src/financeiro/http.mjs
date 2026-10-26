@@ -896,10 +896,12 @@ export async function receberFreecontrolLote(req, res) {
       acao: 'importar',
       entidade: 'freecontrol_lote',
       idReferencia: resultado?.period_key || null,
-      descricao: `Recebeu lote Free Control (${resultado?.period_from || '?'} a ${resultado?.period_to || '?'}) — criadas=${resultado?.criadas ?? 0} existentes=${resultado?.existentes ?? 0}`,
+      descricao: `Recebeu lote Free Control (${resultado?.period_from || '?'} a ${resultado?.period_to || '?'}) — criadas=${resultado?.criadas ?? 0} atualizadas=${resultado?.atualizadas ?? 0} existentes=${resultado?.existentes ?? 0}`,
       detalhes: {
         period_key: resultado?.period_key,
+        vencimento: resultado?.vencimento,
         criadas: resultado?.criadas,
+        atualizadas: resultado?.atualizadas,
         existentes: resultado?.existentes,
         ignoradas: resultado?.ignoradas,
       },

@@ -111,6 +111,11 @@ const MENUS_SISTEMA: { titulo: string; descricao: string; codigos: string[] }[] 
     codigos: ['ti.tickets.abrir', 'ti.tickets.gerenciar'],
   },
   {
+    titulo: 'Escopo de lojas',
+    descricao: 'Rede inteira (Igor etc.). Sem isso, supervisor só vê a região vinculada no cadastro do usuário.',
+    codigos: ['lojas.todas'],
+  },
+  {
     titulo: 'Configurações',
     descricao: 'Cadastros, auditoria e canais',
     codigos: [
@@ -121,7 +126,6 @@ const MENUS_SISTEMA: { titulo: string; descricao: string; codigos: string[] }[] 
       'portal.lojas.ver',
       'usuarios.listar',
       'usuarios.gerenciar',
-      'lojas.todas',
       'sistema.backup',
     ],
   },
