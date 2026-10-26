@@ -952,6 +952,9 @@ export async function handleFinance(req, res) {
       if (soResumo && !acessoTodasLojas(user)) {
         empresaIds = await empresaIdsPorLojas(user.lojas_ids || [])
       }
+      void import('./lib/importFreecontrol.mjs')
+        .then(({ puxarBancoFreecontrolSePreciso }) => puxarBancoFreecontrolSePreciso(pool, env))
+        .catch((err) => console.warn(`[financeiro] FreeControl sync: ${err.message}`))
       return send(res, 200, JSON.stringify(await listarDespesas(url.searchParams.get('empresa') || '', { empresaIds })))
     }
     if (req.method === 'GET' && url.pathname === '/api/despesas/planilha-banco') {
@@ -1382,6 +1385,11 @@ export async function handleFinance(req, res) {
     }
     if (req.method === 'POST' && url.pathname === '/api/despesas/freecontrol-lote') {
       return receberFreecontrolLote(req, res)
+    }
+    if (req.method === 'POST' && url.pathname === '/api/despesas/freecontrol-sync') {
+      const { puxarBancoFreecontrol } = await import('./lib/importFreecontrol.mjs')
+      const r = await puxarBancoFreecontrol(pool, env)
+      return send(res, r.ok === false ? 502 : 200, JSON.stringify(r))
     }
     if (req.method === 'POST' && url.pathname === '/api/despesas') {
       const body = await readBody(req)
@@ -2390,6 +2398,12 @@ export function iniciarFinanceiro() {
   garantirSchemaConciliacao(pool).catch((err) => console.error(`[financeiro] conciliacao: ${err.message}`))
   garantirSchemaCaixa(pool).catch((err) => console.error(`[financeiro] caixa: ${err.message}`))
   garantirSchemaSefaz(pool).catch((err) => console.error(`[financeiro] sefaz: ${err.message}`))
+  const puxarFc = () =>
+    import('./lib/importFreecontrol.mjs')
+      .then(({ puxarBancoFreecontrolSePreciso }) => puxarBancoFreecontrolSePreciso(pool, env, { force: true }))
+      .catch((err) => console.warn(`[financeiro] FreeControl ciclo: ${err.message}`))
+  setTimeout(puxarFc, 12000)
+  setInterval(puxarFc, 3 * 60 * 1000)
   // O que o Hermes ainda deixar no Azimut entra por esta ponte. O recebimento direto é /caixa/ingest.
   import('./lib/syncCaixaAzimut.mjs')
     .then(({ iniciarSyncCaixaAzimut }) => iniciarSyncCaixaAzimut(env))

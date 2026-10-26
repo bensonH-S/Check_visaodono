@@ -126,4 +126,36 @@ describe('receberLoteFreecontrol', () => {
     assert.equal(pool.despesas[0].valor, 95)
     assert.equal(pool.despesas[0].vencimento, '2026-10-26')
   })
+
+  it('cancela no financeiro quem foi retirado do lote da semana', async () => {
+    const pool = memPool({ empresas: EMPRESAS })
+    const caike = {
+      secao: 'REI',
+      loja: 'BURGER KING - 408 Sul',
+      descricao: 'FREE Caike Batista',
+      tipo: 'freelance',
+      valor: 70,
+      pagamento: 'FOLHA',
+      codigo_ref: 'EMP-9',
+    }
+    const barbara = {
+      secao: 'REI',
+      loja: 'BURGER KING - 408 Sul',
+      descricao: 'FREE Barbara',
+      tipo: 'freelance',
+      valor: 40,
+      pagamento: 'FOLHA',
+      codigo_ref: 'EMP-10',
+    }
+    await receberLoteFreecontrol(pool, reqLote([caike, barbara]), env)
+    assert.equal(pool.despesas.filter((d) => d.status === 'pronta').length, 2)
+
+    await receberLoteFreecontrol(pool, reqLote([caike]), env)
+    const vivas = pool.despesas.filter((d) => d.status === 'pronta')
+    const canceladas = pool.despesas.filter((d) => d.status === 'cancelada')
+    assert.equal(vivas.length, 1)
+    assert.equal(vivas[0].descricao, 'Caike Batista')
+    assert.equal(canceladas.length, 1)
+    assert.equal(canceladas[0].descricao, 'Barbara')
+  })
 })

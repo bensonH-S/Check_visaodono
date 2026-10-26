@@ -188,6 +188,10 @@ export async function receberLoteFreecontrol(pool, req, env = process.env) {
   }
 
   const body = typeof req.body === 'object' && req.body ? req.body : {}
+  return aplicarLoteFreecontrol(pool, body)
+}
+
+export async function aplicarLoteFreecontrol(pool, body = {}) {
   const periodFrom = String(body.period_from || '').slice(0, 10)
   const periodTo = String(body.period_to || '').slice(0, 10)
   const periodKey = String(body.period_key || `${periodFrom}_${periodTo}`).trim()
@@ -282,7 +286,7 @@ export async function receberLoteFreecontrol(pool, req, env = process.env) {
     )
 
     refsKeep.push(documento_ref)
-    empresasOk.add(empresa.id)
+    empresasOk.add(String(empresa.id))
 
     if (dup.rows[0]) {
       const atual = dup.rows[0]
@@ -391,6 +395,151 @@ export async function receberLoteFreecontrol(pool, req, env = process.env) {
     erros: erros.slice(0, 40),
     ids,
   }
+}
+
+function ymdLocal(d) {
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
+function semanaTrabalhoYmd(base = new Date()) {
+  const x = new Date(base.getFullYear(), base.getMonth(), base.getDate(), 12, 0, 0)
+  const dow = x.getDay()
+  const toMon = dow === 0 ? -6 : 1 - dow
+  const mon = new Date(x)
+  mon.setDate(x.getDate() + toMon)
+  const sun = new Date(mon)
+  sun.setDate(mon.getDate() + 6)
+  return { from: ymdLocal(mon), to: ymdLocal(sun) }
+}
+
+function semanasParaPuxar() {
+  const atual = semanaTrabalhoYmd()
+  const previaBase = new Date()
+  previaBase.setDate(previaBase.getDate() - 7)
+  const previa = semanaTrabalhoYmd(previaBase)
+  const seen = new Set()
+  const out = []
+  for (const s of [previa, atual]) {
+    const k = `${s.from}_${s.to}`
+    if (seen.has(k)) continue
+    seen.add(k)
+    out.push(s)
+  }
+  return out
+}
+
+let puxando = null
+let puxouEm = 0
+
+export async function puxarBancoFreecontrol(pool, env = process.env) {
+  const base = String(env.FREECONTROL_API_URL || '').trim().replace(/\/+$/, '')
+  const token = String(env.FREECONTROL_APPROVAL_TOKEN || env.REGIONAL_APPROVAL_API_TOKEN || '').trim()
+  if (!base || !token) {
+    return { ok: false, skipped: true, message: 'FREECONTROL_API_URL / FREECONTROL_APPROVAL_TOKEN ausentes.' }
+  }
+
+  const semanas = semanasParaPuxar()
+  const resultados = []
+  for (const sem of semanas) {
+    const url = `${base}/api/regional-approvals/banco-lote?date_from=${encodeURIComponent(sem.from)}&date_to=${encodeURIComponent(sem.to)}`
+    const ctrl = new AbortController()
+    const t = setTimeout(() => ctrl.abort(), 180_000)
+    let lote
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+        signal: ctrl.signal,
+      })
+      const text = await res.text()
+      try {
+        lote = text ? JSON.parse(text) : null
+      } catch {
+        lote = null
+      }
+      if (!res.ok) {
+        resultados.push({
+          ok: false,
+          period_from: sem.from,
+          period_to: sem.to,
+          message: (lote && (lote.message || lote.erro || lote.error)) || `HTTP ${res.status}`,
+        })
+        continue
+      }
+    } catch (err) {
+      resultados.push({
+        ok: false,
+        period_from: sem.from,
+        period_to: sem.to,
+        message: String(err?.message || err).slice(0, 300),
+      })
+      continue
+    } finally {
+      clearTimeout(t)
+    }
+
+    const lancamentos = Array.isArray(lote?.lancamentos) ? lote.lancamentos : []
+    if (!lancamentos.length) {
+      resultados.push({
+        ok: true,
+        period_from: sem.from,
+        period_to: sem.to,
+        criadas: 0,
+        atualizadas: 0,
+        ignoradas: 0,
+        message: 'Sem lançamentos nesta semana.',
+      })
+      continue
+    }
+
+    const aplicado = await aplicarLoteFreecontrol(pool, {
+      period_from: lote.period_from || sem.from,
+      period_to: lote.period_to || sem.to,
+      period_key: lote.period_key || `${sem.from}_${sem.to}`,
+      vencimento: lote.vencimento,
+      lancamentos,
+    })
+    resultados.push(aplicado)
+  }
+
+  const criadas = resultados.reduce((s, r) => s + (Number(r.criadas) || 0), 0)
+  const atualizadas = resultados.reduce((s, r) => s + (Number(r.atualizadas) || 0), 0)
+  const erros = resultados.filter((r) => r.ok === false)
+  return {
+    ok: erros.length < resultados.length || resultados.length === 0,
+    criadas,
+    atualizadas,
+    semanas: resultados,
+  }
+}
+
+export function puxarBancoFreecontrolSePreciso(pool, env = process.env, { force = false, minMs = 120_000 } = {}) {
+  if (!force && Date.now() - puxouEm < minMs) {
+    return Promise.resolve({ ok: true, skipped: true, motivo: 'recente' })
+  }
+  if (puxando) return puxando
+  puxando = puxarBancoFreecontrol(pool, env)
+    .then((r) => {
+      puxouEm = Date.now()
+      const criadas = r.criadas ?? 0
+      const atualizadas = r.atualizadas ?? 0
+      if (!r.skipped) {
+        console.log(
+          `[financeiro] FreeControl puxado — criadas=${criadas} atualizadas=${atualizadas} ${JSON.stringify((r.semanas || []).map((s) => s.period_from || s.message))}`,
+        )
+      }
+      return r
+    })
+    .catch((err) => {
+      console.warn(`[financeiro] FreeControl puxar: ${err.message}`)
+      return { ok: false, message: err.message }
+    })
+    .finally(() => {
+      puxando = null
+    })
+  return puxando
 }
 
 export async function garantirSchemaFreecontrol(pool) {
