@@ -429,6 +429,23 @@ export default function EstoqueMobileNfePage() {
     scrollRef.current?.scrollTo({ top: 0 });
   };
 
+  /** Na última página o lançamento não sobe enquanto houver item sem visto ou X. */
+  const irParaPendentes = () => {
+    const idx = itensNota.findIndex((it) => checks[it.id_item]?.ok == null);
+    if (idx < 0) return;
+    irPagina(Math.floor(idx / ITENS_POR_PAGINA));
+    const nomes = itensNota
+      .filter((it) => checks[it.id_item]?.ok == null)
+      .slice(0, 2)
+      .map((it) => nomeItem(it));
+    const resto = resumo.pend - nomes.length;
+    const lista = resto > 0 ? `${nomes.join(', ')} e mais ${resto}` : nomes.join(', ');
+    showToast(
+      `A nota ainda não lança. Faltam ${resumo.pend} sem marca${lista ? `: ${lista}` : ''}. Toque no visto ou no X.`,
+      'warning',
+    );
+  };
+
   const marcarTodosOk = () => {
     if (jaEntrou) return;
     setChecks((prev) => {
@@ -596,7 +613,13 @@ export default function EstoqueMobileNfePage() {
                     <div
                       key={it.id_item}
                       className={`ck-estoque-hub__row${
-                        estado === false ? ' is-falta' : parcial ? ' is-parcial' : ''
+                        estado == null && !jaEntrou
+                          ? ' is-pend'
+                          : estado === false
+                            ? ' is-falta'
+                            : parcial
+                              ? ' is-parcial'
+                              : ''
                       }`}
                     >
                       <span className="ck-estoque-hub__item">
@@ -702,13 +725,17 @@ export default function EstoqueMobileNfePage() {
               <button
                 type="button"
                 className="is-pri"
-                disabled={salvando || (!podeFinalizar && !temProxima)}
+                disabled={salvando || (resumo.total === 0 && !temProxima)}
                 onClick={() => {
                   if (podeFinalizar) {
                     void finalizar();
                     return;
                   }
-                  if (temProxima) irPagina(paginaAtual + 1);
+                  if (temProxima) {
+                    irPagina(paginaAtual + 1);
+                    return;
+                  }
+                  irParaPendentes();
                 }}
               >
                 {salvando
@@ -719,7 +746,7 @@ export default function EstoqueMobileNfePage() {
                       : `Continuar (${resumo.ok}/${resumo.total})`
                     : temProxima
                       ? `Próxima página (${paginaAtual + 2}/${totalPaginas})`
-                      : `Continuar (${resumo.ok}/${resumo.total})`}
+                      : `Ver os ${resumo.pend} que faltam`}
               </button>
               <div className="ck-estoque-hub__foot-acoes">
                 <button type="button" onClick={voltarHubNf}>

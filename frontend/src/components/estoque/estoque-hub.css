@@ -1654,6 +1654,11 @@
   opacity: 0.35;
 }
 
+.ck-estoque-hub__row.is-pend {
+  background: rgba(245, 158, 11, 0.1);
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+
 .ck-estoque-hub__row.is-falta {
   background: rgba(239, 68, 68, 0.06);
 }
