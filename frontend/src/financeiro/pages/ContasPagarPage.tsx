@@ -87,13 +87,31 @@ const drawerEscuroPaper = {
 } as const
 
 const aberta = (e: Despesa) => !['paga', 'conciliada', 'cancelada'].includes(e.status)
-const hoje = new Date().toISOString().slice(0, 10)
+
+function hojeBrasil() {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
+}
+
+function diaVencimento(e: Pick<Despesa, 'vencimento'>) {
+  return (e.vencimento || '').slice(0, 10)
+}
+
+/** Vencida só depois que o dia passou em Brasília. Vence hoje = a vencer. */
+function estaVencida(e: Despesa) {
+  const venc = diaVencimento(e)
+  return aberta(e) && !!venc && venc < hojeBrasil()
+}
 
 /** Agenda banco: só 3 cores — a pagar (azul), pago (verde), vencida (vermelho). */
 function situacao(e: Despesa) {
   if (e.status === 'conciliada' || e.status === 'paga') return 'pago'
   if (e.status === 'bloqueada_duplicata') return 'bloqueada_duplicata'
-  if (aberta(e) && e.vencimento && e.vencimento < hoje) return 'vencida'
+  if (estaVencida(e)) return 'vencida'
   return 'a_pagar'
 }
 
@@ -397,7 +415,7 @@ export function ContasPagarPage() {
       if (filtro === 'Free Control') return true
       if (filtro === 'Boletos') return e.forma_pagamento === 'boleto'
       if (filtro === 'Para autorizar') return e.status === 'pronta'
-      if (filtro === 'Vencidas') return aberta(e) && !!e.vencimento && e.vencimento < hoje
+      if (filtro === 'Vencidas') return estaVencida(e)
       if (filtro === 'NF confirmada') return cicloNf(e) === 'confirmada'
       if (filtro === 'NF Parcial') return cicloNf(e) === 'divergente'
       if (filtro === 'NF Pendente') return cicloNf(e) === 'nao_confirmada'
@@ -416,7 +434,7 @@ export function ContasPagarPage() {
     () => ordenarEmpresas(empresas.filter((e) => e.tipo === 'loja' || e.tipo === 'holding')),
     [empresas],
   )
-  const vencida = soma((e) => aberta(e) && !!e.vencimento && e.vencimento < hoje)
+  const vencida = soma((e) => estaVencida(e))
 
   return (
     <Stack spacing={1} sx={finPageSx}>
@@ -830,7 +848,7 @@ export function ContasPagarPage() {
                   )}
                 </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle' }}><Codigo forma={e.forma_pagamento} pagamento={e.pagamento} /></TableCell>
-                <TableCell align="center" sx={{ verticalAlign: 'middle', color: aberta(e) && e.vencimento && e.vencimento < hoje ? '#B91C1C' : FIN_TEXT }}>
+                <TableCell align="center" sx={{ verticalAlign: 'middle', color: estaVencida(e) ? '#B91C1C' : FIN_TEXT }}>
                   {e.vencimento ? e.vencimento.split('-').reverse().join('/') : '—'}
                 </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
