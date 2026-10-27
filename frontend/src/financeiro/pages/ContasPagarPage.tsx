@@ -173,7 +173,7 @@ function ymdMaisDias(ymd: string, dias: number) {
 }
 
 /** DDA/manual: vencimento na semana. Free Control: pagamento ou semana de serviço (seg–dom). */
-function noRecorteAgenda(e: Despesa, de: string, ate: string, atrasados = false) {
+function noRecorteAgenda(e: Despesa, de: string, ate: string) {
   const vencimento = (e.vencimento || '').slice(0, 10)
   const competencia = (e.competencia || '').slice(0, 10)
   const dentro = (dia: string) => {
@@ -184,7 +184,6 @@ function noRecorteAgenda(e: Despesa, de: string, ate: string, atrasados = false)
   }
   if (!ehFreeControl(e)) return dentro(vencimento)
   if (dentro(vencimento) || dentro(competencia)) return true
-  if (atrasados && de && vencimento && vencimento < de) return true
   if (competencia && de && ate) {
     const domingo = ymdMaisDias(competencia, 6)
     if (competencia <= ate && domingo >= de) return true
@@ -419,10 +418,9 @@ export function ContasPagarPage() {
   const linhas = useMemo(() => {
     const q = busca.trim().toLowerCase()
     const qDigitos = q.replace(/\D/g, '')
-    // Busca por texto/NF ignora o recorte semanal — senão a nota some quando o vencimento é outra semana.
     const base = filtro === 'Free Control'
-      ? naAgenda.filter((e) => ehFreeControl(e) && (q || noRecorteAgenda(e, de, ate, true)))
-      : (q ? naAgenda : noPeriodo)
+      ? noPeriodo.filter((e) => ehFreeControl(e))
+      : noPeriodo
     const filtradas = base.filter((e) => {
       if (q) {
         const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.plano ?? ''} ${e.numero_nf ?? ''}`.toLowerCase()
@@ -443,7 +441,7 @@ export function ContasPagarPage() {
       return true
     })
     return ordenarLancamentosPorEmpresa(filtradas, empresas)
-  }, [noPeriodo, naAgenda, busca, filtro, empresas, de, ate])
+  }, [noPeriodo, busca, filtro, empresas])
 
   useEffect(() => { setPagina(0) }, [busca, de, ate, loja, filtro])
 
