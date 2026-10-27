@@ -761,7 +761,9 @@ async function listarDespesas(empresaId, { empresaIds = null } = {}) {
   setTimeout(() => { classificarTributosEmFundo().catch(() => {}) }, 0)
   const { classificarTributo, rotuloTributo, portalTributo } = await import('./lib/classificarTributo.mjs')
   return rows.map((row) => {
+    const ref = String(row.documento_ref || '')
     const fonte = String(row.fonte || '').toLowerCase()
+      || (ref.toUpperCase().startsWith('FC|') ? 'freecontrol' : '')
     let conferencia_status = row.conferencia_status || null
     let tributo_tipo = row.tributo_tipo || null
     if (fonte === 'freecontrol' && !conferencia_status) conferencia_status = 'ok'
@@ -773,7 +775,7 @@ async function listarDespesas(empresaId, { empresaIds = null } = {}) {
         documento_ref: row.documento_ref,
         forma_pagamento: row.forma_pagamento,
         freecontrol_tipo: row.freecontrol_tipo,
-        fonte: row.fonte,
+        fonte: fonte || row.fonte,
       })
     }
     if (tributo_tipo && !conferencia_status && fonte !== 'freecontrol') {
@@ -781,6 +783,7 @@ async function listarDespesas(empresaId, { empresaIds = null } = {}) {
     }
     return {
       ...row,
+      fonte: fonte || row.fonte || null,
       conferencia_status,
       tributo_tipo,
       tributo_rotulo: tributo_tipo ? rotuloTributo(tributo_tipo) : null,

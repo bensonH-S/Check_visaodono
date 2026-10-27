@@ -43,7 +43,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
-import { api, brl, emCache, estaNoInbox, linhaAcrescimo, urlDespesas, urlEmpresas, type Despesa, type Empresa, type Fornecedor } from '../api'
+import { api, brl, ehFreeControl, emCache, estaNoInbox, linhaAcrescimo, urlDespesas, urlEmpresas, type Despesa, type Empresa, type Fornecedor } from '../api'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
@@ -109,7 +109,7 @@ function cicloNf(e: Despesa): 'nao_confirmada' | 'confirmada' | 'divergente' | n
   if (e.nf_ciclo === 'nao_confirmada' || e.nf_ciclo === 'em_transito') return 'nao_confirmada'
   if (e.nf_confirmada && e.nf_divergente) return 'divergente'
   if (e.nf_confirmada) return 'confirmada'
-  if (e.fonte === 'freecontrol' || e.fonte === 'manual') return null
+  if (ehFreeControl(e) || e.fonte === 'manual') return null
   if (e.fonte === 'dda' || e.fonte === 'nfe' || e.numero_nf) return 'nao_confirmada'
   return null
 }
@@ -136,6 +136,32 @@ function dataLocal(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const dia = String(d.getDate()).padStart(2, '0')
   return `${d.getFullYear()}-${m}-${dia}`
+}
+
+function ymdMaisDias(ymd: string, dias: number) {
+  const [y, m, d] = String(ymd || '').slice(0, 10).split('-').map(Number)
+  if (!y || !m || !d) return ''
+  return dataLocal(new Date(y, m - 1, d + dias))
+}
+
+/** DDA/manual: vencimento na semana. Free Control: pagamento ou semana de serviço (seg–dom). */
+function noRecorteAgenda(e: Despesa, de: string, ate: string, atrasados = false) {
+  const vencimento = (e.vencimento || '').slice(0, 10)
+  const competencia = (e.competencia || '').slice(0, 10)
+  const dentro = (dia: string) => {
+    if (!dia) return !de && !ate
+    if (de && dia < de) return false
+    if (ate && dia > ate) return false
+    return true
+  }
+  if (!ehFreeControl(e)) return dentro(vencimento)
+  if (dentro(vencimento) || dentro(competencia)) return true
+  if (atrasados && de && vencimento && vencimento < de) return true
+  if (competencia && de && ate) {
+    const domingo = ymdMaisDias(competencia, 6)
+    if (competencia <= ate && domingo >= de) return true
+  }
+  return false
 }
 
 function periodoAtual() {
@@ -332,6 +358,7 @@ export function ContasPagarPage() {
   }), [despesas])
 
   const noPeriodo = useMemo(() => naAgenda.filter((e) => {
+    if (ehFreeControl(e)) return noRecorteAgenda(e, de, ate)
     const vencimento = (e.vencimento || '').slice(0, 10)
     if (!vencimento) return !de && !ate
     if (de && vencimento < de) return false
@@ -342,18 +369,22 @@ export function ContasPagarPage() {
   /** Total já baixado no período (não lista na tabela — só o card + Conciliadas). */
   const pagoNoPeriodo = useMemo(() => despesas.filter((e) => {
     if (e.status !== 'paga' && e.status !== 'conciliada') return false
+    if (filtro === 'Free Control' && !ehFreeControl(e)) return false
+    if (filtro === 'DDA' && e.fonte !== 'dda') return false
     const vencimento = (e.vencimento || '').slice(0, 10)
     if (!vencimento) return !de && !ate
     if (de && vencimento < de) return false
     if (ate && vencimento > ate) return false
     return true
-  }).reduce((a, e) => a + Number(e.valor), 0), [despesas, de, ate])
+  }).reduce((a, e) => a + Number(e.valor), 0), [despesas, de, ate, filtro])
 
   const linhas = useMemo(() => {
     const q = busca.trim().toLowerCase()
     const qDigitos = q.replace(/\D/g, '')
     // Busca por texto/NF ignora o recorte semanal — senão a nota some quando o vencimento é outra semana.
-    const base = q ? naAgenda : noPeriodo
+    const base = filtro === 'Free Control'
+      ? naAgenda.filter((e) => ehFreeControl(e) && (q || noRecorteAgenda(e, de, ate, true)))
+      : (q ? naAgenda : noPeriodo)
     const filtradas = base.filter((e) => {
       if (q) {
         const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.plano ?? ''} ${e.numero_nf ?? ''}`.toLowerCase()
@@ -363,7 +394,7 @@ export function ContasPagarPage() {
         if (!bateTexto && !bateNf) return false
       }
       if (filtro === 'DDA') return e.fonte === 'dda'
-      if (filtro === 'Free Control') return e.fonte === 'freecontrol'
+      if (filtro === 'Free Control') return true
       if (filtro === 'Boletos') return e.forma_pagamento === 'boleto'
       if (filtro === 'Para autorizar') return e.status === 'pronta'
       if (filtro === 'Vencidas') return aberta(e) && !!e.vencimento && e.vencimento < hoje
@@ -373,7 +404,7 @@ export function ContasPagarPage() {
       return true
     })
     return ordenarLancamentosPorEmpresa(filtradas, empresas)
-  }, [noPeriodo, naAgenda, busca, filtro, empresas])
+  }, [noPeriodo, naAgenda, busca, filtro, empresas, de, ate])
 
   useEffect(() => { setPagina(0) }, [busca, de, ate, loja, filtro])
 
@@ -537,6 +568,9 @@ export function ContasPagarPage() {
                 const fc = periodoFreeControl()
                 setDe(fc.de)
                 setAte(fc.ate)
+                void api.syncFreecontrol()
+                  .then(() => carregar())
+                  .catch(() => undefined)
               }
             }}
             sx={finChipSx(filtro === item)}
@@ -618,7 +652,7 @@ export function ContasPagarPage() {
                         : null
 
                       // Free Control → selo curto por tipo (mesmas cores: confirmado / pendente)
-                      if (e.fonte === 'freecontrol') {
+                      if (ehFreeControl(e)) {
                         const ok = (e.conferencia_status || 'ok') !== 'pendente'
                         const tipo = e.freecontrol_tipo === 'treinamento'
                           ? t('Trein', 'Train')
@@ -739,7 +773,7 @@ export function ContasPagarPage() {
                   </Box>
                 </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
-                  {e.fonte === 'dda' || e.fonte === 'nfe' || e.fonte === 'freecontrol' ? (
+                  {e.fonte === 'dda' || e.fonte === 'nfe' || ehFreeControl(e) ? (
                     <Chip
                       size="small"
                       label={

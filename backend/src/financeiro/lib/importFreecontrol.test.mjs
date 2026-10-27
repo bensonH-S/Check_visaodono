@@ -158,4 +158,30 @@ describe('receberLoteFreecontrol', () => {
     assert.equal(canceladas.length, 1)
     assert.equal(canceladas[0].descricao, 'Barbara')
   })
+
+  it('soma FREE+AUX da mesma pessoa num único lançamento, como a planilha BANCO', async () => {
+    const pool = memPool({ empresas: EMPRESAS })
+    const r = await receberLoteFreecontrol(pool, reqLote([
+      {
+        secao: 'REI ALVIM',
+        loja: 'CALDAS NOVAS',
+        descricao: 'FREE Oseas de Oliveira Carneiro',
+        tipo: 'freelance',
+        valor: 80,
+        pagamento: 'FOLHA',
+      },
+      {
+        secao: 'REI ALVIM',
+        loja: 'CALDAS NOVAS',
+        descricao: 'AUX Oseas de Oliveira Carneiro',
+        tipo: 'despesa',
+        valor: 100,
+        pagamento: 'FOLHA',
+      },
+    ]), env)
+    assert.equal(r.criadas, 1)
+    assert.equal(pool.despesas.length, 1)
+    assert.equal(pool.despesas[0].valor, 180)
+    assert.equal(pool.despesas[0].empresa_origem_id, 'emp-1')
+  })
 })

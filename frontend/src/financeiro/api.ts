@@ -241,6 +241,16 @@ export type Despesa = {
 
 const STATUS_INBOX = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
 
+export function ehFreeControl(e: Pick<Despesa, 'fonte' | 'documento_ref'>) {
+  if (String(e.fonte || '').toLowerCase() === 'freecontrol') return true
+  return String(e.documento_ref || '').toUpperCase().startsWith('FC|')
+}
+
+export function normalizarDespesa(e: Despesa): Despesa {
+  if (ehFreeControl(e) && e.fonte !== 'freecontrol') return { ...e, fonte: 'freecontrol' }
+  return e
+}
+
 /** Título que ainda espera confirmação no Inbox (DDA, NF conferida sem boleto, ou manual nova). */
 export function estaNoInbox(e: Pick<Despesa, 'fonte' | 'status' | 'pendente_inbox'>) {
   /** Paga/conciliada nunca voltam ao Inbox — só em Conciliadas. */
@@ -700,7 +710,19 @@ export const api = {
     if (!res.ok) throw new Error((data as { erro?: string }).erro || 'Não marcou')
     return data
   },
-  despesas: (empresa?: string) => get<Despesa[]>(urlDespesas(empresa)),
+  despesas: async (empresa?: string) => {
+    const url = urlDespesas(empresa)
+    const rows = await get<Despesa[]>(url)
+    const norm = Array.isArray(rows) ? rows.map(normalizarDespesa) : rows
+    if (Array.isArray(norm)) memoria.set(url, norm)
+    return norm
+  },
+  syncFreecontrol: async () => {
+    const res = await financeFetch(`${apiRoot}/despesas/freecontrol-sync`, { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((data as { erro?: string }).erro || 'Não sincronizou o Free Control')
+    return data
+  },
   baixarPlanilhaBanco: async (de: string, ate: string, empresa?: string) => {
     const q = new URLSearchParams({ de, ate })
     if (empresa) q.set('empresa', empresa)

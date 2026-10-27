@@ -50,13 +50,65 @@ function classificarTipo(prefs, descricao) {
   return 'despesa'
 }
 
+const PREFIXOS_PESSOA = 'FREE|TREIN|DESP|FREELANCE|TREINAMENTO|DESPESA|AUX|META|REEMB|PASSAG|FERIADOS|PREMIACAO|PREMIAÇÃO|OUTRAS'
+
 /** Remove [FREE]/FREE/TREIN do texto — o tipo fica só no selo. */
 function limparDescricaoFreecontrol(texto) {
   return String(texto || '')
     .replace(/^\s*\[(?:FREE|TREIN|DESP|FREELANCE|TREINAMENTO|DESPESA)\]\s*/i, '')
     .replace(/^\s*(?:FREE|TREIN|DESP|FREELANCE|TREINAMENTO|DESPESA)\b[:\-\s]*/i, '')
+    .replace(/^\++/, '')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+/** Nome da pessoa, sem FREE+AUX+META… — identidade estável no lote. */
+function nomeSemPrefixos(texto) {
+  const s = String(texto || '')
+    .replace(/^\s*\[(?:FREE|TREIN|DESP|FREELANCE|TREINAMENTO|DESPESA)\]\s*/i, '')
+    .replace(new RegExp(`^(?:${PREFIXOS_PESSOA})(?:\\+(?:${PREFIXOS_PESSOA}))*[\\s:+-]*`, 'i'), '')
+    .replace(/^\++/, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return s || String(texto || '').trim()
+}
+
+function round2(n) {
+  return Math.round(Number(n) * 100) / 100
+}
+
+/** Mesma regra da planilha BANCO: um registro por pessoa+loja+folha/pix, somando tipos. */
+function mesclarLancamentos(linhas) {
+  const map = new Map()
+  const ordem = []
+  for (const raw of linhas || []) {
+    const valor = Number(raw?.valor)
+    if (!Number.isFinite(valor) || valor <= 0) continue
+    const descricao = String(raw.descricao || raw.desc || '').trim()
+    if (!descricao) continue
+    const codigo = String(raw.codigo_ref || '').trim()
+    const nome = norm(nomeSemPrefixos(descricao))
+    const chave = [
+      norm(raw.secao || ''),
+      codigo || nome,
+      formaPagamentoChave(raw.pagamento),
+    ].join('|')
+    const prev = map.get(chave)
+    if (!prev) {
+      const prefs = Array.isArray(raw.prefs) ? raw.prefs.map(String) : []
+      map.set(chave, { ...raw, descricao, valor, prefs })
+      ordem.push(chave)
+      continue
+    }
+    prev.valor = round2(prev.valor + valor)
+    const prefs = new Set([...(prev.prefs || []), ...((raw.prefs || []).map(String))])
+    prev.prefs = [...prefs]
+    if (descricao.length > String(prev.descricao || '').length) prev.descricao = descricao
+    if (!prev.pix_key && raw.pix_key) prev.pix_key = raw.pix_key
+    if (!prev.codigo_ref && raw.codigo_ref) prev.codigo_ref = raw.codigo_ref
+    if (!prev.alocacao && raw.alocacao) prev.alocacao = raw.alocacao
+  }
+  return ordem.map((k) => map.get(k))
 }
 
 function formaDePagamento(pag, pixKey) {
@@ -81,7 +133,7 @@ function hashRef(periodKey, parts) {
 
 /** Identidade estável da pessoa na semana — valor/horas não entram, senão o ajuste vira outra linha. */
 function docRefEstavel(periodKey, linha) {
-  const nome = norm(limparDescricaoFreecontrol(linha.descricao || ''))
+  const nome = norm(nomeSemPrefixos(linha.descricao || ''))
   const codigo = String(linha.codigo_ref || '').trim()
   return hashRef(periodKey, [
     periodKey,
@@ -124,11 +176,16 @@ const ALIASES_SECAO = [
 
 function resolverEmpresa(empresas, secao, loja) {
   const alvoSec = norm(secao)
-  const candidatos = [alvoSec]
+  const curto = alvoSec.replace(/\s+ALVIM$/, '').trim()
+  const candidatos = [alvoSec, curto]
   for (const [de, para] of ALIASES_SECAO) {
     if (alvoSec && (alvoSec === norm(de) || alvoSec.includes(norm(de)))) {
       candidatos.push(norm(para))
     }
+  }
+  for (const alvo of candidatos.filter(Boolean)) {
+    const exato = empresas.find((e) => norm(e.apelido) === alvo || norm(e.razao_social) === alvo)
+    if (exato) return exato
   }
   for (const alvo of candidatos.filter(Boolean)) {
     const hit = empresas.find((e) => {
@@ -197,7 +254,7 @@ export async function aplicarLoteFreecontrol(pool, body = {}) {
   const periodKey = String(body.period_key || `${periodFrom}_${periodTo}`).trim()
   // Serviço seg→dom; vence na segunda subsequente (Agenda sáb→sáb).
   const vencimento = String(body.vencimento || segundaSubsequente(periodTo) || periodTo).slice(0, 10)
-  const linhas = Array.isArray(body.lancamentos) ? body.lancamentos : []
+  const linhas = mesclarLancamentos(Array.isArray(body.lancamentos) ? body.lancamentos : [])
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(periodFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(periodTo)) {
     const err = new Error('period_from e period_to (YYYY-MM-DD) são obrigatórios.')
@@ -240,6 +297,8 @@ export async function aplicarLoteFreecontrol(pool, body = {}) {
     const tipoRaw = String(raw.tipo || '').toLowerCase()
     const tipo = TIPOS.has(tipoRaw) ? tipoRaw : classificarTipo(prefs, descricao)
     const empresa = resolverEmpresa(empresas, raw.secao, raw.loja)
+      || empresas.find((e) => /ALVIM PARTICIP/.test(norm(e.apelido) + ' ' + norm(e.razao_social)))
+      || empresas.find((e) => norm(e.apelido) === 'KING')
     if (!empresa) {
       erros.push({ descricao, secao: raw.secao, loja: raw.loja, motivo: 'empresa não encontrada' })
       ignoradas += 1
@@ -433,32 +492,81 @@ function semanasParaPuxar() {
 let puxando = null
 let puxouEm = 0
 
+function basesFreecontrol(env) {
+  const extra = [
+    'http://172.17.0.1:3004',
+    'http://172.17.0.1:5000',
+    'http://172.17.0.1:5001',
+    'http://host.docker.internal:3004',
+    'http://host.docker.internal:5000',
+    'http://host.docker.internal:5001',
+    'http://127.0.0.1:3004',
+    'http://127.0.0.1:5000',
+    'http://127.0.0.1:5001',
+    'http://localhost:3004',
+    'http://localhost:5000',
+    'http://localhost:5001',
+  ]
+  const principal = String(env.FREECONTROL_API_URL || '').trim().replace(/\/+$/, '')
+  const out = []
+  for (const u of [principal, ...extra]) {
+    const n = String(u || '').trim().replace(/\/+$/, '')
+    if (n && !out.includes(n)) out.push(n)
+  }
+  return out
+}
+
+async function fetchBancoLote(base, token, from, to, timeoutMs) {
+  const url = `${base}/api/regional-approvals/banco-lote?date_from=${encodeURIComponent(from)}&date_to=${encodeURIComponent(to)}`
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), timeoutMs)
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+      signal: ctrl.signal,
+    })
+    const text = await res.text()
+    let lote = null
+    try {
+      lote = text ? JSON.parse(text) : null
+    } catch {
+      lote = null
+    }
+    return { res, lote }
+  } finally {
+    clearTimeout(t)
+  }
+}
+
 export async function puxarBancoFreecontrol(pool, env = process.env) {
-  const base = String(env.FREECONTROL_API_URL || '').trim().replace(/\/+$/, '')
   const token = String(env.FREECONTROL_APPROVAL_TOKEN || env.REGIONAL_APPROVAL_API_TOKEN || '').trim()
-  if (!base || !token) {
+  const bases = basesFreecontrol(env)
+  if (!bases.length || !token) {
     return { ok: false, skipped: true, message: 'FREECONTROL_API_URL / FREECONTROL_APPROVAL_TOKEN ausentes.' }
   }
 
   const semanas = semanasParaPuxar()
+  let baseOk = ''
+  for (const cand of bases) {
+    try {
+      const { res } = await fetchBancoLote(cand, token, semanas[0].from, semanas[0].to, 8_000)
+      if (res.ok || res.status === 401 || res.status === 403) {
+        baseOk = cand
+        break
+      }
+    } catch {
+      /* tenta o próximo host */
+    }
+  }
+  const base = baseOk || bases[0]
+
   const resultados = []
   for (const sem of semanas) {
-    const url = `${base}/api/regional-approvals/banco-lote?date_from=${encodeURIComponent(sem.from)}&date_to=${encodeURIComponent(sem.to)}`
-    const ctrl = new AbortController()
-    const t = setTimeout(() => ctrl.abort(), 180_000)
     let lote
     try {
-      const res = await fetch(url, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${token}` },
-        signal: ctrl.signal,
-      })
-      const text = await res.text()
-      try {
-        lote = text ? JSON.parse(text) : null
-      } catch {
-        lote = null
-      }
+      const { res, lote: parsed } = await fetchBancoLote(base, token, sem.from, sem.to, 180_000)
+      lote = parsed
       if (!res.ok) {
         resultados.push({
           ok: false,
@@ -476,8 +584,6 @@ export async function puxarBancoFreecontrol(pool, env = process.env) {
         message: String(err?.message || err).slice(0, 300),
       })
       continue
-    } finally {
-      clearTimeout(t)
     }
 
     const lancamentos = Array.isArray(lote?.lancamentos) ? lote.lancamentos : []
