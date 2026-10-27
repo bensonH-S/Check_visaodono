@@ -601,6 +601,23 @@ export function podeVerFinanceiro(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('financeiro.ver', usuario);
 }
 
+/** Dono (Felipe) na Agenda: recusar e alterar valor, mesmo sem financeiro.ver. */
+export function ehDonoFinanceiro(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  const cargo = String(u.cargo_aprovacao || u.cargo || u.perfil || '').toLowerCase();
+  if (cargo === 'dono' || cargo === 'ceo') return true;
+  if (/\bfelipe\b/i.test(String(u.nome || ''))) return true;
+  return temPermissao('financeiro.resumo.ver', u) && !temPermissao('financeiro.ver', u);
+}
+
+export function primeiroNome(usuario?: UsuarioSessao | null): string {
+  const u = usuario ?? getUsuario();
+  const nome = String(u?.nome || '').trim();
+  if (!nome) return 'Felipe';
+  return nome.split(/\s+/)[0];
+}
+
 /** Gastos/pagamentos no Command Center (módulo Financeiro completo continua só com financeiro.ver). */
 export function podeVerResumoFinanceiro(usuario?: UsuarioSessao | null): boolean {
   return (

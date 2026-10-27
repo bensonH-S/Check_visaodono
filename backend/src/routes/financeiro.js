@@ -22,7 +22,13 @@ const leituraResumo = new Set([
   '/mascara-reuniao',
 ]);
 
+function ehAcaoDono(req) {
+  if (req.method !== 'POST') return false;
+  return /^\/despesas\/[^/]+\/dono-(recusa|valor|livre)$/.test(req.path);
+}
+
 function podeLeituraResumo(req) {
+  if (ehAcaoDono(req)) return true;
   if (req.method !== 'GET') return false;
   if (leituraResumo.has(req.path)) return true;
   if (req.path.startsWith('/mascara-reuniao/')) return true;

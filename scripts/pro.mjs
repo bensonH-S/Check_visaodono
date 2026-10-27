@@ -59,7 +59,7 @@ console.log(
 console.log('');
 
 const api = producao ? 'node server.js --db-prod' : 'node server.js';
-const web = 'npx --yes wait-on tcp:127.0.0.1:5000 -t 90000 && npm run dev --prefix frontend';
+const web = 'npx --yes wait-on tcp:127.0.0.1:5000 -t 180000 && npm run dev --prefix frontend';
 
 const { result } = concurrently(
   [

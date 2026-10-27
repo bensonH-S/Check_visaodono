@@ -97,6 +97,7 @@ async function garantirSchemaFonte(db) {
   await db.query(fs.readFileSync(path.join(root, 'db', '015_despesa_pendente_inbox.sql'), 'utf8'))
   await db.query(fs.readFileSync(path.join(root, 'db', '016_despesa_acrescimos.sql'), 'utf8'))
   await db.query(fs.readFileSync(path.join(root, 'db', '017_despesa_conferencia.sql'), 'utf8'))
+  await db.query(fs.readFileSync(path.join(root, 'db', '018_despesa_lancamento_dono.sql'), 'utf8'))
   try {
     const { garantirSchemaFreecontrol } = await import('./lib/importFreecontrol.mjs')
     await garantirSchemaFreecontrol(db)
@@ -701,6 +702,11 @@ async function listarDespesas(empresaId, { empresaIds = null } = {}) {
            coalesce(d.modo_acrescimo, 'total') as modo_acrescimo,
            to_char(d.vencimento, 'YYYY-MM-DD') as vencimento,
            to_char(d.vencimento_original, 'YYYY-MM-DD') as vencimento_original,
+           to_char(coalesce(d.data_lancamento, d.competencia, d.created_at::date), 'YYYY-MM-DD') as data_lancamento,
+           coalesce(d.dono_recusa, false) as dono_recusa,
+           d.dono_recusa_motivo,
+           to_char(d.dono_recusa_em at time zone 'America/Sao_Paulo', 'YYYY-MM-DD HH24:MI') as dono_recusa_em,
+           d.dono_recusa_por,
            to_char(d.competencia, 'YYYY-MM-DD') as competencia, d.forma_pagamento, d.status,
            d.documento_ref, d.numero_nf, d.nfe_id, d.nf_confirmada, coalesce(d.nf_divergente, false) as nf_divergente,
            coalesce(
@@ -1440,9 +1446,9 @@ export async function handleFinance(req, res) {
       const inserted = await pool.query(`
         insert into despesas (
           id, descricao, fornecedor_id, empresa_origem_id, empresa_registro_id, conta_saida_id, plano_conta_id,
-          documento_ref, competencia, vencimento, vencimento_original, valor, valor_face, multa, juros, outras_taxas, desconto, modo_acrescimo,
+          documento_ref, competencia, vencimento, vencimento_original, data_lancamento, valor, valor_face, multa, juros, outras_taxas, desconto, modo_acrescimo,
           forma_pagamento, dados_pagamento, status, fonte, pendente_inbox
-        ) values (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,'manual', true)
+        ) values (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,'manual', true)
         returning id, status
       `, [
         String(body.descricao).trim(),
@@ -1455,6 +1461,7 @@ export async function handleFinance(req, res) {
         body.competencia || null,
         acrescimo.vencimento,
         acrescimo.vencimentoOriginal,
+        body.data_lancamento || hojeBR(),
         acrescimo.total,
         acrescimo.face,
         acrescimo.multa,
@@ -1651,6 +1658,77 @@ export async function handleFinance(req, res) {
         }))
       }
     }
+    {
+      const mDono = url.pathname.match(/^\/api\/despesas\/([0-9a-f-]{36})\/dono-(recusa|valor|livre)$/i)
+      if (req.method === 'POST' && mDono) {
+        const id = mDono[1]
+        const acao = mDono[2].toLowerCase()
+        const body = await readBody(req)
+        const ator = String(req.user?.nome || req.user?.email || 'dono').trim().slice(0, 80)
+        const atual = await pool.query(`select id::text as id, status, valor::float8 as valor from despesas where id = $1`, [id])
+        if (!atual.rowCount) return send(res, 404, JSON.stringify({ erro: 'Despesa não encontrada.' }))
+        const row = atual.rows[0]
+        if (['paga', 'conciliada', 'cancelada'].includes(row.status)) {
+          return send(res, 400, JSON.stringify({ erro: 'Esse lançamento já foi baixado.' }))
+        }
+        if (acao === 'recusa') {
+          const motivo = String(body?.motivo || '').trim()
+          if (motivo.length < 3) {
+            return send(res, 400, JSON.stringify({ erro: 'Informe o que está recusando.' }))
+          }
+          const up = await pool.query(
+            `update despesas set dono_recusa = true, dono_recusa_motivo = $2, dono_recusa_em = now(), dono_recusa_por = $3
+             where id = $1
+             returning id::text as id, dono_recusa, dono_recusa_motivo, dono_recusa_por,
+                       to_char(dono_recusa_em at time zone 'America/Sao_Paulo', 'YYYY-MM-DD HH24:MI') as dono_recusa_em`,
+            [id, motivo.slice(0, 500), ator],
+          )
+          metaFinanceiro(req, {
+            acao: 'atualizar',
+            entidade: 'despesa_dono',
+            idReferencia: id,
+            descricao: `Dono recusou lançamento: ${motivo.slice(0, 80)}`,
+            detalhes: { acao: 'recusa' },
+          })
+          return send(res, 200, JSON.stringify(up.rows[0]))
+        }
+        if (acao === 'livre') {
+          const up = await pool.query(
+            `update despesas set dono_recusa = false
+             where id = $1
+             returning id::text as id, dono_recusa, dono_recusa_motivo, dono_recusa_por,
+                       to_char(dono_recusa_em at time zone 'America/Sao_Paulo', 'YYYY-MM-DD HH24:MI') as dono_recusa_em`,
+            [id],
+          )
+          metaFinanceiro(req, {
+            acao: 'atualizar',
+            entidade: 'despesa_dono',
+            idReferencia: id,
+            descricao: 'Financeiro marcou o lançamento recusado como livre',
+            detalhes: { acao: 'livre' },
+          })
+          return send(res, 200, JSON.stringify(up.rows[0]))
+        }
+        const valor = Number(body?.valor)
+        if (!Number.isFinite(valor) || valor <= 0) {
+          return send(res, 400, JSON.stringify({ erro: 'Informe um valor válido.' }))
+        }
+        const up = await pool.query(
+          `update despesas set valor = $2, valor_face = $2
+           where id = $1
+           returning id::text as id, valor::float8 as valor, valor_face::float8 as valor_face`,
+          [id, Math.round(valor * 100) / 100],
+        )
+        metaFinanceiro(req, {
+          acao: 'atualizar',
+          entidade: 'despesa_dono',
+          idReferencia: id,
+          descricao: `Dono alterou valor de ${row.valor} para ${valor}`,
+          detalhes: { acao: 'valor', de: row.valor, para: valor },
+        })
+        return send(res, 200, JSON.stringify(up.rows[0]))
+      }
+    }
     if (req.method === 'PATCH' && url.pathname.startsWith('/api/despesas/')) {
       const id = url.pathname.split('/').pop()
       const body = await readBody(req)
@@ -1668,7 +1746,8 @@ export async function handleFinance(req, res) {
           multa = $11, juros = $12, outras_taxas = $13, desconto = $14, modo_acrescimo = $15,
           forma_pagamento = $16, dados_pagamento = $17,
           status = case when $19::text is null then status else $19 end,
-          competencia = case when $20::date is null then competencia else $20::date end
+          competencia = case when $20::date is null then competencia else $20::date end,
+          data_lancamento = case when $21::date is null then data_lancamento else $21::date end
         where id = $18
         returning id, status
       `, [
@@ -1692,6 +1771,7 @@ export async function handleFinance(req, res) {
         id,
         body.status && ['rascunho', 'classificada', 'pronta'].includes(body.status) ? body.status : null,
         body.competencia || null,
+        body.data_lancamento || null,
       ])
       if (!updated.rowCount) return send(res, 404, JSON.stringify({ erro: 'Despesa não encontrada.' }))
       return send(res, 200, JSON.stringify(updated.rows[0]))

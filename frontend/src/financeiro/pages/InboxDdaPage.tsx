@@ -903,6 +903,7 @@ export function InboxDdaPage() {
                   <TableCell align="center" sx={{ width: 168, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
                   <TableCell sx={{ width: '34%' }}>{t('Fornecedor', 'Supplier')}</TableCell>
                   <TableCell align="center" sx={{ width: '16%', ...celulaCentroSx }}>{t('Loja', 'Store')}</TableCell>
+                  <TableCell sx={{ width: 108 }}>{t('Lançamento', 'Posted')}</TableCell>
                   <TableCell sx={{ width: 108 }}>{t('Vencimento', 'Due date')}</TableCell>
                   <TableCell align="right" sx={{ width: 128, pr: 2.5 }}>{t('Valor', 'Amount')}</TableCell>
                 </TableRow>
@@ -910,7 +911,7 @@ export function InboxDdaPage() {
               <TableBody>
                 {!linhas.length && (
                   <TableRow>
-                    <TableCell colSpan={6} sx={{ border: 0, py: 0 }}>
+                    <TableCell colSpan={7} sx={{ border: 0, py: 0 }}>
                       <EstadoVazio
                         icone={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 40 }} />}
                         titulo={
@@ -979,6 +980,9 @@ export function InboxDdaPage() {
                       </TableCell>
                       <TableCell align="center" sx={celulaCentroSx}>
                         <Typography noWrap sx={{ fontSize: 12, color: INBOX_TEXT }}>{e.origem || '—'}</Typography>
+                      </TableCell>
+                      <TableCell sx={{ color: INBOX_MUTED, fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
+                        {dataBr(e.data_lancamento || e.competencia)}
                       </TableCell>
                       <TableCell sx={{ color: vencida ? '#B91C1C' : (e.fonte === 'manual' && e.vencimento_original && e.vencimento_original !== e.vencimento ? '#B45309' : INBOX_TEXT), fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
                         {dataBr(e.vencimento)}

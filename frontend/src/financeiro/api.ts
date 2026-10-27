@@ -200,7 +200,13 @@ export type Despesa = {
   modo_acrescimo?: 'total' | 'taxas' | null
   vencimento: string | null
   vencimento_original?: string | null
+  /** Dia em que o gasto aconteceu / entrou no sistema — não é o vencimento. */
+  data_lancamento?: string | null
   competencia: string | null
+  dono_recusa?: boolean
+  dono_recusa_motivo?: string | null
+  dono_recusa_em?: string | null
+  dono_recusa_por?: string | null
   forma_pagamento: string | null
   status: string
   documento_ref: string | null
@@ -758,6 +764,32 @@ export const api = {
     }
   },
   /** Free Control (ok/pendente) ou tributo (pendente/conferido). */
+  donoRecusar: async (id: string, motivo: string) => {
+    const res = await financeFetch(`${apiRoot}/despesas/${id}/dono-recusa`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ motivo }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((data as { erro?: string }).erro || 'Não recusou')
+    return data as { id: string; dono_recusa: boolean; dono_recusa_motivo: string | null; dono_recusa_em: string | null; dono_recusa_por: string | null }
+  },
+  donoAlterarValor: async (id: string, valor: number) => {
+    const res = await financeFetch(`${apiRoot}/despesas/${id}/dono-valor`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ valor }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((data as { erro?: string }).erro || 'Não alterou o valor')
+    return data as { id: string; valor: number; valor_face: number }
+  },
+  donoLivre: async (id: string) => {
+    const res = await financeFetch(`${apiRoot}/despesas/${id}/dono-livre`, { method: 'POST' })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) throw new Error((data as { erro?: string }).erro || 'Não liberou')
+    return data as { id: string; dono_recusa: boolean }
+  },
   alterarConferencia: async (id: string, status: 'ok' | 'pendente' | 'conferido') => {
     const res = await financeFetch(`${apiRoot}/despesas/${id}/conferencia`, {
       method: 'POST',

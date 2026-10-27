@@ -362,6 +362,7 @@ export async function aplicarLoteFreecontrol(pool, body = {}) {
            numero_nf = $4,
            competencia = $5::date,
            vencimento = $6::date,
+           data_lancamento = coalesce(data_lancamento, $5::date),
            valor = $7,
            forma_pagamento = $8,
            dados_pagamento = $9,
@@ -391,11 +392,11 @@ export async function aplicarLoteFreecontrol(pool, body = {}) {
       `
       insert into despesas (
         id, descricao, empresa_origem_id, empresa_registro_id,
-        documento_ref, numero_nf, competencia, vencimento, valor,
+        documento_ref, numero_nf, competencia, vencimento, data_lancamento, valor,
         forma_pagamento, dados_pagamento, status, fonte, freecontrol_tipo,
         conferencia_status
       ) values (
-        gen_random_uuid(), $1, $2, $3, $4, $5, $6::date, $7::date, $8,
+        gen_random_uuid(), $1, $2, $3, $4, $5, $6::date, $7::date, $6::date, $8,
         $9, $10, 'pronta', 'freecontrol', $11, 'ok'
       )
       returning id::text as id

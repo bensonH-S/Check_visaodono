@@ -40,6 +40,8 @@ import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
 import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined'
+import MoreVertIcon from '@mui/icons-material/MoreVert'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
@@ -50,7 +52,7 @@ import { usePrefs } from '../prefs'
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota'
 import { showToast } from '../../utils/toast'
 import CampoDataFinanceiro from '../CampoDataFinanceiro'
-import { getUsuario, podeVerFinanceiro } from '../../lib/auth'
+import { ehDonoFinanceiro, getUsuario, podeVerFinanceiro, primeiroNome } from '../../lib/auth'
 import SeletorLojaFinanceiro from '../SeletorLojaFinanceiro'
 import {
   FIN_BORDER,
@@ -111,6 +113,7 @@ function estaVencida(e: Despesa) {
 function situacao(e: Despesa) {
   if (e.status === 'conciliada' || e.status === 'paga') return 'pago'
   if (e.status === 'bloqueada_duplicata') return 'bloqueada_duplicata'
+  if (e.dono_recusa) return 'recusada'
   if (estaVencida(e)) return 'vencida'
   return 'a_pagar'
 }
@@ -119,7 +122,7 @@ const CODIGO: Record<string, string> = {
   folha: 'Folha Pagamento', cadastro: 'Cadastro', chave_pix: 'Chave PIX',
   boleto: 'Boleto', guia: 'Guia', dinheiro: 'Dinheiro', online: 'Online',
 }
-const FILTROS = ['Todas', 'DDA', 'Free Control', 'Boletos', 'Para autorizar', 'Vencidas', 'NF confirmada', 'NF Parcial', 'NF Pendente'] as const
+const FILTROS = ['Todas', 'DDA', 'Free Control', 'Boletos', 'Para autorizar', 'Vencidas', 'Recusadas', 'NF confirmada', 'NF Parcial', 'NF Pendente'] as const
 
 function cicloNf(e: Despesa): 'nao_confirmada' | 'confirmada' | 'divergente' | null {
   if (e.nf_ciclo === 'confirmada' || e.nf_ciclo === 'divergente') return e.nf_ciclo
@@ -136,6 +139,7 @@ const TOM_CLARO: Record<string, { color: string; border: string; bg: string }> =
   a_pagar: { color: '#1D4ED8', border: 'rgba(59,130,246,0.45)', bg: 'rgba(59,130,246,0.1)' },
   pago: { color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'rgba(16,185,129,0.12)' },
   vencida: { color: '#B91C1C', border: 'rgba(239,68,68,0.5)', bg: 'rgba(239,68,68,0.1)' },
+  recusada: { color: '#B91C1C', border: 'rgba(239,68,68,0.55)', bg: 'rgba(239,68,68,0.14)' },
   bloqueada_duplicata: { color: '#B91C1C', border: 'rgba(239,68,68,0.45)', bg: 'rgba(239,68,68,0.08)' },
 }
 
@@ -143,11 +147,17 @@ const ROTULO: Record<string, [string, string]> = {
   a_pagar: ['A pagar', 'To pay'],
   pago: ['Pago', 'Paid'],
   vencida: ['Vencida', 'Overdue'],
+  recusada: ['Recusada', 'Refused'],
   bloqueada_duplicata: ['Duplicata', 'Duplicate'],
 }
 
 function rotuloDescricao(e: Despesa) {
   return rotuloDespesa(e)
+}
+
+function dataBr(ymd?: string | null) {
+  const d = String(ymd || '').slice(0, 10)
+  return d ? d.split('-').reverse().join('/') : '—'
 }
 
 function dataLocal(d: Date) {
@@ -238,6 +248,16 @@ export function ContasPagarPage() {
   const [menuNf, setMenuNf] = useState<{ despesa: Despesa; anchor: HTMLElement } | null>(null)
   const [menuConf, setMenuConf] = useState<{ despesa: Despesa; anchor: HTMLElement; modo: 'free' | 'tributo' } | null>(null)
   const [salvandoNf, setSalvandoNf] = useState(false)
+  const dono = ehDonoFinanceiro(user)
+  const [avisoDono, setAvisoDono] = useState(() => {
+    try { return sessionStorage.getItem('fin-dono-aviso') !== 'ok' } catch { return true }
+  })
+  const [menuDono, setMenuDono] = useState<{ despesa: Despesa; anchor: HTMLElement } | null>(null)
+  const [recusando, setRecusando] = useState<Despesa | null>(null)
+  const [motivoRecusa, setMotivoRecusa] = useState('')
+  const [valorDono, setValorDono] = useState<Despesa | null>(null)
+  const [valorDonoTexto, setValorDonoTexto] = useState('')
+  const [salvandoDono, setSalvandoDono] = useState(false)
 
   const alterarStatusNf = async (ciclo: 'confirmada' | 'divergente' | 'nao_confirmada') => {
     if (!menuNf || somenteLeitura) return
@@ -416,6 +436,7 @@ export function ContasPagarPage() {
       if (filtro === 'Boletos') return e.forma_pagamento === 'boleto'
       if (filtro === 'Para autorizar') return e.status === 'pronta'
       if (filtro === 'Vencidas') return estaVencida(e)
+      if (filtro === 'Recusadas') return !!e.dono_recusa
       if (filtro === 'NF confirmada') return cicloNf(e) === 'confirmada'
       if (filtro === 'NF Parcial') return cicloNf(e) === 'divergente'
       if (filtro === 'NF Pendente') return cicloNf(e) === 'nao_confirmada'
@@ -564,6 +585,7 @@ export function ContasPagarPage() {
                 : item === 'Boletos' ? 'Boletos'
                 : item === 'Para autorizar' ? 'Para autorizar'
                 : item === 'Vencidas' ? 'Vencidas'
+                : item === 'Recusadas' ? 'Recusadas'
                 : item === 'NF Parcial' ? 'NF Parcial'
                 : item === 'NF Pendente' ? 'NF Pendente'
                 : 'NF confirmada',
@@ -573,6 +595,7 @@ export function ContasPagarPage() {
                 : item === 'Boletos' ? 'Boletos'
                 : item === 'Para autorizar' ? 'To authorize'
                 : item === 'Vencidas' ? 'Overdue'
+                : item === 'Recusadas' ? 'Refused'
                 : item === 'NF Parcial' ? 'Partial NF'
                 : item === 'NF Pendente' ? 'Pending NF'
                 : 'Invoice confirmed',
@@ -596,6 +619,22 @@ export function ContasPagarPage() {
         ))}
       </Stack>
 
+      {dono && avisoDono && (
+        <Alert
+          severity="info"
+          onClose={() => {
+            setAvisoDono(false)
+            try { sessionStorage.setItem('fin-dono-aviso', 'ok') } catch { /* */ }
+          }}
+          sx={{ py: 0.5, '& .MuiAlert-message': { fontSize: 13 } }}
+        >
+          {t(
+            `${primeiroNome(user)}, sua ação. Por enquanto é essa: você pode recusar um lançamento e informar o motivo, ou alterar o valor. O financeiro vê a recusa em vermelho e trata.`,
+            `${primeiroNome(user)}, this is your action for now: refuse an entry with a reason, or change the amount. Finance sees the refusal in red and follows up.`,
+          )}
+        </Alert>
+      )}
+
       <Paper variant="outlined" sx={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', ...finPaperSx }}>
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <Table size="small" stickyHeader>
@@ -603,7 +642,8 @@ export function ContasPagarPage() {
             <TableRow sx={{ '& .MuiTableCell-head': { verticalAlign: 'middle' } }}>
               {[
                 t('Status', 'Status'), t('Descrição', 'Description'), t('Origem', 'Source'), t('Nota fiscal', 'Invoice'),
-                t('Forma de pagamento', 'Payment method'), t('Código', 'Code'), t('Vencimento', 'Due date'), t('Valor', 'Amount'), '',
+                t('Forma de pagamento', 'Payment method'), t('Código', 'Code'),
+                t('Lançamento', 'Posted'), t('Vencimento', 'Due date'), t('Valor', 'Amount'), '',
               ].map((h, indice) => {
                 const centro = indice !== 1
                 return (
@@ -612,7 +652,7 @@ export function ContasPagarPage() {
                     align={centro ? 'center' : 'left'}
                     sx={{
                       ...(indice === 3 ? { width: 148, minWidth: 148 } : null),
-                      ...(indice === 8 ? { width: 72, px: 0.5 } : null),
+                      ...(indice === 9 ? { width: 88, px: 0.5 } : null),
                     }}
                   >
                     {h}
@@ -624,7 +664,7 @@ export function ContasPagarPage() {
           <TableBody>
             {linhas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} sx={{ border: 0, py: 0 }}>
+                <TableCell colSpan={10} sx={{ border: 0, py: 0 }}>
                   <EstadoVazio
                     icone={<PaymentsOutlinedIcon sx={{ fontSize: 40 }} />}
                     titulo={
@@ -652,9 +692,20 @@ export function ContasPagarPage() {
               const tom = TOM_CLARO[tomChave] || TOM_CLARO.a_pagar
               const rotulo = ROTULO[tomChave] || ROTULO.a_pagar
               return (
-              <TableRow key={e.id} hover>
+              <TableRow
+                key={e.id}
+                hover
+                sx={e.dono_recusa ? { bgcolor: 'rgba(239,68,68,0.08)', '&:hover': { bgcolor: 'rgba(239,68,68,0.12)' } } : undefined}
+              >
                 <TableCell align="center" sx={{ verticalAlign: 'middle' }}>
-                  <Chip size="small" label={idioma === 'en' ? rotulo[1] : rotulo[0]} variant="outlined" sx={{ height: 20, fontSize: 11, fontWeight: 500, color: tom.color, borderColor: tom.border, bgcolor: tom.bg }} />
+                  <Stack direction="row" spacing={0.4} sx={{ justifyContent: 'center', alignItems: 'center' }}>
+                    <Chip size="small" label={idioma === 'en' ? rotulo[1] : rotulo[0]} variant="outlined" sx={{ height: 20, fontSize: 11, fontWeight: 500, color: tom.color, borderColor: tom.border, bgcolor: tom.bg }} />
+                    {e.dono_recusa ? (
+                      <Tooltip title={`${e.dono_recusa_por || t('Dono', 'Owner')}: ${e.dono_recusa_motivo || t('Recusado', 'Refused')}`}>
+                        <ChatBubbleOutlinedIcon sx={{ fontSize: 16, color: '#B91C1C' }} />
+                      </Tooltip>
+                    ) : null}
+                  </Stack>
                 </TableCell>
                 <TableCell>
                   <Typography sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.25, color: FIN_TEXT }}>
@@ -848,8 +899,11 @@ export function ContasPagarPage() {
                   )}
                 </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle' }}><Codigo forma={e.forma_pagamento} pagamento={e.pagamento} /></TableCell>
+                <TableCell align="center" sx={{ verticalAlign: 'middle', color: FIN_MUTED, fontVariantNumeric: 'tabular-nums' }}>
+                  {dataBr(e.data_lancamento || e.competencia)}
+                </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle', color: estaVencida(e) ? '#B91C1C' : FIN_TEXT }}>
-                  {e.vencimento ? e.vencimento.split('-').reverse().join('/') : '—'}
+                  {dataBr(e.vencimento)}
                 </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
                   <Typography sx={{ fontSize: 12.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{brl(Number(e.valor))}</Typography>
@@ -869,6 +923,18 @@ export function ContasPagarPage() {
                         <OpenInNewIcon sx={{ fontSize: 18 }} />
                       </IconButton>
                     </Tooltip>
+                    {(dono || (!somenteLeitura && e.dono_recusa)) && (
+                      <Tooltip title={t('Ação', 'Action')}>
+                        <IconButton
+                          size="small"
+                          onClick={(ev) => setMenuDono({ despesa: e, anchor: ev.currentTarget })}
+                          aria-label={t('Ação', 'Action')}
+                          sx={{ p: 0.35, color: e.dono_recusa ? '#B91C1C' : FIN_MUTED, '&:hover': { color: '#1B6EF3', bgcolor: 'rgba(27,110,243,0.08)' } }}
+                        >
+                          <MoreVertIcon sx={{ fontSize: 18 }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                     {!somenteLeitura && (
                       <Tooltip title={t('Excluir', 'Delete')}>
                         <IconButton
@@ -1036,6 +1102,135 @@ export function ContasPagarPage() {
           </>
         )}
       </Menu>
+      <Menu
+        anchorEl={menuDono?.anchor ?? null}
+        open={!!menuDono}
+        onClose={() => setMenuDono(null)}
+        slotProps={{ paper: { sx: finMenuSx } }}
+      >
+        {dono ? (
+          <MenuItem
+            onClick={() => {
+              if (!menuDono) return
+              setRecusando(menuDono.despesa)
+              setMotivoRecusa('')
+              setMenuDono(null)
+            }}
+          >
+            {t('Recusar e comentar', 'Refuse and comment')}
+          </MenuItem>
+        ) : null}
+        {dono ? (
+          <MenuItem
+            onClick={() => {
+              if (!menuDono) return
+              setValorDono(menuDono.despesa)
+              setValorDonoTexto(brl(Number(menuDono.despesa.valor)))
+              setMenuDono(null)
+            }}
+          >
+            {t('Alterar valor', 'Change amount')}
+          </MenuItem>
+        ) : null}
+        {!somenteLeitura && menuDono?.despesa.dono_recusa ? (
+          <MenuItem
+            onClick={() => {
+              const alvo = menuDono.despesa
+              setMenuDono(null)
+              void api.donoLivre(alvo.id).then(() => {
+                setDespesas((prev) => prev.map((d) => (d.id === alvo.id ? { ...d, dono_recusa: false } : d)))
+                setAviso(t('Lançamento livre para o financeiro ajustar.', 'Entry is free for finance to adjust.'))
+              }).catch((err) => showToast(err instanceof Error ? err.message : t('Não liberou.', 'Could not clear.'), 'error'))
+            }}
+          >
+            {t('Livre — financeiro trata', 'Clear — finance handles it')}
+          </MenuItem>
+        ) : null}
+      </Menu>
+      <Dialog
+        open={!!recusando}
+        onClose={() => { if (!salvandoDono) setRecusando(null) }}
+        slotProps={{ paper: { sx: dialogEscuroPaper } }}
+      >
+        <DialogTitle sx={{ color: FIN_TEXT }}>{t('Recusar lançamento', 'Refuse entry')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: FIN_MUTED, mb: 1.5 }}>{recusando?.descricao}</Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            label={t('O que está recusando', 'What you are refusing')}
+            value={motivoRecusa}
+            onChange={(ev) => setMotivoRecusa(ev.target.value)}
+            sx={finCampoSx}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, pb: 2 }}>
+          <Button onClick={() => setRecusando(null)} disabled={salvandoDono} sx={{ color: FIN_MUTED }}>{t('Cancelar', 'Cancel')}</Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={salvandoDono || motivoRecusa.trim().length < 3}
+            onClick={async () => {
+              if (!recusando) return
+              setSalvandoDono(true)
+              try {
+                const r = await api.donoRecusar(recusando.id, motivoRecusa.trim())
+                setDespesas((prev) => prev.map((d) => (d.id === recusando.id ? { ...d, ...r, dono_recusa: true } : d)))
+                setRecusando(null)
+                setAviso(t('Recusado. O financeiro vê o comentário.', 'Refused. Finance will see the comment.'))
+              } catch (err) {
+                showToast(err instanceof Error ? err.message : t('Não recusou.', 'Could not refuse.'), 'error')
+              } finally {
+                setSalvandoDono(false)
+              }
+            }}
+          >
+            {t('Recusar', 'Refuse')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      <Dialog
+        open={!!valorDono}
+        onClose={() => { if (!salvandoDono) setValorDono(null) }}
+        slotProps={{ paper: { sx: dialogEscuroPaper } }}
+      >
+        <DialogTitle sx={{ color: FIN_TEXT }}>{t('Alterar valor', 'Change amount')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: FIN_MUTED, mb: 1.5 }}>{valorDono?.descricao}</Typography>
+          <CampoMoeda label={t('Valor', 'Amount')} value={valorDonoTexto} onChange={setValorDonoTexto} />
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, pb: 2 }}>
+          <Button onClick={() => setValorDono(null)} disabled={salvandoDono} sx={{ color: FIN_MUTED }}>{t('Cancelar', 'Cancel')}</Button>
+          <Button
+            variant="contained"
+            disabled={salvandoDono}
+            onClick={async () => {
+              if (!valorDono) return
+              const n = parseMoeda(valorDonoTexto)
+              if (!Number.isFinite(n) || n <= 0) {
+                showToast(t('Informe um valor válido.', 'Enter a valid amount.'), 'warning')
+                return
+              }
+              setSalvandoDono(true)
+              try {
+                const r = await api.donoAlterarValor(valorDono.id, n)
+                setDespesas((prev) => prev.map((d) => (d.id === valorDono.id ? { ...d, valor: r.valor, valor_face: r.valor_face } : d)))
+                setValorDono(null)
+                setAviso(t('Valor atualizado.', 'Amount updated.'))
+              } catch (err) {
+                showToast(err instanceof Error ? err.message : t('Não alterou o valor.', 'Could not change the amount.'), 'error')
+              } finally {
+                setSalvandoDono(false)
+              }
+            }}
+            sx={finBtnContainedSx}
+          >
+            {t('Salvar', 'Save')}
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Snackbar open={!!aviso} autoHideDuration={3200} onClose={() => setAviso('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity="success" variant="filled" onClose={() => setAviso('')}>{aviso}</Alert>
       </Snackbar>
@@ -1759,6 +1954,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou, som
   const [total, setTotal] = useState(() => (inicial ? brl(Number(inicial.valor)) : ''))
   const [vencimentoOriginal, setVencimentoOriginal] = useState(() => inicial?.vencimento_original || inicial?.vencimento || '')
   const [pagarEm, setPagarEm] = useState(() => inicial?.vencimento || '')
+  const [dataLancamento, setDataLancamento] = useState(() => inicial?.data_lancamento || inicial?.competencia || hojeBrasil())
   const [documento, setDocumento] = useState(() => inicial?.documento_ref || '')
   const [origem, setOrigem] = useState(() => inicial?.origem_id || primeiraLoja)
   const conta = inicial?.conta_saida_id || ''
@@ -1863,6 +2059,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou, som
         modo_acrescimo: modo,
         vencimento_original: vencimentoOriginal || null,
         vencimento: pagarEm || vencimentoOriginal || null,
+        data_lancamento: dataLancamento || null,
         documento_ref: documento.trim() || null,
         forma_pagamento: forma,
         empresa_origem_id: origem,
@@ -1988,6 +2185,12 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou, som
             disabled={somenteLeitura || modo === 'taxas'}
             error={modo === 'taxas' && totalTaxas < 0}
             onChange={modo === 'total' ? setTotal : undefined}
+          />
+          <CampoDataFinanceiro
+            label={t('Data de lançamento', 'Posting date')}
+            value={dataLancamento}
+            disabled={somenteLeitura}
+            onChange={setDataLancamento}
           />
           <CampoDataFinanceiro
             label={t('Vencimento', 'Due date')}
