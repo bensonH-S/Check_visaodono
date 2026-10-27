@@ -308,6 +308,15 @@ export function temPermissao(user, codigo) {
   return false;
 }
 
+/** Devolver NF à fila de conferência — só financeiro, TI, CEO/dono e administrador. */
+export function podeReabrirConferenciaNfe(user) {
+  if (!user) return false;
+  if (String(user.perfil || '').toLowerCase() === 'administrador') return true;
+  const cargo = String(user.cargo_aprovacao || user.perfil || '').toLowerCase();
+  if (cargo === 'administrador' || cargo === 'ceo' || cargo === 'dono' || cargo === 'ti') return true;
+  return temPermissao(user, 'financeiro.ver') || temPermissao(user, 'ti.tickets.gerenciar');
+}
+
 export function acessoTodasLojas(user) {
   return temPermissao(user, 'lojas.todas');
 }

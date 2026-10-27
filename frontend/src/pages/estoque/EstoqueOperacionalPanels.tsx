@@ -38,6 +38,7 @@ import FreeBreakfastOutlinedIcon from '@mui/icons-material/FreeBreakfastOutlined
 import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
+import ReplayOutlinedIcon from '@mui/icons-material/ReplayOutlined';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import {
   api,
@@ -90,6 +91,7 @@ import { assetUrl } from '../../config/paths';
 import { ehLojaPopeyes } from '../../components/escalas/escalaVisitasUtils';
 import { finCampoSx, FIN_MUTED } from '../../financeiro/temaFinanceiroEscuro';
 import { showToast } from '../../utils/toast';
+import { getUsuario, podeReabrirConferenciaNfe } from '../../lib/auth';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
 import { colors, portalPanelSx } from '../../theme/tokens';
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
@@ -3643,6 +3645,9 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
   const [soPlatlog, setSoPlatlog] = useState(true);
   const [visao, setVisao] = useState<'rascunho' | 'portal'>('rascunho');
   const [montando, setMontando] = useState(false);
+  const podeDevolverNf = podeReabrirConferenciaNfe(getUsuario());
+  const [reabrindoNf, setReabrindoNf] = useState(false);
+  const [devolverNf, setDevolverNf] = useState<{ id: number; numero: string } | null>(null);
   const [printCarrinho, setPrintCarrinho] = useState<{
     png: string;
     preenchidos: number;
@@ -4446,8 +4451,19 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                   </>
                 )}
               </Box>
-              {n.tem_xml ? (
-                <Box sx={{ px: 3, py: 1.5, borderTop: '1px solid var(--ga-border)', bgcolor: 'var(--ga-surface)', display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
+              {n.tem_xml || (conferida && podeDevolverNf) ? (
+                <Box sx={{ px: 3, py: 1.5, borderTop: '1px solid var(--ga-border)', bgcolor: 'var(--ga-surface)', display: 'flex', justifyContent: 'flex-end', gap: 1, flexShrink: 0 }}>
+                  {conferida && podeDevolverNf ? (
+                    <Button
+                      variant="outlined"
+                      disabled={reabrindoNf}
+                      sx={finBtnOutlinedSx}
+                      onClick={() => setDevolverNf({ id: n.id_nfe, numero: String(n.numero || n.id_nfe) })}
+                    >
+                      Devolver à conferência
+                    </Button>
+                  ) : null}
+                  {n.tem_xml ? (
                   <Button
                     variant="outlined"
                     startIcon={<PictureAsPdfOutlinedIcon />}
@@ -4461,12 +4477,58 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                   >
                     Abrir DANFE
                   </Button>
+                  ) : null}
                 </Box>
               ) : null}
             </Box>
           );
         })()}
       </Drawer>
+
+      <Dialog
+        open={Boolean(devolverNf)}
+        onClose={() => !reabrindoNf && setDevolverNf(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitleWithIcon plainIcon divider icon={<ReplayOutlinedIcon />}>
+          Devolver à conferência
+        </DialogTitleWithIcon>
+        <DialogContent sx={dialogContentSx}>
+          <Typography variant="body2" color="text.secondary">
+            A NF <strong>{devolverNf?.numero}</strong> volta para a fila. As marcas de “não chegou”
+            saem e o gestor confere de novo, item a item.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setDevolverNf(null)} disabled={reabrindoNf}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            disableElevation
+            disabled={reabrindoNf || !devolverNf}
+            onClick={() => {
+              if (!devolverNf) return;
+              const id = devolverNf.id;
+              setReabrindoNf(true);
+              api
+                .estoqueNfeReabrirConferencia(id)
+                .then(async () => {
+                  showToast('NF devolvida à conferência', 'success');
+                  setDevolverNf(null);
+                  const detNovo = await api.estoqueNfeDetalhe(id);
+                  setDetalhesNota((d) => ({ ...d, [id]: detNovo }));
+                  await carregar();
+                })
+                .catch((e) => showToast(e instanceof Error ? e.message : 'Não deu para devolver a NF', 'error'))
+                .finally(() => setReabrindoNf(false));
+            }}
+          >
+            {reabrindoNf ? 'Devolvendo…' : 'Devolver'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={Boolean(printCarrinho)} onClose={() => setPrintCarrinho(null)} maxWidth="md" fullWidth>
         <DialogContent>

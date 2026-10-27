@@ -6,16 +6,24 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
+import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
 import IconButton from '@mui/material/IconButton';
+import Typography from '@mui/material/Typography';
 import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import RequestQuoteOutlinedIcon from '@mui/icons-material/RequestQuoteOutlined';
+import ReplayOutlinedIcon from '@mui/icons-material/ReplayOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CloseIcon from '@mui/icons-material/Close';
 import { api, type EstoqueNfeDetalhe, type EstoqueNfeItem } from '../../api/client';
+import { getUsuario, podeReabrirConferenciaNfe } from '../../lib/auth';
+import DialogTitleWithIcon from '../../components/DialogTitleWithIcon';
+import { dialogContentSx } from '../../utils/dialogForm';
 import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import { thumbInsumo } from '../../components/estoque/estoqueHub';
 import { showToast } from '../../utils/toast';
@@ -179,6 +187,7 @@ export default function EstoqueMobileNfePage() {
   );
   const [abrindoCobranca, setAbrindoCobranca] = useState(false);
   const [pagina, setPagina] = useState(0);
+  const [dlgDevolver, setDlgDevolver] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const carregarDetalhe = useCallback(
@@ -716,9 +725,15 @@ export default function EstoqueMobileNfePage() {
               <button type="button" onClick={voltarHubNf}>
                 Voltar
               </button>
-              <button type="button" className="is-feita" disabled>
-                Entrada já feita
-              </button>
+              {podeReabrirConferenciaNfe(getUsuario()) ? (
+                <button type="button" disabled={salvando} onClick={() => setDlgDevolver(true)}>
+                  Devolver à conferência
+                </button>
+              ) : (
+                <button type="button" className="is-feita" disabled>
+                  Entrada já feita
+                </button>
+              )}
             </>
           ) : (
             <>
@@ -827,6 +842,47 @@ export default function EstoqueMobileNfePage() {
           </div>,
           document.body,
         )}
+      <Dialog
+        open={dlgDevolver}
+        onClose={() => !salvando && setDlgDevolver(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitleWithIcon plainIcon divider icon={<ReplayOutlinedIcon />}>
+          Devolver à conferência
+        </DialogTitleWithIcon>
+        <DialogContent sx={dialogContentSx}>
+          <Typography variant="body2" color="text.secondary">
+            A NF <strong>{det?.numero || det?.id_nfe}</strong> volta para a fila. As marcas de “não
+            chegou” saem e o gestor confere de novo, item a item.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+          <Button onClick={() => setDlgDevolver(false)} disabled={salvando}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            disableElevation
+            disabled={salvando || !det}
+            onClick={() => {
+              if (!det) return;
+              setSalvando(true);
+              api
+                .estoqueNfeReabrirConferencia(det.id_nfe)
+                .then(async () => {
+                  showToast('NF devolvida à conferência', 'success');
+                  setDlgDevolver(false);
+                  await carregarDetalhe(det.id_nfe);
+                })
+                .catch((e) => showToast(e instanceof Error ? e.message : 'Não deu para devolver a NF', 'error'))
+                .finally(() => setSalvando(false));
+            }}
+          >
+            {salvando ? 'Devolvendo…' : 'Devolver'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 }

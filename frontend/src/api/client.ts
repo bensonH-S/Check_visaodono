@@ -1902,6 +1902,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  estoqueNfeReabrirConferencia: (idNfe: number) =>
+    request<{ ok: boolean; id_nfe: number; status_entrega: string }>(
+      `/estoque/nfes/${idNfe}/reabrir-conferencia`,
+      { method: 'POST' },
+    ),
   estoqueNfeEntrar: (idNfe: number, body: { data_entrega?: string; forcar?: boolean }) =>
     request<{
       ok: boolean;
@@ -4204,6 +4209,7 @@ export interface EstoquePedidoRascunhoItem {
   valor: number;
   cortado: boolean;
   motivo: string | null;
+  bloqueado?: boolean;
 }
 
 export interface EstoquePedidoRascunho {
@@ -4227,6 +4233,8 @@ export interface EstoquePedidoRascunho {
     teto_aplicado: boolean;
     cortados: number;
   };
+  bloqueados?: number;
+  simulacao?: { id_simulacao: number; criado_em: string; modo: 'teste' } | null;
   itens: EstoquePedidoRascunhoItem[];
 }
 

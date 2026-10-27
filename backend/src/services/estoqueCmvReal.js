@@ -8,6 +8,7 @@
 import { pool } from '../db.js';
 import { CONTAGEM_SEMANAL_ATIVA } from './estoqueContagem.js';
 import {
+  aplicarMovimento,
   calcularCmvTeorico,
   registrarEntradas,
 } from './estoqueMotor.js';
@@ -754,6 +755,86 @@ export async function conferirRecebimentoNfe({
     ...entrada,
     divergente: temDivergencia,
     status_entrega: temDivergencia ? 'divergente' : 'conferida',
+  };
+}
+
+/**
+ * Devolve a NF à fila de conferência (erro de "não chegou" na nota inteira, etc.).
+ * Estorna saldo que tiver entrado por esta NF e zera as marcas dos itens.
+ */
+export async function reabrirConferenciaNfe({ id_nfe, criado_por = null } = {}) {
+  const idNfe = Number(id_nfe);
+  if (!idNfe) throw Object.assign(new Error('id_nfe obrigatório'), { status: 400 });
+
+  const { rows: nfs } = await pool.query(`SELECT * FROM estoque_nfe WHERE id_nfe = $1`, [idNfe]);
+  if (!nfs.length) throw Object.assign(new Error('NF não encontrada'), { status: 404 });
+  const nfe = nfs[0];
+  if (!nfe.entrada_registrada) {
+    throw Object.assign(new Error('Esta NF já está na fila de conferência'), { status: 400 });
+  }
+
+  const statusFila = nfe.data_saida
+    ? 'aguardando_conferencia'
+    : classificarStatusPortal(nfe.status_portal, { temDataSaida: false });
+
+  let estornados = 0;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: saldos } = await client.query(
+      `SELECT id_insumo, SUM(quantidade)::float8 AS qtd
+         FROM estoque_movimentos
+        WHERE referencia_tipo = 'estoque_nfe' AND referencia_id = $1
+        GROUP BY id_insumo
+       HAVING ABS(SUM(quantidade)) > 0.0001`,
+      [idNfe],
+    );
+    estornados = saldos.length;
+    for (const row of saldos) {
+      await aplicarMovimento(client, {
+        id_loja: nfe.id_loja,
+        id_insumo: row.id_insumo,
+        tipo: 'ajuste',
+        quantidade: -num(row.qtd),
+        referencia_tipo: 'estoque_nfe',
+        referencia_id: idNfe,
+        observacao: `Reabriu conferência NF ${nfe.numero || idNfe}`,
+        criado_por,
+        data_movimento: hojeSpISO(),
+      });
+    }
+
+    await client.query(
+      `UPDATE estoque_nfe_itens
+          SET qtd_conferida = NULL, conferido = FALSE, divergencia_obs = NULL
+        WHERE id_nfe = $1`,
+      [idNfe],
+    );
+    await client.query(
+      `UPDATE estoque_nfe
+          SET entrada_registrada = FALSE,
+              entrada_em = NULL,
+              entrada_por = NULL,
+              status_entrega = $2,
+              atualizado_em = NOW()
+        WHERE id_nfe = $1`,
+      [idNfe, statusFila],
+    );
+
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw e;
+  } finally {
+    client.release();
+  }
+
+  return {
+    ok: true,
+    id_nfe: idNfe,
+    status_entrega: statusFila,
+    movimentos_estornados: estornados,
   };
 }
 

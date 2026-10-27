@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { pool, hrPool } from '../db.js';
-import { requirePermissao } from '../permissoes.js';
+import { podeReabrirConferenciaNfe, requirePermissao } from '../permissoes.js';
 import { usuarioPodeLojaEstoque } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
 import {
@@ -29,6 +29,7 @@ import {
   calcularVarianciaInsumos,
   confirmarEntradaNfe,
   conferirRecebimentoNfe,
+  reabrirConferenciaNfe,
   listarNfesEstoque,
   listarRelatorioDivergenciasNfe,
   obterNfeDetalhe,
@@ -2307,6 +2308,49 @@ router.post('/nfes/:id/conferir', permNfe, async (req, res, next) => {
     }
 
     res.status(201).json({ ...result, financeiro });
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.post('/nfes/:id/reabrir-conferencia', permNfe, async (req, res, next) => {
+  try {
+    if (!podeReabrirConferenciaNfe(req.user)) {
+      return res.status(403).json({ error: 'Só financeiro, TI ou CEO devolve a NF para conferir de novo' });
+    }
+    const idNfe = Number(req.params.id);
+    const { rows } = await pool.query(`SELECT id_loja FROM estoque_nfe WHERE id_nfe = $1`, [idNfe]);
+    if (!rows.length) return res.status(404).json({ error: 'NF não encontrada' });
+    const bloqueio = acessoLoja(req, rows[0].id_loja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+
+    const result = await reabrirConferenciaNfe({
+      id_nfe: idNfe,
+      criado_por: userId(req),
+    });
+
+    await auditar(req, {
+      modulo: 'estoque',
+      acao: 'reabrir',
+      entidade: 'estoque_nfe_conferencia',
+      entidade_id: idNfe,
+      descricao: `Devolveu NF #${idNfe} à conferência`,
+    });
+
+    let financeiro = null;
+    try {
+      const { getFinancePool } = await import('../financeiro/http.mjs');
+      const { sincronizarNfesConferidas } = await import('../financeiro/lib/nfEntrada.mjs');
+      const financePool = typeof getFinancePool === 'function' ? getFinancePool() : null;
+      if (financePool) {
+        financeiro = await sincronizarNfesConferidas({ financePool, portalPool: pool });
+      }
+    } catch (syncErr) {
+      console.error('[estoque] sync NF→financeiro (reabrir):', syncErr?.message || syncErr);
+    }
+
+    res.json({ ...result, financeiro });
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);

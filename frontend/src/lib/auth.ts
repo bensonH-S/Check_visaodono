@@ -545,6 +545,16 @@ export function podeReabrirContagemEstoque(usuario?: UsuarioSessao | null): bool
   return temPermissao('estoque.conferencia.reabrir', usuario);
 }
 
+/** Devolver NF à fila de conferência — financeiro, TI, CEO/dono ou administrador. */
+export function podeReabrirConferenciaNfe(usuario?: UsuarioSessao | null): boolean {
+  const u = usuario ?? getUsuario();
+  if (!u) return false;
+  if (u.perfil === 'administrador') return true;
+  const cargo = String(u.cargo_aprovacao || u.cargo || u.perfil || '').toLowerCase();
+  if (cargo === 'administrador' || cargo === 'ceo' || cargo === 'dono' || cargo === 'ti') return true;
+  return temPermissao('financeiro.ver', u) || temPermissao('ti.tickets.gerenciar', u);
+}
+
 export function podeOperacionalEstoque(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('estoque.operacional', usuario);
 }
