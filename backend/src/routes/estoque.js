@@ -2078,7 +2078,8 @@ router.patch('/contagens/:id/reabrir', permReabrirContagem, async (req, res, nex
   try {
     const id = Number(req.params.id);
     const { rows } = await pool.query(
-      `SELECT id_contagem, id_loja, status, titulo, COALESCE(tipo, 'completa') AS tipo
+      `SELECT id_contagem, id_loja, status, titulo, data_contagem,
+              COALESCE(tipo, 'completa') AS tipo
        FROM estoque_contagens WHERE id_contagem = $1`,
       [id],
     );
@@ -2090,16 +2091,53 @@ router.patch('/contagens/:id/reabrir', permReabrirContagem, async (req, res, nex
       return res.status(400).json({ error: 'Só é possível reabrir contagem finalizada' });
     }
 
+    const tipo = cont.tipo || 'completa';
+    const diaCont = String(cont.data_contagem || '').slice(0, 10);
     const { rows: outrasAbertas } = await pool.query(
-      `SELECT id_contagem FROM estoque_contagens
+      `SELECT id_contagem, titulo, to_char(data_contagem, 'YYYY-MM-DD') AS data_contagem
+       FROM estoque_contagens
        WHERE id_loja = $1 AND status = 'aberta' AND id_contagem <> $2
          AND COALESCE(tipo, 'completa') = $3
-       LIMIT 1`,
-      [cont.id_loja, id, cont.tipo || 'completa'],
+       ORDER BY criado_em DESC, id_contagem DESC`,
+      [cont.id_loja, id, tipo],
     );
-    if (outrasAbertas.length) {
+
+    const temLancamento = async (idContagem) => {
+      const { rows: filled } = await pool.query(
+        `SELECT 1 FROM estoque_itens
+          WHERE id_contagem = $1
+            AND (
+              contagem_caixa IS NOT NULL
+              OR contagem_pc_fd IS NOT NULL
+              OR contagem_kg_und IS NOT NULL
+            )
+          LIMIT 1`,
+        [idContagem],
+      );
+      return filled.length > 0;
+    };
+
+    for (const outra of outrasAbertas) {
+      const mesmoDia = tipo !== 'diaria' || String(outra.data_contagem || '') === diaCont;
+      if (!mesmoDia) continue;
+      if (!(await temLancamento(outra.id_contagem))) {
+        await pool.query('DELETE FROM estoque_contagens WHERE id_contagem = $1 AND status = $2', [
+          outra.id_contagem,
+          'aberta',
+        ]);
+        await auditar(req, {
+          modulo: 'estoque',
+          acao: 'excluir',
+          entidade: 'estoque_contagem',
+          idReferencia: outra.id_contagem,
+          descricao: `Rascunho vazio #${outra.id_contagem} saiu para reabrir #${id}`,
+        });
+        continue;
+      }
+      const rotulo = outra.titulo ? `“${outra.titulo}” (#${outra.id_contagem})` : `#${outra.id_contagem}`;
       return res.status(400).json({
-        error: `Já existe conferência aberta (#${outrasAbertas[0].id_contagem}). Finalize ou exclua antes de reabrir esta.`,
+        error: `Já existe conferência aberta ${rotulo} neste dia. Finalize ou exclua ela para reabrir esta.`,
+        id_contagem_aberta: outra.id_contagem,
       });
     }
 
