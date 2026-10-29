@@ -198,6 +198,12 @@ function tituloLoja(l: Loja) {
   return l.name.replace(/\s+-\s+/g, ' · ');
 }
 
+function apresentarNome(texto: string) {
+  return texto
+    .toLocaleLowerCase('pt-BR')
+    .replace(/(^|[^\p{L}\p{N}])(\p{L})/gu, (_trecho, sep, letra) => `${sep}${String(letra).toLocaleUpperCase('pt-BR')}`);
+}
+
 function subtituloLoja(l: Loja) {
   const cidadeNoNome = l.city && l.name.toUpperCase().includes(l.city.toUpperCase());
   return [l.bk_number, cidadeNoNome ? null : l.city].filter(Boolean).join(' · ');
@@ -982,19 +988,19 @@ export default function ControleEstoquePage() {
                 textAlign: 'left',
               }}
             >
-              <MarcaLoja nome={lojaAtual?.name} size={18} />
-              <Box>
-                <Typography sx={{ fontSize: 15, fontWeight: 650, letterSpacing: '-0.02em', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
-                  {lojaAtual ? tituloLoja(lojaAtual) : 'Selecione a loja'}
+              <MarcaLoja nome={lojaAtual?.name} size={32} />
+              <Box sx={{ minWidth: 0, ml: 0.25 }}>
+                <Typography sx={{ fontSize: 15, fontWeight: 650, letterSpacing: '-0.02em', lineHeight: 1.15, color: '#1D1D1F', whiteSpace: 'nowrap' }}>
+                  {lojaAtual ? apresentarNome(tituloLoja(lojaAtual)) : 'Selecione a loja'}
                 </Typography>
                 {lojaAtual ? (
-                  <Typography sx={{ fontSize: 11, color: 'text.secondary', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
-                    {subtituloLoja(lojaAtual)}
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 500, lineHeight: 1.2, mt: 0.15, color: '#3A3A3C', whiteSpace: 'nowrap' }}>
+                    {apresentarNome(subtituloLoja(lojaAtual))}
                   </Typography>
                 ) : null}
               </Box>
               {!bloqueiaOutrasAbas && lojas.length > 1 ? (
-                <KeyboardArrowDownIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                <KeyboardArrowDownIcon sx={{ fontSize: 20, color: '#1D1D1F', ml: 0.25 }} />
               ) : null}
             </Box>
             <Popover

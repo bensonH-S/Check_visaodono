@@ -121,14 +121,6 @@ function fmtNum(v: number | null | undefined, digitos = 2) {
   });
 }
 
-function partesEstoque(qtd: number | null | undefined, unidade?: string | null) {
-  const und = String(unidade || 'und').trim().toUpperCase();
-  const inteiro = und === 'UND' || und === 'UN' || und === 'CX';
-  const n = Number(qtd);
-  const digitos = inteiro ? 0 : Math.abs(n) >= 1 ? 1 : 3;
-  return { qtd: fmtNum(qtd, digitos), unidade: und };
-}
-
 function fmtMoeda(v: number | null | undefined) {
   if (v == null || Number.isNaN(Number(v))) return '—';
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -3648,37 +3640,26 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
       .then((det) => setDetalhesNota((d) => ({ ...d, [idNfe]: det })))
       .catch(() => setDetalhesNota((d) => ({ ...d, [idNfe]: 'erro' })));
   };
-  const [dias, setDias] = useState('7');
-  const [seguranca, setSeguranca] = useState('1');
-  const [metaCmp, setMetaCmp] = useState('38');
   const [visao, setVisao] = useState<'rascunho' | 'portal'>('rascunho');
-  const [montando, setMontando] = useState(false);
+  const [decisoes, setDecisoes] = useState<Record<string, 'aprovado' | 'recusado'>>({});
+  const [selecionados, setSelecionados] = useState<Record<string, true>>({});
   const podeDevolverNf = podeReabrirConferenciaNfe(getUsuario());
   const [reabrindoNf, setReabrindoNf] = useState(false);
   const [devolverNf, setDevolverNf] = useState<{ id: number; numero: string } | null>(null);
-  const [printCarrinho, setPrintCarrinho] = useState<{
-    png: string;
-    preenchidos: number;
-    faltou: number;
-    faltouCodigos: string[];
-    valorPortal: string | null;
-    valorLista: number;
-    precos: Array<{ codigo: string; caixas: number; lista: number | null; portal: number | null }>;
-  } | null>(null);
-
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
-      const meta = Number(String(metaCmp).replace(',', '.')) / 100;
       const [r, nfs] = await Promise.all([
         api.estoquePedidoRascunho(idLoja, {
-          dias: Number(dias) || 7,
-          estoque_seguranca_dias: Number(seguranca) || 0,
-          meta_cmp: Number.isFinite(meta) ? meta : 0.38,
+          dias: 7,
+          estoque_seguranca_dias: 1,
+          meta_cmp: 0.38,
         }),
         api.estoqueNfes(idLoja, { dias: 120, limit: 200 }).catch(() => [] as EstoqueNfeResumo[]),
       ]);
       setDados(r);
+      setDecisoes({});
+      setSelecionados({});
       setItens(r.itens.map((i) => ({ ...i })));
       setNotas(nfs.filter((n) => grupoFornecedorNfe(n) === 'Platlog'));
     } catch (e) {
@@ -3686,7 +3667,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
     } finally {
       setLoading(false);
     }
-  }, [idLoja, dias, seguranca, metaCmp]);
+  }, [idLoja]);
 
   useEffect(() => {
     void carregar();
@@ -3694,84 +3675,14 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
 
   const visiveis = itens;
   const listaPedido = [...visiveis].sort((a, b) => {
-    const pa = !a.bloqueado && Number(a.pedido_ajustado) > 0 ? 0 : 1;
-    const pb = !b.bloqueado && Number(b.pedido_ajustado) > 0 ? 0 : 1;
+    const pa = Number(a.caixas_pedidas) > 0 ? 0 : 1;
+    const pb = Number(b.caixas_pedidas) > 0 ? 0 : 1;
     return pa - pb;
   });
   const valorAjustado = visiveis.reduce(
     (s, i) => s + Math.max(0, Number(i.pedido_ajustado) || 0) * Number(i.preco_caixa || 0),
     0,
   );
-
-  const copiar = () => {
-    const linhas = visiveis
-      .filter((i) => Number(i.pedido_ajustado) > 0)
-      .map(
-        (i) =>
-          `${i.codigo}\t${i.descricao}\t${Number(i.pedido_ajustado).toLocaleString('pt-BR')}`,
-      );
-    const texto = ['Código\tInsumo\tCaixas', ...linhas].join('\n');
-    void navigator.clipboard?.writeText(texto);
-    showToast(`${linhas.length} item(ns) copiados. O app não envia o pedido.`, 'success');
-  };
-
-  const montarCarrinho = async () => {
-    if (dados?.piloto_carrinho_bloqueado) {
-      showToast(`${dados.piloto_bloqueio || 'Esta loja'} fica fora do piloto.`, 'error');
-      return;
-    }
-    const linhas = visiveis
-      .filter((i) => i.fornecedor === 'platlog' && !i.bloqueado && i.vende_esupri !== false && Number(i.pedido_ajustado) > 0)
-      .map((i) => ({
-        codigo: i.codigo,
-        caixas: Math.round(Number(i.pedido_ajustado)),
-        preco: Number(i.preco_caixa) || 0,
-      }));
-    if (!linhas.length) {
-      showToast('Nenhuma caixa Platlog para preencher.', 'error');
-      return;
-    }
-    setMontando(true);
-    try {
-      const r = await api.estoquePedidoCarrinhoEsupri({ id_loja: idLoja, itens: linhas.slice(0, 40) });
-      const faltou = r.nao_encontrados.length;
-      setPrintCarrinho({
-        png: r.png_base64,
-        preenchidos: r.preenchidos.length,
-        faltou,
-        faltouCodigos: r.nao_encontrados.map((n) => n.codigo),
-        valorPortal: r.valor_portal || null,
-        valorLista: valorAjustado,
-        precos: [
-          ...r.preenchidos.map((p) => ({
-            codigo: p.codigo,
-            caixas: p.caixas,
-            lista: p.preco_lista ?? null,
-            portal: p.preco_portal ?? null,
-          })),
-          ...r.nao_encontrados.map((n) => {
-            const origem = linhas.find((l) => l.codigo === n.codigo);
-            return {
-              codigo: n.codigo,
-              caixas: origem?.caixas ?? 0,
-              lista: origem?.preco ?? null,
-              portal: null,
-            };
-          }),
-        ],
-      });
-      showToast(
-        r.preenchidos.length
-          ? `${r.preenchidos.length} caixa(s) digitadas no print e depois apagadas. Pedido não enviado.`
-          : 'O eSupri abriu, mas nenhuma quantidade foi digitada.',
-        r.preenchidos.length ? 'success' : 'error',
-      );
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Falha ao abrir o eSupri', 'error');
-    } finally {
-      setMontando(false);
-    }
-  };
 
   if (loading && !dados) {
     return (
@@ -3867,7 +3778,6 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
     ? notas.filter(etapaAtiva.teste).sort((a, b) => (vencNota(a) || '9999').localeCompare(vencNota(b) || '9999'))
     : [];
 
-  const alvoDias = Number(dias) || 7;
   const comCaixa = visiveis.filter((i) => Number(i.pedido_ajustado) > 0 && !i.bloqueado).length;
   const deFora = visiveis.filter((i) => i.bloqueado).length;
   const horaGravada = dados?.simulacao?.criado_em
@@ -3881,18 +3791,10 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
     if (!iso || iso.length < 10) return '';
     return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
   };
-  const motivoLinha = (motivo: string | null) => {
-    if (motivo === 'sem_preco') return 'Sem preço — ficou de fora';
-    if (motivo === 'nao_vende') return 'Não vende no eSupri';
-    if (motivo === 'ficha_zerada') return 'Ficha zerada — ficou de fora';
-    if (motivo === 'quantidade_alta') return 'Quantidade alta — conferir a ficha';
-    if (motivo === 'teto_cmp') return 'Cortado pelo teto';
-    return '';
-  };
   const definirCaixas = (codigo: string, valor: number) => {
     setItens((atual) =>
       atual.map((row) =>
-        row.codigo === codigo && !row.bloqueado ? { ...row, pedido_ajustado: Math.max(0, valor) } : row,
+        row.codigo === codigo ? { ...row, pedido_ajustado: Math.max(0, valor) } : row,
       ),
     );
   };
@@ -3909,20 +3811,6 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
     textTransform: 'uppercase',
     color: 'text.secondary',
   } as const;
-  const cabecaSx = {
-    '& th': {
-      fontSize: 11,
-      fontWeight: 650,
-      letterSpacing: '0.05em',
-      textTransform: 'uppercase',
-      color: 'text.secondary',
-      bgcolor: 'var(--ga-surface)',
-      borderBottom: '1px solid var(--ga-border)',
-      py: 1,
-      whiteSpace: 'nowrap',
-    },
-  } as const;
-
   const estourou = cmp ? Math.max(0, cmp.compras_mes - cmp.teto_mes) : 0;
   const cmpAlto = Boolean(cmp && cmp.cmp_atual_pct != null && cmp.cmp_atual_pct > cmp.meta_pct);
   const usoTeto = cmp && cmp.teto_mes > 0 ? cmp.compras_mes / cmp.teto_mes : 0;
@@ -3934,18 +3822,33 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
       ]}
     />
   );
+  const cardsSugestao = listaPedido;
+  const sugeridosModelo = cardsSugestao.filter((i) => Number(i.caixas_pedidas) > 0);
+  const aprovados = cardsSugestao.filter((i) => decisoes[i.codigo] === 'aprovado').length;
+  const codigosSelecionados = cardsSugestao.filter((i) => selecionados[i.codigo]).map((i) => i.codigo);
+  const sugeridosMarcados = sugeridosModelo.filter((i) => selecionados[i.codigo]).length;
+  const todosMarcados = sugeridosModelo.length > 0 && sugeridosMarcados === sugeridosModelo.length;
+  const chegaEm = dados?.janela_compra?.entrega_deste ? diaCurto(dados.janela_compra.entrega_deste) : '';
+  const decidirVarios = (codigos: string[], valor: 'aprovado' | 'recusado') => {
+    setDecisoes((d) => {
+      const proximo = { ...d };
+      for (const codigo of codigos) proximo[codigo] = valor;
+      return proximo;
+    });
+    setSelecionados({});
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1, minHeight: 0, color: 'var(--ga-text-primary)' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.9, borderRadius: '8px', bgcolor: 'rgba(196, 122, 42, 0.12)', flexShrink: 0 }}>
+      {visao === 'portal' ? <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.9, borderRadius: '8px', bgcolor: 'rgba(196, 122, 42, 0.12)', flexShrink: 0 }}>
         <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#C47A2A', flexShrink: 0 }} />
         <Typography sx={{ fontSize: 13, color: '#7A4E12' }}>
           Sugestão de teste. Esta lista não envia pedido.
           {horaGravada ? ` Gravada às ${horaGravada}.` : ''}
           {deFora ? ` ${deFora} ${deFora === 1 ? 'item ficou' : 'itens ficaram'} de fora.` : ''}
         </Typography>
-      </Box>
-      {cmp ? (
+      </Box> : null}
+      {visao === 'portal' && cmp ? (
         <Paper
           variant="outlined"
           sx={{
@@ -4028,192 +3931,180 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
         {visao === 'portal' ? (
           <PainelPedidosPortal idLoja={idLoja} alternar={alternarVisao} />
         ) : (
-        <Paper variant="outlined" sx={{ ...tablePaperSx, ...cardSx, minHeight: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2, py: 1.25, borderBottom: '1px solid var(--ga-border)', flexShrink: 0, flexWrap: 'wrap' }}>
-            {alternarVisao}
-            <Box sx={{ minWidth: 0 }}>
-              <Typography sx={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Pedido da semana</Typography>
-              <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-                {dados?.janela_compra
-                  ? `Pede ${dados.janela_compra.dias_pedido}, até ${dados.janela_compra.hora_limite}. O pedido de ${diaCurto(dados.janela_compra.proximo_pedido)} chega 7 dias depois, em ${diaCurto(dados.janela_compra.entrega_deste)}. A comida tem que durar até o caminhão seguinte, ${diaCurto(dados.janela_compra.entrega_seguinte)}.${dados.platlog_itens ? ` ${dados.platlog_itens} itens pedidos pelas lojas nos últimos 120 dias.` : ''}`
-                  : 'Essa loja não está na planilha de entregas. A conta usa os dias ao lado.'}
+        <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
+          <Box sx={{ px: { xs: 0.5, sm: 1 }, pt: 0.5, pb: 2, display: 'flex', alignItems: 'flex-end', gap: 2, flexWrap: 'wrap', flexShrink: 0 }}>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+              <Typography sx={{ fontSize: 28, fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1.15 }}>
+                Sugestão de pedido
+              </Typography>
+              <Typography sx={{ fontSize: 15, color: 'text.secondary', mt: 0.75 }}>
+                {cardsSugestao.length
+                  ? `${cardsSugestao.length} ${cardsSugestao.length === 1 ? 'item' : 'itens'}${aprovados ? ` · ${aprovados} aprovado${aprovados === 1 ? '' : 's'}` : ''}${chegaEm ? ` · chega ${chegaEm}` : ''}`
+                  : 'Nada para pedir agora'}
               </Typography>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, height: 32, px: 1.25, ml: 1, border: '1px solid var(--ga-border)', borderRadius: '8px' }}>
-                {(
-                  [
-                    ...(dados?.janela_compra ? [] : [['Dias', dias, setDias, ''] as const]),
-                    ['Segurança', seguranca, setSeguranca, ''] as const,
-                    ['Teto', metaCmp, setMetaCmp, '%'] as const,
-                  ] satisfies ReadonlyArray<readonly [string, string, (valor: string) => void, string]>
-                ).map(([rotulo, valor, definir, sufixo]) => (
-                <Box key={rotulo} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Typography sx={{ fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{rotulo}</Typography>
-                  <TextField
-                    variant="standard"
-                    value={valor}
-                    onChange={(e) => definir(e.target.value)}
-                    slotProps={{ input: { disableUnderline: true } }}
-                    sx={{
-                      width: sufixo ? 22 : 18,
-                      '& .MuiInputBase-input': { p: 0, textAlign: 'center', fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
-                    }}
-                  />
-                  {sufixo ? <Typography sx={{ fontSize: 12, color: 'text.secondary', ml: -0.25 }}>{sufixo}</Typography> : null}
-                </Box>
-              ))}
-            </Box>
-            <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', ml: 'auto' }}>
-              <Tooltip title="Recalcular">
-                <IconButton size="small" onClick={() => void carregar()} sx={{ border: '1px solid var(--ga-border)', borderRadius: '8px', width: 32, height: 32 }}>
-                  {loading ? <CircularProgress size={14} /> : <RefreshIcon sx={{ fontSize: 18 }} />}
-                </IconButton>
-              </Tooltip>
-              <Button variant="outlined" onClick={copiar} disabled={!comCaixa} sx={finBtnOutlinedSx}>
-                Copiar
-              </Button>
-              <Button
-                variant="contained"
-                disableElevation
-                onClick={() => void montarCarrinho()}
-                disabled={montando || Boolean(dados?.piloto_carrinho_bloqueado) || !comCaixa}
-                sx={finBtnContainedSx}
-              >
-                {montando ? 'Abrindo eSupri…' : 'Montar no eSupri'}
-              </Button>
-            </Box>
+            {alternarVisao}
           </Box>
-          <TableContainer sx={tableContainerSx}>
-            <Table size="small" stickyHeader sx={{ ...tableSx, '& td': { borderColor: 'var(--ga-border)', py: 1 } }}>
-              <TableHead sx={cabecaSx}>
-                <TableRow>
-                  <TableCell sx={{ pl: 2 }}>Insumo</TableCell>
-                  <TableCell align="right">Estoque</TableCell>
-                  <TableCell>Cobertura</TableCell>
-                  <TableCell align="right">A caminho</TableCell>
-                  <TableCell align="right">Sugestão</TableCell>
-                  <TableCell align="right">Valor</TableCell>
-                  <TableCell align="center" sx={{ pr: 2 }}>Caixas</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {listaPedido.map((i) => {
-                  const caixas = Math.max(0, Number(i.pedido_ajustado) || 0);
-                  const valorLinha = caixas * Number(i.preco_caixa || 0);
-                  const cob = i.cobertura_dias == null ? null : Math.max(0, Number(i.cobertura_dias));
-                  const corCob = cob == null ? 'var(--ga-border)' : cob < alvoDias * 0.5 ? '#C4452D' : cob < alvoDias ? '#C47A2A' : '#2E7D5B';
-                  const segurou = Boolean(i.bloqueado) && Number(i.caixas_calculo) > caixas;
-                  const cortou = (i.cortado && Number(i.caixas_calculo) > Number(i.caixas_pedidas)) || segurou;
-                  const est = partesEstoque(i.saldo_atual, i.unidade);
-                  return (
-                    <TableRow key={i.codigo} hover sx={{ bgcolor: i.bloqueado ? 'rgba(196, 122, 42, 0.06)' : caixas > 0 ? 'rgba(27, 110, 243, 0.035)' : undefined }}>
-                      <TableCell sx={{ pl: 2, maxWidth: 420 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-                          <Box
-                            component="img"
-                            src={assetUrl(thumbInsumo({ codigo: i.codigo, descricao: i.descricao }))}
-                            alt=""
-                            sx={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'contain', bgcolor: '#E4DFD6', flexShrink: 0 }}
-                          />
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography noWrap sx={{ fontSize: 13, fontWeight: 600 }} title={i.descricao}>
-                              {i.descricao}
-                            </Typography>
-                            <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                              {i.codigo}
-                              {motivoLinha(i.motivo) ? ` · ${motivoLinha(i.motivo)}` : ''}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontWeight: 650 }}>
-                        {est.qtd} <Box component="span" sx={{ fontSize: 11, fontWeight: 600, color: 'text.secondary' }}>{est.unidade}</Box>
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Box sx={{ width: 64, height: 5, borderRadius: 3, bgcolor: 'var(--ga-border)', overflow: 'hidden', flexShrink: 0 }}>
-                            <Box sx={{ width: `${cob == null ? 0 : Math.min(1, cob / (alvoDias * 2)) * 100}%`, height: '100%', bgcolor: corCob }} />
-                          </Box>
-                          <Typography sx={{ fontSize: 12.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: cob != null && cob < alvoDias ? corCob : 'text.secondary', whiteSpace: 'nowrap' }}>
-                            {cob == null ? '—' : `${fmtNum(cob, 1)} d`}
-                          </Typography>
-                        </Box>
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', color: 'text.secondary' }}>
-                        {Number(i.a_caminho) > 0 ? fmtNum(i.a_caminho, 1) : '—'}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                        {cortou ? (
-                          <Tooltip title={segurou ? motivoLinha(i.motivo) : 'Cortado pelo teto do CMP'}>
-                            <Box component="span">
-                              <Box component="span" sx={{ textDecoration: 'line-through', color: 'text.secondary', mr: 0.75 }}>
-                                {fmtNum(i.caixas_calculo, 0)}
-                              </Box>
-                              <Box component="span" sx={{ color: '#C4452D', fontWeight: 650 }}>{fmtNum(i.caixas_pedidas, 0)}</Box>
-                            </Box>
-                          </Tooltip>
-                        ) : (
-                          <Box component="span" sx={{ color: 'text.secondary' }}>{fmtNum(i.caixas_calculo, 0)}</Box>
-                        )}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: caixas > 0 ? 650 : 400, color: caixas > 0 ? 'text.primary' : 'text.secondary', whiteSpace: 'nowrap' }}>
-                        {i.bloqueado
-                          ? motivoLinha(i.motivo) || 'Fora'
-                          : i.vende_esupri === false
-                            ? 'Não vende'
-                            : caixas > 0
-                              ? brl(valorLinha)
-                              : '—'}
-                      </TableCell>
-                      <TableCell align="center" sx={{ pr: 2, width: 128 }}>
-                        <Box sx={{ display: 'inline-flex', alignItems: 'center', height: 30, border: '1px solid', borderColor: caixas > 0 ? 'rgba(27, 110, 243, 0.45)' : 'var(--ga-border)', borderRadius: '8px', bgcolor: 'var(--ga-surface)' }}>
-                          <IconButton size="small" disabled={i.bloqueado || caixas <= 0} onClick={() => definirCaixas(i.codigo, caixas - 1)} sx={{ width: 28, height: 28 }}>
-                            <RemoveIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                          <TextField
-                            variant="standard"
-                            value={String(i.pedido_ajustado)}
-                            onChange={(e) => definirCaixas(i.codigo, Number(String(e.target.value).replace(',', '.')) || 0)}
-                            disabled={Boolean(i.bloqueado)}
-                            slotProps={{ input: { disableUnderline: true } }}
-                            sx={{
-                              width: 34,
-                              '& .MuiInputBase-input': { p: 0, textAlign: 'center', fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: caixas > 0 ? '#1B6EF3' : 'text.secondary' },
-                            }}
-                          />
-                          <IconButton size="small" disabled={Boolean(i.bloqueado)} onClick={() => definirCaixas(i.codigo, caixas + 1)} sx={{ width: 28, height: 28 }}>
-                            <AddIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {!listaPedido.length && (
-                  <TableRow>
-                    <TableCell colSpan={7}>
-                      <Typography color="text.secondary" align="center" sx={{ py: 3, fontSize: 13 }}>
-                        Nenhum item precisa de caixa agora.
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: { xs: 0.5, sm: 1 }, pb: 1.5, flexShrink: 0, flexWrap: 'wrap' }}>
+            <Checkbox
+              size="small"
+              checked={todosMarcados}
+              indeterminate={sugeridosMarcados > 0 && !todosMarcados}
+              disabled={!sugeridosModelo.length}
+              onChange={() => {
+                setSelecionados((atual) => {
+                  const proximo = { ...atual };
+                  for (const item of sugeridosModelo) {
+                    if (todosMarcados) delete proximo[item.codigo];
+                    else proximo[item.codigo] = true;
+                  }
+                  return proximo;
+                });
+              }}
+              sx={{ p: 0.5, color: 'rgba(15, 23, 42, 0.35)', '&.Mui-checked, &.MuiCheckbox-indeterminate': { color: '#1B6EF3' } }}
+            />
+            <Typography sx={{ fontSize: 14, color: 'text.secondary', mr: 0.5 }}>
+              {codigosSelecionados.length
+                ? `${codigosSelecionados.length} ${codigosSelecionados.length === 1 ? 'selecionado' : 'selecionados'}`
+                : 'Marcar todos'}
+            </Typography>
+            {codigosSelecionados.length ? (
+              <>
+                <Button
+                  onClick={() => decidirVarios(codigosSelecionados, 'recusado')}
+                  sx={{ textTransform: 'none', fontWeight: 600, fontSize: 15, color: '#FF3B30', minHeight: 36, px: 1.5 }}
+                >
+                  Recusar
+                </Button>
+                <Button
+                  variant="contained"
+                  disableElevation
+                  onClick={() => decidirVarios(codigosSelecionados, 'aprovado')}
+                  sx={{ textTransform: 'none', fontWeight: 600, fontSize: 15, minHeight: 36, px: 2, borderRadius: '999px', bgcolor: '#1B6EF3', '&:hover': { bgcolor: '#0D4ECC' } }}
+                >
+                  Aprovar
+                </Button>
+              </>
+            ) : null}
+          </Box>
+          <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 0.5, pr: 0.5, pb: 1 }}>
+            {cardsSugestao.map((i) => {
+              const caixas = Math.max(0, Number(i.pedido_ajustado) || 0);
+              const decisao = decisoes[i.codigo];
+              const marcado = Boolean(selecionados[i.codigo]);
+              const semSugestao = caixas <= 0 && !marcado && !decisao;
+              const undEstoque = String(i.unidade || 'und').trim().toUpperCase();
+              const estoqueInteiro = undEstoque === 'UND' || undEstoque === 'UN' || undEstoque === 'CX';
+              return (
+                <Box
+                  key={i.codigo}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    px: 1,
+                    py: 0.6,
+                    borderRadius: '12px',
+                    bgcolor: marcado ? 'rgba(27, 110, 243, 0.04)' : decisao === 'recusado' ? 'rgba(15, 23, 42, 0.03)' : semSugestao ? 'rgba(15, 23, 42, 0.02)' : 'var(--ga-surface)',
+                    border: semSugestao ? '1px dashed' : '1px solid',
+                    borderColor: marcado ? 'rgba(27, 110, 243, 0.45)' : decisao === 'aprovado' ? 'rgba(46, 125, 91, 0.35)' : semSugestao ? 'rgba(15, 23, 42, 0.22)' : 'rgba(15, 23, 42, 0.08)',
+                  }}
+                >
+                  <Checkbox
+                    size="small"
+                    checked={marcado}
+                    onChange={() => setSelecionados((atual) => {
+                      const proximo = { ...atual };
+                      if (proximo[i.codigo]) delete proximo[i.codigo];
+                      else proximo[i.codigo] = true;
+                      return proximo;
+                    })}
+                    sx={{ p: 0.25, color: 'rgba(15, 23, 42, 0.35)', '&.Mui-checked': { color: '#1B6EF3' } }}
+                  />
+                  <Box
+                    component="img"
+                    src={assetUrl(thumbInsumo({ codigo: i.codigo, descricao: i.descricao }))}
+                    alt=""
+                    sx={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'contain', bgcolor: '#E4DFD6', flexShrink: 0, opacity: semSugestao ? 0.45 : 1 }}
+                  />
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <Typography noWrap title={i.descricao} sx={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.2, color: semSugestao ? '#6E6E73' : 'inherit' }}>
+                      {i.descricao}
+                    </Typography>
+                    <Typography noWrap sx={{ fontSize: 11, fontWeight: 500, lineHeight: 1.15, mt: 0.15, color: '#8d8d8d', fontVariantNumeric: 'tabular-nums' }}>
+                      Estoque {fmtNum(i.saldo_atual, estoqueInteiro ? 0 : 1)} {undEstoque}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', height: 28, px: 0.25, borderRadius: '999px', bgcolor: 'rgba(15, 23, 42, 0.05)', flexShrink: 0 }}>
+                    <IconButton size="small" disabled={caixas <= 0} onClick={() => definirCaixas(i.codigo, caixas - 1)} sx={{ width: 26, height: 26 }}>
+                      <RemoveIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                    <Typography sx={{ minWidth: 22, textAlign: 'center', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                      {fmtNum(caixas, 0)}
+                    </Typography>
+                    <IconButton size="small" onClick={() => definirCaixas(i.codigo, caixas + 1)} sx={{ width: 26, height: 26 }}>
+                      <AddIcon sx={{ fontSize: 14 }} />
+                    </IconButton>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+                    {decisao ? (
+                      <>
+                        <Typography sx={{ fontSize: 12, fontWeight: 600, color: decisao === 'aprovado' ? '#248A3D' : 'text.secondary' }}>
+                          {decisao === 'aprovado' ? 'Aprovado' : 'Recusado'}
+                        </Typography>
+                        <Button
+                          onClick={() => setDecisoes((d) => {
+                            const proximo = { ...d };
+                            delete proximo[i.codigo];
+                            return proximo;
+                          })}
+                          sx={{ textTransform: 'none', fontWeight: 600, fontSize: 12.5, color: '#1B6EF3', minHeight: 28, px: 1 }}
+                        >
+                          Desfazer
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          onClick={() => setDecisoes((d) => ({ ...d, [i.codigo]: 'recusado' }))}
+                          sx={{ textTransform: 'none', fontWeight: 600, fontSize: 12.5, color: '#FF3B30', minHeight: 28, px: 1 }}
+                        >
+                          Recusar
+                        </Button>
+                        <Button
+                          variant="contained"
+                          disableElevation
+                          onClick={() => setDecisoes((d) => ({ ...d, [i.codigo]: 'aprovado' }))}
+                          sx={{ textTransform: 'none', fontWeight: 600, fontSize: 12.5, minHeight: 28, px: 1.5, borderRadius: '999px', bgcolor: '#1B6EF3', '&:hover': { bgcolor: '#0D4ECC' } }}
+                        >
+                          Aprovar
+                        </Button>
+                      </>
+                    )}
+                  </Box>
+                </Box>
+              );
+            })}
+            {!cardsSugestao.length ? (
+              <Typography sx={{ fontSize: 16, color: 'text.secondary', textAlign: 'center', py: 8 }}>
+                Nada para pedir agora.
+              </Typography>
+            ) : null}
+          </Box>
+        </Box>
         )}
 
-        <Paper variant="outlined" sx={{ ...cardSx, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
-          <Box sx={{ px: 2, py: 1.25, borderBottom: '1px solid var(--ga-border)', flexShrink: 0 }}>
-            <Typography sx={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Notas Platlog</Typography>
-            <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
+        <Paper variant="outlined" sx={{ ...cardSx, borderRadius: '18px', display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden' }}>
+          <Box sx={{ px: 2.25, pt: 2, pb: 1.25, flexShrink: 0 }}>
+            <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#1B6EF3', letterSpacing: '-0.01em' }}>Notas</Typography>
+            <Typography sx={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.03em', lineHeight: 1.2 }}>Platlog</Typography>
+            <Typography sx={{ fontSize: 14, color: 'text.secondary', mt: 0.5 }}>
               {notas.length} {notas.length === 1 ? 'nota' : 'notas'} nos últimos 120 dias
             </Typography>
           </Box>
           {notas.length ? (
             <>
-              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1, p: 1.5, flexShrink: 0 }}>
+              <Box sx={{ px: 1.25, pb: 0.5, display: 'flex', flexDirection: 'column', gap: 0.25, flexShrink: 0 }}>
                 {etapasNota.map((e) => {
                   const ativo = etapaAtiva?.id === e.id;
                   const vazio = e.qtd === 0;
@@ -4225,96 +4116,91 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                       disabled={vazio}
                       onClick={() => setFiltroNota(e.id)}
                       sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1.25,
                         textAlign: 'left',
                         font: 'inherit',
                         color: 'inherit',
                         cursor: vazio ? 'default' : 'pointer',
-                        opacity: vazio ? 0.45 : 1,
-                        '&:disabled': { borderColor: 'var(--ga-border)' },
+                        opacity: vazio ? 0.4 : 1,
                         px: 1.25,
-                        py: 1,
-                        borderRadius: '8px',
-                        border: '1px solid',
-                        borderColor: ativo ? e.cor : 'var(--ga-border)',
+                        py: 0.85,
+                        borderRadius: '12px',
+                        border: 0,
                         bgcolor: ativo ? e.fundo : 'transparent',
-                        transition: 'border-color 120ms, background-color 120ms',
-                        '&:hover': { borderColor: vazio ? 'var(--ga-border)' : e.cor },
+                        '&:hover': { bgcolor: vazio ? 'transparent' : ativo ? e.fundo : 'rgba(15, 23, 42, 0.04)' },
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                        <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: e.cor, flexShrink: 0 }} />
-                        <Typography noWrap sx={{ fontSize: 12, fontWeight: 600, color: ativo ? e.cor : 'text.secondary' }}>{e.label}</Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 1, mt: 0.5 }}>
-                        <Typography sx={{ fontSize: 20, fontWeight: 700, lineHeight: 1.1, fontVariantNumeric: 'tabular-nums' }}>{e.qtd}</Typography>
-                        <Typography noWrap sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{brlCurto(e.valor)}</Typography>
-                      </Box>
+                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: e.cor, flexShrink: 0 }} />
+                      <Typography noWrap sx={{ flex: 1, fontSize: 14, fontWeight: ativo ? 600 : 500, color: ativo ? e.cor : 'text.primary' }}>{e.label}</Typography>
+                      <Typography noWrap sx={{ fontSize: 13, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{brlCurto(e.valor)}</Typography>
+                      <Typography sx={{ minWidth: 24, textAlign: 'right', fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{e.qtd}</Typography>
                     </Box>
                   );
                 })}
               </Box>
               {etapaAtiva ? (
-                <Box sx={{ px: 2, py: 1, borderTop: '1px solid var(--ga-border)', borderBottom: '1px solid var(--ga-border)', bgcolor: etapaAtiva.fundo, flexShrink: 0 }}>
-                  <Typography sx={{ fontSize: 12, color: etapaAtiva.cor, fontWeight: 600 }}>{etapaAtiva.dica}</Typography>
-                </Box>
+                <Typography sx={{ px: 2.25, pt: 0.5, pb: 1.25, fontSize: 13, lineHeight: 1.4, color: 'text.secondary', flexShrink: 0 }}>{etapaAtiva.dica}</Typography>
               ) : null}
-              <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-                {notasLista.map((n) => {
-                  const venc = vencNota(n);
-                  const vencida = Boolean(!n.pago && venc && venc < hoje && portalNota(n.status_portal) === 'ATRASO');
-                  const aberta = notaAberta === n.id_nfe;
-                  return (
-                    <Box key={n.id_nfe} sx={{ borderBottom: '1px solid var(--ga-border)' }}>
-                    <Box
-                      component="button"
-                      type="button"
-                      onClick={() => abrirNota(n.id_nfe)}
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.25,
-                        width: '100%',
-                        px: 2,
-                        py: 1.1,
-                        border: 0,
-                        font: 'inherit',
-                        color: 'inherit',
-                        textAlign: 'left',
-                        cursor: 'pointer',
-                        bgcolor: aberta ? 'rgba(27, 110, 243, 0.06)' : 'transparent',
-                        boxShadow: aberta ? 'inset 3px 0 0 #1B6EF3' : 'none',
-                        '&:hover': { bgcolor: aberta ? 'rgba(27, 110, 243, 0.06)' : 'rgba(15, 23, 42, 0.03)' },
-                        '&:hover .seta-nota': { opacity: 1, transform: 'translateX(2px)' },
-                      }}
-                    >
-                      <Box sx={{ minWidth: 0, flex: 1 }}>
-                        <Typography sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums' }}>NF {n.numero || '—'}</Typography>
-                        <Typography noWrap sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                          Emitida {fmtDataBR(n.emissao)}
-                          {n.status_portal ? ` · ${n.status_portal.charAt(0).toUpperCase()}${n.status_portal.slice(1).toLowerCase()}` : ''}
-                        </Typography>
+              <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', px: 1.5, pb: 1.5 }}>
+                <Box sx={{ borderRadius: '14px', overflow: 'hidden', bgcolor: 'rgba(15, 23, 42, 0.035)' }}>
+                  {notasLista.map((n, idx) => {
+                    const venc = vencNota(n);
+                    const vencida = Boolean(!n.pago && venc && venc < hoje && portalNota(n.status_portal) === 'ATRASO');
+                    const aberta = notaAberta === n.id_nfe;
+                    return (
+                      <Box
+                        key={n.id_nfe}
+                        component="button"
+                        type="button"
+                        onClick={() => abrirNota(n.id_nfe)}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1.25,
+                          width: '100%',
+                          px: 1.75,
+                          py: 1.35,
+                          border: 0,
+                          borderTop: idx ? '1px solid rgba(15, 23, 42, 0.06)' : 0,
+                          font: 'inherit',
+                          color: 'inherit',
+                          textAlign: 'left',
+                          cursor: 'pointer',
+                          bgcolor: aberta ? 'rgba(27, 110, 243, 0.08)' : 'transparent',
+                          '&:hover': { bgcolor: aberta ? 'rgba(27, 110, 243, 0.08)' : 'rgba(15, 23, 42, 0.04)' },
+                          '&:hover .seta-nota': { opacity: 1 },
+                        }}
+                      >
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography sx={{ fontSize: 15, fontWeight: 600, letterSpacing: '-0.01em', fontVariantNumeric: 'tabular-nums' }}>NF {n.numero || '—'}</Typography>
+                          <Typography noWrap sx={{ fontSize: 13, color: 'text.secondary', fontVariantNumeric: 'tabular-nums', mt: 0.15 }}>
+                            Emitida {fmtDataBR(n.emissao)}
+                            {n.status_portal ? ` · ${n.status_portal.charAt(0).toUpperCase()}${n.status_portal.slice(1).toLowerCase()}` : ''}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                          <Typography sx={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                            {n.valor_total != null ? brl(Number(n.valor_total)) : '—'}
+                          </Typography>
+                          <Typography sx={{ fontSize: 13, fontVariantNumeric: 'tabular-nums', color: vencida ? '#C4452D' : 'text.secondary', mt: 0.15 }}>
+                            {n.pago ? `Pago · venceu ${fmtDataBR(venc)}` : venc ? `Vence ${fmtDataBR(venc)}` : 'Sem vencimento'}
+                          </Typography>
+                        </Box>
+                        <ChevronRightIcon
+                          className="seta-nota"
+                          sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0, opacity: aberta ? 1 : 0.35 }}
+                        />
                       </Box>
-                      <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
-                        <Typography sx={{ fontSize: 13, fontWeight: 650, fontVariantNumeric: 'tabular-nums' }}>
-                          {n.valor_total != null ? brl(Number(n.valor_total)) : '—'}
-                        </Typography>
-                        <Typography sx={{ fontSize: 11.5, fontVariantNumeric: 'tabular-nums', color: vencida ? '#C4452D' : 'text.secondary' }}>
-                          {n.pago ? `Pago · venceu ${fmtDataBR(venc)}` : venc ? `Vence ${fmtDataBR(venc)}` : 'Sem vencimento'}
-                        </Typography>
-                      </Box>
-                      <ChevronRightIcon
-                        className="seta-nota"
-                        sx={{ fontSize: 18, color: 'text.secondary', flexShrink: 0, opacity: aberta ? 1 : 0.4, transition: 'opacity 120ms, transform 120ms' }}
-                      />
-                    </Box>
-                    </Box>
-                  );
-                })}
+                    );
+                  })}
+                </Box>
               </Box>
             </>
           ) : (
             <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 3 }}>
-              <Typography sx={{ fontSize: 13, color: 'text.secondary', textAlign: 'center' }}>
+              <Typography sx={{ fontSize: 15, color: 'text.secondary', textAlign: 'center' }}>
                 Nenhuma nota Platlog desta loja nos últimos 120 dias.
               </Typography>
             </Box>
@@ -4591,54 +4477,6 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
           >
             {reabrindoNf ? 'Devolvendo…' : 'Devolver'}
           </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={Boolean(printCarrinho)} onClose={() => setPrintCarrinho(null)} maxWidth="md" fullWidth>
-        <DialogContent>
-          {printCarrinho ? (
-            <>
-              <Typography sx={{ fontWeight: 700, mb: 0.5 }}>
-                {printCarrinho.preenchidos
-                  ? `${printCarrinho.preenchidos} caixa(s) digitadas. Pedido não enviado.`
-                  : 'Nada foi digitado. O eSupri abriu no catálogo vazio.'}
-              </Typography>
-              <Typography sx={{ fontSize: 13, color: 'var(--ga-text-secondary)', mb: 1.5 }}>
-                {`No eSupri essa lista fecha em ${brl(
-                  printCarrinho.precos.reduce((s, p) => s + (p.portal || 0) * p.caixas, 0),
-                )}. Aqui ela fecha em ${brl(printCarrinho.valorLista)}. O catálogo cobra o preço de hoje. A coluna R$ daqui é a última nota.`}
-                {printCarrinho.faltou ? ` Fora do catálogo: ${printCarrinho.faltouCodigos.join(', ')}.` : ''}
-              </Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Código</TableCell>
-                    <TableCell align="right">Caixas</TableCell>
-                    <TableCell align="right">Nota</TableCell>
-                    <TableCell align="right">Catálogo</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {printCarrinho.precos.map((p) => {
-                    const diferente = p.portal != null && p.lista != null && Math.abs(p.portal - p.lista) > 0.009;
-                    return (
-                      <TableRow key={p.codigo}>
-                        <TableCell sx={{ fontWeight: 700 }}>{p.codigo}</TableCell>
-                        <TableCell align="right">{p.caixas}</TableCell>
-                        <TableCell align="right">{p.lista == null ? '—' : brl(p.lista)}</TableCell>
-                        <TableCell align="right" sx={{ color: p.portal == null ? '#B42318' : diferente ? '#B45309' : undefined, fontWeight: 700 }}>
-                          {p.portal == null ? 'não vende' : brl(p.portal)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </>
-          ) : null}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPrintCarrinho(null)}>Fechar</Button>
         </DialogActions>
       </Dialog>
     </Box>
