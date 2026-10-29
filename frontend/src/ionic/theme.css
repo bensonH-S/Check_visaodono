@@ -1805,6 +1805,29 @@ ion-page {
   color: #fff;
 }
 
+/* Achado: Sim é o problema (vermelho) e Não é o conforme (verde). */
+.ck-q.is-sim-problema .ck-q__yn-btn--yes {
+  border-color: rgba(185, 28, 28, 0.35);
+  color: #b91c1c;
+}
+
+.ck-q.is-sim-problema .ck-q__yn-btn--no {
+  border-color: rgba(59, 109, 17, 0.35);
+  color: #3b6d11;
+}
+
+.ck-q.is-sim-problema .ck-q__yn-btn--yes.is-on {
+  border-color: #b91c1c;
+  background: #b91c1c;
+  color: #fff;
+}
+
+.ck-q.is-sim-problema .ck-q__yn-btn--no.is-on {
+  border-color: #3b6d11;
+  background: #3b6d11;
+  color: #fff;
+}
+
 .ck-q__foto {
   margin-top: 12px;
 }
@@ -2035,6 +2058,18 @@ html.dark .ck-checklist-hub .ck-q__yn-btn--yes.is-on {
 html.dark .ck-checklist-hub .ck-q__yn-btn--no.is-on {
   background: #dc2626 !important;
   border-color: #dc2626 !important;
+  color: #fff !important;
+}
+
+html.dark .ck-checklist-hub .ck-q.is-sim-problema .ck-q__yn-btn--yes.is-on {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #fff !important;
+}
+
+html.dark .ck-checklist-hub .ck-q.is-sim-problema .ck-q__yn-btn--no.is-on {
+  background: #16a34a !important;
+  border-color: #16a34a !important;
   color: #fff !important;
 }
 

@@ -4462,10 +4462,10 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                               <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
                                 <Box sx={{ minWidth: 0, flex: 1 }}>
                                   <Typography noWrap sx={{ fontSize: 13, fontWeight: 600 }} title={it.descricao || ''}>
-                                    {it.descricao_insumo || it.descricao || 'Item'}
+                                    {it.descricao || it.descricao_insumo || 'Item'}
                                   </Typography>
                                   <Typography noWrap sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                                    {[it.codigo_insumo || it.codigo_nf, it.v_prod != null ? brl(Number(it.v_prod)) : null].filter(Boolean).join(' · ')}
+                                    {[it.codigo_nf || it.codigo_insumo, it.v_prod != null ? brl(Number(it.v_prod)) : null].filter(Boolean).join(' · ')}
                                   </Typography>
                                   {it.preco_tabela != null && (it.situacao_preco === 'acima' || it.situacao_preco === 'conferir_unidade') ? (
                                     <Typography noWrap sx={{ fontSize: 11.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: SELO_PRECO[it.situacao_preco].cor }}>

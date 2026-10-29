@@ -8,6 +8,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { fmtData, fmtNota, fetchMediaAutenticada } from '../../api/client';
 import type { VisitaDetalhe } from '../../api/client';
 import { formatarHoraVisita } from '../../utils/visitaFormat';
+import { simIndicaProblema } from '../../utils/checklistRules';
 import { getUsuario, logout } from '../../lib/auth';
 import { assetUrl, ICONE_PWA, LOGO_GA_LOCKUP } from '../../config/paths';
 import ImageLightbox from '../ImageLightbox';
@@ -41,10 +42,7 @@ function chipClass(
   resposta: string | null | undefined,
   pergunta?: { texto?: string; sim_indica_problema?: boolean },
 ): string {
-  const invertida = pergunta
-    ? pergunta.sim_indica_problema === true ||
-      (pergunta.sim_indica_problema !== false && /possui alguma obstru/i.test(pergunta.texto || ''))
-    : false;
+  const invertida = pergunta ? simIndicaProblema(pergunta) : false;
   if (invertida) {
     if (resposta === 'Não') return 'is-ok';
     if (resposta === 'Sim') return 'is-fail';

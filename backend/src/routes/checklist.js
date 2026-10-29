@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pool } from '../db.js';
 import { requirePermissao } from '../permissoes.js';
 import { auditar } from '../auditoriaHelpers.js';
+import { textoIndicaSimRuim } from '../checklistPontuacao.js';
 
 const requireGestaoChecklist = requirePermissao('configuracoes.perguntas', 'checklist.gerenciar');
 import {
@@ -14,6 +15,16 @@ import {
 const router = Router();
 
 const TIPOS_RESPOSTA = ['estrelas', 'sim_nao', 'estrelas_foto', 'sim_nao_foto'];
+
+/** Pergunta de achado grava a flag mesmo se o formulário vier desligado. */
+async function gravarPolaridadeAchado(row) {
+  if (!row || row.sim_indica_problema || !textoIndicaSimRuim(row.texto)) return row;
+  const { rows } = await pool.query(
+    `UPDATE perguntas SET sim_indica_problema = TRUE WHERE id_pergunta = $1 RETURNING *`,
+    [row.id_pergunta],
+  );
+  return rows[0] || row;
+}
 
 async function carregarChecklistAgrupado(idTipoChecklist = null) {
   const schemaAtivo = await schemaTiposChecklistAtivo();
@@ -247,17 +258,18 @@ router.post('/perguntas', requireGestaoChecklist, async (req, res, next) => {
         !!requer_foto,
         !!requer_obs_em_nao,
         !!critica,
-        !!sim_indica_problema,
+        !!sim_indica_problema || textoIndicaSimRuim(texto),
       ],
     );
+    const salva = await gravarPolaridadeAchado(rows[0]);
     await auditar(req, {
       modulo: 'checklist',
       acao: 'criar',
       entidade: 'pergunta',
       idReferencia: rows[0].id_pergunta,
-      descricao: `Pergunta criada: ${rows[0].codigo} — ${String(rows[0].texto).slice(0, 80)}`,
+      descricao: `Pergunta criada: ${salva.codigo} — ${String(salva.texto).slice(0, 80)}`,
     });
-    res.status(201).json(rows[0]);
+    res.status(201).json(salva);
   } catch (e) {
     if (e.code === '23505') {
       return res.status(409).json({ error: 'Código da pergunta já existe' });
@@ -305,14 +317,15 @@ router.patch('/perguntas/:id', requireGestaoChecklist, async (req, res, next) =>
       vals,
     );
     if (!rows[0]) return res.status(404).json({ error: 'Pergunta não encontrada' });
+    const salva = await gravarPolaridadeAchado(rows[0]);
     await auditar(req, {
       modulo: 'checklist',
       acao: 'atualizar',
       entidade: 'pergunta',
       idReferencia: id,
-      descricao: `Pergunta atualizada: ${rows[0].codigo}`,
+      descricao: `Pergunta atualizada: ${salva.codigo}`,
     });
-    res.json(rows[0]);
+    res.json(salva);
   } catch (e) {
     if (e.code === '23505') {
       return res.status(409).json({ error: 'Código da pergunta já existe' });

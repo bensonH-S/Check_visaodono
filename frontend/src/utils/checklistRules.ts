@@ -4,16 +4,33 @@ import { apiBasePath } from '../config/paths';
 /** Máximo de fotos por pergunta no checklist. */
 export const MAX_FOTOS_POR_PERGUNTA = 5;
 
+/** Espelho de PADROES_SIM_INDICA_PROBLEMA_SQL em backend/src/checklistPontuacao.js */
 const PADROES_SIM_INDICA_PROBLEMA = [
   /foi encontrad/i,
-  /há presença/i,
+  /h[aá] presença/i,
   /ha presenca/i,
-  /evidência de/i,
+  /evid[eê]ncia de/i,
   /evidencia de/i,
   /possui alguma obstru/i,
   /existe vazamento/i,
-  /há vazamento/i,
+  /h[aá] vazamento/i,
   /ha vazamento/i,
+  /foram observad/i,
+  /foi observad/i,
+  /foi identificad/i,
+  /foram identificad/i,
+  /evidenciou/i,
+  /foi evidenc/i,
+  /foi servid/i,
+  /h[aá] equipamentos/i,
+  /ha equipamentos/i,
+  /h[aá] danos/i,
+  /ha danos/i,
+  /h[aá] risco/i,
+  /ha risco/i,
+  /h[aá] desperd/i,
+  /ha desperd/i,
+  /existe algum equipamento/i,
 ];
 
 export function maxFotos(limite?: number): number {
@@ -26,10 +43,9 @@ export function respostaSimNaoEscolhida(resposta?: 'Sim' | 'Não' | 'N/A'): bool
   return resposta === 'Sim' || resposta === 'Não';
 }
 
-/** Perguntas em que "Sim" = problema (ex.: obstrução na pia). */
+/** Perguntas em que "Sim" = achado/problema (ex.: barata, contaminação, obstrução). */
 export function simIndicaProblema(p: Pick<Pergunta, 'texto' | 'sim_indica_problema'>): boolean {
   if (p.sim_indica_problema === true) return true;
-  if (p.sim_indica_problema === false) return false;
   return PADROES_SIM_INDICA_PROBLEMA.some((re) => re.test(p.texto || ''));
 }
 

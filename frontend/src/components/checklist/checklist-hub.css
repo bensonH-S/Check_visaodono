@@ -866,6 +866,20 @@
   color: #ffffff !important;
 }
 
+.ck-checklist-hub .ck-q.is-sim-problema .ck-q__yn-btn--yes.is-on {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.35);
+}
+
+.ck-checklist-hub .ck-q.is-sim-problema .ck-q__yn-btn--no.is-on {
+  background: #16a34a !important;
+  border-color: #16a34a !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+}
+
 .ck-checklist-hub .ck-fluxo__bar span,
 .ck-checklist-hub .ck-fluxo__bar-fill {
   background: #0548d1 !important;

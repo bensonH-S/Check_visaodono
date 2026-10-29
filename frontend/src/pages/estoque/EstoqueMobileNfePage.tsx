@@ -80,12 +80,13 @@ function qtdEsperada(it: EstoqueNfeItem) {
   return Number(q) || 0;
 }
 
+/** Nome da conferência = texto da NF. O cadastro não substitui o produto da nota. */
 function nomeItem(it: EstoqueNfeItem) {
   return (
-    it.descricao_insumo ||
     it.descricao ||
-    it.codigo_insumo ||
+    it.descricao_insumo ||
     it.codigo_nf ||
+    it.codigo_insumo ||
     `Item ${it.n_item ?? it.id_item}`
   );
 }
@@ -636,8 +637,8 @@ export default function EstoqueMobileNfePage() {
                           className="ck-estoque-hub__thumb"
                           src={assetUrl(
                             thumbInsumo({
-                              codigo: it.codigo_insumo || it.codigo_nf,
-                              descricao: it.descricao_insumo || it.descricao,
+                              codigo: it.codigo_nf || it.codigo_insumo,
+                              descricao: it.descricao || it.descricao_insumo,
                             }),
                           )}
                           alt=""
@@ -645,10 +646,9 @@ export default function EstoqueMobileNfePage() {
                         <span className="ck-estoque-hub__copy">
                           <strong>{nomeItem(it)}</strong>
                           <small>
-                            {semMatch
-                              ? 'Sem cadastro — só ocorrência'
-                              : it.codigo_nf || it.codigo_insumo || ''}
-                            {parcial ? ` � parcial ${fmtQtd(rec)}/${fmtQtd(esp)}` : ''}
+                            {it.codigo_nf || it.codigo_insumo || (semMatch ? 'Sem cadastro' : '')}
+                            {semMatch && (it.codigo_nf || it.codigo_insumo) ? ' · não entra no estoque' : ''}
+                            {parcial ? ` · parcial ${fmtQtd(rec)}/${fmtQtd(esp)}` : ''}
                           </small>
                         </span>
                       </span>

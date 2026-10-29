@@ -48,11 +48,12 @@ export default function ChecklistIonicPerguntaCard({
 }: Props) {
   const fotos = getFotos(r);
   const ok = perguntaRespondida(p, r);
+  const achado = simIndicaProblema(p);
   const mostraFoto = exibeFoto(p, r?.resposta, r?.nota_estrelas);
   const mostraObs = exibeObservacao(p, r?.resposta, r?.nota_estrelas);
 
   return (
-    <article className={`ck-q${ok ? ' is-ok' : ''}${erroCampo ? ' is-err' : ''}`}>
+    <article className={`ck-q${ok ? ' is-ok' : ''}${erroCampo ? ' is-err' : ''}${achado ? ' is-sim-problema' : ''}`}>
       <header className="ck-q__head">
         <span className={`ck-q__code${ok ? ' is-ok' : ''}`}>{p.codigo}</span>
         <div className="ck-q__title-wrap">

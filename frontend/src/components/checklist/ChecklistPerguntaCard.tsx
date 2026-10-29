@@ -81,17 +81,21 @@ export default function ChecklistPerguntaCard({
   const mostraFoto = exibeFoto(p, r?.resposta, r?.nota_estrelas);
   const mostraObs = exibeObservacao(p, r?.resposta, r?.nota_estrelas);
 
-  const opcoesSimNao = escuro
-    ? ([
-        { opt: 'Sim' as const, label: 'Sim', cor: '#4ADE80', hoverBg: 'rgba(74, 222, 128, 0.12)', selBg: '#16A34A' },
-        { opt: 'Não' as const, label: 'Não', cor: '#F87171', hoverBg: 'rgba(248, 113, 113, 0.12)', selBg: '#DC2626' },
-        { opt: 'N/A' as const, label: 'N/A', cor: '#94A3B8', hoverBg: 'rgba(148, 163, 184, 0.12)', selBg: '#64748B' },
-      ] as const)
-    : ([
-        { opt: 'Sim' as const, label: 'Sim', cor: '#3B6D11', hoverBg: 'rgba(59, 109, 17, 0.08)', selBg: '#3B6D11' },
-        { opt: 'Não' as const, label: 'Não', cor: '#A32D2D', hoverBg: 'rgba(163, 45, 45, 0.08)', selBg: '#A32D2D' },
-        { opt: 'N/A' as const, label: 'N/A', cor: '#1B2A6B', hoverBg: 'rgba(27, 42, 107, 0.08)', selBg: '#1B2A6B' },
-      ] as const);
+  const achado = simIndicaProblema(p);
+  const paletaOk = escuro
+    ? { cor: '#4ADE80', hoverBg: 'rgba(74, 222, 128, 0.12)', selBg: '#16A34A' }
+    : { cor: '#3B6D11', hoverBg: 'rgba(59, 109, 17, 0.08)', selBg: '#3B6D11' };
+  const paletaRuim = escuro
+    ? { cor: '#F87171', hoverBg: 'rgba(248, 113, 113, 0.12)', selBg: '#DC2626' }
+    : { cor: '#A32D2D', hoverBg: 'rgba(163, 45, 45, 0.08)', selBg: '#A32D2D' };
+  const paletaNa = escuro
+    ? { cor: '#94A3B8', hoverBg: 'rgba(148, 163, 184, 0.12)', selBg: '#64748B' }
+    : { cor: '#1B2A6B', hoverBg: 'rgba(27, 42, 107, 0.08)', selBg: '#1B2A6B' };
+  const opcoesSimNao = [
+    { opt: 'Sim' as const, label: 'Sim', ...(achado ? paletaRuim : paletaOk) },
+    { opt: 'Não' as const, label: 'Não', ...(achado ? paletaOk : paletaRuim) },
+    { opt: 'N/A' as const, label: 'N/A', ...paletaNa },
+  ];
 
   return (
     <Paper

@@ -17,6 +17,7 @@ import Tooltip from '@mui/material/Tooltip';
 import { api, fmtNota, fmtData, fetchMediaAutenticada, scoreChipSx } from '../api/client';
 import type { VisitaDetalhe } from '../api/client';
 import { gerarPdfVisita } from '../utils/gerarPdfVisita';
+import { simIndicaProblema } from '../utils/checklistRules';
 import { showToast } from '../utils/toast';
 import { formatarHoraVisita, formatarLocalVisita } from '../utils/visitaFormat';
 import { isMobileAppPath } from '../config/mobileRoutes';
@@ -54,10 +55,7 @@ function corResposta(
   pergunta: { texto?: string; sim_indica_problema?: boolean } | undefined,
   escuro: boolean,
 ): { color: string; bg: string } {
-  const invertida = pergunta
-    ? pergunta.sim_indica_problema === true ||
-      (pergunta.sim_indica_problema !== false && /possui alguma obstru/i.test(pergunta.texto || ''))
-    : false;
+  const invertida = pergunta ? simIndicaProblema(pergunta) : false;
   const ok = escuro
     ? { color: '#4ADE80', bg: 'rgba(74, 222, 128, 0.16)' }
     : { color: '#15803D', bg: '#ECFDF5' };

@@ -4,6 +4,7 @@ import sizeOf from 'image-size';
 import { countMidiaResposta, decryptMidiaResposta } from '../fotos.js';
 import { findBrandAsset } from '../projectPaths.js';
 import { fmtData, fmtNota, formatarHoraVisita, formatarLocalVisita } from '../utils/visitaFormat.js';
+import { perguntaSimIndicaProblema } from '../checklistPontuacao.js';
 
 const MARGIN = 11;
 const PAGE_W = 210;
@@ -75,10 +76,7 @@ function formatarResposta(r) {
 }
 
 function estiloResposta(resposta, pergunta) {
-  const invertida = pergunta
-    ? pergunta.sim_indica_problema === true ||
-      (pergunta.sim_indica_problema !== false && /possui alguma obstru/i.test(pergunta.texto || ''))
-    : false;
+  const invertida = pergunta ? perguntaSimIndicaProblema(pergunta) : false;
   if (invertida) {
     if (resposta === 'Não') return { cor: OK, bg: [236, 253, 245] };
     if (resposta === 'Sim') return { cor: FAIL, bg: NC_BG };

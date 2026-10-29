@@ -4,6 +4,7 @@ import { fmtData, fmtNota } from '../api/client';
 import { assetUrl } from '../config/paths';
 import { getToken } from '../lib/auth';
 import { formatarHoraVisita, formatarLocalVisita } from './visitaFormat';
+import { simIndicaProblema } from './checklistRules';
 
 const MARGIN = 11;
 const PAGE_W = 210;
@@ -87,10 +88,7 @@ function estiloResposta(
   resposta: string | null | undefined,
   pergunta?: { texto?: string; sim_indica_problema?: boolean },
 ): { cor: Rgb; bg: Rgb | null } {
-  const invertida = pergunta
-    ? pergunta.sim_indica_problema === true ||
-      (pergunta.sim_indica_problema !== false && /possui alguma obstru/i.test(pergunta.texto || ''))
-    : false;
+  const invertida = pergunta ? simIndicaProblema(pergunta) : false;
   if (invertida) {
     if (resposta === 'Não') return { cor: OK, bg: [236, 253, 245] };
     if (resposta === 'Sim') return { cor: FAIL, bg: NC_BG };

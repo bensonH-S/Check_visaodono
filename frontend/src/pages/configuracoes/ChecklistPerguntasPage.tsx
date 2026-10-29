@@ -35,6 +35,7 @@ import type { CategoriaChecklist, Pergunta, PerguntaInput, TipoResposta, TipoChe
 import { dialogContentSx, dialogFieldProps } from '../../utils/dialogForm';
 import { useToast } from '../../hooks/useToast';
 import { dispararAtualizacaoChecklist } from '../../utils/checklistEvent';
+import { simIndicaProblema } from '../../utils/checklistRules';
 import { tableContainerSx, tableSx } from '../../utils/tablePageLayout';
 import {
   configPageSx,
@@ -201,7 +202,7 @@ export default function ChecklistPerguntasPage() {
       requer_foto: p.requer_foto,
       requer_obs_em_nao: p.requer_obs_em_nao,
       critica: p.critica,
-      sim_indica_problema: !!p.sim_indica_problema,
+      sim_indica_problema: simIndicaProblema(p),
     });
     setErro('');
     setDialog(true);
@@ -226,7 +227,8 @@ export default function ChecklistPerguntasPage() {
         requer_foto: form.requer_foto,
         requer_obs_em_nao: form.requer_obs_em_nao,
         critica: form.critica,
-        sim_indica_problema: form.sim_indica_problema,
+        sim_indica_problema:
+          form.sim_indica_problema || simIndicaProblema({ texto: form.texto, sim_indica_problema: false }),
       };
       if (editId) await api.checklistPerguntaAtualizar(editId, body);
       else await api.checklistPerguntaCriar(body);
@@ -481,7 +483,15 @@ export default function ChecklistPerguntasPage() {
             multiline
             minRows={3}
             value={form.texto}
-            onChange={(e) => setForm((f) => ({ ...f, texto: e.target.value }))}
+            onChange={(e) => {
+              const texto = e.target.value;
+              setForm((f) => ({
+                ...f,
+                texto,
+                sim_indica_problema:
+                  f.sim_indica_problema || simIndicaProblema({ texto, sim_indica_problema: false }),
+              }));
+            }}
           />
           <FormRow>
             <TextField
@@ -567,7 +577,11 @@ export default function ChecklistPerguntasPage() {
             <FormControlLabel
               control={
                 <Switch
-                  checked={form.sim_indica_problema}
+                  checked={
+                    form.sim_indica_problema ||
+                    simIndicaProblema({ texto: form.texto, sim_indica_problema: false })
+                  }
+                  disabled={simIndicaProblema({ texto: form.texto, sim_indica_problema: false })}
                   onChange={(e) =>
                     setForm((f) => ({ ...f, sim_indica_problema: e.target.checked }))
                   }
@@ -581,8 +595,8 @@ export default function ChecklistPerguntasPage() {
             color="text.secondary"
             sx={{ display: 'block', mt: -0.5, mb: 1, fontSize: '0.7rem', lineHeight: 1.35 }}
           >
-            Use em perguntas como &quot;possui alguma obstrução?&quot;: responder Não não perde ponto;
-            responder Sim perde ponto e pode gerar NC.
+            Em perguntas de achado (barata, contaminação, revalidação, produto vencido servido),
+            Sim abre NC e Não mantém a pontuação. O texto dessas perguntas liga esta opção sozinho.
           </Typography>
         </DialogContent>
         <DialogActions>
