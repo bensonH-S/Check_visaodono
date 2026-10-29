@@ -88,6 +88,7 @@ import { nomeLojaCurto, resumirPedidosTabela } from '../../utils/precoTabelaResu
 import Autocomplete from '@mui/material/Autocomplete';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import { assetUrl } from '../../config/paths';
+import { thumbInsumo } from '../../components/estoque/estoqueHub';
 import { ehLojaPopeyes } from '../../components/escalas/escalaVisitasUtils';
 import { finCampoSx, FIN_MUTED } from '../../financeiro/temaFinanceiroEscuro';
 import { showToast } from '../../utils/toast';
@@ -4087,8 +4088,8 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
               <TableHead sx={cabecaSx}>
                 <TableRow>
                   <TableCell sx={{ pl: 2 }}>Insumo</TableCell>
-                  <TableCell align="right" sx={{ pl: '24px !important', pr: '48px !important', width: 168 }}>Estoque</TableCell>
-                  <TableCell sx={{ pl: '32px !important' }}>Cobertura</TableCell>
+                  <TableCell align="right">Estoque</TableCell>
+                  <TableCell>Cobertura</TableCell>
                   <TableCell align="right">A caminho</TableCell>
                   <TableCell align="right">Sugestão</TableCell>
                   <TableCell align="right">Valor</TableCell>
@@ -4106,23 +4107,30 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                   const est = partesEstoque(i.saldo_atual, i.unidade);
                   return (
                     <TableRow key={i.codigo} hover sx={{ bgcolor: i.bloqueado ? 'rgba(196, 122, 42, 0.06)' : caixas > 0 ? 'rgba(27, 110, 243, 0.035)' : undefined }}>
-                      <TableCell sx={{ pl: 2, maxWidth: 360 }}>
-                        <Typography noWrap sx={{ fontSize: 13, fontWeight: 600 }} title={i.descricao}>
-                          {i.descricao}
-                        </Typography>
-                        <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
-                          {i.codigo}
-                          {motivoLinha(i.motivo) ? ` · ${motivoLinha(i.motivo)}` : ''}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right" sx={{ pl: '24px !important', pr: '48px !important', width: 168, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: '8px' }}>
-                          <Box component="span" sx={{ fontWeight: 650 }}>{est.qtd}</Box>
-                          <Box component="span" sx={{ fontSize: 11, fontWeight: 600, color: 'text.secondary', letterSpacing: '0.04em' }}>{est.unidade}</Box>
+                      <TableCell sx={{ pl: 2, maxWidth: 420 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                          <Box
+                            component="img"
+                            src={assetUrl(thumbInsumo({ codigo: i.codigo, descricao: i.descricao }))}
+                            alt=""
+                            sx={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'contain', bgcolor: '#E4DFD6', flexShrink: 0 }}
+                          />
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography noWrap sx={{ fontSize: 13, fontWeight: 600 }} title={i.descricao}>
+                              {i.descricao}
+                            </Typography>
+                            <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                              {i.codigo}
+                              {motivoLinha(i.motivo) ? ` · ${motivoLinha(i.motivo)}` : ''}
+                            </Typography>
+                          </Box>
                         </Box>
                       </TableCell>
-                      <TableCell sx={{ pl: '32px !important' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, ml: '8px' }}>
+                      <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', fontWeight: 650 }}>
+                        {est.qtd} <Box component="span" sx={{ fontSize: 11, fontWeight: 600, color: 'text.secondary' }}>{est.unidade}</Box>
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Box sx={{ width: 64, height: 5, borderRadius: 3, bgcolor: 'var(--ga-border)', overflow: 'hidden', flexShrink: 0 }}>
                             <Box sx={{ width: `${cob == null ? 0 : Math.min(1, cob / (alvoDias * 2)) * 100}%`, height: '100%', bgcolor: corCob }} />
                           </Box>

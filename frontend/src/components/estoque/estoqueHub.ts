@@ -111,51 +111,119 @@ const THUMB_DIARIA = [
   '028459',
 ] as const;
 
-const THUMB_CODIGO: Record<string, string> = {};
-for (const code of THUMB_DIARIA) {
-  const path = `estoque-thumbs/${code}.png`;
-  THUMB_CODIGO[code] = path;
-  THUMB_CODIGO[code.replace(/^0+/, '')] = path;
-}
+/** Fotos novas da sugestão de pedido. O arquivo é estoque-thumbs/{codigo}.png. */
+const THUMB_PEDIDO = [
+  '38577', '41963', '29857', '30482', '39059', '41948', '32375', '35959', '38021',
+  '37709', '35046', '37967', '35083', '3029', '36234', '35740', '31896',
+  '28999', '39300', '30489', '40366', '40365', '35293', '38829', '31161', '35407',
+  '35708', '39642', '34298', '40364', '35835', '30153', '34862', '35531', '38643',
+  '38810', '31543', '32387', '32997', '35144', '38742', '40367', '31192', '23119',
+  '42299', '42137', '42293', '4330', '38641', '42295', '34638', '38851', '33290',
+  '42342', '35079', '31439', '42242', '34600', '42288',
+] as const;
 
-const THUMB_GRUPO: Record<string, string> = {
-  carne: 'estoque-thumbs/021403.png',
-  bacon: 'estoque-thumbs/28582.png',
-  pao: 'estoque-thumbs/034840.png',
-  queijo: 'estoque-thumbs/35619.png',
-  frango: 'estoque-thumbs/34580.png',
-  batata: 'estoque-thumbs/21055.png',
-  refil: 'estoque-thumbs/41962.png',
-  mix_sobremesa: 'estoque-thumbs/41962.png',
-};
+const THUMB_CODIGO: Record<string, string> = {};
+const FOTO_V = '?v=6';
+function registrarThumb(code: string, ext: 'png' | 'jpg') {
+  const arquivo = `estoque-thumbs/${code}.${ext}${FOTO_V}`;
+  THUMB_CODIGO[code] = arquivo;
+  const solto = code.replace(/^0+/, '');
+  if (solto) THUMB_CODIGO[solto] = arquivo;
+}
+for (const code of THUMB_DIARIA) registrarThumb(code, 'png');
+for (const code of THUMB_PEDIDO) registrarThumb(code, 'jpg');
+for (const code of ['35622', '38178', '031777', '34580', '35619', '42284', '21317', '28582', '036252', '21055', '028459', '41962', '42297', '35221', '021403']) {
+  registrarThumb(code, 'jpg');
+}
+const FOTO_PAO = `estoque-thumbs/036252.jpg${FOTO_V}`;
+for (const code of ['034840', '34840', '034754', '34754', '038585', '38585', '36252']) {
+  THUMB_CODIGO[code] = FOTO_PAO;
+}
+THUMB_CODIGO.alface = `estoque-thumbs/alface.jpg${FOTO_V}`;
+
+/** Nome do produto → foto. O mais específico vem primeiro. */
+const THUMB_NOME: Array<[RegExp, string]> = [
+  [/caixa the kings/i, '38577'],
+  [/bacon pronto assado|bacon.*tiras/i, '28582'],
+  [/lamina rebel/i, '29857'],
+  [/confeito chocolate/i, '30482'],
+  [/biscoito baunilha granulado/i, '39059'],
+  [/tampa domo/i, '41948'],
+  [/nugget/i, '34580'],
+  [/pepino fatiado/i, '32375'],
+  [/queijo cheddar clean|cheddar clean bk/i, '35619'],
+  [/carne hb|hamb[uú]rguer.*\bbkc\b/i, '35622'],
+  [/rebel sabor picanha|hamb[uú]rguer rebel/i, '38178'],
+  [/chicken jr/i, '031777'],
+  [/suco de laranja integral|suco laranja 12/i, '35959'],
+  [/batata cong pre frita|9mm/i, '21055'],
+  [/maionese granel sabor bacon/i, '37709'],
+  [/suco uva maca/i, '35046'],
+  [/bacon bk ass cubos|bacon.*cubos/i, '21317'],
+  [/molho stacker/i, '37967'],
+  [/alface americana/i, 'alface'],
+  [/jalapeno|jalape[nñ]o/i, '35083'],
+  [/agua copo 200/i, '3029'],
+  [/casquinha sorvete bk cx 300/i, '36234'],
+  [/maionese verde sachet/i, '35740'],
+  [/copo shake 440/i, '31896'],
+  [/lamina stacker/i, '28999'],
+  [/ovomaltine flocos/i, '39300'],
+  [/ketchup a granel/i, '30489'],
+  [/lamina chicken whopper/i, '40365'],
+  [/lamina whopper bk/i, '40366'],
+  [/cartonagem batata media -/i, '35293'],
+  [/canudo papel milkshake/i, '38829'],
+  [/doce de leite bk bisnaga/i, '31161'],
+  [/mostarda heinz bk bag/i, '35407'],
+  [/mistura milk shake/i, '35708'],
+  [/molho sabor queijo cheddar/i, '39642'],
+  [/brownie brigadeiro/i, '34298'],
+  [/lamina king ofertas/i, '40364'],
+  [/maionese sachet sabor bacon/i, '35835'],
+  [/calda morango/i, '30153'],
+  [/molho furioso bk ncm cx 144|blister 28g/i, '34862'],
+  [/cebola frita crispy/i, '35531'],
+  [/fundo batata suprema/i, '38643'],
+  [/lamina chicken whopper/i, '40365'],
+  [/onion rings/i, '38810'],
+  [/garfo sobremesa/i, '31543'],
+  [/maionese sachet - cx|sachet maionese clean/i, '32997'],
+  [/saquinho de batata/i, '35144'],
+  [/cart batata media dlv/i, '38742'],
+  [/lamina big king nova/i, '40367'],
+  [/cartonagem batata grande bk innovapack|cartonagem batata grande/i, '31192'],
+  [/luva p\/ lixo cano longo/i, '23119'],
+  [/estrogonoff/i, '42299'],
+  [/tampa pote bk 240/i, '42137'],
+  [/carne de panela/i, '42293'],
+  [/etiqueta \(domingo\)/i, '4330'],
+  [/tampa batata suprema grande/i, '38641'],
+  [/coxa desossada/i, '42295'],
+  [/molho furioso ncm bk 5/i, '34638'],
+  [/sacola p\/ viagem/i, '38851'],
+  [/sal refinado sache/i, '33290'],
+  [/tempero sal e pimenta/i, '42342'],
+  [/queijo crispy/i, '42284'],
+  [/detergente bk/i, '35079'],
+  [/tampa refrigerante 440/i, '31439'],
+  [/copo refrig universal 550/i, '42242'],
+  [/tampa shake bk 440/i, '34600'],
+  [/pao bk supremo|p[aã]o bk supremo/i, '036252'],
+  [/sweet chilli/i, '42288'],
+];
 
 export function thumbInsumo(item: { codigo?: string | null; descricao?: string | null; grupo_diario?: string | null }) {
   const codigo = String(item.codigo || '').replace(/^0+/, '') || String(item.codigo || '');
   const porCodigo = THUMB_CODIGO[String(item.codigo || '')] || THUMB_CODIGO[codigo];
   if (porCodigo) return porCodigo;
 
-  const nome = String(item.descricao || '').toLowerCase();
-  if (/nugget/i.test(nome)) return 'estoque-thumbs/34580.png';
-  if (/chicken\s*jr|jr\s*clean/i.test(nome)) return 'estoque-thumbs/031777.png';
-  if (/pizzaiolo/i.test(nome)) return 'estoque-thumbs/42297.png';
-  if (/crispy/i.test(nome)) return 'estoque-thumbs/42284.png';
-  if (/cheddar|queijo/i.test(nome)) return 'estoque-thumbs/35619.png';
-  if (/bacon.*cub/i.test(nome)) return 'estoque-thumbs/21317.png';
-  if (/bacon/i.test(nome)) return 'estoque-thumbs/28582.png';
-  if (/brioche/i.test(nome)) return 'estoque-thumbs/038585.png';
-  if (/supremo/i.test(nome)) return 'estoque-thumbs/036252.png';
-  if (/p[aã]o.*\b5\b|\b5\b.*p[aã]o/i.test(nome)) return 'estoque-thumbs/034754.png';
-  if (/p[aã]o/i.test(nome)) return 'estoque-thumbs/034840.png';
-  if (/batata/i.test(nome)) return 'estoque-thumbs/21055.png';
-  if (/doce\s*de\s*leite/i.test(nome)) return 'estoque-thumbs/028459.png';
-  if (/baunilha|l[aá]ctea|bebida/i.test(nome)) return 'estoque-thumbs/41962.png';
-  if (/rebel|picanha/i.test(nome)) return 'estoque-thumbs/38178.png';
-  if (/gourmet/i.test(nome)) return 'estoque-thumbs/35221.png';
-  if (/\bbkc\b|carne\s*hb/i.test(nome)) return 'estoque-thumbs/35622.png';
-  if (/carne|hamburger|hamb[uú]rguer/i.test(nome)) return 'estoque-thumbs/021403.png';
-  if (/chicken|frango/i.test(nome)) return 'estoque-thumbs/031777.png';
+  const descricao = String(item.descricao || '');
+  for (const [teste, code] of THUMB_NOME) {
+    if (teste.test(descricao) && THUMB_CODIGO[code]) return THUMB_CODIGO[code];
+  }
 
-  return THUMB_GRUPO[String(item.grupo_diario || '')] || 'estoque-thumbs/insumo.svg';
+  return `estoque-thumbs/sem-foto.svg${FOTO_V}`;
 }
 
 export function dataHubPt(d = new Date()) {
