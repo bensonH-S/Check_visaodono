@@ -4041,10 +4041,10 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, height: 32, px: 1.25, ml: 1, border: '1px solid var(--ga-border)', borderRadius: '8px' }}>
                 {(
                   [
-                    ...(dados?.janela_compra ? [] : [['Dias', dias, setDias, '']]),
-                    ['Segurança', seguranca, setSeguranca, ''],
-                    ['Teto', metaCmp, setMetaCmp, '%'],
-                  ] as const
+                    ...(dados?.janela_compra ? [] : [['Dias', dias, setDias, ''] as const]),
+                    ['Segurança', seguranca, setSeguranca, ''] as const,
+                    ['Teto', metaCmp, setMetaCmp, '%'] as const,
+                  ] satisfies ReadonlyArray<readonly [string, string, (valor: string) => void, string]>
                 ).map(([rotulo, valor, definir, sufixo]) => (
                 <Box key={rotulo} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <Typography sx={{ fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{rotulo}</Typography>

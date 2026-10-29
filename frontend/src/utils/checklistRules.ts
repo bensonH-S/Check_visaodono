@@ -44,14 +44,17 @@ export function respostaSimNaoEscolhida(resposta?: 'Sim' | 'Não' | 'N/A'): bool
 }
 
 /** Perguntas em que "Sim" = achado/problema (ex.: barata, contaminação, obstrução). */
-export function simIndicaProblema(p: Pick<Pergunta, 'texto' | 'sim_indica_problema'>): boolean {
+export function simIndicaProblema(p: {
+  texto?: string | null;
+  sim_indica_problema?: boolean | null;
+}): boolean {
   if (p.sim_indica_problema === true) return true;
   return PADROES_SIM_INDICA_PROBLEMA.some((re) => re.test(p.texto || ''));
 }
 
 /** Resposta que gera perda de ponto / NC nesta pergunta. */
 export function respostaIndicaProblema(
-  p: Pick<Pergunta, 'texto' | 'sim_indica_problema'>,
+  p: { texto?: string | null; sim_indica_problema?: boolean | null },
   resposta?: 'Sim' | 'Não' | 'N/A',
 ): boolean {
   if (!resposta || resposta === 'N/A') return false;
