@@ -120,6 +120,14 @@ function fmtNum(v: number | null | undefined, digitos = 2) {
   });
 }
 
+function partesEstoque(qtd: number | null | undefined, unidade?: string | null) {
+  const und = String(unidade || 'und').trim().toUpperCase();
+  const inteiro = und === 'UND' || und === 'UN' || und === 'CX';
+  const n = Number(qtd);
+  const digitos = inteiro ? 0 : Math.abs(n) >= 1 ? 1 : 3;
+  return { qtd: fmtNum(qtd, digitos), unidade: und };
+}
+
 function fmtMoeda(v: number | null | undefined) {
   if (v == null || Number.isNaN(Number(v))) return '—';
   return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -3642,7 +3650,6 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
   const [dias, setDias] = useState('7');
   const [seguranca, setSeguranca] = useState('1');
   const [metaCmp, setMetaCmp] = useState('38');
-  const [soPlatlog, setSoPlatlog] = useState(true);
   const [visao, setVisao] = useState<'rascunho' | 'portal'>('rascunho');
   const [montando, setMontando] = useState(false);
   const podeDevolverNf = podeReabrirConferenciaNfe(getUsuario());
@@ -3684,7 +3691,12 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
     void carregar();
   }, [carregar]);
 
-  const visiveis = soPlatlog ? itens.filter((i) => i.fornecedor === 'platlog') : itens;
+  const visiveis = itens;
+  const listaPedido = [...visiveis].sort((a, b) => {
+    const pa = !a.bloqueado && Number(a.pedido_ajustado) > 0 ? 0 : 1;
+    const pb = !b.bloqueado && Number(b.pedido_ajustado) > 0 ? 0 : 1;
+    return pa - pb;
+  });
   const valorAjustado = visiveis.reduce(
     (s, i) => s + Math.max(0, Number(i.pedido_ajustado) || 0) * Number(i.preco_caixa || 0),
     0,
@@ -3708,7 +3720,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
       return;
     }
     const linhas = visiveis
-      .filter((i) => i.fornecedor === 'platlog' && i.vende_esupri !== false && Number(i.pedido_ajustado) > 0)
+      .filter((i) => i.fornecedor === 'platlog' && !i.bloqueado && i.vende_esupri !== false && Number(i.pedido_ajustado) > 0)
       .map((i) => ({
         codigo: i.codigo,
         caixas: Math.round(Number(i.pedido_ajustado)),
@@ -3855,10 +3867,32 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
     : [];
 
   const alvoDias = Number(dias) || 7;
-  const comCaixa = visiveis.filter((i) => Number(i.pedido_ajustado) > 0).length;
+  const comCaixa = visiveis.filter((i) => Number(i.pedido_ajustado) > 0 && !i.bloqueado).length;
+  const deFora = visiveis.filter((i) => i.bloqueado).length;
+  const horaGravada = dados?.simulacao?.criado_em
+    ? new Date(dados.simulacao.criado_em).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: 'America/Sao_Paulo',
+      })
+    : '';
+  const diaCurto = (iso?: string) => {
+    if (!iso || iso.length < 10) return '';
+    return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+  };
+  const motivoLinha = (motivo: string | null) => {
+    if (motivo === 'sem_preco') return 'Sem preço — ficou de fora';
+    if (motivo === 'nao_vende') return 'Não vende no eSupri';
+    if (motivo === 'ficha_zerada') return 'Ficha zerada — ficou de fora';
+    if (motivo === 'quantidade_alta') return 'Quantidade alta — conferir a ficha';
+    if (motivo === 'teto_cmp') return 'Cortado pelo teto';
+    return '';
+  };
   const definirCaixas = (codigo: string, valor: number) => {
     setItens((atual) =>
-      atual.map((row) => (row.codigo === codigo ? { ...row, pedido_ajustado: Math.max(0, valor) } : row)),
+      atual.map((row) =>
+        row.codigo === codigo && !row.bloqueado ? { ...row, pedido_ajustado: Math.max(0, valor) } : row,
+      ),
     );
   };
   const cardSx = {
@@ -3902,6 +3936,14 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, flex: 1, minHeight: 0, color: 'var(--ga-text-primary)' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.9, borderRadius: '8px', bgcolor: 'rgba(196, 122, 42, 0.12)', flexShrink: 0 }}>
+        <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#C47A2A', flexShrink: 0 }} />
+        <Typography sx={{ fontSize: 13, color: '#7A4E12' }}>
+          Sugestão de teste. Esta lista não envia pedido.
+          {horaGravada ? ` Gravada às ${horaGravada}.` : ''}
+          {deFora ? ` ${deFora} ${deFora === 1 ? 'item ficou' : 'itens ficaram'} de fora.` : ''}
+        </Typography>
+      </Box>
       {cmp ? (
         <Paper
           variant="outlined"
@@ -3991,17 +4033,19 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
             <Box sx={{ minWidth: 0 }}>
               <Typography sx={{ fontSize: 14, fontWeight: 700, letterSpacing: '-0.01em' }}>Pedido da semana</Typography>
               <Typography sx={{ fontSize: 12, color: 'text.secondary' }}>
-                {visiveis.length} {visiveis.length === 1 ? 'insumo' : 'insumos'} · {comCaixa} com caixa
+                {dados?.janela_compra
+                  ? `Pede ${dados.janela_compra.dias_pedido}, até ${dados.janela_compra.hora_limite}. O pedido de ${diaCurto(dados.janela_compra.proximo_pedido)} chega 7 dias depois, em ${diaCurto(dados.janela_compra.entrega_deste)}. A comida tem que durar até o caminhão seguinte, ${diaCurto(dados.janela_compra.entrega_seguinte)}.${dados.platlog_itens ? ` ${dados.platlog_itens} itens pedidos pelas lojas nos últimos 120 dias.` : ''}`
+                  : 'Essa loja não está na planilha de entregas. A conta usa os dias ao lado.'}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, height: 32, px: 1.25, ml: 1, border: '1px solid var(--ga-border)', borderRadius: '8px' }}>
-              {(
-                [
-                  ['Dias', dias, setDias, ''],
-                  ['Segurança', seguranca, setSeguranca, ''],
-                  ['Teto', metaCmp, setMetaCmp, '%'],
-                ] as const
-              ).map(([rotulo, valor, definir, sufixo]) => (
+                {(
+                  [
+                    ...(dados?.janela_compra ? [] : [['Dias', dias, setDias, '']]),
+                    ['Segurança', seguranca, setSeguranca, ''],
+                    ['Teto', metaCmp, setMetaCmp, '%'],
+                  ] as const
+                ).map(([rotulo, valor, definir, sufixo]) => (
                 <Box key={rotulo} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <Typography sx={{ fontSize: 12, color: 'text.secondary', whiteSpace: 'nowrap' }}>{rotulo}</Typography>
                   <TextField
@@ -4024,9 +4068,6 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                   {loading ? <CircularProgress size={14} /> : <RefreshIcon sx={{ fontSize: 18 }} />}
                 </IconButton>
               </Tooltip>
-              <Button variant="outlined" onClick={() => setSoPlatlog((v) => !v)} sx={finBtnOutlinedSx}>
-                {soPlatlog ? 'Só Platlog' : 'Todos'}
-              </Button>
               <Button variant="outlined" onClick={copiar} disabled={!comCaixa} sx={finBtnOutlinedSx}>
                 Copiar
               </Button>
@@ -4046,8 +4087,8 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
               <TableHead sx={cabecaSx}>
                 <TableRow>
                   <TableCell sx={{ pl: 2 }}>Insumo</TableCell>
-                  {!soPlatlog ? <TableCell>Fornecedor</TableCell> : null}
-                  <TableCell>Cobertura</TableCell>
+                  <TableCell align="right" sx={{ pl: '24px !important', pr: '48px !important', width: 168 }}>Estoque</TableCell>
+                  <TableCell sx={{ pl: '32px !important' }}>Cobertura</TableCell>
                   <TableCell align="right">A caminho</TableCell>
                   <TableCell align="right">Sugestão</TableCell>
                   <TableCell align="right">Valor</TableCell>
@@ -4055,25 +4096,33 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {visiveis.map((i) => {
+                {listaPedido.map((i) => {
                   const caixas = Math.max(0, Number(i.pedido_ajustado) || 0);
                   const valorLinha = caixas * Number(i.preco_caixa || 0);
                   const cob = i.cobertura_dias == null ? null : Math.max(0, Number(i.cobertura_dias));
                   const corCob = cob == null ? 'var(--ga-border)' : cob < alvoDias * 0.5 ? '#C4452D' : cob < alvoDias ? '#C47A2A' : '#2E7D5B';
-                  const cortou = i.cortado && Number(i.caixas_calculo) > Number(i.caixas_pedidas);
+                  const segurou = Boolean(i.bloqueado) && Number(i.caixas_calculo) > caixas;
+                  const cortou = (i.cortado && Number(i.caixas_calculo) > Number(i.caixas_pedidas)) || segurou;
+                  const est = partesEstoque(i.saldo_atual, i.unidade);
                   return (
-                    <TableRow key={i.codigo} hover sx={{ bgcolor: caixas > 0 ? 'rgba(27, 110, 243, 0.035)' : undefined }}>
+                    <TableRow key={i.codigo} hover sx={{ bgcolor: i.bloqueado ? 'rgba(196, 122, 42, 0.06)' : caixas > 0 ? 'rgba(27, 110, 243, 0.035)' : undefined }}>
                       <TableCell sx={{ pl: 2, maxWidth: 360 }}>
                         <Typography noWrap sx={{ fontSize: 13, fontWeight: 600 }} title={i.descricao}>
                           {i.descricao}
                         </Typography>
-                        <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>{i.codigo}</Typography>
+                        <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                          {i.codigo}
+                          {motivoLinha(i.motivo) ? ` · ${motivoLinha(i.motivo)}` : ''}
+                        </Typography>
                       </TableCell>
-                      {!soPlatlog ? (
-                        <TableCell sx={{ color: 'text.secondary', textTransform: 'capitalize' }}>{i.fornecedor || '—'}</TableCell>
-                      ) : null}
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TableCell align="right" sx={{ pl: '24px !important', pr: '48px !important', width: 168, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                        <Box component="span" sx={{ display: 'inline-flex', alignItems: 'baseline', gap: '8px' }}>
+                          <Box component="span" sx={{ fontWeight: 650 }}>{est.qtd}</Box>
+                          <Box component="span" sx={{ fontSize: 11, fontWeight: 600, color: 'text.secondary', letterSpacing: '0.04em' }}>{est.unidade}</Box>
+                        </Box>
+                      </TableCell>
+                      <TableCell sx={{ pl: '32px !important' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, ml: '8px' }}>
                           <Box sx={{ width: 64, height: 5, borderRadius: 3, bgcolor: 'var(--ga-border)', overflow: 'hidden', flexShrink: 0 }}>
                             <Box sx={{ width: `${cob == null ? 0 : Math.min(1, cob / (alvoDias * 2)) * 100}%`, height: '100%', bgcolor: corCob }} />
                           </Box>
@@ -4087,7 +4136,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                       </TableCell>
                       <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
                         {cortou ? (
-                          <Tooltip title="Cortado pelo teto do CMP">
+                          <Tooltip title={segurou ? motivoLinha(i.motivo) : 'Cortado pelo teto do CMP'}>
                             <Box component="span">
                               <Box component="span" sx={{ textDecoration: 'line-through', color: 'text.secondary', mr: 0.75 }}>
                                 {fmtNum(i.caixas_calculo, 0)}
@@ -4100,24 +4149,31 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                         )}
                       </TableCell>
                       <TableCell align="right" sx={{ fontVariantNumeric: 'tabular-nums', fontWeight: caixas > 0 ? 650 : 400, color: caixas > 0 ? 'text.primary' : 'text.secondary', whiteSpace: 'nowrap' }}>
-                        {i.vende_esupri === false ? 'Não vende' : caixas > 0 ? brl(valorLinha) : '—'}
+                        {i.bloqueado
+                          ? motivoLinha(i.motivo) || 'Fora'
+                          : i.vende_esupri === false
+                            ? 'Não vende'
+                            : caixas > 0
+                              ? brl(valorLinha)
+                              : '—'}
                       </TableCell>
                       <TableCell align="center" sx={{ pr: 2, width: 128 }}>
                         <Box sx={{ display: 'inline-flex', alignItems: 'center', height: 30, border: '1px solid', borderColor: caixas > 0 ? 'rgba(27, 110, 243, 0.45)' : 'var(--ga-border)', borderRadius: '8px', bgcolor: 'var(--ga-surface)' }}>
-                          <IconButton size="small" disabled={caixas <= 0} onClick={() => definirCaixas(i.codigo, caixas - 1)} sx={{ width: 28, height: 28 }}>
+                          <IconButton size="small" disabled={i.bloqueado || caixas <= 0} onClick={() => definirCaixas(i.codigo, caixas - 1)} sx={{ width: 28, height: 28 }}>
                             <RemoveIcon sx={{ fontSize: 16 }} />
                           </IconButton>
                           <TextField
                             variant="standard"
                             value={String(i.pedido_ajustado)}
                             onChange={(e) => definirCaixas(i.codigo, Number(String(e.target.value).replace(',', '.')) || 0)}
+                            disabled={Boolean(i.bloqueado)}
                             slotProps={{ input: { disableUnderline: true } }}
                             sx={{
                               width: 34,
                               '& .MuiInputBase-input': { p: 0, textAlign: 'center', fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: caixas > 0 ? '#1B6EF3' : 'text.secondary' },
                             }}
                           />
-                          <IconButton size="small" onClick={() => definirCaixas(i.codigo, caixas + 1)} sx={{ width: 28, height: 28 }}>
+                          <IconButton size="small" disabled={Boolean(i.bloqueado)} onClick={() => definirCaixas(i.codigo, caixas + 1)} sx={{ width: 28, height: 28 }}>
                             <AddIcon sx={{ fontSize: 16 }} />
                           </IconButton>
                         </Box>
@@ -4125,11 +4181,11 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                     </TableRow>
                   );
                 })}
-                {!visiveis.length && (
+                {!listaPedido.length && (
                   <TableRow>
                     <TableCell colSpan={7}>
                       <Typography color="text.secondary" align="center" sx={{ py: 3, fontSize: 13 }}>
-                        Sem consumo recente para montar o rascunho. Confira vendas BK Office e fichas.
+                        Nenhum item precisa de caixa agora.
                       </Typography>
                     </TableCell>
                   </TableRow>

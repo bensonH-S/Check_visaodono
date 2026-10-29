@@ -1,14 +1,22 @@
 /**
  * Rascunho de abastecimento.
  * Ritmo = venda atual (50%) + últimos 3 meses (30%) + mesmo período do ano passado (20%).
- * Caixas cobrem o horizonte menos saldo e NF ainda não recebida.
+ * Caixas cobrem até a entrega do pedido seguinte (planilha Platlog). Sem a planilha, usa a janela pedida.
+ * O ritmo da venda continua na última semana, separado dos dias de cobertura.
  * O valor do pedido não passa do teto de CMP do mês (meta sobre a venda projetada, menos o que já entrou).
+ * A lista de itens Platlog sai dos pedidos reais de todas as lojas da mesma marca nos últimos 120 dias.
+ * A quantidade de caixas continua da venda desta loja. Loja maior vende mais, então pede mais.
+ * Item sem preço ou fora do eSupri fica de fora do pedido. Cada cálculo é gravado como simulação de teste.
  * Não envia pedido.
  */
 import { pool } from '../db.js';
+import { janelaDaLoja } from './platlogJanela.js';
 
 /** Mesma referência de CMV da rede. O teto de compra do mês usa esse percentual sobre a venda projetada. */
 export const META_CMP_PADRAO = 0.38;
+
+/** Maior quantidade de um item vista nos pedidos reais recentes. Acima disso a simulação segura a linha. */
+export const CAIXAS_MAX_SIMULACAO = 40;
 
 export const LOJAS_FORA_PILOTO_PEDIDO = [
   { bk: '23531', esupri: '1192301', nome: '706' },
@@ -126,7 +134,7 @@ export function caixasParaCobrir({
 
 /**
  * Atende primeiro quem tem menos cobertura. O que não cabe no teto é cortado.
- * Item sem preço permanece e é marcado — não consome o teto.
+ * Item sem preço fica marcado e não consome o teto. `segurarLinhaPedido` zera a caixa depois.
  */
 export function aplicarTetoCmp(itens, tetoRestante) {
   const teto = Math.max(0, num(tetoRestante));
@@ -181,8 +189,69 @@ export function aplicarTetoCmp(itens, tetoRestante) {
   return { itens: out, restante: round(resta, 2) };
 }
 
+/**
+ * Tira do pedido o que não dá para comprar com segurança.
+ * A necessidade calculada continua em caixas_calculo para a tela mostrar o motivo.
+ */
+export function segurarLinhaPedido(item) {
+  const caixasCalc = num(item.caixas_calculo ?? item.caixas);
+  const base = { ...item, bloqueado: false };
+  if (item.vende_esupri === false) {
+    return {
+      ...base,
+      caixas_pedidas: 0,
+      pedido_sugerido: 0,
+      pedido_ajustado: 0,
+      valor: 0,
+      cortado: false,
+      bloqueado: true,
+      motivo: 'nao_vende',
+    };
+  }
+  if (item.motivo === 'ficha_zerada' || item.ficha_zerada) {
+    return {
+      ...base,
+      caixas_pedidas: 0,
+      pedido_sugerido: 0,
+      pedido_ajustado: 0,
+      valor: 0,
+      bloqueado: true,
+      motivo: 'ficha_zerada',
+    };
+  }
+  if (caixasCalc > 0 && !(num(item.preco_caixa) > 0)) {
+    return {
+      ...base,
+      caixas_pedidas: 0,
+      pedido_sugerido: 0,
+      pedido_ajustado: 0,
+      valor: 0,
+      cortado: false,
+      bloqueado: true,
+      motivo: 'sem_preco',
+    };
+  }
+  if (caixasCalc > CAIXAS_MAX_SIMULACAO) {
+    return {
+      ...base,
+      caixas_pedidas: 0,
+      pedido_sugerido: 0,
+      pedido_ajustado: 0,
+      valor: 0,
+      cortado: false,
+      bloqueado: true,
+      motivo: 'quantidade_alta',
+    };
+  }
+  return base;
+}
+
 function chaveInsumo(codigo) {
   return String(codigo || '').trim().toUpperCase();
+}
+
+function chaveSolta(codigo) {
+  return chaveInsumo(codigo).replace(/^0+/, '');
 }
 
 export async function calcularRascunhoAbastecimento(
@@ -197,14 +266,15 @@ export async function calcularRascunhoAbastecimento(
   const id = Number(idLoja);
   if (!id) throw Object.assign(new Error('id_loja obrigatório'), { status: 400 });
 
-  const nDias = Math.min(Math.max(Number(dias) || 7, 1), 21);
+  const diasRitmo = Math.min(Math.max(Number(dias) || 7, 1), 21);
   const segDias = Math.min(Math.max(Number(estoque_seguranca_dias) || 0, 0), 7);
-  const diasCobertura = nDias + segDias;
+  let diasCobertura = diasRitmo + segDias;
+  let janelaCompra = null;
   const meta = Math.min(Math.max(num(meta_cmp, META_CMP_PADRAO), 0.05), 0.8);
   const janelaTransito = Math.min(Math.max(Number(janela_transito_dias) || 21, 7), 45);
 
   const hoje = hojeSpISO();
-  const inicioAtual = addDays(hoje, -nDias);
+  const inicioAtual = addDays(hoje, -diasRitmo);
   const inicio3m = addDays(hoje, -90);
   const inicioAno = addYears(inicioAtual, -1);
   const fimAno = addYears(hoje, -1);
@@ -218,6 +288,11 @@ export async function calcularRascunhoAbastecimento(
     [id],
   );
   const loja = lojaRows[0] || { id_loja: id, name: '', bk_number: '' };
+  janelaCompra = janelaDaLoja({ bk: loja.bk_number, nome: loja.name });
+  const diasAlvo = janelaCompra
+    ? Math.min(Math.max(janelaCompra.dias_ate_entrega_seguinte, 1), 21)
+    : diasRitmo;
+  diasCobertura = diasAlvo + segDias;
 
   const { rows: consumoRows } = await pool.query(
     `
@@ -277,6 +352,7 @@ export async function calcularRascunhoAbastecimento(
   const { rows: insumoRows } = await pool.query(
     `
     SELECT i.codigo, i.descricao,
+           COALESCE(i.unidade_contagem, 'und') AS unidade,
            COALESCE(s.quantidade, 0)::numeric AS saldo,
            COALESCE(i.preco_caixa, 0)::numeric AS preco_caixa,
            i.preco_esupri::numeric AS preco_esupri,
@@ -324,6 +400,19 @@ export async function calcularRascunhoAbastecimento(
     ORDER BY i.codigo, n.emissao DESC NULLS LAST, n.id_nfe DESC
     `,
     [id],
+  );
+
+  const marcaRede = String(loja.name || '').toUpperCase().includes('POP') ? '%POP%' : '%BURGER KING%';
+  const { rows: platRows } = await pool.query(
+    `
+    SELECT DISTINCT ltrim(upper(trim(it.codigo)), '0') AS codigo
+    FROM estoque_pedido_platlog p
+    JOIN estoque_pedido_platlog_itens it ON it.id_pedido = p.id_pedido
+    JOIN lojas l ON l.id_loja = p.id_loja
+    WHERE p.data_pedido >= (CURRENT_DATE - INTERVAL '120 days')::date
+      AND l.name ILIKE $1
+    `,
+    [marcaRede],
   );
 
   const { rows: vendaRows } = await pool.query(
@@ -382,6 +471,21 @@ export async function calcularRascunhoAbastecimento(
   for (const row of transitoRows) aCaminho.set(chaveInsumo(row.codigo), num(row.qtd));
   const fornecedor = new Map();
   for (const row of fornRows) fornecedor.set(chaveInsumo(row.codigo), row.fornecedor || '');
+  const porSolta = new Map();
+  for (const key of porInsumo.keys()) {
+    const solta = chaveSolta(key);
+    if (solta && !porSolta.has(solta)) porSolta.set(solta, key);
+  }
+  const platlog = new Set();
+  for (const row of platRows) {
+    const key = porInsumo.has(chaveInsumo(row.codigo))
+      ? chaveInsumo(row.codigo)
+      : porSolta.get(chaveSolta(row.codigo));
+    if (key) platlog.add(key);
+  }
+  for (const [key, ins] of porInsumo) {
+    if (ins.vende_esupri === true) platlog.add(key);
+  }
 
   const bruto = [];
   for (const c of consumoRows) {
@@ -390,11 +494,11 @@ export async function calcularRascunhoAbastecimento(
     if (!ins) continue;
     const blend = ritmoBlend({
       qAtual: num(c.q_atual),
-      diasAtual: nDias,
+      diasAtual: diasRitmo,
       q3m: num(c.q_3m),
       dias3m: 90,
       qAno: num(c.q_ano),
-      diasAno: nDias,
+      diasAno: diasRitmo,
     });
     const saldo = num(ins.saldo);
     const caminho = aCaminho.get(key) || 0;
@@ -417,6 +521,7 @@ export async function calcularRascunhoAbastecimento(
       consumo_3m: round(num(c.q_3m), 3),
       consumo_ano: round(num(c.q_ano), 3),
       saldo_atual: round(saldo, 3),
+      unidade: String(ins.unidade || 'und').trim().toLowerCase() || 'und',
       a_caminho: round(caminho, 3),
       cobertura_dias: coberturaDias == null ? null : round(coberturaDias, 1),
       und_convertida: round(und, 4),
@@ -431,6 +536,44 @@ export async function calcularRascunhoAbastecimento(
       custo_fonte: ins.custo_fonte || null,
       caixas: cover.caixas,
       necessidade: cover.necessidade,
+      platlog: platlog.has(key),
+    });
+  }
+
+  const jaNaLista = new Set(bruto.map((item) => chaveInsumo(item.codigo)));
+  for (const key of platlog) {
+    if (jaNaLista.has(key)) continue;
+    const ins = porInsumo.get(key);
+    if (!ins) continue;
+    const saldo = num(ins.saldo);
+    const caminho = aCaminho.get(key) || 0;
+    const und = num(ins.und_convertida, 1) > 0 ? num(ins.und_convertida, 1) : 1;
+    bruto.push({
+      codigo: ins.codigo,
+      descricao: ins.descricao,
+      fornecedor: fornecedor.get(key) || 'platlog',
+      ritmo_dia: 0,
+      pesos: { atual: 0, tres_meses: 0, ano_passado: 0 },
+      consumo_atual: 0,
+      consumo_3m: 0,
+      consumo_ano: 0,
+      saldo_atual: round(saldo, 3),
+      unidade: String(ins.unidade || 'und').trim().toLowerCase() || 'und',
+      a_caminho: round(caminho, 3),
+      cobertura_dias: null,
+      und_convertida: round(und, 4),
+      preco_nota: round(num(ins.preco_caixa), 2),
+      preco_esupri: ins.preco_esupri != null ? round(num(ins.preco_esupri), 2) : null,
+      vende_esupri: ins.vende_esupri === true ? true : ins.vende_esupri === false ? false : null,
+      preco_caixa: ins.vende_esupri === false
+        ? 0
+        : ins.vende_esupri === true && num(ins.preco_esupri) > 0
+          ? round(num(ins.preco_esupri), 2)
+          : round(num(ins.preco_caixa), 2),
+      custo_fonte: ins.custo_fonte || null,
+      caixas: 0,
+      necessidade: 0,
+      platlog: true,
     });
   }
 
@@ -475,6 +618,7 @@ export async function calcularRascunhoAbastecimento(
       consumo_3m: item.consumo_3m,
       consumo_ano: item.consumo_ano,
       saldo_atual: item.saldo_atual,
+      unidade: item.unidade || 'und',
       a_caminho: item.a_caminho,
       cobertura_dias: item.cobertura_dias,
       und_convertida: item.und_convertida,
@@ -491,8 +635,11 @@ export async function calcularRascunhoAbastecimento(
       valor: item.valor,
       cortado: Boolean(item.cortado),
       motivo: item.motivo || null,
+      bloqueado: false,
+      platlog: Boolean(item.platlog),
     }))
-    .filter((item) => item.ritmo_dia > 0 || item.a_caminho > 0)
+    .map((item) => segurarLinhaPedido(item))
+    .filter((item) => item.platlog || item.ritmo_dia > 0 || item.a_caminho > 0)
     .sort((a, b) => {
       const da = a.cobertura_dias == null ? 9999 : a.cobertura_dias;
       const db = b.cobertura_dias == null ? 9999 : b.cobertura_dias;
@@ -508,15 +655,18 @@ export async function calcularRascunhoAbastecimento(
     bk: loja.bk_number,
     nome: loja.name,
   });
+  const bloqueados = itens.filter((i) => i.bloqueado).length;
 
-  return {
+  const rascunho = {
     id_loja: id,
     loja_nome: loja.name || '',
     bk_number: loja.bk_number || '',
     piloto_carrinho_bloqueado: Boolean(bloqueio),
     piloto_bloqueio: bloqueio ? bloqueio.nome : null,
+    platlog_itens: itens.filter((i) => i.platlog).length,
     dias_cobertura: diasCobertura,
-    dias_ciclo: nDias,
+    dias_ciclo: diasAlvo,
+    janela_compra: janelaCompra,
     estoque_seguranca_dias: segDias,
     janela_transito_dias: janelaTransito,
     periodos: {
@@ -537,8 +687,59 @@ export async function calcularRascunhoAbastecimento(
       teto_aplicado: cmpAplicado,
       cortados: itens.filter((i) => i.cortado).length,
     },
+    bloqueados,
     itens,
   };
+
+  rascunho.simulacao = await gravarSimulacaoPedido(id, rascunho, {
+    dias: diasAlvo,
+    estoque_seguranca_dias: segDias,
+    meta_cmp: meta,
+  });
+  return rascunho;
+}
+
+/** Guarda a simulação. O modo é sempre teste: esta tabela não representa pedido enviado. */
+export async function gravarSimulacaoPedido(idLoja, rascunho, params) {
+  const comCaixa = rascunho.itens.filter((i) => num(i.caixas_pedidas) > 0).length;
+  try {
+    const { rows } = await pool.query(
+      `
+      INSERT INTO estoque_pedido_simulacao (
+        id_loja, modo, dias, estoque_seguranca_dias, meta_cmp,
+        valor_pedido, itens_com_caixa, itens_bloqueados, resumo, itens
+      )
+      VALUES ($1, 'teste', $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb)
+      RETURNING id_simulacao, criado_em
+      `,
+      [
+        idLoja,
+        params.dias,
+        params.estoque_seguranca_dias,
+        params.meta_cmp,
+        num(rascunho.cmp?.valor_pedido),
+        comCaixa,
+        rascunho.bloqueados || 0,
+        JSON.stringify({
+          loja_nome: rascunho.loja_nome,
+          bk_number: rascunho.bk_number,
+          cmp: rascunho.cmp,
+          periodos: rascunho.periodos,
+          janela_compra: rascunho.janela_compra,
+          piloto_carrinho_bloqueado: rascunho.piloto_carrinho_bloqueado,
+        }),
+        JSON.stringify(rascunho.itens),
+      ],
+    );
+    return {
+      id_simulacao: Number(rows[0].id_simulacao),
+      criado_em: rows[0].criado_em,
+      modo: 'teste',
+    };
+  } catch (e) {
+    if (e.code === '42P01') return null;
+    throw e;
+  }
 }
 
 /** Grava o preço lido no eSupri. Não mexe no custo da nota. */

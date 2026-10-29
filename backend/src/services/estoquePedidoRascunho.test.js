@@ -9,6 +9,7 @@ import {
   caixasParaCobrir,
   lojaForaDoPilotoPedido,
   ritmoBlend,
+  segurarLinhaPedido,
 } from './estoquePedidoRascunho.js';
 import { pool } from '../db.js';
 
@@ -99,5 +100,65 @@ describe('lojaForaDoPilotoPedido', () => {
     assert.equal(lojaForaDoPilotoPedido({ bk: '23531' }).nome, '706');
     assert.equal(lojaForaDoPilotoPedido({ esupri: '3375001' }).nome, 'Venâncio');
     assert.equal(lojaForaDoPilotoPedido({ nome: 'BK ASA SUL' }), null);
+  });
+});
+
+describe('segurarLinhaPedido', () => {
+  it('zera a caixa quando não há preço', () => {
+    const r = segurarLinhaPedido({
+      codigo: 'A',
+      caixas_calculo: 4,
+      caixas_pedidas: 4,
+      pedido_ajustado: 4,
+      preco_caixa: 0,
+      valor: 0,
+      motivo: 'sem_preco',
+    });
+    assert.equal(r.caixas_pedidas, 0);
+    assert.equal(r.bloqueado, true);
+    assert.equal(r.motivo, 'sem_preco');
+    assert.equal(r.caixas_calculo, 4);
+  });
+
+  it('tira do pedido o item que o eSupri não vende', () => {
+    const r = segurarLinhaPedido({
+      codigo: 'B',
+      caixas_calculo: 2,
+      caixas_pedidas: 2,
+      preco_caixa: 0,
+      vende_esupri: false,
+      motivo: 'sem_preco',
+    });
+    assert.equal(r.caixas_pedidas, 0);
+    assert.equal(r.motivo, 'nao_vende');
+  });
+
+  it('mantém a caixa quando o preço existe', () => {
+    const r = segurarLinhaPedido({
+      codigo: 'C',
+      caixas_calculo: 3,
+      caixas_pedidas: 3,
+      pedido_ajustado: 3,
+      preco_caixa: 80,
+      valor: 240,
+      motivo: null,
+    });
+    assert.equal(r.bloqueado, false);
+    assert.equal(r.caixas_pedidas, 3);
+  });
+
+  it('segura linha com mais caixas do que um pedido real costuma ter', () => {
+    const r = segurarLinhaPedido({
+      codigo: 'D',
+      caixas_calculo: 711,
+      caixas_pedidas: 142,
+      preco_caixa: 324,
+      valor: 46000,
+      motivo: 'teto_cmp',
+    });
+    assert.equal(r.bloqueado, true);
+    assert.equal(r.motivo, 'quantidade_alta');
+    assert.equal(r.caixas_pedidas, 0);
+    assert.equal(r.caixas_calculo, 711);
   });
 });

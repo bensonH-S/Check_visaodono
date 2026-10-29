@@ -4196,6 +4196,7 @@ export interface EstoquePedidoRascunhoItem {
   fornecedor: string;
   ritmo_dia: number;
   saldo_atual: number;
+  unidade?: string | null;
   a_caminho: number;
   cobertura_dias: number | null;
   und_convertida: number;
@@ -4218,8 +4219,24 @@ export interface EstoquePedidoRascunho {
   bk_number: string;
   piloto_carrinho_bloqueado: boolean;
   piloto_bloqueio: string | null;
+  platlog_itens?: number;
+  escopo?: 'contagem_diaria';
+  itens_na_contagem?: number;
   dias_cobertura: number;
   dias_ciclo: number;
+  janela_compra?: {
+    conhecida: boolean;
+    loja: string;
+    dias_pedido: string;
+    dias_entrega: string;
+    prazo_entrega_dias: number;
+    hora_limite: string;
+    janela_aberta: boolean;
+    proximo_pedido: string;
+    entrega_deste: string;
+    entrega_seguinte: string;
+    dias_ate_entrega_seguinte: number;
+  } | null;
   janela_transito_dias: number;
   cmp: {
     meta_pct: number;
