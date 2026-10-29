@@ -13,6 +13,7 @@ import {
   MOTIVO_CONVERSAO,
   normalizarUnidade,
 } from './estoqueConsumo.js';
+import { assertTipoContagemNaAgenda } from './estoqueContagemAgenda.js';
 
 /** Ordem das faixas da planilha Terraço (não é alfabética: CONGELADOS vem antes de BRINDES). */
 export const SQL_ORDEM_PLANILHA = `
@@ -464,13 +465,11 @@ export function precisaFatorFracionada(unidadeFracionada, unidadeContagem) {
   return true;
 }
 
-/** Mix/latas de segunda. Desligada: só diária e completa. */
+/** Mix/latas antigo. O alerta de CMV continua desligado. A semanal da segunda usa a lista do pedido. */
 export const CONTAGEM_SEMANAL_ATIVA = false;
 
-export function assertTipoContagemAtivo(tipoContagem) {
-  if (tipoContagem === 'critica_semanal' && !CONTAGEM_SEMANAL_ATIVA) {
-    throw Object.assign(new Error('Contagem semanal está desativada'), { status: 400 });
-  }
+export function assertTipoContagemAtivo(tipoContagem, agora = new Date()) {
+  assertTipoContagemNaAgenda(tipoContagem, agora);
 }
 
 /**

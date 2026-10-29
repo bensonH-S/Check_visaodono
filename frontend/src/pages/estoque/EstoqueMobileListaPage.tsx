@@ -26,8 +26,7 @@ import NotificacoesSino from '../../components/NotificacoesSino';
 import AppHubDock from '../../components/hub/AppHubDock';
 import { showToast } from '../../utils/toast';
 import {
-  CONTAGEM_SEMANAL_ATIVA,
-  ehDiaContagemCompletaObrigatoria,
+  agendaContagem,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
 import {
@@ -400,12 +399,17 @@ export default function EstoqueMobileListaPage() {
 
   const iniciar = async (tipo: TipoContagemEstoque) => {
     if (!idLoja) return;
-    if (tipo === 'diaria' && ehDiaContagemCompletaObrigatoria()) {
-      showToast('No dia 1 use a contagem completa', 'info');
+    const agenda = agendaContagem();
+    if (tipo === 'diaria' && !agenda.diaria) {
+      showToast(agenda.dia1 ? 'No dia 1 use a contagem mensal' : 'Na segunda use a contagem semanal', 'info');
       return;
     }
-    if (tipo === 'critica_semanal' && !CONTAGEM_SEMANAL_ATIVA) {
-      showToast('Contagem semanal está desativada', 'error');
+    if (tipo === 'critica_semanal' && !agenda.semanal) {
+      showToast('A contagem semanal só abre na segunda', 'info');
+      return;
+    }
+    if (tipo === 'completa' && !agenda.mensal) {
+      showToast('Na segunda use a contagem semanal', 'info');
       return;
     }
     if (tipo === 'diaria' && diariaHoje?.id_contagem) {
@@ -918,7 +922,7 @@ export default function EstoqueMobileListaPage() {
                 </div>
                 <p className="ck-estoque-hub__sheet-tipo-text">Selecione o tipo de contagem:</p>
                 <div className="ck-estoque-hub__sheet-tipo-actions">
-                  {!ehDiaContagemCompletaObrigatoria() && (
+                  {agendaContagem().diaria && (
                     <button
                       type="button"
                       className="ck-estoque-hub__sheet-tipo-btn"
@@ -929,17 +933,18 @@ export default function EstoqueMobileListaPage() {
                       <small>Carne, frango, queijo, bacon, pão, batata, copos e mix</small>
                     </button>
                   )}
-                  {CONTAGEM_SEMANAL_ATIVA && (
+                  {agendaContagem().semanal && (
                     <button
                       type="button"
                       className="ck-estoque-hub__sheet-tipo-btn"
                       disabled={iniciando}
                       onClick={() => void iniciar('critica_semanal')}
                     >
-                      <strong>Contagem semanal (segunda)</strong>
-                      <small>Mix e latas</small>
+                      <strong>Contagem semanal</strong>
+                      <small>Os mesmos itens da lista de pedido</small>
                     </button>
                   )}
+                {agendaContagem().mensal && (
                 <button
                   type="button"
                   className="ck-estoque-hub__sheet-tipo-btn"
@@ -949,6 +954,7 @@ export default function EstoqueMobileListaPage() {
                   <strong>Contagem completa</strong>
                   <small>Inventário geral da loja</small>
                 </button>
+                )}
                 </div>
               </div>
             </div>

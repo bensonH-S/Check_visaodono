@@ -29,6 +29,7 @@ import {
   validarUnidadeFracionadaCadastro,
 } from '../services/estoqueContagem.js';
 import { avaliarForaJanela, carregarPerfil } from '../services/estoqueCiclo.js';
+import { idsInsumosListaPedido } from '../services/estoquePedidoRascunho.js';
 import {
   classificarInsumos,
   montarWorkbookClassificacao,
@@ -110,7 +111,7 @@ function tituloConferencia(dataISO, tipo = 'completa') {
     return dataLabel ? `Diária ${dataLabel}` : 'Contagem diária';
   }
   if (tipo === 'critica_semanal') {
-    return dataLabel ? `Semanal mix/latas ${dataLabel}` : 'Contagem semanal (mix e latas)';
+    return dataLabel ? `Semanal ${dataLabel}` : 'Contagem semanal';
   }
   if (!dataLabel) return 'Conferência de estoque';
   return `Conferência ${dataLabel}`;
@@ -132,7 +133,7 @@ function erroSemItensTipo(tipoContagem) {
     return 'Nenhum item de contagem diária nesta loja (carne, frango, queijo, bacon, pão, batata, copos/xarope, mix)';
   }
   if (tipoContagem === 'critica_semanal') {
-    return 'Nenhum item da semanal nesta loja (mix Coca 18 L / demais 10 L e latas)';
+    return 'Nenhum item da lista de pedido nesta loja para a contagem semanal.';
   }
   return null;
 }
@@ -144,7 +145,16 @@ async function criarContagemComItens(
   if (!id_loja) throw Object.assign(new Error('Loja obrigatória'), { status: 400 });
   const tipoContagem = normalizarTipoContagem(tipo);
   assertTipoContagemAtivo(tipoContagem);
-  const filtroItens = filtroItensPorTipo(tipoContagem);
+  let filtroItens = filtroItensPorTipo(tipoContagem);
+  const paramsItens = [];
+  if (tipoContagem === 'critica_semanal') {
+    const ids = await idsInsumosListaPedido(id_loja);
+    if (!ids.length) {
+      throw Object.assign(new Error(erroSemItensTipo(tipoContagem)), { status: 400 });
+    }
+    filtroItens = ' AND p.id_insumo = ANY($3::int[])';
+    paramsItens.push(ids);
+  }
   const erroVazio = erroSemItensTipo(tipoContagem);
 
   const { rows: cont } = await client.query(
@@ -176,7 +186,7 @@ async function criarContagemComItens(
        ) u ON u.id_insumo = p.id_insumo
        WHERE p.ativo = TRUE AND p.id_loja = $2${filtroItens}
        ORDER BY ${SQL_ORDEM_PLANILHA}`,
-      [idContagem, id_loja],
+      [idContagem, id_loja, ...paramsItens],
     );
     if (erroVazio && !rowCount) {
       throw Object.assign(new Error(erroVazio), { status: 400 });
@@ -188,7 +198,7 @@ async function criarContagemComItens(
        FROM insumos p
        WHERE p.ativo = TRUE AND p.id_loja = $2${filtroItens}
        ORDER BY ${SQL_ORDEM_PLANILHA}`,
-      [idContagem, id_loja],
+      [idContagem, id_loja, ...paramsItens],
     );
     if (erroVazio && !rowCount) {
       throw Object.assign(new Error(erroVazio), { status: 400 });
@@ -694,7 +704,13 @@ function tituloTipoRelatorio(tipo) {
 /** Folha em branco com os itens do tipo (cadastro da loja), sem exigir contagem. */
 async function carregarEstruturaRelatorio(idLoja, tipo) {
   await garantirSchemaUnidadeFracionada(pool);
-  const filtro = filtroItensPorTipo(tipo);
+  let filtro = filtroItensPorTipo(tipo);
+  const paramsEstrutura = [idLoja];
+  if (tipo === 'critica_semanal') {
+    const ids = await idsInsumosListaPedido(idLoja);
+    filtro = ids.length ? ' AND p.id_insumo = ANY($2::int[])' : ' AND FALSE';
+    if (ids.length) paramsEstrutura.push(ids);
+  }
   const hoje = hojeISOBrasil();
   const { rows: lojaRows } = await pool.query(
     'SELECT name, bk_number FROM lojas WHERE id_loja = $1',
@@ -720,7 +736,7 @@ async function carregarEstruturaRelatorio(idLoja, tipo) {
        ON s.id_insumo = p.id_insumo AND s.id_loja = p.id_loja
      WHERE p.ativo = TRUE AND p.id_loja = $1${filtro}
      ORDER BY ${SQL_ORDEM_PLANILHA}`,
-    [idLoja],
+    paramsEstrutura,
   );
   await anexarFatoresFracionada(pool, itens);
   const mapped = itens.map(mapItem);

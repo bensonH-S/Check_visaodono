@@ -674,6 +674,14 @@ ${row()}
       logger.warn('server', 'Scheduler multas DETRAN-DF não iniciado', { error: e.message });
     }
     try {
+      const { iniciarAgendaContagem } = await import(
+        './backend/src/services/estoqueContagemAgenda.js'
+      );
+      iniciarAgendaContagem();
+    } catch (e) {
+      logger.warn('server', 'Agenda da contagem não iniciada', { error: e.message });
+    }
+    try {
       const { iniciarMonitorAgenteAlvim } = await import('./backend/src/agenteAlvim/monitor.js');
       iniciarMonitorAgenteAlvim();
     } catch (e) {

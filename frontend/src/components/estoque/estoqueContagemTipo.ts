@@ -8,13 +8,25 @@ export const CONTAGEM_SEMANAL_ATIVA = false;
  * Usa America/Sao_Paulo para todos os dispositivos (mesma regra nas lojas).
  */
 export function ehDiaContagemCompletaObrigatoria(agora = new Date()): boolean {
-  const dia = Number(
-    new Intl.DateTimeFormat('en-US', {
-      timeZone: 'America/Sao_Paulo',
-      day: 'numeric',
-    }).format(agora),
-  );
-  return dia === 1;
+  return agendaContagem(agora).dia1;
+}
+
+/** Mesma regra do servidor, no fuso de Brasília. */
+export function agendaContagem(agora = new Date()) {
+  const partes = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    weekday: 'short',
+    day: 'numeric',
+  }).formatToParts(agora);
+  const dia = Number(partes.find((p) => p.type === 'day')?.value);
+  const segunda = partes.find((p) => p.type === 'weekday')?.value === 'Mon';
+  if (dia === 1) {
+    return { dia1: true, segunda, diaria: false, semanal: false, mensal: true };
+  }
+  if (segunda) {
+    return { dia1: false, segunda: true, diaria: false, semanal: true, mensal: false };
+  }
+  return { dia1: false, segunda: false, diaria: true, semanal: false, mensal: true };
 }
 
 export function rotuloTipoContagem(tipo?: string | null) {

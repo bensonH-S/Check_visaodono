@@ -261,6 +261,7 @@ export async function calcularRascunhoAbastecimento(
     estoque_seguranca_dias = 1,
     meta_cmp = META_CMP_PADRAO,
     janela_transito_dias = 21,
+    gravar = true,
   } = {},
 ) {
   const id = Number(idLoja);
@@ -351,7 +352,7 @@ export async function calcularRascunhoAbastecimento(
 
   const { rows: insumoRows } = await pool.query(
     `
-    SELECT i.codigo, i.descricao,
+    SELECT i.id_insumo, i.codigo, i.descricao,
            COALESCE(i.unidade_contagem, 'und') AS unidade,
            COALESCE(s.quantidade, 0)::numeric AS saldo,
            COALESCE(i.preco_caixa, 0)::numeric AS preco_caixa,
@@ -512,6 +513,7 @@ export async function calcularRascunhoAbastecimento(
     });
     const coberturaDias = blend.ritmo > 0 ? (saldo + caminho) / blend.ritmo : null;
     bruto.push({
+      id_insumo: ins.id_insumo,
       codigo: ins.codigo,
       descricao: ins.descricao,
       fornecedor: fornecedor.get(key) || '',
@@ -549,6 +551,7 @@ export async function calcularRascunhoAbastecimento(
     const caminho = aCaminho.get(key) || 0;
     const und = num(ins.und_convertida, 1) > 0 ? num(ins.und_convertida, 1) : 1;
     bruto.push({
+      id_insumo: ins.id_insumo,
       codigo: ins.codigo,
       descricao: ins.descricao,
       fornecedor: fornecedor.get(key) || 'platlog',
@@ -609,6 +612,7 @@ export async function calcularRascunhoAbastecimento(
 
   const itens = cortado.itens
     .map((item) => ({
+      id_insumo: item.id_insumo,
       codigo: item.codigo,
       descricao: item.descricao,
       fornecedor: item.fornecedor,
@@ -691,12 +695,25 @@ export async function calcularRascunhoAbastecimento(
     itens,
   };
 
-  rascunho.simulacao = await gravarSimulacaoPedido(id, rascunho, {
-    dias: diasAlvo,
-    estoque_seguranca_dias: segDias,
-    meta_cmp: meta,
-  });
+  if (gravar) {
+    rascunho.simulacao = await gravarSimulacaoPedido(id, rascunho, {
+      dias: diasAlvo,
+      estoque_seguranca_dias: segDias,
+      meta_cmp: meta,
+    });
+  }
   return rascunho;
+}
+
+/** Mesmos insumos da aba Pedido, sem gravar simulação. */
+export async function idsInsumosListaPedido(idLoja) {
+  const rascunho = await calcularRascunhoAbastecimento(idLoja, { gravar: false });
+  const ids = [];
+  for (const item of rascunho.itens) {
+    const n = Number(item.id_insumo);
+    if (n) ids.push(n);
+  }
+  return ids;
 }
 
 /** Guarda a simulação. O modo é sempre teste: esta tabela não representa pedido enviado. */

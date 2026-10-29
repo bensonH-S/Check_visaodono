@@ -75,8 +75,7 @@ import {
   linhasTabelaSx,
 } from './estoquePadrao';
 import {
-  CONTAGEM_SEMANAL_ATIVA,
-  ehDiaContagemCompletaObrigatoria,
+  agendaContagem,
   rotuloTipoContagem,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
@@ -615,8 +614,17 @@ export default function ControleEstoquePage() {
 
   const iniciarSabado = async (tipo: TipoContagemEstoque = 'diaria') => {
     if (!podeEditarConferencia || !idLoja) return;
-    if (tipo === 'critica_semanal' && !CONTAGEM_SEMANAL_ATIVA) {
-      showToast('Contagem semanal está desativada', 'error');
+    const agenda = agendaContagem();
+    if (tipo === 'diaria' && !agenda.diaria) {
+      showToast(agenda.dia1 ? 'No dia 1 use a contagem mensal' : 'Na segunda use a contagem semanal', 'info');
+      return;
+    }
+    if (tipo === 'critica_semanal' && !agenda.semanal) {
+      showToast('A contagem semanal só abre na segunda', 'info');
+      return;
+    }
+    if (tipo === 'completa' && !agenda.mensal) {
+      showToast('Na segunda use a contagem semanal', 'info');
       return;
     }
     setIniciando(true);
@@ -1189,7 +1197,7 @@ export default function ControleEstoquePage() {
                       />
                       {podeEditarConferencia && (
                         <>
-                          {!ehDiaContagemCompletaObrigatoria() && (
+                          {agendaContagem().diaria && (
                             <Button
                               variant="contained"
                               startIcon={<PlayArrowIcon />}
@@ -1199,16 +1207,17 @@ export default function ControleEstoquePage() {
                               Diária
                             </Button>
                           )}
-                          {CONTAGEM_SEMANAL_ATIVA && (
+                          {agendaContagem().semanal && (
                           <Button
                             variant="outlined"
                             startIcon={<PlayArrowIcon />}
                             disabled={iniciando}
                             onClick={() => void iniciarSabado('critica_semanal')}
                           >
-                            Semanal (segunda)
+                            Semanal
                           </Button>
                           )}
+                          {agendaContagem().mensal && (
                           <Button
                             variant="outlined"
                             startIcon={<PlayArrowIcon />}
@@ -1217,6 +1226,7 @@ export default function ControleEstoquePage() {
                           >
                             Completa
                           </Button>
+                          )}
                         </>
                       )}
                       <Button
@@ -1636,9 +1646,7 @@ export default function ControleEstoquePage() {
               sx={toggleRelatorioSx}
             >
               <ToggleButton value="diaria">Diário</ToggleButton>
-              {CONTAGEM_SEMANAL_ATIVA && (
-                <ToggleButton value="critica_semanal">Semanal</ToggleButton>
-              )}
+              <ToggleButton value="critica_semanal">Semanal</ToggleButton>
               <ToggleButton value="completa">Mensal</ToggleButton>
             </ToggleButtonGroup>
           </Box>
