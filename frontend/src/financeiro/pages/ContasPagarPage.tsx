@@ -454,6 +454,7 @@ export function ContasPagarPage() {
     [empresas],
   )
   const vencida = soma((e) => estaVencida(e))
+  const totalSemana = soma((e) => aberta(e)) + pagoNoPeriodo
 
   return (
     <Stack spacing={1} sx={finPageSx}>
@@ -544,6 +545,12 @@ export function ContasPagarPage() {
       </Stack>
 
       <Stack direction="row" spacing={1.25} sx={{ width: '100%', alignItems: 'stretch' }}>
+        <Resumo
+          cor="#0F172A"
+          rotulo={t('Total da semana', 'Week total')}
+          valor={brl(totalSemana)}
+          detalhe={t('junto, sem separar', 'combined, not split')}
+        />
         <Resumo
           cor="#1B6EF3"
           rotulo={t('A pagar', 'To pay')}
