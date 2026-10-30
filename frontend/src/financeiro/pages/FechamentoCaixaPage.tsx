@@ -266,9 +266,20 @@ function LinhaDebitoCredito({
   )
 }
 
-function Metrica({ rotulo, valor, alerta }: { rotulo: string; valor: string; alerta?: boolean }) {
+function Metrica({ rotulo, valor, alerta, onClick, ativo }: { rotulo: string; valor: string; alerta?: boolean; onClick?: () => void; ativo?: boolean }) {
   return (
-    <Box>
+    <Box
+      onClick={onClick}
+      sx={onClick ? {
+        cursor: 'pointer',
+        borderRadius: 1,
+        px: 0.75,
+        mx: -0.75,
+        py: 0.25,
+        bgcolor: ativo ? 'rgba(27,110,243,0.1)' : 'transparent',
+        '&:hover': { bgcolor: ativo ? 'rgba(27,110,243,0.14)' : 'rgba(27,110,243,0.06)' },
+      } : undefined}
+    >
       <Typography sx={{ fontSize: 12, color: alerta ? '#B91C1C' : FIN_MUTED }}>{rotulo}</Typography>
       <Typography sx={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums', color: alerta ? '#B91C1C' : FIN_TEXT, lineHeight: 1.25 }}>
         {valor}
@@ -292,6 +303,7 @@ export function FechamentoCaixaPage() {
   const [aviso, setAviso] = useState('')
   const [debitoAberto, setDebitoAberto] = useState(false)
   const [creditoAberto, setCreditoAberto] = useState(false)
+  const [verTotal, setVerTotal] = useState(false)
 
   const lojas = useMemo(() => ordenarEmpresas(empresas.filter((e) => e.tipo === 'loja')), [empresas])
   const hoje = hojeIso()
@@ -329,6 +341,7 @@ export function FechamentoCaixaPage() {
 
   useEffect(() => {
     if (empresaId) salvarLojaCaixa(empresaId)
+    setVerTotal(false)
     carregar()
   }, [empresaId, mes])
 
@@ -349,6 +362,50 @@ export function FechamentoCaixaPage() {
   const dataPainel = diaPainel
     ? new Date(`${diaPainel.data}T12:00:00`).toLocaleDateString(idioma === 'en' ? 'en-US' : 'pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
     : ''
+  const rotuloMes = mes
+    ? new Date(`${mes}-01T12:00:00`).toLocaleDateString(idioma === 'en' ? 'en-US' : 'pt-BR', { month: 'short', year: 'numeric' })
+    : ''
+  const somaMes = useMemo(() => {
+    const campos = ['dinheiro', 'pix', 'debito', 'credito', 'cart_digital', 'ifood', 'azul', 'rappi', 'food99', 'despesas_caixa', 'depositos_caixa'] as const
+    const acc = {
+      dinheiro: 0, pix: 0, debito: 0, credito: 0, cart_digital: 0, ifood: 0, azul: 0, rappi: 0, food99: 0, despesas_caixa: 0, depositos_caixa: 0,
+    }
+    const mapa = new Map<string, { bandeira: string; tipo: string; valor: number }>()
+    for (const dia of semanas.flat()) {
+      if (!dia) continue
+      if (!chegouDoPdv(dia) && !(Number(dia.despesas_caixa) || Number(dia.depositos_caixa))) continue
+      for (const campo of campos) acc[campo] += Number(dia[campo]) || 0
+      for (const item of dia.bandeiras || []) {
+        const chave = `${item.tipo}|${item.bandeira}`
+        const atual = mapa.get(chave) || { bandeira: item.bandeira, tipo: item.tipo, valor: 0 }
+        atual.valor += Number(item.valor) || 0
+        mapa.set(chave, atual)
+      }
+    }
+    for (const campo of campos) acc[campo] = Math.round(acc[campo] * 100) / 100
+    const bandeiras = [...mapa.values()].map((item) => ({ ...item, valor: Math.round(item.valor * 100) / 100 }))
+    const base = { ...acc, bandeiras } as FechamentoDia
+    return { ...acc, bandeiras, total: totalDia(base), gate: gate(base), gaveta: caixaGaveta(base) }
+  }, [semanas])
+  const painel = verTotal || !diaPainel
+    ? somaMes
+    : {
+        dinheiro: diaPainel.dinheiro,
+        pix: diaPainel.pix,
+        debito: diaPainel.debito,
+        credito: diaPainel.credito,
+        cart_digital: diaPainel.cart_digital,
+        ifood: diaPainel.ifood,
+        azul: diaPainel.azul,
+        rappi: diaPainel.rappi,
+        food99: diaPainel.food99,
+        despesas_caixa: diaPainel.despesas_caixa,
+        depositos_caixa: diaPainel.depositos_caixa,
+        bandeiras: diaPainel.bandeiras || [],
+        total: totalDia(diaPainel),
+        gate: gate(diaPainel),
+        gaveta: caixaGaveta(diaPainel),
+      }
 
   const rotuloDia = (dia: FechamentoDia) => {
     if (dia.status === 'fechado' && dia.id) return 'fechado'
@@ -407,7 +464,11 @@ export function FechamentoCaixaPage() {
       {erro ? <Alert severity="error" onClose={() => setErro('')}>{erro}</Alert> : null}
 
       <Box sx={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 360px' }, gap: 2 }}>
-        <Paper variant="outlined" sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', ...finPaperSx }}>
+        <Paper
+          variant="outlined"
+          onClick={() => setVerTotal(true)}
+          sx={{ minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', ...finPaperSx }}
+        >
           <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid', borderColor: FIN_BORDER, bgcolor: FIN_SURFACE_ALT }}>
             {diasSemana.map((nome) => (
               <Box key={nome} sx={{ px: 1.25, py: 1, borderRight: '1px solid', borderColor: FIN_BORDER, '&:last-child': { borderRight: 0 } }}>
@@ -437,15 +498,28 @@ export function FechamentoCaixaPage() {
                   const rotulo = ROTULO[chave]
                   const valor = totalDia(dia)
                   const ehHoje = dia.data === hoje
-                  const ativo = diaPainel?.data === dia.data
+                  const ativo = !verTotal && diaPainel?.data === dia.data
                   const temPdv = chegouDoPdv(dia)
+                  const abreDespesa = temPdv || (dia.lancamentos?.length ?? 0) > 0 || Number(dia.despesas_caixa) > 0 || Number(dia.depositos_caixa) > 0
                   return (
                     <Box
                       key={dia.data}
-                      onClick={() => {
+                      title={abreDespesa ? t('Duplo clique abre as despesas', 'Double-click opens expenses') : undefined}
+                      onClick={(ev) => {
+                        ev.stopPropagation()
+                        setVerTotal(false)
                         setSelecionado(dia)
                         setDebitoAberto(false)
                         setCreditoAberto(false)
+                      }}
+                      onDoubleClick={(ev) => {
+                        ev.stopPropagation()
+                        if (!abreDespesa) return
+                        setVerTotal(false)
+                        setSelecionado(dia)
+                        setDebitoAberto(false)
+                        setCreditoAberto(false)
+                        setEditando(dia)
                       }}
                       sx={{
                         borderRight: '1px solid',
@@ -469,6 +543,7 @@ export function FechamentoCaixaPage() {
                         flexDirection: 'column',
                         minHeight: 92,
                         position: 'relative',
+                        userSelect: 'none',
                       }}
                     >
                       <Typography sx={{ alignSelf: 'flex-end', fontSize: 13, fontWeight: 500, color: FIN_MUTED, lineHeight: 1, zIndex: 1 }}>
@@ -547,20 +622,45 @@ export function FechamentoCaixaPage() {
 
         <Paper variant="outlined" sx={{ minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', ...finPaperSx }}>
           <Box sx={{ p: 2.5, pb: 1.5, flexShrink: 0, borderBottom: '1px solid', borderColor: FIN_BORDER }}>
-            <Typography sx={{ fontSize: 15, fontWeight: 600, color: FIN_TEXT }}>
-              {t('Resumo do dia', 'Day summary')}
-            </Typography>
-            <Typography sx={{ fontSize: 13, color: FIN_MUTED, mt: 0.25 }}>
-              {lojaAtual?.apelido || lojaAtual?.razao_social || '—'}
-              {dataPainel ? ` · ${dataPainel}` : ''}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontSize: 15, fontWeight: 600, color: FIN_TEXT }}>
+                  {verTotal ? t('Total do mês', 'Month total') : t('Resumo do dia', 'Day summary')}
+                </Typography>
+                <Typography sx={{ fontSize: 13, color: FIN_MUTED, mt: 0.25 }}>
+                  {lojaAtual?.apelido || lojaAtual?.razao_social || '—'}
+                  {verTotal ? (rotuloMes ? ` · ${rotuloMes}` : '') : (dataPainel ? ` · ${dataPainel}` : '')}
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                variant={verTotal ? 'contained' : 'outlined'}
+                onClick={() => setVerTotal(true)}
+                sx={{
+                  flexShrink: 0,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  boxShadow: 'none',
+                  ...(verTotal
+                    ? { bgcolor: '#1B6EF3', color: '#fff', '&:hover': { bgcolor: '#0D4ECC', boxShadow: 'none' } }
+                    : { color: '#1B6EF3', borderColor: 'rgba(27,110,243,0.45)' }),
+                }}
+              >
+                {t('Total', 'Total')}
+              </Button>
+            </Box>
           </Box>
 
           <Box sx={{ px: 2.5, flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
 
           <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-            <Metrica rotulo={t('Total', 'Total')} valor={brl(diaPainel ? totalDia(diaPainel) : 0)} />
-            <Metrica rotulo={t('Dinheiro + PIX', 'Cash + PIX')} valor={brl(diaPainel ? gate(diaPainel) : 0)} />
+            <Metrica
+              rotulo={t('Total', 'Total')}
+              valor={brl(painel.total)}
+              onClick={() => setVerTotal(true)}
+              ativo={verTotal}
+            />
+            <Metrica rotulo={t('Dinheiro + PIX', 'Cash + PIX')} valor={brl(painel.gate)} />
             <Metrica rotulo={t('Sem dados', 'Missing days')} valor={String(faltando)} alerta={faltando > 0} />
             <Metrica rotulo={t('Fechados', 'Closed')} valor={String(fechados)} />
           </Box>
@@ -569,42 +669,52 @@ export function FechamentoCaixaPage() {
             <Typography sx={{ fontSize: 12, fontWeight: 600, color: FIN_MUTED, mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               {t('Por modalidade', 'By method')}
             </Typography>
-            <LinhaPagamento tipo="dinheiro" cor="#3B82F6" rotulo={t('Dinheiro', 'Cash')} valor={brl(diaPainel?.dinheiro ?? 0)} />
-            <LinhaPagamento tipo="pix" cor="#0EA5E9" rotulo="PIX" valor={brl(diaPainel?.pix ?? 0)} />
+            <LinhaPagamento tipo="dinheiro" cor="#3B82F6" rotulo={t('Dinheiro', 'Cash')} valor={brl(painel.dinheiro)} />
+            <LinhaPagamento tipo="pix" cor="#0EA5E9" rotulo="PIX" valor={brl(painel.pix)} />
             <LinhaDebitoCredito
               rotulo={t('Débito', 'Debit')}
-              valor={diaPainel?.debito ?? 0}
+              valor={painel.debito}
               cor="#8B5CF6"
-              bandeiras={(diaPainel?.bandeiras || []).filter((item) => item.tipo === 'debito')}
+              bandeiras={painel.bandeiras.filter((item) => item.tipo === 'debito')}
               aberto={debitoAberto}
               onAbrir={() => setDebitoAberto((v) => !v)}
             />
             <LinhaDebitoCredito
               rotulo={t('Crédito', 'Credit')}
-              valor={diaPainel?.credito ?? 0}
+              valor={painel.credito}
               cor="#4F46E5"
-              bandeiras={(diaPainel?.bandeiras || []).filter((item) => item.tipo === 'credito')}
+              bandeiras={painel.bandeiras.filter((item) => item.tipo === 'credito')}
               aberto={creditoAberto}
               onAbrir={() => setCreditoAberto((v) => !v)}
             />
-            {(diaPainel?.cart_digital || 0) > 0 ? (
-              <LinhaPagamento tipo="cartoes" cor="#64748B" rotulo={t('Cartão digital', 'Digital card')} valor={brl(diaPainel?.cart_digital ?? 0)} />
+            {painel.cart_digital > 0 ? (
+              <LinhaPagamento tipo="cartoes" cor="#64748B" rotulo={t('Cartão digital', 'Digital card')} valor={brl(painel.cart_digital)} />
             ) : null}
-            <LinhaPagamento tipo="ifood" cor="#F59E0B" rotulo="iFood" valor={brl(diaPainel?.ifood ?? 0)} />
-            <LinhaPagamento tipo="food99" cor="#FB7185" rotulo="99Food" valor={brl(diaPainel?.food99 ?? 0)} />
+            <LinhaPagamento tipo="ifood" cor="#F59E0B" rotulo="iFood" valor={brl(painel.ifood)} />
+            {painel.azul > 0 ? (
+              <LinhaPagamento tipo="cartoes" cor="#38BDF8" rotulo="Azul" valor={brl(painel.azul)} />
+            ) : null}
+            {painel.rappi > 0 ? (
+              <LinhaPagamento tipo="cartoes" cor="#F97316" rotulo="Rappi" valor={brl(painel.rappi)} />
+            ) : null}
+            <LinhaPagamento tipo="food99" cor="#FB7185" rotulo="99Food" valor={brl(painel.food99)} />
             <Box sx={{ borderTop: '1px solid', borderColor: FIN_BORDER, mt: 1, pt: 1.25 }}>
               <Typography sx={{ fontSize: 12, fontWeight: 600, color: FIN_MUTED, mb: 1, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 {t('Caixa', 'Cash drawer')}
               </Typography>
-              <LinhaPagamento tipo="despesa" cor="#94A3B8" rotulo={t('Despesas', 'Expenses')} valor={brl(diaPainel?.despesas_caixa ?? 0)} />
-              <LinhaPagamento tipo="deposito" cor="#22C55E" rotulo={t('Depósitos', 'Deposits')} valor={brl(diaPainel?.depositos_caixa ?? 0)} />
-              <LinhaPagamento tipo="dinheiro" cor="#EAB308" rotulo={t('Dinheiro em caixa', 'Cash in drawer')} valor={brl(diaPainel ? caixaGaveta(diaPainel) : 0)} />
+              <LinhaPagamento tipo="despesa" cor="#94A3B8" rotulo={t('Despesas', 'Expenses')} valor={brl(painel.despesas_caixa)} />
+              <LinhaPagamento tipo="deposito" cor="#22C55E" rotulo={t('Depósitos', 'Deposits')} valor={brl(painel.depositos_caixa)} />
+              <LinhaPagamento tipo="dinheiro" cor="#EAB308" rotulo={t('Dinheiro em caixa', 'Cash in drawer')} valor={brl(painel.gaveta)} />
             </Box>
           </Box>
           </Box>
 
           <Box sx={{ flexShrink: 0, px: 2.5, py: 1.5, borderTop: '1px solid', borderColor: FIN_BORDER }}>
-            {diaPainel && chegouDoPdv(diaPainel) && diaPainel.status === 'fechado' ? (
+            {verTotal ? (
+              <Typography sx={{ fontSize: 13, color: FIN_MUTED }}>
+                {t('Soma dos dias com venda neste mês. Clique num dia para o detalhe.', 'Sum of days with sales this month. Click a day for the detail.')}
+              </Typography>
+            ) : diaPainel && chegouDoPdv(diaPainel) && diaPainel.status === 'fechado' ? (
               <>
                 <Chip size="small" label={t('Caixa fechado', 'Cash closed')} variant="outlined" sx={{ mb: 1, color: tomMap.fechado.color, borderColor: tomMap.fechado.border, bgcolor: tomMap.fechado.bg }} />
                 <Typography sx={{ fontSize: 13, color: FIN_MUTED }}>
