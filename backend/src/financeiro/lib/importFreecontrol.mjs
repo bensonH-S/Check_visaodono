@@ -252,7 +252,7 @@ export async function aplicarLoteFreecontrol(pool, body = {}) {
   const periodFrom = String(body.period_from || '').slice(0, 10)
   const periodTo = String(body.period_to || '').slice(0, 10)
   const periodKey = String(body.period_key || `${periodFrom}_${periodTo}`).trim()
-  // Serviço seg→dom; vence na segunda subsequente (Agenda sáb→sáb).
+  // Serviço seg→dom; vence na segunda subsequente (Agenda dom→sáb).
   const vencimento = String(body.vencimento || segundaSubsequente(periodTo) || periodTo).slice(0, 10)
   const linhas = mesclarLancamentos(Array.isArray(body.lancamentos) ? body.lancamentos : [])
 

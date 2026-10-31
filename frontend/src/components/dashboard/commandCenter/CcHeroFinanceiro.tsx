@@ -15,13 +15,13 @@ function hojeIso() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Semana de pagamento = sábado → sábado (igual Agenda banco / Inbox). */
+/** Semana de pagamento = domingo → sábado (igual Agenda banco / Inbox). */
 function faixaSemana(hoje: string) {
   const inicio = new Date(`${hoje}T12:00:00`);
   inicio.setHours(0, 0, 0, 0);
-  inicio.setDate(inicio.getDate() - ((inicio.getDay() + 1) % 7));
+  inicio.setDate(inicio.getDate() - inicio.getDay());
   const fim = new Date(inicio);
-  fim.setDate(fim.getDate() + 7);
+  fim.setDate(fim.getDate() + 6);
   const iso = (x: Date) =>
     `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
   return { de: iso(inicio), ate: iso(fim) };

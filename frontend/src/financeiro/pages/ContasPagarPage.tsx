@@ -166,12 +166,13 @@ function dataLocal(d: Date) {
   return `${d.getFullYear()}-${m}-${dia}`
 }
 
+/** Semana da Agenda = domingo → sábado (combinado com o BANCO da Laysa). */
 function periodoAtual() {
   const inicio = new Date()
   inicio.setHours(0, 0, 0, 0)
-  inicio.setDate(inicio.getDate() - ((inicio.getDay() + 1) % 7))
+  inicio.setDate(inicio.getDate() - inicio.getDay())
   const fim = new Date(inicio)
-  fim.setDate(fim.getDate() + 7)
+  fim.setDate(fim.getDate() + 6)
   return { de: dataLocal(inicio), ate: dataLocal(fim) }
 }
 
