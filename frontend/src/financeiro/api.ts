@@ -543,6 +543,75 @@ export type MesFechamento = {
   pdv?: { ok: boolean; ultimo_ok: string | null; ultimo_dia: string | null; atraso_horas: number | null; mensagem: string }
 }
 
+export type CustosCoItem = {
+  id: string
+  descricao: string
+  fornecedor: string
+  plano: string
+  valor: number
+  vencimento: string
+  status: string
+  fonte: string
+  numero_nf: string
+}
+
+export type CustosCoLinha = {
+  rotulo: string
+  valor: number
+  qtd: number
+  pct_venda: number | null
+  itens: CustosCoItem[]
+}
+
+export type CustosCoBloco = {
+  id: string
+  titulo: string
+  cor: string
+  total: number
+  qtd: number
+  pct_venda: number | null
+  linhas: CustosCoLinha[]
+  itens: CustosCoItem[]
+}
+
+export type CustosCoOrigem = {
+  titulo: string
+  total: number
+  qtd: number
+  grupos: Array<{
+    id: string
+    titulo: string
+    total: number
+    qtd: number
+    linhas: CustosCoLinha[]
+  }>
+}
+
+export type CustosCoPainel = {
+  mes: string
+  de: string
+  ate: string
+  empresa: { id: string; apelido: string; razao_social?: string; bk_number: string | null }
+  blocos: CustosCoBloco[]
+  online: CustosCoOrigem
+  despesas: CustosCoOrigem
+  resumo: {
+    despesa_total: number
+    cmp_total: number
+    cmp_pct: number | null
+    despesa_pct: number | null
+    venda_inside: number
+    venda_delivery: number
+    venda_total: number
+    venda_fonte: 'caixa' | 'bk' | null
+    inside_pct: number | null
+    delivery_pct: number | null
+    despesas_caixa: number
+    online_total: number
+    qtd_titulos: number
+  }
+}
+
 export type ConfigBkoffice = {
   usuario: string
   api: string
@@ -1002,6 +1071,10 @@ export const api = {
   },
   caixaMes: (mes: string, empresaId: string) =>
     get<MesFechamento>(urlCaixa(mes, empresaId)),
+  custosCo: (mes: string, empresaId: string) => {
+    const q = new URLSearchParams({ mes, empresa: empresaId })
+    return get<CustosCoPainel>(`${apiRoot}/custos-co?${q}`)
+  },
   salvarCaixa: async (body: Record<string, unknown>) => {
     const res = await financeFetch(`${apiRoot}/caixa`, {
       method: 'PUT',

@@ -428,7 +428,7 @@ export function FechamentoCaixaPage() {
           lojas={lojas}
           value={empresaId}
           label={t('Loja', 'Store')}
-          width={{ xs: '100%', md: 240 }}
+          width={280}
           onChange={setEmpresaId}
         />
         <FiltroMesFinanceiro
@@ -436,7 +436,7 @@ export function FechamentoCaixaPage() {
           onChange={setMes}
           label={t('Mês', 'Month')}
           idioma={idioma}
-          width={200}
+          width={168}
         />
         <Tooltip
           title={mesDados?.pdv?.ultimo_ok

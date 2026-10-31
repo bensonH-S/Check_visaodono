@@ -25,6 +25,7 @@ import {
 } from './lib/bbDda.mjs'
 import { removerCadastro, salvarCadastro, usoDe } from './lib/cadastros.mjs'
 import { garantirSchemaCaixa, lerComprovante, mesFechamentos, receberHeartbeat, receberIngestao, resumoCanaisPeriodo, salvarFechamento } from './lib/fechamentoCaixa.mjs'
+import { montarCustosCo } from './lib/custosCo.mjs'
 import { gerarDanfe } from './lib/danfe.mjs'
 import { baixarBoletoDaDespesa, baixarNotaDaDespesa } from './lib/boletoEsupri.mjs'
 import { sincronizarNfesConferidas } from './lib/nfEntrada.mjs'
@@ -1896,6 +1897,16 @@ export async function handleFinance(req, res) {
         })))
       } catch (err) {
         return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não carregou o fechamento.' }))
+      }
+    }
+    if (req.method === 'GET' && url.pathname === '/api/custos-co') {
+      try {
+        return send(res, 200, JSON.stringify(await montarCustosCo(pool, {
+          mes: url.searchParams.get('mes') || '',
+          empresaId: url.searchParams.get('empresa') || '',
+        })))
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não montou o C_O_.' }))
       }
     }
     if (req.method === 'GET' && url.pathname === '/api/caixa/canais') {

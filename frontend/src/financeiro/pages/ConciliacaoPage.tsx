@@ -547,7 +547,7 @@ export function ConciliacaoPage() {
           lojas={lojas}
           value={empresaId}
           label={t('Loja', 'Store')}
-          width={{ xs: '100%', md: 240 }}
+          width={280}
           incluirTodas
           todasLabel={t('Todas as lojas', 'All stores')}
           onChange={setEmpresaId}
@@ -557,7 +557,7 @@ export function ConciliacaoPage() {
           onChange={setMes}
           label={t('Mês', 'Month')}
           idioma={idioma}
-          width={200}
+          width={168}
         />
         <Chip
                 size="small"

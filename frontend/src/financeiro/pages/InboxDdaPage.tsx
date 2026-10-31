@@ -663,7 +663,7 @@ export function InboxDdaPage() {
         component="form"
         direction={{ xs: 'column', md: 'row' }}
         spacing={1}
-        sx={{ alignItems: { md: 'flex-end' } }}
+        sx={{ alignItems: { md: 'center' } }}
         onSubmit={(ev) => ev.preventDefault()}
       >
         <TextField
@@ -726,30 +726,11 @@ export function InboxDdaPage() {
           incluirTodas
           todasLabel={t('Todas as lojas', 'All stores')}
           label={t('Loja', 'Store')}
-          width={CAMPO_W}
+          width={280}
           onChange={(id) => {
             setLoja(id)
             setPagina(0)
             carregarNotas(id)
-          }}
-          sx={{
-            ...campoInboxSx,
-            '& .MuiInputLabel-root': {
-              color: INBOX_MUTED,
-              fontSize: '0.75rem',
-              transform: 'translate(12px, -8px) scale(0.85)',
-            },
-            '& .MuiInputLabel-root.MuiInputLabel-shrink': {
-              transform: 'translate(12px, -8px) scale(0.85)',
-            },
-            '& .MuiSelect-select': {
-              fontSize: '0.8125rem',
-              py: '0 !important',
-              minHeight: `${CAMPO_H}px !important`,
-              height: CAMPO_H,
-              display: 'flex',
-              alignItems: 'center',
-            },
           }}
         />
         <Box sx={{ flex: 1 }} />

@@ -435,7 +435,7 @@ export function ContasPagarPage() {
         component="form"
         direction={{ xs: 'column', md: 'row' }}
         spacing={1.25}
-        sx={{ alignItems: { md: 'center' } }}
+        sx={{ alignItems: { md: 'center' }, flexWrap: 'wrap' }}
         onSubmit={(ev) => ev.preventDefault()}
       >
         <TextField
@@ -463,6 +463,7 @@ export function ContasPagarPage() {
           incluirTodas
           todasLabel={t('Todas as lojas', 'All stores')}
           label={t('Loja', 'Store')}
+          width={280}
           onChange={(id) => {
             setLoja(id)
             setPagina(0)

@@ -28,6 +28,7 @@ import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
 import PointOfSaleOutlinedIcon from '@mui/icons-material/PointOfSaleOutlined';
 import AccountBalanceOutlinedIcon from '@mui/icons-material/AccountBalanceOutlined';
 import CompareArrowsOutlinedIcon from '@mui/icons-material/CompareArrowsOutlined';
+import DonutSmallOutlinedIcon from '@mui/icons-material/DonutSmallOutlined';
 import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
 import SettingsIcon from '@mui/icons-material/Settings';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -135,6 +136,7 @@ function PortalLayoutInner() {
     path.startsWith('/financeiro/inbox') ||
     path.startsWith('/financeiro/conciliacao') ||
     path.startsWith('/financeiro/caixa') ||
+    path.startsWith('/financeiro/custos') ||
     path.startsWith('/financeiro/reuniao');
   const mostraIdiomaFinanceiro = isFinanceiroRota;
   const idiomaFinanceiro = useIdiomaFinanceiro();
@@ -393,6 +395,13 @@ function PortalLayoutInner() {
       to: '/financeiro/caixa',
       label: finEn ? 'Cash closing' : 'Fechamento de caixa',
       icon: <PointOfSaleOutlinedIcon fontSize="small" />,
+      show: podeVerFinanceiro(user),
+      section: secFin,
+    },
+    {
+      to: '/financeiro/custos',
+      label: finEn ? 'Costs (C_O_)' : 'Custos (C_O_)',
+      icon: <DonutSmallOutlinedIcon fontSize="small" />,
       show: podeVerFinanceiro(user),
       section: secFin,
     },

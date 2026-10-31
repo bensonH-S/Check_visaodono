@@ -90,6 +90,13 @@ export const PAGE_TITLES: Record<string, PageTitleConfig> = {
     titleEn: 'Cash closing',
     icon: <PaymentsOutlinedIcon sx={iconSx} />,
   },
+  '/financeiro/custos': {
+    title: 'Custos (C_O_)',
+    titleEn: 'Costs (C_O_)',
+    subtitle: 'Fixos · impostos · utilities · CMP · % sobre venda',
+    subtitleEn: 'Fixed · taxes · utilities · COGS · % of sales',
+    icon: <PaymentsOutlinedIcon sx={iconSx} />,
+  },
   '/financeiro/vendas': {
     title: 'Vendas',
     titleEn: 'Sales',

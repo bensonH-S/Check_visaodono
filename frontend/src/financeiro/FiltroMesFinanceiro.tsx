@@ -10,7 +10,6 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { datePickerPtBR } from '../utils/datePickerLocale'
 import {
   FIN_BORDER,
-  FIN_CAMPO_H,
   FIN_MUTED,
   FIN_SURFACE,
   FIN_TEXT,
@@ -26,19 +25,6 @@ const temaClaro = createTheme({
     background: { paper: FIN_SURFACE, default: '#F4F7FB' },
     action: { active: FIN_TEXT, hover: 'rgba(27,110,243,0.12)' },
   },
-  components: {
-    MuiOutlinedInput: {
-      styleOverrides: {
-        root: {
-          borderRadius: '10px !important',
-          overflow: 'hidden',
-        },
-        notchedOutline: {
-          borderRadius: '10px !important',
-        },
-      },
-    },
-  },
 })
 
 type Props = {
@@ -49,13 +35,13 @@ type Props = {
   width?: number | string
 }
 
-/** Seletor de mês moderno (MUI) para o Fechamento de caixa. value = YYYY-MM */
+/** Seletor de mês compacto (mesmo peso visual do filtro de Pedidos). value = YYYY-MM */
 export default function FiltroMesFinanceiro({
   value,
   onChange,
   label = 'Mês',
   idioma = 'pt',
-  width = 200,
+  width = 168,
 }: Props) {
   const locale = idioma === 'en' ? 'en' : 'pt-br'
   const valor = useMemo(() => {
@@ -85,25 +71,19 @@ export default function FiltroMesFinanceiro({
               textField: {
                 size: 'small',
                 fullWidth: true,
-                slotProps: { inputLabel: { shrink: true } },
                 sx: {
                   ...finCampoSx,
                   width: '100%',
-                  borderRadius: '10px',
                   '& .MuiOutlinedInput-root, & .MuiPickersOutlinedInput-root': {
                     ...finCampoSx['& .MuiOutlinedInput-root'],
-                    minHeight: `${FIN_CAMPO_H}px !important`,
-                    height: `${FIN_CAMPO_H}px !important`,
-                    borderRadius: '10px !important',
-                  },
-                  '& .MuiOutlinedInput-notchedOutline, & .MuiPickersOutlinedInput-notchedOutline': {
-                    borderRadius: '10px !important',
+                    height: 34,
+                    minHeight: 34,
                   },
                   '& .MuiPickersSectionList-root, & .MuiPickersInputBase-sectionsContainer, & .MuiInputBase-input': {
                     py: '0 !important',
-                    fontSize: '0.8125rem',
-                    minHeight: `${FIN_CAMPO_H}px !important`,
-                    height: `${FIN_CAMPO_H}px !important`,
+                    fontSize: 13,
+                    height: 34,
+                    minHeight: 34,
                     boxSizing: 'border-box',
                     display: 'flex',
                     alignItems: 'center',

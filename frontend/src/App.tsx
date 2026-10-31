@@ -75,6 +75,7 @@ import {
 import { PrefsProvider as FinanceiroPrefsProvider } from './financeiro/prefs';
 import { FechamentoCaixaPage } from './financeiro/pages/FechamentoCaixaPage';
 import { ConciliacaoPage } from './financeiro/pages/ConciliacaoPage';
+import { CustosCoPage } from './financeiro/pages/CustosCoPage';
 import { ModuloPage as FinanceiroModuloPage } from './financeiro/pages/ModuloPage';
 import { VendasPage as FinanceiroVendasPage } from './financeiro/pages/VendasPage';
 import { ReuniaoSemanalPage } from './financeiro/pages/ReuniaoSemanalPage';
@@ -578,6 +579,14 @@ export default function App() {
                 element={
                   <RotaFinanceiro>
                     <FechamentoCaixaPage />
+                  </RotaFinanceiro>
+                }
+              />
+              <Route
+                path="custos"
+                element={
+                  <RotaFinanceiro>
+                    <CustosCoPage />
                   </RotaFinanceiro>
                 }
               />
