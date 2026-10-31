@@ -418,7 +418,7 @@ export function InboxDdaPage() {
         + parcelas
         + quando,
       )
-      await carregar(loja)
+      await carregar()
     } catch (err) {
       setErro(err instanceof Error ? err.message : t('Não lançou na agenda', 'Could not add to the agenda'))
     } finally {
@@ -507,7 +507,7 @@ export function InboxDdaPage() {
             ? 'Boleto sent to the agenda. It leaves this inbox; the invoice stays on the other tab.'
             : `${ok} boletos sent to the agenda. They leave this inbox; invoices stay on the other tab.`,
         ))
-      await Promise.all([carregar(loja), carregarNotas(loja)])
+      await Promise.all([carregar(), carregarNotas(loja)])
     } catch (err) {
       setErro(err instanceof Error ? err.message : t('Não enviou', 'Could not send'))
     } finally {
@@ -528,7 +528,7 @@ export function InboxDdaPage() {
       })
       setExcluir(null)
       setAviso(t('Despesa excluída.', 'Expense deleted.'))
-      await carregar(loja)
+      await carregar()
     } catch (err) {
       setErro(err instanceof Error ? err.message : t('Não excluiu', 'Could not delete'))
     } finally {
@@ -1206,7 +1206,7 @@ export function InboxDdaPage() {
             }
             setAba(0)
             setErro('')
-            carregar(loja)
+            carregar()
             setAviso(mensagem)
           }}
         />
