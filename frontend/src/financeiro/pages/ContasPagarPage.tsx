@@ -166,31 +166,6 @@ function dataLocal(d: Date) {
   return `${d.getFullYear()}-${m}-${dia}`
 }
 
-function ymdMaisDias(ymd: string, dias: number) {
-  const [y, m, d] = String(ymd || '').slice(0, 10).split('-').map(Number)
-  if (!y || !m || !d) return ''
-  return dataLocal(new Date(y, m - 1, d + dias))
-}
-
-/** DDA/manual: vencimento na semana. Free Control: pagamento ou semana de serviço (seg–dom). */
-function noRecorteAgenda(e: Despesa, de: string, ate: string) {
-  const vencimento = (e.vencimento || '').slice(0, 10)
-  const competencia = (e.competencia || '').slice(0, 10)
-  const dentro = (dia: string) => {
-    if (!dia) return !de && !ate
-    if (de && dia < de) return false
-    if (ate && dia > ate) return false
-    return true
-  }
-  if (!ehFreeControl(e)) return dentro(vencimento)
-  if (dentro(vencimento) || dentro(competencia)) return true
-  if (competencia && de && ate) {
-    const domingo = ymdMaisDias(competencia, 6)
-    if (competencia <= ate && domingo >= de) return true
-  }
-  return false
-}
-
 function periodoAtual() {
   const inicio = new Date()
   inicio.setHours(0, 0, 0, 0)
@@ -386,8 +361,8 @@ export function ContasPagarPage() {
     return true
   }), [despesas])
 
+  /** Agenda: só vencimento no período (Free Control incluso). */
   const noPeriodo = useMemo(() => naAgenda.filter((e) => {
-    if (ehFreeControl(e)) return noRecorteAgenda(e, de, ate)
     const vencimento = (e.vencimento || '').slice(0, 10)
     if (!vencimento) return !de && !ate
     if (de && vencimento < de) return false
