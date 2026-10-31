@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type MouseEvent as ReactMouseEvent } from 'react';
 import dayjs, { type Dayjs } from 'dayjs';
 import 'dayjs/locale/pt-br';
 import Box from '@mui/material/Box';
@@ -318,7 +318,7 @@ export default function FiltroIntervaloDatasFrota({
           marginThreshold={8}
           slotProps={{
             paper: {
-              onMouseDown: (ev) => ev.preventDefault(),
+              onMouseDown: (ev: ReactMouseEvent<HTMLElement>) => ev.preventDefault(),
               sx: {
                 mt: 0.5,
                 borderRadius: 2,
