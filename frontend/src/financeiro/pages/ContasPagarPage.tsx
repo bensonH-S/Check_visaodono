@@ -122,7 +122,7 @@ const CODIGO: Record<string, string> = {
   folha: 'Folha Pagamento', cadastro: 'Cadastro', chave_pix: 'Chave PIX',
   boleto: 'Boleto', guia: 'Guia', dinheiro: 'Dinheiro', online: 'Online',
 }
-const FILTROS = ['Todas', 'DDA', 'Free Control', 'Boletos', 'Para autorizar', 'Vencidas', 'Recusadas', 'NF confirmada', 'NF Parcial', 'NF Pendente'] as const
+const FILTROS = ['Todas', 'Pagas', 'DDA', 'Free Control', 'Boletos', 'Para autorizar', 'Vencidas', 'Recusadas', 'NF confirmada', 'NF Parcial', 'NF Pendente'] as const
 
 function cicloNf(e: Despesa): 'nao_confirmada' | 'confirmada' | 'divergente' | null {
   if (e.nf_ciclo === 'confirmada' || e.nf_ciclo === 'divergente') return e.nf_ciclo
@@ -198,14 +198,6 @@ function periodoAtual() {
   const fim = new Date(inicio)
   fim.setDate(fim.getDate() + 7)
   return { de: dataLocal(inicio), ate: dataLocal(fim) }
-}
-
-/**
- * Agenda é sempre sáb→sáb. Free Control consolida seg→dom e vence na segunda
- * seguinte — essa segunda cai dentro do sáb→sáb atual da Agenda.
- */
-function periodoFreeControl() {
-  return periodoAtual()
 }
 
 function arquivoBase64(buffer: ArrayBuffer) {
@@ -381,13 +373,13 @@ export function ContasPagarPage() {
   }, [])
 
   /**
-   * Agenda banco: só o que ainda falta tratar na semana.
-   * Paga/conciliada saem daqui (e do Inbox) — ficam só em Conciliadas.
-   * DDA/manual nova só depois da confirmação no Inbox.
+   * Agenda banco: semana completa (a pagar + pago).
+   * Inbox e cancelada ficam de fora. DDA/NF só depois da confirmação.
    */
   const naAgenda = useMemo(() => despesas.filter((e) => {
     if (estaNoInbox(e)) return false
-    if (e.status === 'paga' || e.status === 'conciliada' || e.status === 'cancelada') return false
+    if (e.status === 'cancelada') return false
+    if (e.status === 'paga' || e.status === 'conciliada') return true
     if (e.fonte === 'dda' || e.fonte === 'nfe') {
       return ['pronta', 'autorizada', 'enviada'].includes(e.status)
     }
@@ -403,18 +395,6 @@ export function ContasPagarPage() {
     return true
   }), [naAgenda, de, ate])
 
-  /** Total já baixado no período (não lista na tabela — só o card + Conciliadas). */
-  const pagoNoPeriodo = useMemo(() => despesas.filter((e) => {
-    if (e.status !== 'paga' && e.status !== 'conciliada') return false
-    if (filtro === 'Free Control' && !ehFreeControl(e)) return false
-    if (filtro === 'DDA' && e.fonte !== 'dda') return false
-    const vencimento = (e.vencimento || '').slice(0, 10)
-    if (!vencimento) return !de && !ate
-    if (de && vencimento < de) return false
-    if (ate && vencimento > ate) return false
-    return true
-  }).reduce((a, e) => a + Number(e.valor), 0), [despesas, de, ate, filtro])
-
   const linhas = useMemo(() => {
     const q = busca.trim().toLowerCase()
     const qDigitos = q.replace(/\D/g, '')
@@ -429,6 +409,7 @@ export function ContasPagarPage() {
         const bateNf = qDigitos.length >= 3 && nfDigitos.includes(qDigitos)
         if (!bateTexto && !bateNf) return false
       }
+      if (filtro === 'Pagas') return e.status === 'paga' || e.status === 'conciliada'
       if (filtro === 'DDA') return e.fonte === 'dda'
       if (filtro === 'Free Control') return true
       if (filtro === 'Boletos') return e.forma_pagamento === 'boleto'
@@ -447,14 +428,20 @@ export function ContasPagarPage() {
 
   const visiveis = linhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
 
-  // Cards seguem o filtro ativo (ex.: Free Control = só o consolidado BANCO), não o total da agenda.
-  const soma = (pred: (e: Despesa) => boolean) => linhas.filter(pred).reduce((a, e) => a + Number(e.valor), 0)
+  // Cards = totais da semana (não somem ao filtrar a lista).
+  const somaPeriodo = (pred: (e: Despesa) => boolean) => noPeriodo.filter(pred).reduce((a, e) => a + Number(e.valor), 0)
   const lojas = useMemo(
     () => ordenarEmpresas(empresas.filter((e) => e.tipo === 'loja' || e.tipo === 'holding')),
     [empresas],
   )
-  const vencida = soma((e) => estaVencida(e))
-  const totalSemana = soma((e) => aberta(e)) + pagoNoPeriodo
+  const pagoNoPeriodo = somaPeriodo((e) => e.status === 'paga' || e.status === 'conciliada')
+  const vencida = somaPeriodo((e) => estaVencida(e))
+  const totalSemana = somaPeriodo(() => true)
+
+  const aplicarCard = (alvo: 'Todas' | 'Pagas' | 'Vencidas') => {
+    setFiltro((atual) => (atual === alvo ? 'Todas' : alvo))
+    setPagina(0)
+  }
 
   return (
     <Stack spacing={1} sx={finPageSx}>
@@ -549,32 +536,26 @@ export function ContasPagarPage() {
           cor="#0F172A"
           rotulo={t('Total da semana', 'Week total')}
           valor={brl(totalSemana)}
-          detalhe={t('junto, sem separar', 'combined, not split')}
+          detalhe={t('tudo da semana', 'all this week')}
+          ativo={filtro === 'Todas'}
+          onClick={() => aplicarCard('Todas')}
         />
         <Resumo
-          cor="#1B6EF3"
-          rotulo={t('A pagar', 'To pay')}
-          valor={brl(soma((e) => aberta(e)))}
-          detalhe={t('da semana', 'for the week')}
+          cor="#10B981"
+          rotulo={t('Pago', 'Paid')}
+          valor={brl(pagoNoPeriodo)}
+          detalhe={filtro === 'Pagas' ? t('filtrando a lista', 'filtering the list') : t('toque para ver na lista', 'tap to see in the list')}
+          ativo={filtro === 'Pagas'}
+          onClick={() => aplicarCard('Pagas')}
         />
-        <Box
-          onClick={() => navigate('/financeiro/conciliacao')}
-          sx={{ flex: '1 1 0', minWidth: 0, display: 'flex', cursor: 'pointer' }}
-          title={t('Ver em Conciliadas', 'See in Reconciled')}
-        >
-          <Resumo
-            cor="#10B981"
-            rotulo={t('Pago', 'Paid')}
-            valor={brl(pagoNoPeriodo)}
-            detalhe={t('só em Conciliadas', 'only in Reconciled')}
-          />
-        </Box>
         <Resumo
           cor="#EF4444"
           rotulo={t('Vencida', 'Overdue')}
           valor={brl(vencida)}
-          detalhe={t('passou do vencimento', 'past due')}
+          detalhe={filtro === 'Vencidas' ? t('filtrando a lista', 'filtering the list') : t('toque para ver na lista', 'tap to see in the list')}
           alerta={vencida > 0}
+          ativo={filtro === 'Vencidas'}
+          onClick={() => aplicarCard('Vencidas')}
         />
       </Stack>
 
@@ -585,6 +566,7 @@ export function ContasPagarPage() {
             size="small"
             label={t(
               item === 'Todas' ? 'Todas'
+                : item === 'Pagas' ? 'Pagas'
                 : item === 'DDA' ? 'DDA'
                 : item === 'Free Control' ? 'Free Control'
                 : item === 'Boletos' ? 'Boletos'
@@ -595,6 +577,7 @@ export function ContasPagarPage() {
                 : item === 'NF Pendente' ? 'NF Pendente'
                 : 'NF confirmada',
               item === 'Todas' ? 'All'
+                : item === 'Pagas' ? 'Paid'
                 : item === 'DDA' ? 'DDA'
                 : item === 'Free Control' ? 'Free Control'
                 : item === 'Boletos' ? 'Boletos'
@@ -606,14 +589,12 @@ export function ContasPagarPage() {
                 : 'Invoice confirmed',
             )}
             variant="outlined"
+            onMouseDown={(ev) => ev.preventDefault()}
             onClick={() => {
-              setFiltro(item)
+              const ligar = filtro !== item
+              setFiltro(ligar ? item : 'Todas')
               setPagina(0)
-              // Free Control é seg→dom; a Agenda abre em sáb→sáb.
-              if (item === 'Free Control') {
-                const fc = periodoFreeControl()
-                setDe(fc.de)
-                setAte(fc.ate)
+              if (ligar && item === 'Free Control') {
                 void api.syncFreecontrol()
                   .then(() => carregar())
                   .catch(() => undefined)
@@ -1809,14 +1790,32 @@ function Codigo({ forma, pagamento }: { forma: string | null; pagamento: string 
 }
 
 function Copia({ texto }: { texto: string }) {
-  const curto = texto.length > 22 ? `${texto.slice(0, 22)}…` : texto
+  const curto = texto.length > 18 ? `${texto.slice(0, 18)}…` : texto
   return (
-    <Stack direction="row" spacing={0.5} sx={{ alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-      <Typography variant="caption" sx={{ wordBreak: 'break-all', textAlign: 'center' }}>{curto}</Typography>
-      <IconButton size="small" aria-label="Copiar para pagar" onClick={() => navigator.clipboard.writeText(texto)}>
-        <ContentCopyIcon sx={{ fontSize: 16 }} />
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 28px', alignItems: 'center', width: '100%', maxWidth: 168, mx: 'auto', gap: 0.25 }}>
+      <Typography
+        variant="caption"
+        title={texto}
+        sx={{
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          textAlign: 'right',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {curto}
+      </Typography>
+      <IconButton
+        size="small"
+        aria-label="Copiar para pagar"
+        onClick={() => navigator.clipboard.writeText(texto)}
+        sx={{ width: 28, height: 28, p: 0.25, justifySelf: 'end' }}
+      >
+        <ContentCopyIcon sx={{ fontSize: 15 }} />
       </IconButton>
-    </Stack>
+    </Box>
   )
 }
 
@@ -1826,17 +1825,31 @@ function Resumo({
   detalhe,
   alerta = false,
   cor = '#1B6EF3',
+  ativo = false,
+  onClick,
 }: {
   rotulo: string
   valor: string
   detalhe: string
   alerta?: boolean
   cor?: string
+  ativo?: boolean
+  onClick?: () => void
 }) {
   const faixa = alerta ? '#EF4444' : cor
+  const clicavel = typeof onClick === 'function'
   return (
     <Paper
       variant="outlined"
+      role={clicavel ? 'button' : undefined}
+      tabIndex={clicavel ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={clicavel ? (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault()
+          onClick?.()
+        }
+      } : undefined}
       sx={{
         position: 'relative',
         px: 1.35,
@@ -1847,15 +1860,24 @@ function Resumo({
         width: '100%',
         overflow: 'hidden',
         bgcolor: FIN_SURFACE,
-        borderColor: FIN_BORDER,
+        borderColor: ativo ? faixa : FIN_BORDER,
+        boxShadow: ativo ? `inset 0 0 0 1px ${faixa}` : 'none',
+        cursor: clicavel ? 'pointer' : 'default',
+        transition: 'border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease',
         ...(alerta ? {
           bgcolor: 'rgba(239,68,68,0.12)',
-          animation: 'vencida-pulso 2.6s ease-in-out infinite',
+          animation: ativo ? 'none' : 'vencida-pulso 2.6s ease-in-out infinite',
           '@keyframes vencida-pulso': {
             '0%, 100%': { boxShadow: '0 0 0 0 rgba(239,68,68,0)' },
             '50%': { boxShadow: '0 0 0 3px rgba(239,68,68,0.18)' },
           },
           '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+        } : {}),
+        ...(clicavel && !alerta ? {
+          '&:hover': { bgcolor: 'rgba(15, 23, 42, 0.03)', borderColor: faixa },
+        } : {}),
+        ...(clicavel && alerta ? {
+          '&:hover': { bgcolor: 'rgba(239,68,68,0.16)' },
         } : {}),
         '&::before': {
           content: '""',

@@ -172,6 +172,10 @@ export const finChipSx = (ativo: boolean) => ({
   borderColor: ativo ? '#1B6EF3' : FIN_BORDER,
   color: ativo ? '#0D4ECC' : FIN_MUTED,
   fontWeight: ativo ? 600 : 500,
+  '&.Mui-focusVisible, &:focus': {
+    bgcolor: ativo ? 'rgba(27, 110, 243, 0.1)' : FIN_SURFACE,
+    borderColor: ativo ? '#1B6EF3' : FIN_BORDER,
+  },
 })
 
 export const finCalendarioWrapSx = {

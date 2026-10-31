@@ -144,6 +144,8 @@ export default function FiltroIntervaloDatasFrota({
   const bordaCalendario = temaEscuro ? 'rgba(255,255,255,0.14)' : colors.borderStrong;
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [escolhendoFim, setEscolhendoFim] = useState(false);
+  const [rascunhoInicio, setRascunhoInicio] = useState(dataInicio);
+  const [rascunhoFim, setRascunhoFim] = useState(dataFim);
   const aberto = Boolean(anchorEl);
   const hoje = dataHojeBrasilia();
   const maxDate = permitirFuturo ? undefined : (isoParaDayjs(hoje) ?? dayjs());
@@ -153,59 +155,59 @@ export default function FiltroIntervaloDatasFrota({
     : (compacto ? 'Datas' : 'Clique para selecionar');
   const limparLabel = idioma === 'en' ? 'Clear period' : 'Limpar período';
 
-  const inicioDayjs = useMemo(() => isoParaDayjs(dataInicio), [dataInicio]);
-  const fimDayjs = useMemo(() => isoParaDayjs(dataFim), [dataFim]);
-  const texto = formatarTexto(dataInicio, dataFim, idioma);
-  const temValor = !!(dataInicio || dataFim);
+  const inicioMostrado = aberto ? rascunhoInicio : dataInicio;
+  const fimMostrado = aberto ? rascunhoFim : dataFim;
+  const inicioDayjs = useMemo(() => isoParaDayjs(inicioMostrado), [inicioMostrado]);
+  const fimDayjs = useMemo(() => isoParaDayjs(fimMostrado), [fimMostrado]);
+  const texto = formatarTexto(inicioMostrado, fimMostrado, idioma);
+  const temValor = !!(inicioMostrado || fimMostrado);
 
   function abrir(e: React.MouseEvent<HTMLElement>) {
+    setRascunhoInicio(dataInicio);
+    setRascunhoFim(dataFim);
     setEscolhendoFim(false);
     setAnchorEl(e.currentTarget);
   }
 
   function fechar() {
+    if (escolhendoFim && rascunhoInicio) {
+      onChangeInicio(rascunhoInicio);
+      onChangeFim(rascunhoInicio);
+    }
     setEscolhendoFim(false);
     setAnchorEl(null);
   }
 
   function limpar(e: React.MouseEvent) {
     e.stopPropagation();
+    e.preventDefault();
+    setRascunhoInicio('');
+    setRascunhoFim('');
+    setEscolhendoFim(false);
+    setAnchorEl(null);
     onChangeInicio('');
     onChangeFim('');
-    setEscolhendoFim(false);
   }
 
   function selecionarDia(day: Dayjs | null) {
     if (!day?.isValid()) return;
     const iso = day.format('YYYY-MM-DD');
 
-    // 2º clique: define o fim do intervalo (ou confirma o mesmo dia)
-    if (escolhendoFim && dataInicio) {
-      const inicio = isoParaDayjs(dataInicio);
-      if (!inicio) {
-        onChangeInicio(iso);
-        onChangeFim(iso);
-        setEscolhendoFim(false);
-        setAnchorEl(null);
-        return;
-      }
-      if (day.isSame(inicio, 'day')) {
-        onChangeFim(iso);
-      } else if (day.isBefore(inicio, 'day')) {
-        onChangeFim(dataInicio);
-        onChangeInicio(iso);
-      } else {
-        onChangeFim(iso);
-      }
-      setEscolhendoFim(false);
-      setAnchorEl(null);
+    if (!escolhendoFim || !rascunhoInicio) {
+      setRascunhoInicio(iso);
+      setRascunhoFim(iso);
+      setEscolhendoFim(true);
       return;
     }
 
-    // 1º clique: dia único já consultável; próximo clique estende o período
-    onChangeInicio(iso);
-    onChangeFim(iso);
-    setEscolhendoFim(true);
+    const ini = iso < rascunhoInicio ? iso : rascunhoInicio;
+    const fim = iso < rascunhoInicio ? rascunhoInicio : iso;
+    setRascunhoInicio(ini);
+    setRascunhoFim(fim);
+    setEscolhendoFim(false);
+    onChangeInicio(ini);
+    onChangeFim(fim);
+    setAnchorEl(null);
   }
 
   return (
@@ -310,11 +312,13 @@ export default function FiltroIntervaloDatasFrota({
           open={aberto}
           anchorEl={anchorEl}
           onClose={fechar}
+          disableScrollLock
           anchorOrigin={{ vertical: 'bottom', horizontal: variante === 'texto' ? 'right' : 'left' }}
           transformOrigin={{ vertical: 'top', horizontal: variante === 'texto' ? 'right' : 'left' }}
           marginThreshold={8}
           slotProps={{
             paper: {
+              onMouseDown: (ev) => ev.preventDefault(),
               sx: {
                 mt: 0.5,
                 borderRadius: 2,
