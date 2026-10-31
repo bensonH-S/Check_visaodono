@@ -1960,6 +1960,23 @@ export const api = {
     if (opts?.meta_cmp != null) params.set('meta_cmp', String(opts.meta_cmp));
     return request<EstoquePedidoRascunho>(`/estoque/pedido-rascunho?${params}`);
   },
+  estoquePedidoRevisao: (body: {
+    id_loja: number;
+    loja?: string;
+    itens: Array<{
+      codigo: string;
+      descricao: string;
+      caixas: number;
+      estoque: number;
+      unidade?: string | null;
+      ritmo_dia?: number;
+      cobertura_dias?: number | null;
+    }>;
+  }) =>
+    request<{ ok: boolean; itens: Array<{ codigo: string; flag: 'certo' | 'errado' | 'ajustar'; motivo: string }> }>(
+      '/estoque/pedido-rascunho/revisao',
+      { method: 'POST', body: JSON.stringify(body) },
+    ),
   estoquePedidoCarrinhoEsupri: (body: {
     id_loja: number;
     itens: Array<{ codigo: string; caixas: number; preco?: number | null }>;

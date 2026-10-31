@@ -1669,6 +1669,20 @@ router.get('/pedido-rascunho', permOp, async (req, res, next) => {
   }
 });
 
+router.post('/pedido-rascunho/revisao', permOp, async (req, res, next) => {
+  try {
+    const idLoja = parseIdLoja(req.body?.id_loja);
+    const bloqueio = acessoLoja(req, idLoja);
+    if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    const { revisarSugestaoGrokBot } = await import('../services/grokBotRevisao.js');
+    const itens = Array.isArray(req.body?.itens) ? req.body.itens : [];
+    const revisao = await revisarSugestaoGrokBot({ loja: req.body?.loja, itens });
+    res.json(revisao);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/pedido-rascunho/carrinho-esupri', permOp, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.body?.id_loja);

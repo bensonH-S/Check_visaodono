@@ -3643,6 +3643,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
   const [visao, setVisao] = useState<'rascunho' | 'portal'>('rascunho');
   const [decisoes, setDecisoes] = useState<Record<string, 'aprovado' | 'recusado'>>({});
   const [selecionados, setSelecionados] = useState<Record<string, true>>({});
+  const [revisao, setRevisao] = useState<Record<string, { flag: 'errado' | 'ajustar'; motivo: string }>>({});
   const podeDevolverNf = podeReabrirConferenciaNfe(getUsuario());
   const [reabrindoNf, setReabrindoNf] = useState(false);
   const [devolverNf, setDevolverNf] = useState<{ id: number; numero: string } | null>(null);
@@ -3660,7 +3661,34 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
       setDados(r);
       setDecisoes({});
       setSelecionados({});
+      setRevisao({});
       setItens(r.itens.map((i) => ({ ...i })));
+      const paraRevisar = r.itens
+        .filter((item) => Number(item.caixas_pedidas) > 0)
+        .slice(0, 60)
+        .map((item) => ({
+          codigo: item.codigo,
+          descricao: item.descricao,
+          caixas: Number(item.caixas_pedidas) || 0,
+          estoque: Number(item.saldo_atual) || 0,
+          unidade: item.unidade,
+          ritmo_dia: Number(item.ritmo_dia) || 0,
+          cobertura_dias: item.cobertura_dias,
+        }));
+      if (paraRevisar.length) {
+        void api
+          .estoquePedidoRevisao({ id_loja: idLoja, loja: r.loja_nome, itens: paraRevisar })
+          .then((rev) => {
+            if (!rev?.ok) return;
+            const mapa: Record<string, { flag: 'errado' | 'ajustar'; motivo: string }> = {};
+            for (const item of rev.itens || []) {
+              if (item.flag !== 'errado' && item.flag !== 'ajustar') continue;
+              mapa[String(item.codigo).toUpperCase()] = { flag: item.flag, motivo: item.motivo };
+            }
+            setRevisao(mapa);
+          })
+          .catch(() => {});
+      }
       setNotas(nfs.filter((n) => grupoFornecedorNfe(n) === 'Platlog'));
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao calcular pedido', 'error');
@@ -4028,9 +4056,24 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                     sx={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'contain', bgcolor: '#E4DFD6', flexShrink: 0, opacity: semSugestao ? 0.45 : 1 }}
                   />
                   <Box sx={{ minWidth: 0, flex: 1 }}>
-                    <Typography noWrap title={i.descricao} sx={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.2, color: semSugestao ? '#6E6E73' : 'inherit' }}>
-                      {i.descricao}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.6, minWidth: 0 }}>
+                      <Typography noWrap title={i.descricao} sx={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.2, color: semSugestao ? '#6E6E73' : 'inherit' }}>
+                        {i.descricao}
+                      </Typography>
+                      {revisao[String(i.codigo).toUpperCase()] ? (
+                        <Tooltip title={revisao[String(i.codigo).toUpperCase()].motivo || 'Revisar a quantidade'}>
+                          <Box
+                            sx={{
+                              width: 7,
+                              height: 7,
+                              borderRadius: '50%',
+                              flexShrink: 0,
+                              bgcolor: revisao[String(i.codigo).toUpperCase()].flag === 'errado' ? '#C47A2A' : '#1B6EF3',
+                            }}
+                          />
+                        </Tooltip>
+                      ) : null}
+                    </Box>
                     <Typography noWrap sx={{ fontSize: 11, fontWeight: 500, lineHeight: 1.15, mt: 0.15, color: '#8d8d8d', fontVariantNumeric: 'tabular-nums' }}>
                       Estoque {fmtNum(i.saldo_atual, estoqueInteiro ? 0 : 1)} {undEstoque}
                     </Typography>
