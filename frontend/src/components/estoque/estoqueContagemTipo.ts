@@ -26,7 +26,7 @@ export function agendaContagem(agora = new Date()) {
   if (segunda) {
     return { dia1: false, segunda: true, diaria: false, semanal: true, mensal: false };
   }
-  return { dia1: false, segunda: false, diaria: true, semanal: false, mensal: true };
+  return { dia1: false, segunda: false, diaria: true, semanal: false, mensal: false };
 }
 
 export function rotuloTipoContagem(tipo?: string | null) {

@@ -630,7 +630,7 @@ export default function ControleEstoquePage() {
       return;
     }
     if (tipo === 'completa' && !agenda.mensal) {
-      showToast('Na segunda use a contagem semanal', 'info');
+      showToast(agenda.segunda ? 'Na segunda use a contagem semanal' : 'A contagem mensal só abre no dia 1', 'info');
       return;
     }
     setIniciando(true);

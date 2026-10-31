@@ -21,7 +21,7 @@ export function partesContagemSp(agora = new Date()) {
  * Qual contagem pode ser iniciada.
  * Dia 1: só a mensal (a lista dela não muda).
  * Segunda que não é dia 1: só a semanal.
- * Nos outros dias: a diária, e a mensal continua disponível como já era.
+ * Nos outros dias: só a diária. A mensal não abre.
  */
 export function agendaContagem(agora = new Date()) {
   const p = partesContagemSp(agora);
@@ -31,7 +31,7 @@ export function agendaContagem(agora = new Date()) {
   if (p.segunda) {
     return { ...p, tipo: 'critica_semanal', diaria: false, semanal: true, mensal: false };
   }
-  return { ...p, tipo: 'diaria', diaria: true, semanal: false, mensal: true };
+  return { ...p, tipo: 'diaria', diaria: true, semanal: false, mensal: false };
 }
 
 export function assertTipoContagemNaAgenda(tipoContagem, agora = new Date()) {
@@ -55,7 +55,11 @@ export function assertTipoContagemNaAgenda(tipoContagem, agora = new Date()) {
     throw err;
   }
   if (tipoContagem === 'completa' && !agenda.mensal) {
-    const err = new Error('Na segunda a contagem mensal não abre. Abra a semanal.');
+    const err = new Error(
+      agenda.segunda
+        ? 'Na segunda a contagem mensal não abre. Abra a semanal.'
+        : 'A contagem mensal só abre no dia 1.',
+    );
     err.status = 400;
     throw err;
   }
