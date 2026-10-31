@@ -302,7 +302,7 @@ export function urlEmpresas() {
 }
 
 export function urlDespesas(empresa?: string) {
-  return `${apiRoot}/despesas${empresa ? `?empresa=${empresa}` : ''}`
+  return `${apiRoot}/despesas${empresa ? `?empresa=${encodeURIComponent(empresa)}` : ''}`
 }
 
 export function urlNotas(empresa?: string) {

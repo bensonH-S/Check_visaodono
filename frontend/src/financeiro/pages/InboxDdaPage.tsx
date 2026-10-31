@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -249,26 +249,34 @@ export function InboxDdaPage() {
       setNotas(r.notas)
     }).catch(() => undefined)
 
-  const carregar = (empresa = loja) =>
-    api.despesas(empresa || undefined).then((rows) => {
+  const carregarSeq = useRef(0)
+  const carregar = () => {
+    const seq = ++carregarSeq.current
+    return api.despesas().then((rows) => {
+      if (seq !== carregarSeq.current) return
       setDespesas(rows)
       setErro('')
     }).catch(() => {
+      if (seq !== carregarSeq.current) return
       setErro(t(
         'Não carregou o financeiro. Confira a permissão financeiro.ver.',
         'Could not load finance. Check the financeiro.ver permission.',
       ))
     })
+  }
 
   useEffect(() => {
     api.empresas().then(setEmpresas).catch(() => undefined)
-    carregar('')
+    void carregar()
     carregarNotas('')
   }, [])
 
   const inbox = useMemo(
-    () => despesas.filter((e) => estaNoInbox(e)),
-    [despesas],
+    () => despesas.filter((e) => {
+      if (loja && e.origem_id !== loja) return false
+      return estaNoInbox(e)
+    }),
+    [despesas, loja],
   )
 
   const noPeriodo = useMemo(() => inbox.filter((e) => {
@@ -721,7 +729,7 @@ export function InboxDdaPage() {
           width={CAMPO_W}
           onChange={(id) => {
             setLoja(id)
-            carregar(id)
+            setPagina(0)
             carregarNotas(id)
           }}
           sx={{

@@ -195,7 +195,7 @@ export function ContasPagarPage() {
   /** Sem financeiro.ver: só visualiza (abre detalhe sem salvar/excluir/importar). */
   const somenteLeitura = !podeVerFinanceiro(user)
   const [empresas, setEmpresas] = useState<Empresa[]>(() => emCache<Empresa[]>(urlEmpresas()) ?? [])
-  const [despesas, setDespesas] = useState<Despesa[]>(() => emCache<Despesa[]>(urlDespesas(params.get('loja') || undefined)) ?? [])
+  const [despesas, setDespesas] = useState<Despesa[]>(() => emCache<Despesa[]>(urlDespesas()) ?? [])
   const [loja, setLoja] = useState(() => params.get('loja') || '')
   const [busca, setBusca] = useState('')
   const [de, setDe] = useState(() => params.get('de') || periodoAtual().de)
@@ -325,15 +325,22 @@ export function ContasPagarPage() {
     }
   }
 
-  const carregar = (empresa = loja) => api.despesas(empresa || undefined).then((rows) => {
-    setDespesas(rows)
-    setErroBanco('')
-  }).catch(() => {
-    setErroBanco(t(
-      'Não carregou o financeiro. Confira a permissão (financeiro.ver ou financeiro.resumo.ver).',
-      'Could not load finance. Check financeiro.ver or financeiro.resumo.ver.',
-    ))
-  })
+  /** Evita resposta atrasada de “todas as lojas” sobrescrever filtro já aplicado. */
+  const carregarSeq = useRef(0)
+  const carregar = () => {
+    const seq = ++carregarSeq.current
+    return api.despesas().then((rows) => {
+      if (seq !== carregarSeq.current) return
+      setDespesas(rows)
+      setErroBanco('')
+    }).catch(() => {
+      if (seq !== carregarSeq.current) return
+      setErroBanco(t(
+        'Não carregou o financeiro. Confira a permissão (financeiro.ver ou financeiro.resumo.ver).',
+        'Could not load finance. Check financeiro.ver or financeiro.resumo.ver.',
+      ))
+    })
+  }
 
   useEffect(() => {
     api.empresas().then((rows) => {
@@ -345,14 +352,16 @@ export function ContasPagarPage() {
         'Could not load finance. Check financeiro.ver or financeiro.resumo.ver.',
       ))
     })
-    carregar(params.get('loja') || '')
+    void carregar()
   }, [])
 
   /**
    * Agenda banco: semana completa (a pagar + pago).
    * Inbox e cancelada ficam de fora. DDA/NF só depois da confirmação.
+   * Loja: filtro no cliente (troca instantânea; sem race com GET atrasado).
    */
   const naAgenda = useMemo(() => despesas.filter((e) => {
+    if (loja && e.origem_id !== loja) return false
     if (estaNoInbox(e)) return false
     if (e.status === 'cancelada') return false
     if (e.status === 'paga' || e.status === 'conciliada') return true
@@ -360,7 +369,7 @@ export function ContasPagarPage() {
       return ['pronta', 'autorizada', 'enviada'].includes(e.status)
     }
     return true
-  }), [despesas])
+  }), [despesas, loja])
 
   /** Agenda: só vencimento no período (Free Control incluso). */
   const noPeriodo = useMemo(() => naAgenda.filter((e) => {
@@ -456,7 +465,7 @@ export function ContasPagarPage() {
           label={t('Loja', 'Store')}
           onChange={(id) => {
             setLoja(id)
-            carregar(id)
+            setPagina(0)
           }}
         />
         <Box sx={{ flex: 1 }} />
