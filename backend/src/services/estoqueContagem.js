@@ -964,6 +964,60 @@ export async function recomputarEstoqueContadoContagem(client, idContagem) {
   return { atualizados: ids.length };
 }
 
+/**
+ * Cópia do que a loja já digitou. A contagem oficial pode ficar com a data errada
+ * ou sem o selo de finalizada; esta linha continua puxável pelo dia em que salvaram.
+ */
+export async function gravarCopiaContagem(db, idContagem, idUsuario) {
+  const id = Number(idContagem);
+  if (!id) return;
+  await db.query(
+    `INSERT INTO estoque_contagem_copia (
+       id_contagem, id_loja, tipo, data_contagem, status, id_usuario, salvo_em, preenchidos, itens
+     )
+     SELECT c.id_contagem, c.id_loja, COALESCE(c.tipo, 'completa'), c.data_contagem, c.status,
+            $2, NOW(),
+            (
+              SELECT COUNT(*)::int FROM estoque_itens i
+              WHERE i.id_contagem = c.id_contagem
+                AND (
+                  i.estoque_contado IS NOT NULL OR i.contagem_caixa IS NOT NULL
+                  OR i.contagem_pc_fd IS NOT NULL OR i.contagem_kg_und IS NOT NULL
+                )
+            ),
+            COALESCE((
+              SELECT jsonb_agg(jsonb_build_object(
+                'id_item', i.id_item,
+                'codigo', p.codigo,
+                'descricao', p.descricao,
+                'caixa', i.contagem_caixa,
+                'pc', i.contagem_pc_fd,
+                'kg', i.contagem_kg_und,
+                'contado', i.estoque_contado,
+                'sistema', i.estoque_sistema
+              ) ORDER BY p.descricao)
+              FROM estoque_itens i
+              JOIN insumos p ON p.id_insumo = i.id_insumo
+              WHERE i.id_contagem = c.id_contagem
+                AND (
+                  i.estoque_contado IS NOT NULL OR i.contagem_caixa IS NOT NULL
+                  OR i.contagem_pc_fd IS NOT NULL OR i.contagem_kg_und IS NOT NULL
+                )
+            ), '[]'::jsonb)
+     FROM estoque_contagens c
+     WHERE c.id_contagem = $1
+     ON CONFLICT (id_contagem) DO UPDATE SET
+       tipo = EXCLUDED.tipo,
+       data_contagem = EXCLUDED.data_contagem,
+       status = EXCLUDED.status,
+       id_usuario = EXCLUDED.id_usuario,
+       salvo_em = EXCLUDED.salvo_em,
+       preenchidos = EXCLUDED.preenchidos,
+       itens = EXCLUDED.itens`,
+    [id, idUsuario || null],
+  );
+}
+
 /** Extrai und_convertida / und_parcial das fórmulas D e H da planilha. */
 export function extrairFatoresFormula(fD, fH) {
   const mD = String(fD || '').match(/\/\s*([\d.,]+)/);

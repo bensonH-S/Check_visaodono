@@ -21,6 +21,7 @@ import {
   sqlChaveCodigoRede,
   recomputarEstoqueContadoContagem,
   resolverQtdContagem,
+  gravarCopiaContagem,
   SQL_ORDEM_PLANILHA,
   sqlFiltroItensContagem,
   statusConversaoFracionada,
@@ -1669,13 +1670,15 @@ router.post('/contagens', permConferencia, async (req, res, next) => {
     }
     if (tipo !== 'diaria' && reutilizarAberta) {
       const { rows: abertas } = await pool.query(
-        `SELECT id_contagem FROM estoque_contagens
+        `SELECT id_contagem, to_char(data_contagem, 'YYYY-MM-DD') AS data_contagem
+         FROM estoque_contagens
          WHERE status = 'aberta' AND id_loja = $1 AND COALESCE(tipo, 'completa') = $2
          ORDER BY criado_em DESC, id_contagem DESC
          LIMIT 1`,
         [id_loja, tipo],
       );
-      if (abertas.length) {
+      const abertaDeOutroDia = tipo === 'completa' && abertas[0] && abertas[0].data_contagem !== dataRef;
+      if (abertas.length && !abertaDeOutroDia) {
         return res.json(await carregarContagem(abertas[0].id_contagem));
       }
     }
@@ -1736,13 +1739,15 @@ router.post('/contagens/iniciar-sabado', permConferencia, async (req, res, next)
     }
     if (tipo !== 'diaria') {
       const { rows: abertas } = await pool.query(
-        `SELECT id_contagem FROM estoque_contagens
+        `SELECT id_contagem, to_char(data_contagem, 'YYYY-MM-DD') AS data_contagem
+         FROM estoque_contagens
          WHERE status = 'aberta' AND id_loja = $1 AND COALESCE(tipo, 'completa') = $2
          ORDER BY criado_em DESC, id_contagem DESC
          LIMIT 1`,
         [idLoja, tipo],
       );
-      if (abertas.length) {
+      const abertaDeOutroDia = tipo === 'completa' && abertas[0] && abertas[0].data_contagem !== hoje;
+      if (abertas.length && !abertaDeOutroDia) {
         const detalhe = await carregarContagem(abertas[0].id_contagem);
         return res.json({ ...detalhe, meta: { ...metaBase, iniciada_agora: false } });
       }
@@ -1970,6 +1975,8 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
       detalhe.aviso = mensagemErroConversao(errosConversao);
       detalhe.avisos_conversao = errosConversao;
     }
+    const idUsuarioCopia = req.user?.id_usuario || req.user?.sub || null;
+    await gravarCopiaContagem(pool, id, idUsuarioCopia).catch(() => {});
     res.json(detalhe);
   } catch (e) {
     next(e);
@@ -2059,6 +2066,7 @@ router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) 
     await client.query('COMMIT');
 
     const finalizada = await carregarContagem(id);
+    await gravarCopiaContagem(pool, id, idUsuario).catch(() => {});
     await auditar(req, {
       modulo: 'estoque',
       acao: 'finalizar',

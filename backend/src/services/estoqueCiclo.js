@@ -563,6 +563,14 @@ export async function listarStatusContagemRede({
       c.finalizado_em,
       COALESCE(c.contado_em, c.finalizado_em) AS contado_em,
       u.nome AS criado_por_nome,
+      EXISTS (
+        SELECT 1 FROM estoque_itens i
+        WHERE i.id_contagem = c.id_contagem
+          AND (
+            i.estoque_contado IS NOT NULL OR i.contagem_caixa IS NOT NULL
+            OR i.contagem_pc_fd IS NOT NULL OR i.contagem_kg_und IS NOT NULL
+          )
+      ) AS tem_lancamento,
       NULL::text AS ultima_data,
       NULL::timestamptz AS ultima_finalizado_em,
       NULL::int AS ultima_id_contagem,
@@ -600,6 +608,14 @@ export async function listarStatusContagemRede({
       c.finalizado_em,
       COALESCE(c.contado_em, c.finalizado_em) AS contado_em,
       u.nome AS criado_por_nome,
+      EXISTS (
+        SELECT 1 FROM estoque_itens i
+        WHERE i.id_contagem = c.id_contagem
+          AND (
+            i.estoque_contado IS NOT NULL OR i.contagem_caixa IS NOT NULL
+            OR i.contagem_pc_fd IS NOT NULL OR i.contagem_kg_und IS NOT NULL
+          )
+      ) AS tem_lancamento,
       ult.data_contagem::text AS ultima_data,
       ult.finalizado_em AS ultima_finalizado_em,
       ult.id_contagem AS ultima_id_contagem,
@@ -636,12 +652,76 @@ export async function listarStatusContagemRede({
 
   const { rows } = await pool.query(leve ? sqlLeve : sqlFull, [hoje, tipoNorm, ids]);
 
+  const { rows: fechadasNoDia } = await pool.query(
+    `SELECT DISTINCT ON (x.id_loja)
+       x.id_loja, x.id_contagem, x.status, x.titulo,
+       COALESCE(x.tipo, 'completa') AS tipo,
+       x.data_contagem::text AS data_contagem,
+       x.criado_em, x.finalizado_em,
+       COALESCE(x.contado_em, x.finalizado_em) AS contado_em,
+       u.nome AS criado_por_nome
+     FROM estoque_contagens x
+     LEFT JOIN usuarios u ON u.id_usuario = x.criado_por
+     WHERE COALESCE(x.tipo, 'completa') = $2
+       AND x.status = 'finalizada'
+       AND (x.finalizado_em AT TIME ZONE 'America/Sao_Paulo')::date = $1::date
+       AND ($3::int[] IS NULL OR x.id_loja = ANY($3::int[]))
+     ORDER BY x.id_loja, x.finalizado_em DESC, x.id_contagem DESC`,
+    [hoje, tipoNorm, ids],
+  );
+  const fechadaPorLoja = new Map(fechadasNoDia.map((r) => [r.id_loja, r]));
+
+  let copiaPorLoja = new Map();
+  try {
+    const { rows: copias } = await pool.query(
+      `SELECT DISTINCT ON (c.id_loja)
+         c.id_loja, c.id_contagem, c.status, c.preenchidos,
+         COALESCE(c.tipo, 'completa') AS tipo,
+         c.data_contagem::text AS data_contagem,
+         c.salvo_em AS criado_em,
+         ec.finalizado_em,
+         COALESCE(ec.contado_em, ec.finalizado_em, c.salvo_em) AS contado_em,
+         ec.titulo,
+         u.nome AS criado_por_nome
+       FROM estoque_contagem_copia c
+       JOIN estoque_contagens ec ON ec.id_contagem = c.id_contagem
+       LEFT JOIN usuarios u ON u.id_usuario = COALESCE(c.id_usuario, ec.criado_por)
+       WHERE COALESCE(c.tipo, 'completa') = $2
+         AND (c.salvo_em AT TIME ZONE 'America/Sao_Paulo')::date = $1::date
+         AND c.preenchidos > 0
+         AND ($3::int[] IS NULL OR c.id_loja = ANY($3::int[]))
+       ORDER BY c.id_loja,
+         CASE WHEN c.status = 'finalizada' THEN 0 ELSE 1 END,
+         c.salvo_em DESC`,
+      [hoje, tipoNorm, ids],
+    );
+    copiaPorLoja = new Map(copias.map((r) => [r.id_loja, r]));
+  } catch (e) {
+    if (e.code !== '42P01') throw e;
+  }
+
   const lojas = rows.map((r) => {
+    const diaContou = r.id_contagem && r.status === 'finalizada';
+    const diaAndamento = r.id_contagem && r.status === 'aberta' && r.tem_lancamento;
+    const fechada = fechadaPorLoja.get(r.id_loja);
+    const copia = copiaPorLoja.get(r.id_loja);
+    let fonte = r;
     let status = 'faltou';
     let status_label = 'Não contou';
-    if (r.id_contagem && r.status === 'finalizada') {
+    if (diaContou) {
       status = 'contou';
       status_label = 'Contou';
+    } else if (!diaAndamento && fechada) {
+      fonte = { ...r, ...fechada, name: r.name, bk_number: r.bk_number };
+      status = 'contou';
+      status_label = 'Contou';
+    } else if (diaAndamento) {
+      status = 'aberta';
+      status_label = 'Em andamento';
+    } else if (copia && Number(copia.preenchidos) > 0) {
+      fonte = { ...r, ...copia, name: r.name, bk_number: r.bk_number };
+      status = copia.status === 'finalizada' ? 'contou' : 'aberta';
+      status_label = status === 'contou' ? 'Contou' : 'Em andamento';
     } else if (r.id_contagem && r.status === 'aberta') {
       status = 'aberta';
       status_label = 'Em andamento';
@@ -650,16 +730,16 @@ export async function listarStatusContagemRede({
       id_loja: r.id_loja,
       bk_number: r.bk_number,
       name: r.name,
-      id_contagem: r.id_contagem || null,
+      id_contagem: fonte.id_contagem || null,
       status,
       status_label,
-      titulo: r.titulo || null,
-      tipo: r.tipo || tipoNorm,
-      data_contagem: r.data_contagem || null,
-      criado_em: r.criado_em || null,
-      finalizado_em: r.finalizado_em || null,
-      contado_em: r.contado_em || null,
-      criado_por_nome: r.criado_por_nome || null,
+      titulo: fonte.titulo || null,
+      tipo: fonte.tipo || tipoNorm,
+      data_contagem: fonte.data_contagem || null,
+      criado_em: fonte.criado_em || null,
+      finalizado_em: fonte.finalizado_em || null,
+      contado_em: fonte.contado_em || null,
+      criado_por_nome: fonte.criado_por_nome || null,
       ultima_data: r.ultima_data || null,
       ultima_finalizado_em: r.ultima_finalizado_em || null,
       ultima_id_contagem: r.ultima_id_contagem || null,
