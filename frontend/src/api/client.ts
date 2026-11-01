@@ -3320,6 +3320,8 @@ export interface EscalaGestoresGrade {
   semana_inicio: string;
   semana_fim: string;
   pode_editar: boolean;
+  /** Gestor de loja recebe só a própria linha e pode montá-la. */
+  somente_propria?: boolean;
   linhas: EscalaGestoresLinha[];
 }
 

@@ -1,5 +1,11 @@
 import { pool } from './db.js';
-import { segundaFeiraDaSemana, podeVerEscalaGestores, podeGerenciarEscalaVisitas } from './escalaVisitas.js';
+import { temPermissao } from './permissoes.js';
+import {
+  segundaFeiraDaSemana,
+  podeVerEscalaGestores,
+  podeGerenciarEscalaVisitas,
+  podeEditarEscalaRegiao,
+} from './escalaVisitas.js';
 
 const TIPOS = new Set(['folga', 'ferias', 'falta', 'ausencia']);
 
@@ -98,8 +104,59 @@ function horaApi(v) {
   return String(v).slice(0, 5);
 }
 
+function primeiroNome(s) {
+  return String(s || '')
+    .trim()
+    .split(/\s+/)[0]
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+}
+
+async function dadosUsuario(user) {
+  const id = Number(user?.sub || user?.id_usuario);
+  if (!id) return null;
+  const { rows } = await pool.query(
+    `SELECT u.nome, u.perfil::text AS perfil, u.cargo_aprovacao,
+            COALESCE(array_agg(ul.id_loja) FILTER (WHERE ul.id_loja IS NOT NULL), '{}') AS lojas
+     FROM usuarios u
+     LEFT JOIN usuario_lojas ul ON ul.id_usuario = u.id_usuario
+     WHERE u.id_usuario = $1
+     GROUP BY u.id_usuario, u.nome, u.perfil, u.cargo_aprovacao`,
+    [id],
+  );
+  return rows[0] || null;
+}
+
+/** Gestor de loja monta só a própria escala. Diretor e regional continuam vendo a rede. */
+function ehGestorSomentePropria(user, dados) {
+  if (!user || !dados) return false;
+  if (podeGerenciarEscalaVisitas(user) || podeEditarEscalaRegiao(user)) return false;
+  if (temPermissao(user, 'lojas.todas') || temPermissao(user, 'frota.regioes')) return false;
+  const cargo = String(dados.cargo_aprovacao || dados.perfil || user.perfil || '').toLowerCase();
+  if (['diretor', 'ceo', 'administrador', 'dono', 'ti', 'supervisor_regional', 'regional', 'supervisor'].includes(cargo)) {
+    return false;
+  }
+  return cargo === 'gerente' || cargo === 'coordenador';
+}
+
+function linhasDoUsuario(linhas, dados) {
+  const ids = new Set((dados?.lojas || []).map((id) => Number(id)));
+  const meu = primeiroNome(dados?.nome);
+  const porLoja = linhas.filter((l) => l.id_loja != null && ids.has(Number(l.id_loja)));
+  if (porLoja.length > 1 && meu) {
+    const porNome = porLoja.filter((l) => primeiroNome(l.nome) === meu);
+    if (porNome.length) return porNome;
+  }
+  if (porLoja.length) return porLoja;
+  if (meu) return linhas.filter((l) => primeiroNome(l.nome) === meu);
+  return [];
+}
+
 export async function carregarGradeGestores(user, { semana_inicio } = {}) {
-  if (!podeVerEscalaGestores(user)) {
+  const dados = await dadosUsuario(user);
+  const somentePropria = ehGestorSomentePropria(user, dados);
+  if (!podeVerEscalaGestores(user) && !somentePropria) {
     throw new Error('Sem permissão para ver a escala de gestores');
   }
   await garantirSchemaGestores();
@@ -204,19 +261,34 @@ export async function carregarGradeGestores(user, { semana_inicio } = {}) {
     };
   });
 
+  const linhasVisiveis = somentePropria ? linhasDoUsuario(linhas, dados) : linhas;
+
   return {
     semana_inicio: inicio,
     semana_fim: fim,
-    pode_editar: podeGerenciarEscalaVisitas(user),
-    linhas,
+    pode_editar: somentePropria ? linhasVisiveis.length > 0 : podeGerenciarEscalaVisitas(user),
+    somente_propria: somentePropria,
+    linhas: linhasVisiveis,
   };
 }
 
 export async function salvarGradeGestores(user, body) {
-  if (!podeGerenciarEscalaVisitas(user)) {
+  const dados = await dadosUsuario(user);
+  const somentePropria = ehGestorSomentePropria(user, dados);
+  if (!podeGerenciarEscalaVisitas(user) && !somentePropria) {
     throw new Error('Sem permissão para editar a escala de gestores');
   }
   await garantirSchemaGestores();
+  let idsProprios = null;
+  if (somentePropria) {
+    const { rows } = await pool.query(
+      `SELECT id_gestor, id_loja, nome FROM escala_gestores WHERE ativo = TRUE`,
+    );
+    idsProprios = new Set(linhasDoUsuario(rows, dados).map((l) => Number(l.id_gestor)));
+    if (!idsProprios.size) {
+      throw new Error('Sem permissão para editar a escala de gestores');
+    }
+  }
   const inicio = segundaFeiraDaSemana(body?.semana_inicio || new Date());
   const lista = Array.isArray(body?.celulas) ? body.celulas : [];
   const gestoresFolga = Array.isArray(body?.gestores) ? body.gestores : [];
@@ -226,6 +298,9 @@ export async function salvarGradeGestores(user, body) {
     for (const g of gestoresFolga) {
       const idGestor = Number(g.id_gestor);
       if (!idGestor || !Object.prototype.hasOwnProperty.call(g, 'folga_padrao')) continue;
+      if (idsProprios && !idsProprios.has(idGestor)) {
+        throw new Error('Sem permissão para editar a escala de outro gestor');
+      }
       const folgaPadrao = String(g.folga_padrao || '').trim() || null;
       await client.query(`UPDATE escala_gestores SET folga_padrao = $2 WHERE id_gestor = $1`, [
         idGestor,
@@ -269,6 +344,9 @@ export async function salvarGradeGestores(user, body) {
       const idGestor = Number(item.id_gestor);
       const dia = Number(item.dia);
       if (!idGestor || dia < 0 || dia > 6) continue;
+      if (idsProprios && !idsProprios.has(idGestor)) {
+        throw new Error('Sem permissão para editar a escala de outro gestor');
+      }
       const data = addDaysIso(inicio, dia);
       if (Object.prototype.hasOwnProperty.call(item, 'tipo')) {
         const tipo = tipoOk(item.tipo);

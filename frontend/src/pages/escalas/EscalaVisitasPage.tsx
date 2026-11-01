@@ -47,7 +47,7 @@ import {
   type EscalaPlanejamentoTipo,
   type Loja,
 } from '../../api/client';
-import { getUsuario, podeEditarEscalaDelivery, podeEditarEscalaRegiao, podeGerenciarEscalaVisitas, podeVerEscalaGestores, podeVerEscalaVisitas } from '../../lib/auth';
+import { ehGestorLojaMobile, getUsuario, podeEditarEscalaDelivery, podeEditarEscalaRegiao, podeGerenciarEscalaVisitas, podeVerEscalaGestores, podeVerEscalaVisitas } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { dispararAtualizacaoNotificacoes } from '../../utils/notificacoesEvent';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
@@ -406,7 +406,12 @@ export default function EscalaVisitasPage() {
   const [horariosManutLocal, setHorariosManutLocal] = useState<
     Map<number, { hora_inicio: string; hora_fim: string }>
   >(() => new Map());
-  const linhasGestores = useMemo(() => linhasGestoresLoja(gestores?.linhas), [gestores?.linhas]);
+  const ehGestorLoja = ehGestorLojaMobile(user);
+  const linhasGestores = useMemo(() => {
+    const loja = linhasGestoresLoja(gestores?.linhas);
+    if (!ehGestorLoja && !gestores?.somente_propria) return loja;
+    return loja.filter((linha) => ehMinhaLinhaGestor(linha, user));
+  }, [ehGestorLoja, gestores?.linhas, gestores?.somente_propria, user]);
   const abaFolga = aba === 'gestores';
   const podeEditarGrade = Boolean(grade?.pode_editar || grade?.pode_editar_regiao);
   const podeEditarDelivery = Boolean(grade?.pode_editar_delivery);

@@ -26,6 +26,7 @@ import {
   type EscalaVisitasLinha,
 } from '../../api/client';
 import {
+  ehGestorLojaMobile,
   getUsuario,
   logout,
   podeEditarEscalaDelivery,
@@ -309,7 +310,12 @@ export default function EscalaVisitasMobileView() {
   const [idTecnicoManut, setIdTecnicoManut] = useState<number | null>(null);
   const [idTecnicoAberto, setIdTecnicoAberto] = useState<number | null>(null);
   const [idGestorAberto, setIdGestorAberto] = useState<number | null>(null);
-  const linhasGestores = useMemo(() => linhasGestoresLoja(gestores?.linhas), [gestores?.linhas]);
+  const ehGestorLoja = ehGestorLojaMobile(user);
+  const linhasGestores = useMemo(() => {
+    const loja = linhasGestoresLoja(gestores?.linhas);
+    if (!ehGestorLoja && !gestores?.somente_propria) return loja;
+    return loja.filter((linha) => ehMinhaLinhaGestor(linha, user));
+  }, [ehGestorLoja, gestores?.linhas, gestores?.somente_propria, user]);
   const [pendingManut, setPendingManut] = useState<Map<string, { id_usuario: number; dia: number; id_lojas: number[] }>>(
     new Map(),
   );
@@ -455,6 +461,12 @@ export default function EscalaVisitasMobileView() {
   useEffect(() => {
     void carregarGestores();
   }, [carregarGestores]);
+
+  useEffect(() => {
+    if (!ehGestorLoja && !gestores?.somente_propria) return;
+    const id = linhasGestores[0]?.id_gestor ?? null;
+    setIdGestorAberto(id);
+  }, [ehGestorLoja, gestores?.somente_propria, linhasGestores]);
 
   useEffect(() => {
     void carregarManutencao();
@@ -1572,12 +1584,16 @@ export default function EscalaVisitasMobileView() {
           ) : modo === 'gestores' ? (
             !linhasGestores.length ? (
               <div className="ck-escala__empty">
-                <strong>Sem escala de gestores</strong>
-                <p>Cadastre os gestores e os turnos da semana.</p>
+                <strong>{ehGestorLoja || gestores?.somente_propria ? 'Sua escala ainda não está cadastrada' : 'Sem escala de gestores'}</strong>
+                <p>
+                  {ehGestorLoja || gestores?.somente_propria
+                    ? 'Peça ao diretor para incluir você na escala de gestores.'
+                    : 'Cadastre os gestores e os turnos da semana.'}
+                </p>
               </div>
             ) : (
               linhasGestores.map((linha) => {
-                const podeEditar = Boolean(gestores?.pode_editar);
+                const podeEditar = Boolean(gestores?.pode_editar) && (!ehGestorLoja || ehMinhaLinhaGestor(linha, user));
                 const aberto = idGestorAberto === linha.id_gestor;
                 return (
                   <div
