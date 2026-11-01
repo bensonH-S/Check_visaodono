@@ -386,6 +386,8 @@ export type NotaReceita = {
   /** Boleto DDA já ligado a esta nota */
   tem_dda?: boolean
   despesa_fonte?: 'dda' | 'nfe' | 'manual' | null
+  /** Conferência no gestor: conferida, divergente, aguardando_conferencia, em_transito… */
+  status_entrega?: string | null
 }
 
 export type ColetaReceita = { ok: boolean; mensagem: string; novas: number; em: string | null }

@@ -195,6 +195,8 @@ export default function TicketsTiPage() {
   const [usuarios, setUsuarios] = useState<UsuarioOpcao[]>([]);
   const [novoAcessoId, setNovoAcessoId] = useState('');
   const [criarAberto, setCriarAberto] = useState(false);
+  const [confirmarTicket, setConfirmarTicket] = useState(false);
+  const [etapaExcluir, setEtapaExcluir] = useState<TiTicketEtapa | null>(null);
   const [form, setForm] = useState(novoFormTicket);
   const [dragId, setDragId] = useState<number | null>(null);
 
@@ -336,12 +338,18 @@ export default function TicketsTiPage() {
     }
   }
 
-  async function excluirEtapaItem(etapa: TiTicketEtapa) {
-    if (!window.confirm('Excluir esta etapa?')) return;
+  function excluirEtapaItem(etapa: TiTicketEtapa) {
+    setEtapaExcluir(etapa);
+  }
+
+  async function confirmarExcluirEtapa() {
+    const etapa = etapaExcluir;
+    if (!etapa) return;
     try {
       const r = await api.tiTicketEtapaExcluir(etapa.id_etapa);
       setEtapas((prev) => prev.filter((e) => e.id_etapa !== etapa.id_etapa));
       aplicarContagemEtapas(r.id_ticket, r.etapas_feitas, r.etapas_total);
+      setEtapaExcluir(null);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao excluir etapa', 'error');
     }
@@ -416,10 +424,10 @@ export default function TicketsTiPage() {
 
   async function excluirSelecionado() {
     if (!selecionado) return;
-    if (!window.confirm('Excluir este ticket?')) return;
     try {
       await api.tiTicketExcluir(selecionado.id_ticket);
       setTickets((prev) => prev.filter((t) => t.id_ticket !== selecionado.id_ticket));
+      setConfirmarTicket(false);
       setSelecionado(null);
     } catch (e) {
       setErro(e instanceof Error ? e.message : 'Erro ao excluir');
@@ -563,6 +571,11 @@ export default function TicketsTiPage() {
               isOptionEqualToValue={(a, b) => a.id_usuario === b.id_usuario}
               noOptionsText="Nenhum colaborador"
               slotProps={{
+                popper: {
+                  placement: 'bottom-start',
+                  modifiers: [{ name: 'flip', enabled: false }],
+                  sx: { zIndex: 1600 },
+                },
                 listbox: { sx: { maxHeight: 280 } },
               }}
               renderOption={(props, u) => {
@@ -783,7 +796,7 @@ export default function TicketsTiPage() {
             <>
               <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pr: 1 }}>
                 <Typography sx={{ flex: 1, fontWeight: 700 }}>Ticket #{selecionado.id_ticket}</Typography>
-                <IconButton size="small" onClick={() => void excluirSelecionado()} sx={{ color: '#f87171' }}>
+                <IconButton size="small" onClick={() => setConfirmarTicket(true)} sx={{ color: '#f87171' }}>
                   <DeleteOutlineIcon fontSize="small" />
                 </IconButton>
                 <IconButton size="small" onClick={() => setSelecionado(null)}>
@@ -904,7 +917,11 @@ export default function TicketsTiPage() {
                         isOptionEqualToValue={(a, b) => a.id_usuario === b.id_usuario}
                         noOptionsText="Nenhum usuário"
                         slotProps={{
-                          popper: { sx: { zIndex: 1400 } },
+                          popper: {
+                            placement: 'bottom-start',
+                            modifiers: [{ name: 'flip', enabled: false }],
+                            sx: { zIndex: 1600 },
+                          },
                           listbox: { sx: { maxHeight: 280 } },
                         }}
                         renderOption={(props, u) => {
@@ -1355,6 +1372,46 @@ export default function TicketsTiPage() {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setAcessoAberto(false)}>Fechar</Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={confirmarTicket}
+          onClose={() => setConfirmarTicket(false)}
+          maxWidth="xs"
+          fullWidth
+          slotProps={{ paper: { sx: { bgcolor: FIN_SURFACE, color: FIN_TEXT } } }}
+        >
+          <DialogTitle>Excluir este ticket?</DialogTitle>
+          <DialogContent>
+            <Typography sx={{ fontSize: 14, color: FIN_MUTED }}>
+              {selecionado ? `#${selecionado.id_ticket} · ${selecionado.titulo}` : ''}
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmarTicket(false)}>Cancelar</Button>
+            <Button color="error" variant="contained" onClick={() => void excluirSelecionado()}>
+              Excluir
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Dialog
+          open={Boolean(etapaExcluir)}
+          onClose={() => setEtapaExcluir(null)}
+          maxWidth="xs"
+          fullWidth
+          slotProps={{ paper: { sx: { bgcolor: FIN_SURFACE, color: FIN_TEXT } } }}
+        >
+          <DialogTitle>Excluir esta etapa?</DialogTitle>
+          <DialogContent>
+            <Typography sx={{ fontSize: 14, color: FIN_MUTED }}>{etapaExcluir?.titulo}</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEtapaExcluir(null)}>Cancelar</Button>
+            <Button color="error" variant="contained" onClick={() => void confirmarExcluirEtapa()}>
+              Excluir
+            </Button>
           </DialogActions>
         </Dialog>
       </Box>

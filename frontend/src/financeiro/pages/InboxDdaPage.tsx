@@ -147,8 +147,17 @@ const paperInboxSx = {
 
 const INBOX_STATUS = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
 const FILTROS = ['Todas', 'Manuais', 'Vencidas', 'NF confirmada', 'NF Parcial', 'NF Pendente', 'Aguardando NF'] as const
+
+function notaParcial(e: Despesa) {
+  return e.nf_ciclo === 'divergente' || (!!e.nf_confirmada && !!e.nf_divergente)
+}
+
+function notaConfirmada(e: Despesa) {
+  if (notaParcial(e)) return false
+  return e.nf_ciclo === 'confirmada' || (!!e.nf_confirmada && !e.nf_divergente) || e.fonte === 'nfe'
+}
 const COR_MANUAL = '#D97706'
-const FILTROS_NF = ['Todas', 'Autorizadas', 'Canceladas', 'Com XML'] as const
+const FILTROS_NF = ['Todas', 'Autorizadas', 'Confirmadas', 'Pendentes', 'Canceladas', 'Com XML'] as const
 const hoje = new Date().toISOString().slice(0, 10)
 
 /** Checkbox da 1ª coluna: alinhado à esquerda, mesmo padding no thead e no tbody. */
@@ -192,9 +201,9 @@ function periodoAtual() {
 }
 
 function periodoNotas() {
-  const fim = new Date()
-  const inicio = new Date()
-  inicio.setDate(inicio.getDate() - 90)
+  const hoje = new Date()
+  const inicio = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+  const fim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0)
   return { de: dataLocal(inicio), ate: dataLocal(fim) }
 }
 
@@ -287,14 +296,28 @@ export function InboxDdaPage() {
     return true
   }), [inbox, de, ate])
 
+  const historicoNf = useMemo(() => despesas.filter((e) => {
+    if (loja && e.origem_id !== loja) return false
+    if (estaNoInbox(e) || e.status === 'cancelada') return false
+    if (!notaConfirmada(e) && !notaParcial(e)) return false
+    const vencimento = (e.vencimento || '').slice(0, 10)
+    if (!vencimento) return !de && !ate
+    if (de && vencimento < de) return false
+    if (ate && vencimento > ate) return false
+    return true
+  }), [despesas, loja, de, ate])
+
   const linhas = useMemo(() => {
-    const filtradas = noPeriodo.filter((e) => {
+    const fonte = (filtro === 'NF confirmada' || filtro === 'NF Parcial')
+      ? [...noPeriodo, ...historicoNf]
+      : noPeriodo
+    const filtradas = fonte.filter((e) => {
       const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.numero_nf ?? ''}`.toLowerCase()
       if (busca && !texto.includes(busca.toLowerCase())) return false
       if (filtro === 'Manuais') return e.fonte === 'manual'
       if (filtro === 'Vencidas') return !!e.vencimento && e.vencimento < hoje
-      if (filtro === 'NF confirmada') return (e.nf_ciclo === 'confirmada') || (e.nf_confirmada && !e.nf_divergente) || e.fonte === 'nfe'
-      if (filtro === 'NF Parcial') return e.nf_ciclo === 'divergente' || (e.nf_confirmada && !!e.nf_divergente)
+      if (filtro === 'NF confirmada') return notaConfirmada(e)
+      if (filtro === 'NF Parcial') return notaParcial(e)
       if (filtro === 'NF Pendente') {
         return e.nf_ciclo === 'nao_confirmada'
           || e.nf_ciclo === 'em_transito'
@@ -304,7 +327,7 @@ export function InboxDdaPage() {
       return true
     })
     return ordenarLancamentosPorEmpresa(filtradas, empresas)
-  }, [noPeriodo, busca, filtro, empresas])
+  }, [noPeriodo, historicoNf, busca, filtro, empresas])
 
   const notasNoPeriodo = useMemo(() => notas.filter((n) => {
     const emissao = (n.emissao || '').slice(0, 10)
@@ -318,6 +341,8 @@ export function InboxDdaPage() {
     const texto = `${n.emitente_nome ?? ''} ${n.numero ?? ''} ${n.origem ?? ''} ${n.chave}`.toLowerCase()
     if (busca && !texto.includes(busca.toLowerCase())) return false
     if (filtroNf === 'Autorizadas') return n.situacao === 'autorizada'
+    if (filtroNf === 'Confirmadas') return n.status_entrega === 'conferida'
+    if (filtroNf === 'Pendentes') return n.status_entrega !== 'conferida' && n.status_entrega !== 'divergente'
     if (filtroNf === 'Canceladas') return n.situacao === 'cancelada'
     if (filtroNf === 'Com XML') return n.tem_xml
     return true
@@ -332,10 +357,10 @@ export function InboxDdaPage() {
 
   const notasAutorizadas = notasNoPeriodo.filter((n) => n.situacao === 'autorizada')
   const notasCanceladas = notasNoPeriodo.filter((n) => n.situacao === 'cancelada')
-  const notasComXml = notasNoPeriodo.filter((n) => n.tem_xml)
+  const notasConferidas = notasNoPeriodo.filter((n) => n.status_entrega === 'conferida')
   const visiveis = linhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
   const visiveisNf = notasLinhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
-  const idsPagina = visiveis.map((e) => e.id)
+  const idsPagina = visiveis.filter((e) => e.id && estaNoInbox(e)).map((e) => e.id)
   const todasMarcadas = idsPagina.length > 0 && idsPagina.every((id) => marcadas.has(id))
 
   const toggleTodas = () => {
@@ -725,7 +750,7 @@ export function InboxDdaPage() {
           value={loja}
           incluirTodas
           todasLabel={t('Todas as lojas', 'All stores')}
-          label={t('Loja', 'Store')}
+          label=""
           width={280}
           onChange={(id) => {
             setLoja(id)
@@ -809,7 +834,7 @@ export function InboxDdaPage() {
           <>
             <Resumo cor="#1B6EF3" rotulo={t('No período', 'In period')} valor={String(notasNoPeriodo.length)} detalhe={t('notas da Receita', 'Receita invoices')} />
             <Resumo cor="#10B981" rotulo={t('Autorizadas', 'Authorized')} valor={String(notasAutorizadas.length)} detalhe={t('no nome da empresa', 'issued to the company')} />
-            <Resumo cor="#38BDF8" rotulo={t('Com XML', 'With XML')} valor={String(notasComXml.length)} detalhe={t('itens no gestor', 'items in the app')} />
+            <Resumo cor="#10B981" rotulo={t('Confirmadas', 'Confirmed')} valor={String(notasConferidas.length)} detalhe={t('pelo gestor', 'by the manager')} />
             <Resumo cor="#EF4444" rotulo={t('Canceladas', 'Cancelled')} valor={String(notasCanceladas.length)} detalhe={t('na Receita', 'at Receita')} alerta={notasCanceladas.length > 0} />
           </>
         )}
@@ -913,8 +938,8 @@ export function InboxDdaPage() {
                           inbox.length
                             ? t('Ajuste o período, a loja ou o filtro acima para ver outros títulos.', 'Adjust the period, store or filter above to see other titles.')
                             : t(
-                              'Boletos DDA e despesas manuais entram aqui. Confirme para mandar à Agenda banco.',
-                              'DDA boletos and manual expenses land here. Confirm to send them to the bank schedule.',
+                              'Boletos, despesas manuais e notas confirmadas entram aqui. O time manda para a Agenda.',
+                              'Boletos, manual expenses and confirmed invoices land here. The team sends them to the schedule.',
                             )
                         }
                       />
@@ -924,13 +949,16 @@ export function InboxDdaPage() {
                 {visiveis.map((e) => {
                   const vencida = !!e.vencimento && e.vencimento < hoje
                   const manual = e.fonte === 'manual'
+                  const naAgenda = !estaNoInbox(e)
                   const chave = e.id || `${e.documento_ref || ''}|${e.vencimento || ''}|${e.valor}`
                   return (
                     <TableRow
                       key={chave}
                       hover
                       selected={!!e.id && marcadas.has(e.id)}
-                      sx={manual ? {
+                      sx={naAgenda ? {
+                        bgcolor: 'rgba(15, 23, 42, 0.03)',
+                      } : manual ? {
                         bgcolor: 'rgba(217, 119, 6, 0.1)',
                         '&.Mui-selected': { bgcolor: 'rgba(217, 119, 6, 0.22) !important' },
                         '&:hover': { bgcolor: 'rgba(217, 119, 6, 0.16) !important' },
@@ -939,9 +967,9 @@ export function InboxDdaPage() {
                       <TableCell sx={celulaCheckSx}>
                         <Checkbox
                           size="small"
-                          disabled={!e.id}
+                          disabled={!e.id || naAgenda}
                           checked={!!e.id && marcadas.has(e.id)}
-                          onChange={() => { if (e.id) toggle(e.id) }}
+                          onChange={() => { if (e.id && !naAgenda) toggle(e.id) }}
                           sx={checkSx}
                         />
                       </TableCell>
@@ -951,12 +979,13 @@ export function InboxDdaPage() {
                             despesa={e}
                             vencida={vencida}
                             ocupado={enviando || acaoNf?.id === e.nfe_recebida_id}
+                            naAgenda={naAgenda}
                             t={t}
                             onEditar={manual ? () => setEditando(e) : undefined}
                             onExcluir={manual ? () => setExcluir(e) : undefined}
                             onNota={() => verNotaDoDda(e)}
                             onDanfe={() => { void abrirDanfeDoDda(e) }}
-                            onAgenda={() => { if (e.id) void enviar([e.id]) }}
+                            onAgenda={() => { if (e.id && !naAgenda) void enviar([e.id]) }}
                           />
                         </Box>
                       </TableCell>
@@ -966,6 +995,11 @@ export function InboxDdaPage() {
                         </Typography>
                         {e.numero_nf && (
                           <Typography noWrap sx={{ fontSize: 11, color: INBOX_MUTED }}>NF {e.numero_nf}</Typography>
+                        )}
+                        {naAgenda && (
+                          <Typography noWrap sx={{ fontSize: 11, color: '#047857', fontWeight: 700 }}>
+                            {t('Na agenda', 'On the schedule')}
+                          </Typography>
                         )}
                       </TableCell>
                       <TableCell align="center" sx={celulaCentroSx}>
@@ -1037,7 +1071,8 @@ export function InboxDdaPage() {
                 <TableRow sx={{ '& .MuiTableCell-head': { verticalAlign: 'middle' } }}>
                   <TableCell align="center" sx={{ width: 148, ...celulaCentroSx }}>{t('Ações', 'Actions')}</TableCell>
                   <TableCell sx={{ width: 120 }}>{t('Situação', 'Status')}</TableCell>
-                  <TableCell sx={{ width: '32%' }}>{t('Emitente', 'Issuer')}</TableCell>
+                  <TableCell sx={{ width: 132 }}>{t('Gestor', 'Manager')}</TableCell>
+                  <TableCell sx={{ width: '28%' }}>{t('Emitente', 'Issuer')}</TableCell>
                   <TableCell align="center" sx={{ width: '15%', ...celulaCentroSx }}>{t('Loja', 'Store')}</TableCell>
                   <TableCell sx={{ width: 108 }}>{t('Emissão', 'Issue date')}</TableCell>
                   <TableCell align="right" sx={{ width: 128, pr: 2.5 }}>{t('Valor', 'Amount')}</TableCell>
@@ -1046,7 +1081,7 @@ export function InboxDdaPage() {
               <TableBody>
                 {!notasLinhas.length && (
                   <TableRow>
-                    <TableCell colSpan={6} sx={{ border: 0, py: 0 }}>
+                    <TableCell colSpan={7} sx={{ border: 0, py: 0 }}>
                       <EstadoVazio
                         icone={<ReceiptLongOutlinedIcon sx={{ fontSize: 40 }} />}
                         titulo={
@@ -1080,6 +1115,7 @@ export function InboxDdaPage() {
                       </Box>
                     </TableCell>
                     <TableCell>{chipSituacao(n.situacao, t, true)}</TableCell>
+                    <TableCell>{chipGestor(n.status_entrega, t)}</TableCell>
                     <TableCell sx={{ overflow: 'hidden' }}>
                       <Typography noWrap sx={{ fontSize: 12.5, fontWeight: 650, lineHeight: 1.25 }}>{n.emitente_nome || '—'}</Typography>
                       <Typography noWrap sx={{ fontSize: 11, color: INBOX_MUTED }}>
@@ -1258,6 +1294,7 @@ function SimbolosDda({
   onNota,
   onDanfe,
   onAgenda,
+  naAgenda = false,
 }: {
   despesa: Despesa
   vencida: boolean
@@ -1268,6 +1305,7 @@ function SimbolosDda({
   onNota: () => void
   onDanfe: () => void
   onAgenda: () => void
+  naAgenda?: boolean
 }) {
   const manual = despesa.fonte === 'manual'
   const podeEnviar = prontaParaAgenda(despesa)
@@ -1286,9 +1324,15 @@ function SimbolosDda({
       }}
     >
       <Selo
-        rotulo={manual ? 'MAN' : 'DDA'}
-        titulo={manual ? t('Despesa criada no inbox', 'Expense created in the inbox') : t('Boleto DDA', 'DDA boleto')}
-        cor={manual ? COR_MANUAL : '#0F766E'}
+        rotulo={manual ? 'MAN' : despesa.fonte === 'nfe' ? 'NF' : 'DDA'}
+        titulo={
+          manual
+            ? t('Despesa criada no inbox', 'Expense created in the inbox')
+            : despesa.fonte === 'nfe'
+              ? t('Nota fiscal confirmada, ainda no inbox', 'Confirmed invoice, still in the inbox')
+              : t('Boleto DDA', 'DDA boleto')
+        }
+        cor={manual ? COR_MANUAL : despesa.fonte === 'nfe' ? '#1D4ED8' : '#0F766E'}
       />
       {manual ? (
         <Selo
@@ -1355,20 +1399,22 @@ function SimbolosDda({
           </span>
         </Tooltip>
       )}
-      <Tooltip title={manual
-        ? (podeEnviar
-          ? t('Confirmar e mandar para a agenda', 'Confirm and send to the schedule')
-          : t('Informe o valor e o dia de pagamento antes de enviar', 'Enter the amount and payment date before sending'))
-        : temNf
-          ? t('Tem NF unida. Enviar pede confirmação', 'Linked invoice. Send asks for confirmation')
-          : t('Enviar para a agenda', 'Send to the agenda')}
+      <Tooltip title={naAgenda
+        ? t('Já está na agenda', 'Already on the schedule')
+        : manual
+          ? (podeEnviar
+            ? t('Confirmar e mandar para a agenda', 'Confirm and send to the schedule')
+            : t('Informe o valor e o dia de pagamento antes de enviar', 'Enter the amount and payment date before sending'))
+          : temNf
+            ? t('Tem NF unida. Enviar pede confirmação', 'Linked invoice. Send asks for confirmation')
+            : t('Enviar para a agenda', 'Send to the agenda')}
       >
         <span>
           <IconButton
             size="small"
-            disabled={ocupado || !despesa.id || (manual && !podeEnviar)}
+            disabled={naAgenda || ocupado || !despesa.id || (manual && !podeEnviar)}
             onClick={onAgenda}
-            sx={{ ...botao, color: '#D97706' }}
+            sx={{ ...botao, color: naAgenda ? '#94A3B8' : '#D97706' }}
           >
             <PaymentsOutlinedIcon sx={{ fontSize: 18 }} />
           </IconButton>
@@ -1493,6 +1539,8 @@ function rotuloFiltro(item: string, t: (pt: string, en: string) => string) {
     'NF Pendente': ['NF Pendente', 'Pending NF'],
     'Aguardando NF': ['Aguardando NF', 'Awaiting invoice'],
     Autorizadas: ['Autorizadas', 'Authorized'],
+    Confirmadas: ['Confirmadas', 'Confirmed'],
+    Pendentes: ['Pendentes', 'Pending'],
     Canceladas: ['Canceladas', 'Cancelled'],
     'Com XML': ['Com XML', 'With XML'],
   }
@@ -1521,6 +1569,33 @@ function chipSituacao(situacao: NotaReceita['situacao'], t: (pt: string, en: str
         borderColor: cancelada ? 'rgba(239,68,68,0.45)' : 'rgba(59,130,246,0.45)',
         color: cancelada ? '#B91C1C' : '#1D4ED8',
       }}
+    />
+  )
+}
+
+function chipGestor(status: string | null | undefined, t: (pt: string, en: string) => string) {
+  const s = String(status || '').toLowerCase()
+  const confirmada = s === 'conferida'
+  const parcial = s === 'divergente'
+  const pendente = s === 'aguardando_conferencia'
+  const rotulo = confirmada
+    ? t('Confirmada', 'Confirmed')
+    : parcial
+      ? t('Parcial', 'Partial')
+      : pendente
+        ? t('Pendente', 'Pending')
+        : s === 'em_transito' || s === 'aguardando_portal'
+          ? t('Em trânsito', 'In transit')
+          : t('Sem conferência', 'Not checked')
+  const cor = confirmada ? '#047857' : parcial ? '#B45309' : '#64748B'
+  const fundo = confirmada ? 'rgba(4,120,87,0.1)' : parcial ? 'rgba(180,83,9,0.1)' : 'rgba(100,116,139,0.1)'
+  const borda = confirmada ? 'rgba(4,120,87,0.45)' : parcial ? 'rgba(180,83,9,0.45)' : 'rgba(100,116,139,0.35)'
+  return (
+    <Chip
+      size="small"
+      label={rotulo}
+      variant="outlined"
+      sx={{ height: 20, fontSize: 11, fontWeight: 600, bgcolor: fundo, borderColor: borda, color: cor }}
     />
   )
 }

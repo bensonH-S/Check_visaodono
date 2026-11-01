@@ -197,8 +197,9 @@ function docRefNfe(nfeId) {
 }
 
 /**
- * NFs conferidas no gestor sem boleto DDA → lança direto na Agenda (fonte nfe).
- * Reativa ESTOQUE-NFE canceladas se a mesma nota voltou a ser conferida.
+ * NFs conferidas no gestor sem boleto DDA → ficam no Inbox (fonte nfe).
+ * O time escolhe se manda para a Agenda. Reativa canceladas de volta ao Inbox,
+ * exceto as excluídas à mão.
  */
 async function criarDespesasNfeSemDda({ financePool, notas, nfeIdsJaLigados }) {
   const conferidas = notas.filter((n) => {
@@ -246,7 +247,6 @@ async function criarDespesasNfeSemDda({ financePool, notas, nfeIdsJaLigados }) {
     const nfeId = String(nota.id)
     const ref = docRefNfe(nfeId)
     const ciclo = cicloNfDeStatus(nota.status_entrega)
-    const confirmada = true
     const divergente = ciclo === 'divergente'
     const vencimento =
       isoDate(nota.data_vencimento)
@@ -260,19 +260,14 @@ async function criarDespesasNfeSemDda({ financePool, notas, nfeIdsJaLigados }) {
       continue
     }
     if (ja && ja.status !== 'cancelada') {
-      // Já existe lançamento ativo (ex.: NF|chave da Receita) — só garante o selo.
+      // Já existe lançamento ativo — só grava o selo. Não tira do Inbox nem empurra para a Agenda.
       await financePool.query(
         `update despesas set
            nfe_id = $2,
            numero_nf = coalesce(nullif(btrim(numero_nf), ''), $3),
            nf_ciclo = $4,
            nf_confirmada = true,
-           nf_divergente = $5,
-           status = case
-             when status in ('rascunho', 'classificada', 'bloqueada_duplicata') then 'pronta'
-             else status
-           end,
-           pendente_inbox = false
+           nf_divergente = $5
          where id = $1::uuid`,
         [ja.id, nfeId, String(nota.numero || ''), ciclo, divergente],
       )
@@ -298,8 +293,8 @@ async function criarDespesasNfeSemDda({ financePool, notas, nfeIdsJaLigados }) {
     if (ja && ja.status === 'cancelada') {
       await financePool.query(
         `update despesas set
-           status = 'pronta',
-           pendente_inbox = false,
+           status = 'classificada',
+           pendente_inbox = true,
            descricao = $2,
            fornecedor_id = coalesce($3::uuid, fornecedor_id),
            plano_conta_id = coalesce($4::uuid, plano_conta_id),
@@ -346,7 +341,7 @@ async function criarDespesasNfeSemDda({ financePool, notas, nfeIdsJaLigados }) {
        ) values (
          $1, $2::uuid, $3::uuid, $4::uuid,
          $5, $6, $7, $8::date, $9::date, $10,
-         'pronta', 'nfe', false, $11, $12, true, $13
+         'classificada', 'nfe', true, $11, $12, true, $13
        )`,
       [
         descricao,
@@ -370,9 +365,6 @@ async function criarDespesasNfeSemDda({ financePool, notas, nfeIdsJaLigados }) {
 
   return { criadas, reativadas, sem_empresa: semEmpresa }
 }
-
-const STATUS_AGENDA = new Set(['pronta', 'autorizada', 'enviada'])
-const STATUS_INBOX = new Set(['rascunho', 'classificada', 'bloqueada_duplicata'])
 
 /**
  * A confirmação criou uma linha fonte=nfe ao lado do boleto DDA.
@@ -430,7 +422,8 @@ async function fundirDuplicataNfeNoBoleto(financePool) {
       puladas += 1
       continue
     }
-    const promover = STATUS_AGENDA.has(row.st_nfe) && STATUS_INBOX.has(row.st_dda)
+    // A NF confirmada não promove o boleto. O time manda para a Agenda pelo Inbox.
+    const promover = false
     await financePool.query(
       `update despesas set
          nfe_id = coalesce(nullif(btrim(nfe_id), ''), $2),
@@ -463,8 +456,8 @@ async function fundirDuplicataNfeNoBoleto(financePool) {
 }
 
 /**
- * Atualiza selos da Agenda com o ciclo da NF no estoque.
- * Conferidas sem DDA → cria lançamento fonte=nfe direto na Agenda.
+ * Atualiza o selo da NF no estoque.
+ * Conferida não sai do Inbox: o time decide se entra na Agenda.
  */
 export async function sincronizarNfesConferidas({ financePool, portalPool }) {
   await garantirColunasNf(financePool)
@@ -530,15 +523,7 @@ export async function sincronizarNfesConferidas({ financePool, portalPool }) {
          nfe_id = v.nfe_id,
          nf_ciclo = v.ciclo,
          nf_confirmada = v.confirmada,
-         nf_divergente = v.divergente,
-         status = case
-           when v.confirmada and d.status in ('rascunho', 'classificada', 'bloqueada_duplicata') then 'pronta'
-           else d.status
-         end,
-         pendente_inbox = case
-           when v.confirmada and d.status in ('rascunho', 'classificada', 'bloqueada_duplicata') then false
-           else d.pendente_inbox
-         end
+         nf_divergente = v.divergente
        from (
          select *
          from unnest($1::uuid[], $2::text[], $3::text[], $4::boolean[], $5::boolean[])
@@ -616,16 +601,8 @@ export async function sincronizarNfesConferidas({ financePool, portalPool }) {
   }
 }
 
-/** Cancela rascunhos ESTOQUE-NFE no Inbox (legado). Agenda usa status=pronta. */
-export async function cancelarDuplicatasNfeInbox(financePool) {
-  const { rows } = await financePool.query(`
-    update despesas
-       set status = 'cancelada',
-           pendente_inbox = false
-     where fonte = 'nfe'
-       and documento_ref like 'ESTOQUE-NFE|%'
-       and status in ('rascunho', 'classificada', 'bloqueada_duplicata')
-    returning id
-  `)
+/** Legado: não cancela mais a NF conferida no Inbox. Ela espera o time mandar à Agenda. */
+export async function cancelarDuplicatasNfeInbox(_financePool) {
+  const rows = []
   return rows.length
 }

@@ -171,10 +171,19 @@ export default function SeletorLojaFinanceiro({
                 bgcolor: '#fff',
                 color: FIN_MUTED,
               },
+              '& .MuiInputBase-input': {
+                height: 'auto',
+                py: '0 !important',
+                display: 'flex',
+                alignItems: 'center',
+              },
               '& .MuiAutocomplete-input': {
                 fontSize: '0.8125rem',
                 color: FIN_TEXT,
+                height: 'auto',
                 paddingLeft: '8px !important',
+                paddingTop: '0 !important',
+                paddingBottom: '0 !important',
               },
             }}
           />

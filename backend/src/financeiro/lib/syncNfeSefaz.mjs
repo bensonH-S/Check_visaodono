@@ -603,14 +603,39 @@ export async function listarNotasReceita(financePool, empresaId) {
      LEFT JOIN despesas d ON d.id = n.despesa_id
      ${filtro}
      ORDER BY n.emissao DESC NULLS LAST, n.criado_em DESC
-     LIMIT 500`,
+     LIMIT 4000`,
     params,
   )
+  const chaves = [...new Set(rows.map((row) => String(row.chave || '')).filter(Boolean))]
+  const gestor = new Map()
+  if (chaves.length) {
+    try {
+      const estoque = await financePool.query(
+        `SELECT DISTINCT ON (chave) chave, status_entrega
+           FROM public.estoque_nfe
+          WHERE chave = ANY($1::text[])
+          ORDER BY chave,
+            CASE lower(coalesce(status_entrega, ''))
+              WHEN 'conferida' THEN 0
+              WHEN 'divergente' THEN 1
+              WHEN 'aguardando_conferencia' THEN 2
+              WHEN 'em_transito' THEN 3
+              ELSE 4
+            END,
+            id_nfe DESC`,
+        [chaves],
+      )
+      for (const nota of estoque.rows) gestor.set(String(nota.chave), nota.status_entrega || null)
+    } catch (err) {
+      console.error(`[nfe] status do gestor: ${err.message}`)
+    }
+  }
   return rows.map((row) => ({
     ...row,
     valor_total: row.valor_total != null ? Number(row.valor_total) : null,
     tem_xml: row.tem_xml === true,
     tem_dda: row.tem_dda === true,
+    status_entrega: gestor.get(String(row.chave || '')) || null,
   }))
 }
 

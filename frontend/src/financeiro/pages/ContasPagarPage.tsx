@@ -45,7 +45,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined'
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined'
-import { api, brl, ehFreeControl, emCache, estaNoInbox, linhaAcrescimo, urlDespesas, urlEmpresas, type Despesa, type Empresa, type Fornecedor } from '../api'
+import { api, brl, ehFreeControl, emCache, estaNoInbox, linhaAcrescimo, urlDespesas, urlEmpresas, type Despesa, type Empresa, type Fornecedor, type PlanoCompleto } from '../api'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
 import { usePrefs } from '../prefs'
@@ -1962,6 +1962,18 @@ function CampoMoeda({
   )
 }
 
+function iniciaisConta(nome: string) {
+  const partes = nome.trim().split(/\s+/).filter(Boolean)
+  const letras = partes.slice(0, 2).map((parte) => parte[0]).join('')
+  return (letras || nome.slice(0, 2) || '?').toUpperCase()
+}
+
+function detalheConta(plano: { natureza: 'fixa' | 'variavel' | null; tipo: 'a_pagar' | 'a_receber' }) {
+  if (plano.natureza === 'fixa') return 'Fixa'
+  if (plano.natureza === 'variavel') return 'Variável'
+  return plano.tipo === 'a_receber' ? 'A receber' : 'A pagar'
+}
+
 function centavos(n: number) {
   return Math.round(n * 100) / 100
 }
@@ -1997,6 +2009,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou, som
   const [origem, setOrigem] = useState(() => inicial?.origem_id || primeiraLoja)
   const conta = inicial?.conta_saida_id || ''
   const [planoId, setPlanoId] = useState(() => inicial?.plano_conta_id || '')
+  const [planos, setPlanos] = useState<PlanoCompleto[]>([])
   const [forma, setForma] = useState(() => inicial?.forma_pagamento || 'boleto')
   const [fornecedor, setFornecedor] = useState<Fornecedor | null>(() => (
     inicial?.fornecedor_id
@@ -2010,6 +2023,20 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou, som
   const [abrindoNota, setAbrindoNota] = useState(false)
   const [abrindoBoleto, setAbrindoBoleto] = useState(false)
   const [salvando, setSalvando] = useState(false)
+
+  useEffect(() => {
+    if (!aberto) return
+    api.planosTodos().then(setPlanos).catch(() => setPlanos([]))
+  }, [aberto])
+
+  const opcoesPlano = useMemo(() => {
+    const ativos = planos.filter((p) => p.ativo && p.tipo === 'a_pagar')
+    if (planoId && !ativos.some((p) => p.id === planoId)) {
+      const nome = planos.find((p) => p.id === planoId)?.nome || inicial?.plano || fornecedor?.plano || 'Plano atual'
+      return [{ id: planoId, nome, tipo: 'a_pagar' as const, natureza: null, codigo_obrigacao: null, codigo_provisao: null, ativo: false, despesas: 0, fornecedores: 0 }, ...ativos]
+    }
+    return ativos
+  }, [planos, planoId, inicial?.plano, fornecedor?.plano])
 
   const pedeCodigo = forma === 'boleto' || forma === 'chave_pix'
   const taxa = (texto: string) => {
@@ -2102,7 +2129,7 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou, som
         forma_pagamento: forma,
         empresa_origem_id: origem,
         conta_saida_id: conta || null,
-        plano_conta_id: fornecedor?.plano_conta_id || planoId || null,
+        plano_conta_id: planoId || null,
         fornecedor_id: fornecedor?.id || null,
         dados_pagamento: pedeCodigo ? pagamento.trim() || null : null,
       }
@@ -2304,11 +2331,84 @@ export function DespesaForm({ aberto, inicial, empresas, onFechar, onSalvou, som
               <li {...props} key={item.id}>{item.nome}{item.plano ? ` · ${item.plano}` : ''}</li>
             )}
           />
-          {fornecedor?.plano && (
-            <Typography variant="body2" sx={{ color: FIN_MUTED }}>
-              {t('Plano de contas', 'Account')}: {fornecedor.plano}
-            </Typography>
-          )}
+          <Autocomplete
+            size="small"
+            options={opcoesPlano}
+            getOptionLabel={(p) => p.nome}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            value={opcoesPlano.find((p) => p.id === planoId) || null}
+            disabled={somenteLeitura}
+            onChange={(_, item) => setPlanoId(item?.id || '')}
+            filterOptions={(opcoes, state) => {
+              const q = state.inputValue.normalize('NFD').replace(/\p{M}/gu, '').trim().toLowerCase()
+              if (!q) return opcoes
+              return opcoes.filter((p) => p.nome.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().includes(q))
+            }}
+            noOptionsText={t('Nenhum plano', 'No account')}
+            slotProps={{
+              paper: { sx: { ...finMenuSx, zIndex: 1500 } },
+              listbox: {
+                sx: {
+                  maxHeight: 196,
+                  overflowY: 'auto',
+                  fontSize: 13,
+                  bgcolor: FIN_SURFACE,
+                  color: FIN_TEXT,
+                },
+              },
+              popper: {
+                placement: 'bottom-start',
+                modifiers: [{ name: 'flip', enabled: false }],
+                sx: { zIndex: 1500 },
+              },
+            }}
+            renderOption={(props, plano) => {
+              const { key, ...rest } = props
+              return (
+                <Box
+                  component="li"
+                  key={key ?? plano.id}
+                  {...rest}
+                  sx={{ display: 'flex !important', alignItems: 'center', gap: 1, py: 0.75 }}
+                >
+                  <Box
+                    sx={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      flexShrink: 0,
+                      display: 'grid',
+                      placeItems: 'center',
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: '#fff',
+                      bgcolor: '#1B6EF3',
+                      border: '2px solid #fff',
+                      boxShadow: '0 1px 4px rgba(15,23,42,0.12)',
+                    }}
+                  >
+                    {iniciaisConta(plano.nome)}
+                  </Box>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={{ fontSize: 13, fontWeight: 600, lineHeight: 1.2, color: FIN_TEXT }} noWrap>
+                      {plano.nome}
+                    </Typography>
+                    <Typography sx={{ fontSize: 11, color: FIN_MUTED, lineHeight: 1.2 }} noWrap>
+                      {detalheConta(plano)}
+                    </Typography>
+                  </Box>
+                </Box>
+              )
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label={t('Plano de contas', 'Account')}
+                placeholder={t('Buscar plano', 'Search account')}
+                sx={finCampoSx}
+              />
+            )}
+          />
           <TextField
             select
             label={t('Forma de pagamento', 'Payment method')}
