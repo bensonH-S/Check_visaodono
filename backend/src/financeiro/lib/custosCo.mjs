@@ -390,7 +390,7 @@ export async function montarCustosCo(pool, { mes, empresaId }) {
     ate,
     empresa: empresa.rows[0],
     blocos,
-    online: montarOrigem('Online', onlineItens, grupoOnlinePlanilha),
+    online: montarOrigem('Online', onlineItens.concat(onlineAbertos), grupoOnlinePlanilha),
     despesas: montarOrigem('Despesas', caixaItens, grupoDespesaCaixa),
     resumo: {
       despesa_total: despesaTotal,

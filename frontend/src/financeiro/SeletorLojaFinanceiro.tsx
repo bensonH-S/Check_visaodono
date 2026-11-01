@@ -152,10 +152,28 @@ export default function SeletorLojaFinanceiro({
             {...params}
             label={label}
             placeholder="Buscar loja…"
+            slotProps={{
+              ...params.slotProps,
+              inputLabel: { ...params.slotProps.inputLabel, shrink: true },
+            }}
             sx={{
               ...finCampoSx,
-              '& .MuiInputLabel-root': { fontSize: '0.8125rem' },
-              '& .MuiAutocomplete-input': { fontSize: '0.8125rem' },
+              '& .MuiOutlinedInput-root': {
+                ...finCampoSx['& .MuiOutlinedInput-root'],
+                overflow: 'visible',
+              },
+              '& .MuiInputLabel-root': {
+                fontSize: '0.75rem',
+                lineHeight: 1,
+                px: 0.4,
+                bgcolor: '#fff',
+                color: FIN_MUTED,
+              },
+              '& .MuiAutocomplete-input': {
+                fontSize: '0.8125rem',
+                color: FIN_TEXT,
+                paddingLeft: '8px !important',
+              },
             }}
           />
         )}

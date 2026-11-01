@@ -87,7 +87,8 @@ const num = { fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' } as cons
 const AZUL = '#1B6EF3'
 const PAGO = '#17803D'
 const PAGO_BG = '#E7F6EE'
-const ABERTO_BG = 'rgba(27, 110, 243, 0.12)'
+const ABERTO = '#DC2626'
+const ABERTO_BG = 'rgba(239, 68, 68, 0.12)'
 
 type Recorte = 'todas' | 'aberto' | 'pago'
 
@@ -206,7 +207,8 @@ function ValorCelula({ valor, selo }: { valor: number; selo: string }) {
         fontSize: 12.5,
         fontWeight: 700,
         lineHeight: 1.5,
-        color: pago ? PAGO : aberto ? AZUL : FIN_TEXT,
+        color: pago ? PAGO : aberto ? ABERTO : FIN_TEXT,
+        WebkitTextFillColor: pago ? PAGO : aberto ? ABERTO : FIN_TEXT,
         bgcolor: pago ? PAGO_BG : aberto ? ABERTO_BG : 'transparent',
       }}
     >
@@ -343,7 +345,7 @@ function ColunaConta({
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 36, px: 1.5, bgcolor: FIN_SURFACE_ALT }}>
         <Typography noWrap sx={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 700, color: FIN_TEXT }}>{coluna.titulo}</Typography>
-        {temStatus && emAberto > 0 ? <Typography sx={{ fontSize: 12, fontWeight: 700, color: AZUL }}>{emAberto} em aberto</Typography> : null}
+        {temStatus && emAberto > 0 ? <Typography sx={{ fontSize: 12, fontWeight: 700, color: ABERTO }}>{emAberto} em aberto</Typography> : null}
         {temStatus && emAberto === 0 ? <Typography sx={{ fontSize: 12, fontWeight: 700, color: PAGO }}>Quitado</Typography> : null}
       </Box>
       <Table size="small" sx={{ tableLayout: 'fixed', width: '100%' }}>
@@ -559,7 +561,7 @@ export function CustosCoPage() {
         boxSizing: 'border-box',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', minWidth: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', minWidth: 0, pt: 0.5, overflow: 'visible' }}>
         <SeletorLojaFinanceiro
           lojas={lojas}
           value={empresaId}
@@ -635,8 +637,8 @@ export function CustosCoPage() {
             <Typography sx={{ ...num, mt: 0.75, fontSize: 13, color: FIN_MUTED }}>{pctTxt(resumo.despesa_pct) ? `${pctTxt(resumo.despesa_pct)} da venda` : '—'}</Typography>
           </Box>
           <Box sx={{ minWidth: 0 }}>
-            <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: abertoCo > 0 ? AZUL : PAGO }}>Em aberto</Typography>
-            <Typography noWrap sx={{ ...num, mt: 0.5, fontSize: { xs: 26, md: 34 }, fontWeight: 700, letterSpacing: '-0.04em', lineHeight: 1, color: abertoCo > 0 ? AZUL : PAGO }}>{brl(abertoCo)}</Typography>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: abertoCo > 0 ? ABERTO : PAGO }}>Em aberto</Typography>
+            <Typography noWrap sx={{ ...num, mt: 0.5, fontSize: { xs: 26, md: 34 }, fontWeight: 700, letterSpacing: '-0.04em', lineHeight: 1, color: abertoCo > 0 ? ABERTO : PAGO }}>{brl(abertoCo)}</Typography>
             <Typography sx={{ ...num, mt: 0.75, fontSize: 13, color: FIN_MUTED }}>
               {abertoCo > 0
                 ? `${qtdAberto} ${qtdAberto === 1 ? 'conta' : 'contas'}${pctAberto ? ` · ${pctAberto} da venda` : ''}`

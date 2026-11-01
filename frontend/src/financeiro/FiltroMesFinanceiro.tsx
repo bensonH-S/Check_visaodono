@@ -71,6 +71,9 @@ export default function FiltroMesFinanceiro({
               textField: {
                 size: 'small',
                 fullWidth: true,
+                slotProps: {
+                  inputLabel: { shrink: true },
+                },
                 sx: {
                   ...finCampoSx,
                   width: '100%',
@@ -78,6 +81,7 @@ export default function FiltroMesFinanceiro({
                     ...finCampoSx['& .MuiOutlinedInput-root'],
                     height: 34,
                     minHeight: 34,
+                    overflow: 'visible',
                   },
                   '& .MuiPickersSectionList-root, & .MuiPickersInputBase-sectionsContainer, & .MuiInputBase-input': {
                     py: '0 !important',
@@ -88,7 +92,13 @@ export default function FiltroMesFinanceiro({
                     display: 'flex',
                     alignItems: 'center',
                   },
-                  '& .MuiInputLabel-root': { fontSize: '0.8125rem' },
+                  '& .MuiInputLabel-root': {
+                    fontSize: '0.75rem',
+                    lineHeight: 1,
+                    px: 0.4,
+                    bgcolor: '#fff',
+                    color: FIN_MUTED,
+                  },
                   '& .MuiInputAdornment-root .MuiSvgIcon-root': { color: FIN_MUTED, fontSize: 18 },
                 },
               },
