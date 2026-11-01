@@ -150,11 +150,13 @@ export default function SeletorLojaFinanceiro({
         renderInput={(params) => (
           <TextField
             {...params}
-            label={label}
+            label={label || undefined}
             placeholder="Buscar loja…"
             slotProps={{
               ...params.slotProps,
-              inputLabel: { ...params.slotProps.inputLabel, shrink: true },
+              inputLabel: label
+                ? { ...params.slotProps.inputLabel, shrink: true }
+                : { ...params.slotProps.inputLabel, shrink: true, sx: { display: 'none' } },
             }}
             sx={{
               ...finCampoSx,

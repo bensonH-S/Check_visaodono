@@ -59,7 +59,7 @@ export default function FiltroMesFinanceiro({
       >
         <Box sx={{ width, flexShrink: 0 }}>
           <DatePicker
-            label={label}
+            label={label || undefined}
             views={['year', 'month']}
             openTo="month"
             value={valor}
@@ -71,9 +71,11 @@ export default function FiltroMesFinanceiro({
               textField: {
                 size: 'small',
                 fullWidth: true,
-                slotProps: {
-                  inputLabel: { shrink: true },
-                },
+                slotProps: label
+                  ? {
+                      inputLabel: { shrink: true },
+                    }
+                  : undefined,
                 sx: {
                   ...finCampoSx,
                   width: '100%',
@@ -92,13 +94,15 @@ export default function FiltroMesFinanceiro({
                     display: 'flex',
                     alignItems: 'center',
                   },
-                  '& .MuiInputLabel-root': {
-                    fontSize: '0.75rem',
-                    lineHeight: 1,
-                    px: 0.4,
-                    bgcolor: '#fff',
-                    color: FIN_MUTED,
-                  },
+                  '& .MuiInputLabel-root': label
+                    ? {
+                        fontSize: '0.75rem',
+                        lineHeight: 1,
+                        px: 0.4,
+                        bgcolor: '#fff',
+                        color: FIN_MUTED,
+                      }
+                    : { display: 'none' },
                   '& .MuiInputAdornment-root .MuiSvgIcon-root': { color: FIN_MUTED, fontSize: 18 },
                 },
               },

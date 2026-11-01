@@ -27,7 +27,7 @@ import { ordenarEmpresas } from '../ordemEmpresas'
 import { usePrefs } from '../prefs'
 import FiltroMesFinanceiro from '../FiltroMesFinanceiro'
 import SeletorLojaFinanceiro from '../SeletorLojaFinanceiro'
-import { FIN_BORDER, FIN_MUTED, FIN_SURFACE_ALT, FIN_TEXT, finPageSx } from '../temaFinanceiroEscuro'
+import { FIN_BG, FIN_BORDER, FIN_MUTED, FIN_SURFACE_ALT, FIN_TEXT, finPageSx } from '../temaFinanceiroEscuro'
 
 function mesAtual() {
   return new Intl.DateTimeFormat('en-CA', {
@@ -555,13 +555,26 @@ export function CustosCoPage() {
         width: '100%',
         maxWidth: '100%',
         minWidth: 0,
-        overflowX: 'hidden',
+        overflowX: 'clip',
         overflowY: 'auto',
         pb: 2,
         boxSizing: 'border-box',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', minWidth: 0, pt: 0.5, overflow: 'visible' }}>
+      <Box
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 4,
+          bgcolor: FIN_BG,
+          pb: 1.5,
+          borderBottom: '1px solid rgba(15,23,42,0.06)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+        }}
+      >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', minWidth: 0 }}>
         <SeletorLojaFinanceiro
           lojas={lojas}
           value={empresaId}
@@ -569,11 +582,11 @@ export function CustosCoPage() {
             setEmpresaId(id)
             salvarLojaCaixa(id)
           }}
-          label={t('Loja', 'Store')}
+          label=""
           width={260}
           sx={{ width: 260, flex: '0 0 auto' }}
         />
-        <FiltroMesFinanceiro value={mes} onChange={setMes} width={156} />
+        <FiltroMesFinanceiro value={mes} onChange={setMes} label="" width={156} />
         <Box
           sx={{
             display: 'flex',
@@ -648,6 +661,7 @@ export function CustosCoPage() {
           <RecorteContas valor={recorte} abertos={qtdAberto} onChange={setRecorte} />
         </Box>
       ) : null}
+      </Box>
 
       {loading ? <LinearProgress sx={{ borderRadius: 1, height: 2 }} /> : null}
       {erro ? <Alert severity="error">{erro}</Alert> : null}
