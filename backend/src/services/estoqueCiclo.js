@@ -652,25 +652,6 @@ export async function listarStatusContagemRede({
 
   const { rows } = await pool.query(leve ? sqlLeve : sqlFull, [hoje, tipoNorm, ids]);
 
-  const { rows: fechadasNoDia } = await pool.query(
-    `SELECT DISTINCT ON (x.id_loja)
-       x.id_loja, x.id_contagem, x.status, x.titulo,
-       COALESCE(x.tipo, 'completa') AS tipo,
-       x.data_contagem::text AS data_contagem,
-       x.criado_em, x.finalizado_em,
-       COALESCE(x.contado_em, x.finalizado_em) AS contado_em,
-       u.nome AS criado_por_nome
-     FROM estoque_contagens x
-     LEFT JOIN usuarios u ON u.id_usuario = x.criado_por
-     WHERE COALESCE(x.tipo, 'completa') = $2
-       AND x.status = 'finalizada'
-       AND (x.finalizado_em AT TIME ZONE 'America/Sao_Paulo')::date = $1::date
-       AND ($3::int[] IS NULL OR x.id_loja = ANY($3::int[]))
-     ORDER BY x.id_loja, x.finalizado_em DESC, x.id_contagem DESC`,
-    [hoje, tipoNorm, ids],
-  );
-  const fechadaPorLoja = new Map(fechadasNoDia.map((r) => [r.id_loja, r]));
-
   let copiaPorLoja = new Map();
   try {
     const { rows: copias } = await pool.query(
@@ -687,7 +668,7 @@ export async function listarStatusContagemRede({
        JOIN estoque_contagens ec ON ec.id_contagem = c.id_contagem
        LEFT JOIN usuarios u ON u.id_usuario = COALESCE(c.id_usuario, ec.criado_por)
        WHERE COALESCE(c.tipo, 'completa') = $2
-         AND (c.salvo_em AT TIME ZONE 'America/Sao_Paulo')::date = $1::date
+         AND c.data_contagem = $1::date
          AND c.preenchidos > 0
          AND ($3::int[] IS NULL OR c.id_loja = ANY($3::int[]))
        ORDER BY c.id_loja,
@@ -703,16 +684,11 @@ export async function listarStatusContagemRede({
   const lojas = rows.map((r) => {
     const diaContou = r.id_contagem && r.status === 'finalizada';
     const diaAndamento = r.id_contagem && r.status === 'aberta' && r.tem_lancamento;
-    const fechada = fechadaPorLoja.get(r.id_loja);
     const copia = copiaPorLoja.get(r.id_loja);
     let fonte = r;
     let status = 'faltou';
     let status_label = 'Não contou';
     if (diaContou) {
-      status = 'contou';
-      status_label = 'Contou';
-    } else if (!diaAndamento && fechada) {
-      fonte = { ...r, ...fechada, name: r.name, bk_number: r.bk_number };
       status = 'contou';
       status_label = 'Contou';
     } else if (diaAndamento) {
