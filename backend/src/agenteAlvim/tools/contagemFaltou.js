@@ -1,3 +1,4 @@
+import { agendaContagem } from '../../services/estoqueContagemAgenda.js';
 import { listarStatusContagemRede } from '../../services/estoqueCiclo.js';
 import { chaveDedup, jaEnviou, registrarEnvio } from '../dedup.js';
 import { dataHojeSp } from '../horario.js';
@@ -7,8 +8,15 @@ import { destinosDoRecado, enviarRecadoAlvim } from '../recado.js';
 import { chavePendencia, deveFalarDeNovo, marcarCobradas, registrarDeteccao } from '../pendencia.js';
 import { primeiroNome } from '../texto.js';
 
+function assuntoContagemDoDia() {
+  const tipo = agendaContagem().tipo;
+  if (tipo === 'completa') return 'contagem mensal';
+  if (tipo === 'critica_semanal') return 'contagem semanal';
+  return 'contagem diária';
+}
+
 export async function coletarContagemFaltou() {
-  const { hoje, lojas } = await listarStatusContagemRede({ tipo: 'diaria' });
+  const { hoje, lojas } = await listarStatusContagemRede({ tipo: agendaContagem().tipo });
   const faltou = lojas.filter((l) => l.status === 'faltou' || l.status === 'aberta');
   const itens = [];
   for (const loja of faltou) {
@@ -25,6 +33,7 @@ export async function coletarContagemFaltou() {
 
 export async function executarContagemFaltou(config, { dryRun = false, destinoOverride = null } = {}) {
   const dia = dataHojeSp();
+  const assunto = assuntoContagemDoDia();
   const { itens } = await coletarContagemFaltou();
   if (!itens.length) {
     return { ferramenta: 'contagem_faltou', enviados: 0, pendentes: 0, motivo: 'todos_contaram' };
@@ -54,7 +63,7 @@ export async function executarContagemFaltou(config, { dryRun = false, destinoOv
         regional: primeiroNome(grupo.nome_regional),
         id_regiao: grupo.id_regiao,
         id_usuario: grupo.ids_usuario?.[0] || null,
-        assunto: 'contagem diária',
+        assunto,
         prazo: config.hora_contagem,
         dia,
         payload: { status: i.status },

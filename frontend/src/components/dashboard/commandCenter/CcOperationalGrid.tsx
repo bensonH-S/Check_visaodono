@@ -29,6 +29,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { EstoqueContagemRedeItem } from '../../../api/client';
+import { rotuloContagemRede, tipoContagemDaData } from '../../estoque/estoqueContagemTipo';
 import type { Despesa } from '../../../financeiro/api';
 import { portalPanelSx } from '../../../theme/tokens';
 
@@ -450,7 +451,7 @@ export function CcCountPanel({ lojas, loading, error }: { lojas: EstoqueContagem
       <PanelHeader
         icon={<FactCheckOutlinedIcon sx={{ fontSize: 17 }} />}
         color="#0F766E"
-        title="Contagem diária"
+        title={rotuloContagemRede(lojas.find((item) => item.tipo)?.tipo || tipoContagemDaData())}
         subtitle={pending.length ? `${pending.length} lojas exigem atenção` : 'Rede em dia'}
         action={action}
       />

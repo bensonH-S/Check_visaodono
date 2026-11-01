@@ -7,6 +7,7 @@ import {
   type Despesa,
   type ResumoFinanceiro,
 } from '../../../financeiro/api';
+import { tipoContagemDaData } from '../../estoque/estoqueContagemTipo';
 import { dataHojeBrasilia } from '../../../utils/dateBr';
 
 export type ItemZerado = { id_loja: number; loja: string; codigo: string };
@@ -33,7 +34,7 @@ export type CcData = {
 type ContagemCache = { chave: string; lojas: EstoqueContagemRedeItem[]; em: number };
 
 const CONTAGEM_TTL_MS = 45_000;
-const SS_KEY = 'cc.contagem.diaria.v1';
+const SS_KEY = 'cc.contagem.rede.v2';
 
 let contagemMemoria: ContagemCache | null = null;
 const contagemVoo = new Map<string, Promise<EstoqueContagemRedeItem[]>>();
@@ -44,7 +45,8 @@ function dataContagemNorm(data?: string) {
 }
 
 function chaveContagem(data?: string) {
-  return `diaria|${dataContagemNorm(data)}`;
+  const dia = dataContagemNorm(data);
+  return `${tipoContagemDaData(dia)}|${dia}`;
 }
 
 function lerSession(): ContagemCache | null {
@@ -106,7 +108,7 @@ function pedirContagem(data?: string, { forcar = false } = {}) {
   const voo = contagemVoo.get(ck);
   if (voo) return voo;
   const promessa = api
-    .estoqueContagensRede({ tipo: 'diaria', data: dia, leve: true })
+    .estoqueContagensRede({ tipo: tipoContagemDaData(dia), data: dia, leve: true })
     .then((cont) => {
       const lojas = cont?.lojas ?? [];
       guardarContagem(ck, lojas);

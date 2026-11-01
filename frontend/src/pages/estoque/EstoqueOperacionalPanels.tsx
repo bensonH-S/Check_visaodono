@@ -89,6 +89,7 @@ import Autocomplete from '@mui/material/Autocomplete';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import { assetUrl } from '../../config/paths';
 import { thumbInsumo } from '../../components/estoque/estoqueHub';
+import { tipoContagemDaData } from '../../components/estoque/estoqueContagemTipo';
 import { ehLojaPopeyes } from '../../components/escalas/escalaVisitasUtils';
 import { finCampoSx, FIN_MUTED } from '../../financeiro/temaFinanceiroEscuro';
 import { showToast } from '../../utils/toast';
@@ -1089,7 +1090,7 @@ function PainelSyncRede({
     try {
       const [painel, cont, breaks] = await Promise.all([
         api.estoqueSyncLojas(),
-        api.estoqueContagensRede({ tipo: 'diaria' }).catch(() => null),
+        api.estoqueContagensRede({ tipo: tipoContagemDaData() }).catch(() => null),
         api.estoqueBreaksRede().catch(() => null),
       ]);
       setSyncLojas(painel?.lojas || []);
@@ -1279,7 +1280,7 @@ function PainelSyncRede({
         status: 'faltou',
         status_label: 'Não contou',
         titulo: null,
-        tipo: 'diaria',
+        tipo: tipoContagemDaData(),
         data_contagem: null,
         criado_em: null,
         finalizado_em: null,

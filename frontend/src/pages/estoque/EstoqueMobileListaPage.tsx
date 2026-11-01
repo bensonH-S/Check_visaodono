@@ -429,10 +429,10 @@ export default function EstoqueMobileListaPage() {
           state: { contagemPreload: det },
         });
       }
+      const label = labelIniciar(tipo);
       if (det.meta?.ja_finalizada) {
-        showToast('Diária de hoje já foi finalizada ? consulta');
+        showToast(`${label} de hoje já foi finalizada`);
       } else {
-        const label = labelIniciar(tipo);
         showToast(det.meta?.iniciada_agora ? `${label} iniciada` : `${label} aberta`);
       }
       await carregarLista(idLoja);

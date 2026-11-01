@@ -35,6 +35,22 @@ export function rotuloTipoContagem(tipo?: string | null) {
   return 'Completa';
 }
 
+/** Tipo que a rede conta nesse dia: mensal no dia 1, semanal na segunda, diária nos outros. */
+export function tipoContagemDaData(dataIso?: string | null): TipoContagemEstoque {
+  const iso = String(dataIso || '').slice(0, 10);
+  const agora = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T15:00:00-03:00`) : new Date();
+  const agenda = agendaContagem(agora);
+  if (agenda.mensal) return 'completa';
+  if (agenda.semanal) return 'critica_semanal';
+  return 'diaria';
+}
+
+export function rotuloContagemRede(tipo?: string | null) {
+  if (tipo === 'completa') return 'Contagem mensal';
+  if (tipo === 'critica_semanal') return 'Contagem semanal';
+  return 'Contagem diária';
+}
+
 export function ehContagemParcial(tipo?: string | null) {
   return tipo === 'diaria' || tipo === 'critica_semanal';
 }

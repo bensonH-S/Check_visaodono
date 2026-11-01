@@ -1,3 +1,4 @@
+import { agendaContagem } from '../services/estoqueContagemAgenda.js';
 import { listarStatusContagemRede } from '../services/estoqueCiclo.js';
 import { logger } from '../logger.js';
 import { nomeItemCurto, nomeLojaCurto, nomesItensUnicos, primeiroNome } from './texto.js';
@@ -89,7 +90,7 @@ export function lojasMencionadasNoTexto(texto, lojas) {
 }
 
 export async function snapshotOperacao({ idRegiao = null, limiteZero = 40 } = {}) {
-  const { hoje, lojas } = await listarStatusContagemRede({ tipo: 'diaria' });
+  const { hoje, lojas } = await listarStatusContagemRede({ tipo: agendaContagem().tipo });
   const comRegional = [];
   for (const loja of lojas) {
     const regionais = await regionaisDaLoja(loja.id_loja);

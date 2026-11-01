@@ -525,8 +525,9 @@ const CONTAGEM_REDE_TTL_MS = 45_000;
 const contagemRedeCache = new Map();
 
 /**
- * Painel da rede: diária do dia (quem contou, quem está em andamento, quem falta).
+ * Painel da rede: contagem do dia (quem contou, quem está em andamento, quem falta).
  * Casa em data_contagem (dia operacional), não no horário de fechamento.
+ * Se a loja já finalizou e depois abriu uma contagem vazia, a finalizada vale.
  * `leve: true` — só o dia (Command Center); sem “última contagem de sempre”.
  */
 export async function listarStatusContagemRede({
@@ -574,7 +575,10 @@ export async function listarStatusContagemRede({
       FROM estoque_contagens x
       WHERE COALESCE(x.tipo, 'completa') = $2
         AND x.data_contagem = $1::date
-      ORDER BY x.id_loja, x.criado_em DESC, x.id_contagem DESC
+      ORDER BY x.id_loja,
+        CASE WHEN x.status = 'finalizada' THEN 0 WHEN x.status = 'aberta' THEN 1 ELSE 2 END,
+        x.criado_em DESC,
+        x.id_contagem DESC
     ) c ON c.id_loja = l.id_loja
     LEFT JOIN usuarios u ON u.id_usuario = c.criado_por
     WHERE l.bk_number IS NOT NULL AND BTRIM(l.bk_number::text) <> ''
@@ -608,7 +612,10 @@ export async function listarStatusContagemRede({
       WHERE x.id_loja = l.id_loja
         AND COALESCE(x.tipo, 'completa') = $2
         AND x.data_contagem = $1::date
-      ORDER BY x.criado_em DESC, x.id_contagem DESC
+      ORDER BY
+        CASE WHEN x.status = 'finalizada' THEN 0 WHEN x.status = 'aberta' THEN 1 ELSE 2 END,
+        x.criado_em DESC,
+        x.id_contagem DESC
       LIMIT 1
     ) c ON TRUE
     LEFT JOIN usuarios u ON u.id_usuario = c.criado_por

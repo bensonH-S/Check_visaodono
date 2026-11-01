@@ -11,6 +11,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import type { EstoqueContagemRedeItem } from '../../../api/client';
+import { rotuloContagemRede, tipoContagemDaData } from '../../estoque/estoqueContagemTipo';
 import { fmtInt, lojaLabel } from './ccFormat';
 import CcCard, { CcVazio } from './CcCard';
 
@@ -108,7 +109,7 @@ export default function CcContagem({ lojas, loading, erro }: { lojas: EstoqueCon
 
   return (
     <CcCard
-      title="Contagem diária"
+      title={rotuloContagemRede(lojas.find((l) => l.tipo)?.tipo || tipoContagemDaData())}
       meta={!loading && lojas.length ? `${fmtInt(contouN)} de ${fmtInt(lojas.length)}` : undefined}
       action="Abrir estoque"
       actionTo="/estoque"

@@ -646,7 +646,7 @@ export default function ControleEstoquePage() {
             ? 'Contagem semanal'
             : 'Contagem completa';
       if (det.meta?.ja_finalizada) {
-        showToast('Diária de hoje já foi finalizada — abrindo consulta');
+        showToast(`${label} de hoje já foi finalizada — abrindo consulta`);
       } else {
         showToast(det.meta?.iniciada_agora ? `${label} iniciada` : `${label} aberta`);
       }

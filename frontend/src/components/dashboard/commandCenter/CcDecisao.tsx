@@ -3,6 +3,7 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import { Link as RouterLink } from 'react-router-dom';
 import { api, type DashboardAtencao, type DashboardAtividades } from '../../../api/client';
+import { tipoContagemDaData } from '../../estoque/estoqueContagemTipo';
 import { useCommandCenterFilters } from '../../../context/CommandCenterFiltersContext';
 import { fmtInt } from './ccFormat';
 import { CC_MUTED, CC_ORANGE } from './ccTheme';
@@ -34,7 +35,7 @@ export default function CcDecisao({
   useEffect(() => {
     let cancel = false;
     Promise.all([
-      api.estoqueContagensRede({ tipo: 'diaria', data: dataFiltro }).catch(() => null),
+      api.estoqueContagensRede({ tipo: tipoContagemDaData(dataFiltro), data: dataFiltro }).catch(() => null),
       api.estoqueSaldosRedeBaixo().catch(() => null),
       api.estoqueSaudeBaixa({ escopo: 'rede' }).catch(() => null),
     ]).then(([rede, baixo, saude]) => {
@@ -53,7 +54,12 @@ export default function CcDecisao({
     const raw: Item[] = [
       {
         key: 'contagem',
-        label: 'Lojas sem contagem diária',
+        label:
+          tipoContagemDaData(dataFiltro) === 'completa'
+            ? 'Lojas sem contagem mensal'
+            : tipoContagemDaData(dataFiltro) === 'critica_semanal'
+              ? 'Lojas sem contagem semanal'
+              : 'Lojas sem contagem diária',
         count: semContagem,
         to: '/estoque',
         urgente: true,
@@ -88,7 +94,7 @@ export default function CcDecisao({
       },
     ];
     return raw.filter((i) => i.count > 0).slice(0, 5);
-  }, [atencao, atividades, itensZerados, pendencias, semContagem]);
+  }, [atencao, atividades, dataFiltro, itensZerados, pendencias, semContagem]);
 
   return (
     <CcPanel title="Agir agora" action="Ver estoque" actionTo="/estoque" minHeight={0}>
