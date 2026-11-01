@@ -570,8 +570,13 @@ export type CustosCoBloco = {
   total: number
   qtd: number
   pct_venda: number | null
+  aberto?: number
+  qtd_aberto?: number
+  aberto_pct?: number | null
   linhas: CustosCoLinha[]
+  linhas_abertas?: CustosCoLinha[]
   itens: CustosCoItem[]
+  itens_abertos?: CustosCoItem[]
 }
 
 export type CustosCoOrigem = {
@@ -597,6 +602,8 @@ export type CustosCoPainel = {
   despesas: CustosCoOrigem
   resumo: {
     despesa_total: number
+    aberto_total?: number
+    aberto_pct?: number | null
     cmp_total: number
     cmp_pct: number | null
     despesa_pct: number | null

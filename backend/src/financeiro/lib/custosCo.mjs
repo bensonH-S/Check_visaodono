@@ -1,6 +1,7 @@
 /**
  * C_O_ — mapa mensal de custos da loja (espelha a aba C_O_ da planilha de caixa).
- * Fonte: despesas pagas/conciliadas no mês (por vencimento) + vendas do fechamento/BK.
+ * Fonte: despesas do mês por vencimento. Pago = paga/conciliada.
+ * Em aberto = título do mês ainda não pago, fora do inbox (rascunho/DDA/NF-e solta).
  */
 
 function norm(s) {
@@ -198,15 +199,27 @@ export async function montarCustosCo(pool, { mes, empresaId }) {
     left join fornecedores f on f.id = d.fornecedor_id
     left join plano_contas p on p.id = d.plano_conta_id
     where d.empresa_origem_id = $1::uuid
-      and d.status in ('paga', 'conciliada')
       and d.vencimento between $2::date and $3::date
+      and d.status <> 'cancelada'
+      and (
+        d.status in ('paga', 'conciliada')
+        or (
+          d.status not in ('paga', 'conciliada', 'rascunho', 'classificada', 'bloqueada_duplicata')
+          and (
+            d.status in ('pronta', 'autorizada', 'enviada')
+            or d.fonte not in ('dda', 'nfe')
+          )
+          and not (d.fonte = 'manual' and coalesce(d.pendente_inbox, false))
+        )
+      )
     order by d.vencimento, d.valor desc
     `,
     [empresaId, de, ate],
   )
 
-  const blocosMap = Object.fromEntries(BLOCOS_CO.map((b) => [b.id, { ...b, total: 0, qtd: 0, itens: [] }]))
+  const blocosMap = Object.fromEntries(BLOCOS_CO.map((b) => [b.id, { ...b, total: 0, qtd: 0, itens: [], abertos: [] }]))
   const onlineItens = []
+  const onlineAbertos = []
   for (const d of despesas) {
     const item = {
       id: d.id,
@@ -220,14 +233,20 @@ export async function montarCustosCo(pool, { mes, empresaId }) {
       numero_nf: d.numero_nf,
     }
     const grupo = classificarCustoCo(d)
+    const pago = d.status === 'paga' || d.status === 'conciliada'
     if (grupo === 'online') {
-      onlineItens.push(item)
+      if (pago) onlineItens.push(item)
+      else onlineAbertos.push(item)
       continue
     }
     const bloco = blocosMap[grupo] || blocosMap.outros
-    bloco.itens.push(item)
-    bloco.total = money(bloco.total + Number(d.valor))
-    bloco.qtd += 1
+    if (pago) {
+      bloco.itens.push(item)
+      bloco.total = money(bloco.total + Number(d.valor))
+      bloco.qtd += 1
+    } else {
+      bloco.abertos.push(item)
+    }
   }
 
   const { rows: caixaRows } = await pool.query(
@@ -289,15 +308,15 @@ export async function montarCustosCo(pool, { mes, empresaId }) {
   const vendaBase = vendaCaixa > 0 ? vendaCaixa : vendaBk
 
   const despesaTotal = money(Object.values(blocosMap).reduce((s, b) => s + b.total, 0))
+  const abertoTotal = money(Object.values(blocosMap).reduce((s, b) => s + b.abertos.reduce((a, item) => a + item.valor, 0), 0))
   const onlineTotal = money(onlineItens.reduce((s, i) => s + i.valor, 0))
   const caixaTotal = money(caixaItens.reduce((s, i) => s + i.valor, 0))
   const cmpTotal = money(blocosMap.cmp.total + blocosMap.gimba.total + blocosMap.brasal.total)
   const pct = (parte) => (vendaBase > 0 ? Math.round((parte / vendaBase) * 10000) / 100 : null)
 
-  const blocos = BLOCOS_CO.map((meta) => {
-    const b = blocosMap[meta.id]
+  function agruparLinhas(itens) {
     const porRotulo = new Map()
-    for (const item of b.itens) {
+    for (const item of itens) {
       const rotulo = rotuloContaCo(item)
       const atual = porRotulo.get(rotulo) || { rotulo, valor: 0, qtd: 0, itens: [] }
       atual.valor = money(atual.valor + item.valor)
@@ -305,9 +324,14 @@ export async function montarCustosCo(pool, { mes, empresaId }) {
       atual.itens.push(item)
       porRotulo.set(rotulo, atual)
     }
-    const linhas = [...porRotulo.values()]
+    return [...porRotulo.values()]
       .map((linha) => ({ ...linha, pct_venda: pct(linha.valor) }))
       .sort((a, b2) => b2.valor - a.valor)
+  }
+
+  const blocos = BLOCOS_CO.map((meta) => {
+    const b = blocosMap[meta.id]
+    const aberto = money(b.abertos.reduce((s, item) => s + item.valor, 0))
     return {
       id: b.id,
       titulo: b.titulo,
@@ -315,10 +339,15 @@ export async function montarCustosCo(pool, { mes, empresaId }) {
       total: b.total,
       qtd: b.qtd,
       pct_venda: pct(b.total),
-      linhas,
+      aberto,
+      qtd_aberto: b.abertos.length,
+      aberto_pct: pct(aberto),
+      linhas: agruparLinhas(b.itens),
+      linhas_abertas: agruparLinhas(b.abertos),
       itens: b.itens,
+      itens_abertos: b.abertos,
     }
-  }).filter((b) => b.qtd > 0)
+  }).filter((b) => b.qtd > 0 || b.qtd_aberto > 0)
 
   function montarOrigem(titulo, itens, grupoDe) {
     const mapa = new Map()
@@ -365,6 +394,8 @@ export async function montarCustosCo(pool, { mes, empresaId }) {
     despesas: montarOrigem('Despesas', caixaItens, grupoDespesaCaixa),
     resumo: {
       despesa_total: despesaTotal,
+      aberto_total: abertoTotal,
+      aberto_pct: pct(abertoTotal),
       cmp_total: cmpTotal,
       cmp_pct: pct(cmpTotal),
       despesa_pct: pct(despesaTotal),
