@@ -280,6 +280,11 @@ function CardLojaSemana({
   );
 }
 
+function diaGestorMontado(dia: Pick<EscalaGestoresDia, 'tipo' | 'hora_inicio' | 'hora_fim'>) {
+  if (dia.tipo) return true;
+  return Boolean(dia.hora_inicio && dia.hora_fim);
+}
+
 export default function EscalaVisitasMobileView() {
   const navigate = useNavigate();
   const { mode } = useAppTheme();
@@ -699,6 +704,13 @@ export default function EscalaVisitasMobileView() {
 
   async function enviarMinhaEscala() {
     if (!gestores?.pode_editar || !linhasGestores.length) return;
+    const incompleta = linhasGestores.some(
+      (linha) => linha.dias.length !== 7 || linha.dias.some((d) => !diaGestorMontado(d)),
+    );
+    if (incompleta) {
+      showToast('Monte a escala da semana inteira antes de enviar', 'error');
+      return;
+    }
     setSalvando(true);
     try {
       const data = await api.escalaGestoresEnviar({
@@ -1870,15 +1882,30 @@ export default function EscalaVisitasMobileView() {
                       </div>
                       {(ehGestorLoja || gestores?.somente_propria) && podeEditar ? (
                         <div className="ck-escala__acoes">
-                          <Button
-                            className="ck-escala__cta-salvar"
-                            variant="contained"
-                            fullWidth
-                            disabled={salvando}
-                            onClick={() => void enviarMinhaEscala()}
-                          >
-                            {salvando ? 'Enviando…' : 'Salvar escala'}
-                          </Button>
+                          {(() => {
+                            const diasSemMontar = linha.dias.filter((d) => !diaGestorMontado(d));
+                            const escalaMontada = linha.dias.length === 7 && diasSemMontar.length === 0;
+                            return (
+                              <>
+                                {escalaMontada ? null : (
+                                  <p className="ck-escala__acoes-aviso">
+                                    {diasSemMontar.length === linha.dias.length
+                                      ? 'Monte a escala da semana inteira para enviar.'
+                                      : `Falta montar ${diasSemMontar.map((d) => DIAS_LONGO[d.dia]).join(', ')}.`}
+                                  </p>
+                                )}
+                                <Button
+                                  className="ck-escala__cta-salvar"
+                                  variant="contained"
+                                  fullWidth
+                                  disabled={salvando || !escalaMontada}
+                                  onClick={() => void enviarMinhaEscala()}
+                                >
+                                  {salvando ? 'Enviando…' : 'Salvar escala'}
+                                </Button>
+                              </>
+                            );
+                          })()}
                         </div>
                       ) : null}
                       {(ehGestorLoja || gestores?.somente_propria) && (gestores?.enviada || linha.enviada) && !podeEditar ? (

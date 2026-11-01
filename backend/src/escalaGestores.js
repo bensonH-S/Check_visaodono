@@ -522,12 +522,39 @@ function htmlRelatorio(linhas, inicio, fim, quem) {
   </div>`;
 }
 
+function diaDaEscalaMontado(dia) {
+  if (tipoOk(dia?.tipo)) return true;
+  return Boolean(horaSql(dia?.hora_inicio) && horaSql(dia?.hora_fim));
+}
+
+/** Cada dia precisa de horário ou de folga, férias, atestado ou falta. */
+function exigirEscalaMontada(body) {
+  const lista = Array.isArray(body?.celulas) ? body.celulas : [];
+  const porGestor = new Map();
+  for (const item of lista) {
+    const id = Number(item?.id_gestor);
+    const dia = Number(item?.dia);
+    if (!Number.isInteger(id) || id <= 0 || !Number.isInteger(dia) || dia < 0 || dia > 6) continue;
+    if (!porGestor.has(id)) porGestor.set(id, new Set());
+    if (diaDaEscalaMontado(item)) porGestor.get(id).add(dia);
+  }
+  if (!porGestor.size) {
+    throw new Error('Monte a escala da semana inteira antes de enviar');
+  }
+  for (const dias of porGestor.values()) {
+    if (dias.size < 7) {
+      throw new Error('Monte a escala da semana inteira antes de enviar');
+    }
+  }
+}
+
 /** Gestor confirma a semana: trava a edição e manda o relatório. */
 export async function enviarEscalaGestor(user, body) {
   const dados = await dadosUsuario(user);
   if (!ehGestorSomentePropria(user, dados)) {
     throw new Error('Sem permissão para enviar a escala');
   }
+  exigirEscalaMontada(body);
   if (body?.celulas || body?.gestores) {
     await salvarGradeGestores(user, body);
   }
@@ -537,6 +564,12 @@ export async function enviarEscalaGestor(user, body) {
   });
   if (!grade.linhas.length) throw new Error('Sem permissão para enviar a escala');
   if (grade.enviada || !grade.pode_editar) throw new Error('Escala já enviada');
+  const semanaCompleta = grade.linhas.every((linha) =>
+    linha.dias.length === 7 && linha.dias.every((d) => diaDaEscalaMontado(d)),
+  );
+  if (!semanaCompleta) {
+    throw new Error('Monte a escala da semana inteira antes de enviar');
+  }
 
   const quem = dados?.nome || 'Gestor';
   const destinatarios = await destinatariosEscalaGestor(grade.linhas);

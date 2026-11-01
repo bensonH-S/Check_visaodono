@@ -633,10 +633,24 @@
 .ck-escala .ck-escala__acoes {
   flex-shrink: 0;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   padding: 10px 0 calc(10px + var(--app-tabbar-offset, 0px));
   border-top: 1px solid rgba(27, 42, 107, 0.08);
   background: #fff;
+}
+
+.ck-escala__acoes-aviso {
+  flex: 1 0 100%;
+  margin: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #c2410c;
+}
+
+.ck-escala__acoes > .ck-escala__cta-salvar {
+  flex: 1 0 100%;
 }
 
 .ck-escala .ck-escala__editor-meta {
@@ -1674,6 +1688,7 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
   bottom: calc(64px + env(safe-area-inset-bottom, 0px));
   z-index: 45;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 0;
   padding: 10px var(--eh-pad, 20px) 12px;
@@ -1682,8 +1697,12 @@ html.dark .ck-escala--hub .ck-escala__faixa-pill.is-on {
   box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
 }
 
+.ck-escala--hub .ck-escala__acoes-aviso {
+  color: #ffb089;
+}
+
 .ck-escala-hub:has(.ck-escala__acoes) .ck-escala-hub__scroll {
-  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(188px + env(safe-area-inset-bottom, 0px));
 }
 
 .ck-escala--hub .ck-escala__aprovacao-card {

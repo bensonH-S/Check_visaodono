@@ -56,7 +56,8 @@ function erroHttp(e, res, next) {
     msg.includes('Delivery') ||
     msg.includes('Envio') ||
     msg.includes('Não há') ||
-    msg.includes('já enviada')
+    msg.includes('já enviada') ||
+    msg.includes('Monte a escala')
   ) {
     return res.status(400).json({ error: msg });
   }
