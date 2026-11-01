@@ -195,7 +195,7 @@ function linhasDoUsuario(linhas, dados) {
   return [];
 }
 
-export async function carregarGradeGestores(user, { semana_inicio } = {}) {
+export async function carregarGradeGestores(user, { semana_inicio, mostrarGravado = false } = {}) {
   const dados = await dadosUsuario(user);
   const somentePropria = ehGestorSomentePropria(user, dados);
   if (!podeVerEscalaGestores(user) && !somentePropria) {
@@ -254,7 +254,7 @@ export async function carregarGradeGestores(user, { semana_inicio } = {}) {
     const id = Number(g.id_gestor);
     const temEnvio = enviados.has(id);
     const enviadaLinha = temEnvio && enviados.get(id) !== true;
-    const mostrar = !exigeEnvioApp || temEnvio;
+    const mostrar = mostrarGravado || !exigeEnvioApp || temEnvio;
     const mapa = porGestor.get(id) || new Map();
     const horas = horasPorGestor.get(id) || new Map();
     const dias = [];
@@ -531,7 +531,10 @@ export async function enviarEscalaGestor(user, body) {
   if (body?.celulas || body?.gestores) {
     await salvarGradeGestores(user, body);
   }
-  const grade = await carregarGradeGestores(user, { semana_inicio: body?.semana_inicio });
+  const grade = await carregarGradeGestores(user, {
+    semana_inicio: body?.semana_inicio,
+    mostrarGravado: true,
+  });
   if (!grade.linhas.length) throw new Error('Sem permissão para enviar a escala');
   if (grade.enviada || !grade.pode_editar) throw new Error('Escala já enviada');
 
