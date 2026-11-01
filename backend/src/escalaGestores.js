@@ -1,5 +1,8 @@
 import { pool } from './db.js';
 import { temPermissao } from './permissoes.js';
+import { findBrandAsset } from './projectPaths.js';
+import { sendMail } from './services/mailer.js';
+import { resolverRegionaisLoja } from './services/timeCampoRegional.js';
 import {
   segundaFeiraDaSemana,
   podeVerEscalaGestores,
@@ -8,6 +11,14 @@ import {
 } from './escalaVisitas.js';
 
 const TIPOS = new Set(['folga', 'ferias', 'falta', 'ausencia']);
+const ROTULO_TIPO = { folga: 'Folga', ferias: 'Férias', falta: 'Falta', ausencia: 'Atestado' };
+const DIAS_EMAIL = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
+const EMAILS_REDE_TODA = [
+  'felipe@grupoalvim.com.br',
+  'frotadf@gmail.com',
+  'benson@grupoalvim.com.br',
+  'benson.henrique@grupoalvim.com.br',
+];
 
 const DIA_FOLGA_NOME = [
   ['segunda', 0],
@@ -75,6 +86,19 @@ export async function garantirSchemaGestores(client = pool) {
       PRIMARY KEY (id_gestor, data)
     )
   `);
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS escala_gestores_envio (
+      id_gestor INTEGER NOT NULL REFERENCES escala_gestores(id_gestor) ON DELETE CASCADE,
+      semana_inicio DATE NOT NULL,
+      enviado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      id_usuario INTEGER,
+      aberta BOOLEAN NOT NULL DEFAULT FALSE,
+      PRIMARY KEY (id_gestor, semana_inicio)
+    )
+  `);
+  await client.query(
+    `ALTER TABLE escala_gestores_envio ADD COLUMN IF NOT EXISTS aberta BOOLEAN NOT NULL DEFAULT FALSE`,
+  );
   schemaOk = true;
 }
 
@@ -117,12 +141,12 @@ async function dadosUsuario(user) {
   const id = Number(user?.sub || user?.id_usuario);
   if (!id) return null;
   const { rows } = await pool.query(
-    `SELECT u.nome, u.perfil::text AS perfil, u.cargo_aprovacao,
+    `SELECT u.nome, u.email, u.perfil::text AS perfil, u.cargo_aprovacao,
             COALESCE(array_agg(ul.id_loja) FILTER (WHERE ul.id_loja IS NOT NULL), '{}') AS lojas
      FROM usuarios u
      LEFT JOIN usuario_lojas ul ON ul.id_usuario = u.id_usuario
      WHERE u.id_usuario = $1
-     GROUP BY u.id_usuario, u.nome, u.perfil, u.cargo_aprovacao`,
+     GROUP BY u.id_usuario, u.nome, u.email, u.perfil, u.cargo_aprovacao`,
     [id],
   );
   return rows[0] || null;
@@ -138,6 +162,24 @@ function ehGestorSomentePropria(user, dados) {
     return false;
   }
   return cargo === 'gerente' || cargo === 'coordenador';
+}
+
+const EMAILS_LIDERANCA_ESCALA = new Set([
+  'felipe@grupoalvim.com.br',
+  'frotadf@gmail.com',
+  'benson@grupoalvim.com.br',
+  'benson.henrique@grupoalvim.com.br',
+]);
+
+/** Regional, Renato, Felipe e TI reabrem ou apagam a escala enviada. */
+function podeReabrirEscalaGestor(user, dados) {
+  if (!user || !dados) return false;
+  if (podeGerenciarEscalaVisitas(user) || podeEditarEscalaRegiao(user)) return true;
+  const cargo = String(dados.cargo_aprovacao || dados.perfil || user.perfil || '').toLowerCase();
+  if (['diretor', 'ceo', 'administrador', 'dono', 'ti', 'supervisor_regional', 'regional', 'supervisor'].includes(cargo)) {
+    return true;
+  }
+  return EMAILS_LIDERANCA_ESCALA.has(String(dados.email || user.email || '').trim().toLowerCase());
 }
 
 function linhasDoUsuario(linhas, dados) {
@@ -201,42 +243,20 @@ export async function carregarGradeGestores(user, { semana_inicio } = {}) {
     });
   }
 
-  if (podeGerenciarEscalaVisitas(user) && gestores.length) {
-    const ids = [];
-    const datas = [];
-    for (const g of gestores) {
-      const id = Number(g.id_gestor);
-      const tipos = porGestor.get(id) || new Map();
-      const horas = horasPorGestor.get(id) || new Map();
-      for (let i = 0; i < 7; i += 1) {
-        const data = addDaysIso(inicio, i);
-        if (tipos.get(data)) continue;
-        const hr = horas.get(data);
-        if (hr?.hora_inicio || hr?.hora_fim) continue;
-        ids.push(id);
-        datas.push(data);
-        if (!horasPorGestor.has(id)) horasPorGestor.set(id, new Map());
-        horasPorGestor.get(id).set(data, { hora_inicio: '08:00', hora_fim: '18:00' });
-      }
-    }
-    if (ids.length) {
-      await pool.query(
-        `INSERT INTO escala_gestores_horario (id_gestor, data, hora_inicio, hora_fim)
-         SELECT x.id_gestor, x.data, TIME '08:00', TIME '18:00'
-         FROM unnest($1::int[], $2::date[]) AS x(id_gestor, data)
-         ON CONFLICT (id_gestor, data) DO UPDATE
-           SET hora_inicio = EXCLUDED.hora_inicio,
-               hora_fim = EXCLUDED.hora_fim
-         WHERE escala_gestores_horario.hora_inicio IS NULL
-           AND escala_gestores_horario.hora_fim IS NULL`,
-        [ids, datas],
-      );
-    }
-  }
+  const { rows: envios } = await pool.query(
+    `SELECT id_gestor, aberta FROM escala_gestores_envio WHERE semana_inicio = $1::date`,
+    [inicio],
+  );
+  const enviados = new Map(envios.map((r) => [Number(r.id_gestor), r.aberta === true]));
 
+  const exigeEnvioApp = inicio >= '2026-11-02';
   const linhas = gestores.map((g) => {
-    const mapa = porGestor.get(Number(g.id_gestor)) || new Map();
-    const horas = horasPorGestor.get(Number(g.id_gestor)) || new Map();
+    const id = Number(g.id_gestor);
+    const temEnvio = enviados.has(id);
+    const enviadaLinha = temEnvio && enviados.get(id) !== true;
+    const mostrar = !exigeEnvioApp || temEnvio;
+    const mapa = porGestor.get(id) || new Map();
+    const horas = horasPorGestor.get(id) || new Map();
     const dias = [];
     for (let i = 0; i < 7; i += 1) {
       const data = addDaysIso(inicio, i);
@@ -244,30 +264,36 @@ export async function carregarGradeGestores(user, { semana_inicio } = {}) {
       dias.push({
         dia: i,
         data,
-        tipo: mapa.get(data) || null,
-        hora_inicio: hr.hora_inicio || null,
-        hora_fim: hr.hora_fim || null,
+        tipo: mostrar ? mapa.get(data) || null : null,
+        hora_inicio: mostrar ? hr.hora_inicio || null : null,
+        hora_fim: mostrar ? hr.hora_fim || null : null,
       });
     }
     return {
-      id_gestor: Number(g.id_gestor),
+      id_gestor: id,
       id_loja: g.id_loja != null ? Number(g.id_loja) : null,
       bk_number: g.loja_bk || g.bk_number || null,
       nome_loja: g.nome_loja || null,
       nome: g.nome,
       grupo: g.grupo,
-      folga_padrao: g.folga_padrao || null,
+      folga_padrao: mostrar ? g.folga_padrao || null : null,
+      enviada: enviadaLinha,
       dias,
     };
   });
 
   const linhasVisiveis = somentePropria ? linhasDoUsuario(linhas, dados) : linhas;
+  const enviada = somentePropria && linhasVisiveis.some((l) => l.enviada);
 
   return {
     semana_inicio: inicio,
     semana_fim: fim,
-    pode_editar: somentePropria ? linhasVisiveis.length > 0 : podeGerenciarEscalaVisitas(user),
+    pode_editar: somentePropria
+      ? linhasVisiveis.length > 0 && !enviada
+      : podeGerenciarEscalaVisitas(user),
+    pode_reabrir: podeReabrirEscalaGestor(user, dados),
     somente_propria: somentePropria,
+    enviada,
     linhas: linhasVisiveis,
   };
 }
@@ -290,6 +316,14 @@ export async function salvarGradeGestores(user, body) {
     }
   }
   const inicio = segundaFeiraDaSemana(body?.semana_inicio || new Date());
+  if (idsProprios) {
+    const { rows: ja } = await pool.query(
+      `SELECT id_gestor FROM escala_gestores_envio
+       WHERE semana_inicio = $1::date AND id_gestor = ANY($2::int[]) AND aberta = FALSE`,
+      [inicio, [...idsProprios]],
+    );
+    if (ja.length) throw new Error('Escala já enviada');
+  }
   const lista = Array.isArray(body?.celulas) ? body.celulas : [];
   const gestoresFolga = Array.isArray(body?.gestores) ? body.gestores : [];
   const client = await pool.connect();
@@ -316,27 +350,19 @@ export async function salvarGradeGestores(user, body) {
             [idGestor, data],
           );
         }
-      } else if (diasFolga.length) {
-        for (let dia = 0; dia < 7; dia += 1) {
+          } else if (diasFolga.length) {
+        for (const dia of diasFolga) {
           const data = addDaysIso(inicio, dia);
-          if (diasFolga.includes(dia)) {
-            await client.query(
-              `INSERT INTO escala_gestores_celula (id_gestor, data, tipo)
-               VALUES ($1, $2::date, 'folga')
-               ON CONFLICT (id_gestor, data) DO UPDATE SET tipo = 'folga'`,
-              [idGestor, data],
-            );
-            await client.query(
-              `DELETE FROM escala_gestores_horario WHERE id_gestor = $1 AND data = $2::date`,
-              [idGestor, data],
-            );
-          } else {
-            await client.query(
-              `DELETE FROM escala_gestores_celula
-               WHERE id_gestor = $1 AND data = $2::date AND tipo = 'folga'`,
-              [idGestor, data],
-            );
-          }
+          await client.query(
+            `INSERT INTO escala_gestores_celula (id_gestor, data, tipo)
+             VALUES ($1, $2::date, 'folga')
+             ON CONFLICT (id_gestor, data) DO UPDATE SET tipo = 'folga'`,
+            [idGestor, data],
+          );
+          await client.query(
+            `DELETE FROM escala_gestores_horario WHERE id_gestor = $1 AND data = $2::date`,
+            [idGestor, data],
+          );
         }
       }
     }
@@ -387,6 +413,191 @@ export async function salvarGradeGestores(user, body) {
         }
       }
     }
+    await client.query('COMMIT');
+  } catch (e) {
+    await client.query('ROLLBACK');
+    throw e;
+  } finally {
+    client.release();
+  }
+  return carregarGradeGestores(user, { semana_inicio: inicio });
+}
+
+function dataBr(iso) {
+  const [y, m, d] = String(iso || '').slice(0, 10).split('-');
+  return d && m && y ? `${d}/${m}/${y}` : iso;
+}
+
+function escHtml(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function anexoCentralGa() {
+  const logoPath = findBrandAsset('Logo_CentralGA.png');
+  if (!logoPath) return [];
+  return [{
+    filename: 'Logo_CentralGA.png',
+    path: logoPath,
+    cid: 'centralga-logo',
+    contentDisposition: 'inline',
+    contentType: 'image/png',
+  }];
+}
+
+/** Regional da loja recebe a escala. CEO, diretor e TI recebem todas. */
+async function destinatariosEscalaGestor(linhas) {
+  const emails = new Set(EMAILS_REDE_TODA);
+  const { rows: lideres } = await pool.query(
+    `SELECT email
+     FROM usuarios
+     WHERE ativo = TRUE
+       AND email IS NOT NULL
+       AND TRIM(email) <> ''
+       AND lower(COALESCE(cargo_aprovacao, perfil::text, '')) IN ('ceo', 'diretor', 'ti')`,
+  );
+  for (const row of lideres) emails.add(String(row.email).trim().toLowerCase());
+  const lojas = [...new Set(linhas.map((l) => Number(l.id_loja)).filter((id) => id > 0))];
+  for (const idLoja of lojas) {
+    const regionais = await resolverRegionaisLoja(idLoja);
+    for (const regional of regionais) {
+      const email = String(regional.email || '').trim().toLowerCase();
+      if (email) emails.add(email);
+    }
+  }
+  return [...emails];
+}
+
+function htmlRelatorio(linhas, inicio, fim, quem) {
+  const blocos = linhas.map((linha) => {
+    const loja = [linha.bk_number, linha.nome_loja].filter(Boolean).join(' · ');
+    const dias = linha.dias
+      .map((d) => {
+        const folga = Boolean(d.tipo);
+        const quando = folga
+          ? ROTULO_TIPO[d.tipo] || d.tipo
+          : d.hora_inicio && d.hora_fim
+            ? `${d.hora_inicio} – ${d.hora_fim}`
+            : 'Não definido';
+        const pillBg = folga ? '#FFF4EC' : '#E8EEFB';
+        const pillFg = folga ? '#C2410C' : '#0548D1';
+        return `<tr>
+          <td style="padding:10px 0;border-bottom:1px solid #EEF2F6;width:36px">
+            <div style="width:36px;height:36px;border-radius:10px;background:#0B1721;color:#fff;text-align:center;line-height:36px;font-size:11px;font-weight:700">${escHtml((DIAS_EMAIL[d.dia] || '').slice(0, 3))}</div>
+          </td>
+          <td style="padding:10px 12px;border-bottom:1px solid #EEF2F6;font-size:14px;color:#0B1721">
+            <div style="font-weight:700">${escHtml(DIAS_EMAIL[d.dia] || '')}</div>
+            <div style="color:#64748B;font-size:12px">${escHtml(dataBr(d.data))}</div>
+          </td>
+          <td style="padding:10px 0;border-bottom:1px solid #EEF2F6;text-align:right">
+            <span style="display:inline-block;background:${pillBg};color:${pillFg};border-radius:999px;padding:6px 12px;font-size:13px;font-weight:700">${escHtml(quando)}</span>
+          </td>
+        </tr>`;
+      })
+      .join('');
+    return `<p style="margin:18px 0 4px;font-size:18px;font-weight:800;color:#0B1721">${escHtml(linha.nome)}</p>
+      <p style="margin:0 0 8px;color:#64748B;font-size:13px">${escHtml(loja || 'Sem loja')}${linha.folga_padrao ? ` · Folga ${escHtml(linha.folga_padrao)}` : ''}</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse">${dias}</table>`;
+  });
+  return `<div style="margin:0;padding:24px 12px;background:#F4F7FB">
+    <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #E6EDF5">
+      <div style="background:#0B1721;padding:22px 24px">
+        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
+          <tr>
+            <td style="vertical-align:middle;padding-right:16px">
+              <img src="cid:centralga-logo" alt="Central GA" width="168" style="display:block;border:0;width:168px;height:auto" />
+            </td>
+            <td style="vertical-align:middle">
+              <p style="margin:0;color:#E8520A;font-size:11px;font-weight:700;letter-spacing:.08em">MERIDIAN</p>
+              <h1 style="margin:4px 0 0;color:#fff;font-size:22px;line-height:1.25;font-weight:800">Escala de ${escHtml(quem)}</h1>
+              <p style="margin:6px 0 0;color:#94A3B8;font-size:14px">${escHtml(dataBr(inicio))} a ${escHtml(dataBr(fim))}</p>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div style="padding:8px 24px 24px">${blocos.join('')}</div>
+    </div>
+  </div>`;
+}
+
+/** Gestor confirma a semana: trava a edição e manda o relatório. */
+export async function enviarEscalaGestor(user, body) {
+  const dados = await dadosUsuario(user);
+  if (!ehGestorSomentePropria(user, dados)) {
+    throw new Error('Sem permissão para enviar a escala');
+  }
+  if (body?.celulas || body?.gestores) {
+    await salvarGradeGestores(user, body);
+  }
+  const grade = await carregarGradeGestores(user, { semana_inicio: body?.semana_inicio });
+  if (!grade.linhas.length) throw new Error('Sem permissão para enviar a escala');
+  if (grade.enviada || !grade.pode_editar) throw new Error('Escala já enviada');
+
+  const quem = dados?.nome || 'Gestor';
+  const destinatarios = await destinatariosEscalaGestor(grade.linhas);
+  if (!destinatarios.length) throw new Error('Nenhum destinatário para a escala');
+  await sendMail({
+    to: destinatarios,
+    subject: `Escala ${quem} · ${dataBr(grade.semana_inicio)} a ${dataBr(grade.semana_fim)}`,
+    html: htmlRelatorio(grade.linhas, grade.semana_inicio, grade.semana_fim, quem),
+    attachments: anexoCentralGa(),
+  });
+
+  const idUsuario = Number(user?.sub || user?.id_usuario) || null;
+  await pool.query(
+    `INSERT INTO escala_gestores_envio (id_gestor, semana_inicio, id_usuario, aberta)
+     SELECT x.id_gestor, $2::date, $3, FALSE
+     FROM unnest($1::int[]) AS x(id_gestor)
+     ON CONFLICT (id_gestor, semana_inicio) DO UPDATE
+       SET aberta = FALSE, enviado_em = NOW(), id_usuario = EXCLUDED.id_usuario`,
+    [grade.linhas.map((l) => l.id_gestor), grade.semana_inicio, idUsuario],
+  );
+  return carregarGradeGestores(user, { semana_inicio: grade.semana_inicio });
+}
+
+async function exigirReabertura(user, idGestor, semanaInicio) {
+  const dados = await dadosUsuario(user);
+  if (!podeReabrirEscalaGestor(user, dados)) {
+    throw new Error('Sem permissão para reabrir a escala');
+  }
+  const id = Number(idGestor);
+  if (!id) throw new Error('Gestor inválido');
+  await garantirSchemaGestores();
+  const inicio = segundaFeiraDaSemana(semanaInicio || new Date());
+  return { id, inicio };
+}
+
+/** Tira o travamento. O gestor volta a editar a semana. */
+export async function reabrirEscalaGestor(user, body) {
+  const { id, inicio } = await exigirReabertura(user, body?.id_gestor, body?.semana_inicio);
+  await pool.query(
+    `UPDATE escala_gestores_envio SET aberta = TRUE WHERE id_gestor = $1 AND semana_inicio = $2::date`,
+    [id, inicio],
+  );
+  return carregarGradeGestores(user, { semana_inicio: inicio });
+}
+
+/** Apaga os dias da semana e o envio. A pessoa continua cadastrada. */
+export async function excluirEscalaGestor(user, body) {
+  const { id, inicio } = await exigirReabertura(user, body?.id_gestor, body?.semana_inicio);
+  const fim = addDaysIso(inicio, 6);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `DELETE FROM escala_gestores_celula WHERE id_gestor = $1 AND data >= $2::date AND data <= $3::date`,
+      [id, inicio, fim],
+    );
+    await client.query(
+      `DELETE FROM escala_gestores_horario WHERE id_gestor = $1 AND data >= $2::date AND data <= $3::date`,
+      [id, inicio, fim],
+    );
+    await client.query(
+      `DELETE FROM escala_gestores_envio WHERE id_gestor = $1 AND semana_inicio = $2::date`,
+      [id, inicio],
+    );
     await client.query('COMMIT');
   } catch (e) {
     await client.query('ROLLBACK');

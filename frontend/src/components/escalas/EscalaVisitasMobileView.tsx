@@ -47,6 +47,7 @@ import {
   DIAS_ABREV,
   DIAS_LONGO,
   FOLGA_GESTOR_OPCOES,
+  diasDaFolgaPadrao,
   ehMinhaLinhaGestor,
   linhasGestoresLoja,
   addDaysIso,
@@ -57,7 +58,9 @@ import {
   fmtEnvioQuando,
   montarCardsAprovacaoEscala,
   primeiroNome,
+  rotuloFolgaDias,
   segundaFeiraAtual,
+  segundaFeiraSubsequente,
   mensagemShareEscalaTecnicosPorGrupos,
 } from './escalaVisitasUtils';
 import {
@@ -292,7 +295,8 @@ export default function EscalaVisitasMobileView() {
   const ehDeliveryOnly = !ehDiretor && !ehRegional && podeEditarEscalaDelivery(user);
   const ehGestorOnly = !podeVerVisitas && podeVerGestoresTab;
 
-  const [semanaInicio, setSemanaInicio] = useState(segundaFeiraAtual());
+  const semanaInicial = ehGestorOnly ? segundaFeiraSubsequente() : segundaFeiraAtual();
+  const [semanaInicio, setSemanaInicio] = useState(semanaInicial);
   const [idRegiao, setIdRegiao] = useState<number | ''>('');
   /** Regional só vê a própria escala (não a de outros na grade). */
   const [idUsuarioFiltro, setIdUsuarioFiltro] = useState<number | null>(() =>
@@ -310,6 +314,8 @@ export default function EscalaVisitasMobileView() {
   const [idTecnicoManut, setIdTecnicoManut] = useState<number | null>(null);
   const [idTecnicoAberto, setIdTecnicoAberto] = useState<number | null>(null);
   const [idGestorAberto, setIdGestorAberto] = useState<number | null>(null);
+  const [diaGestorSheet, setDiaGestorSheet] = useState<number | null>(null);
+  const [horaSheet, setHoraSheet] = useState({ inicio: '', fim: '' });
   const ehGestorLoja = ehGestorLojaMobile(user);
   const linhasGestores = useMemo(() => {
     const loja = linhasGestoresLoja(gestores?.linhas);
@@ -617,6 +623,29 @@ export default function EscalaVisitasMobileView() {
     });
   }
 
+  function patchLinhaGestor(
+    idGestor: number,
+    patch: { folga_padrao?: string | null; dia?: number; tipo?: string | null; hora_inicio?: string | null; hora_fim?: string | null },
+  ) {
+    setGestores((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        linhas: prev.linhas.map((linha) => {
+          if (linha.id_gestor !== idGestor) return linha;
+          if (patch.dia == null) return { ...linha, folga_padrao: patch.folga_padrao ?? linha.folga_padrao };
+          const dias = linha.dias.map((d) => (d.dia !== patch.dia ? d : { ...d, ...patch, dia: d.dia }));
+          const folgas = dias.filter((d) => d.tipo === 'folga').map((d) => d.dia);
+          return {
+            ...linha,
+            dias,
+            folga_padrao: patch.tipo === undefined ? linha.folga_padrao : rotuloFolgaDias(folgas) || null,
+          };
+        }),
+      };
+    });
+  }
+
   async function salvarCelulaGestor(
     idGestor: number,
     dia: number,
@@ -655,6 +684,64 @@ export default function EscalaVisitasMobileView() {
       setGestores(data);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao salvar folga', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function enviarMinhaEscala() {
+    if (!gestores?.pode_editar || !linhasGestores.length) return;
+    setSalvando(true);
+    try {
+      const data = await api.escalaGestoresEnviar({
+        semana_inicio: semanaInicio,
+        gestores: linhasGestores.map((linha) => ({
+          id_gestor: linha.id_gestor,
+          folga_padrao: linha.folga_padrao || null,
+        })),
+        celulas: linhasGestores.flatMap((linha) =>
+          linha.dias.map((d) => ({
+            id_gestor: linha.id_gestor,
+            dia: d.dia,
+            tipo: d.tipo,
+            ...(d.tipo
+              ? {}
+              : { hora_inicio: d.hora_inicio || null, hora_fim: d.hora_fim || null }),
+          })),
+        ),
+      });
+      setGestores(data);
+      showToast('Escala enviada', 'success');
+      setDiaGestorSheet(null);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao enviar a escala', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function reabrirEscala(idGestor: number) {
+    setSalvando(true);
+    try {
+      const data = await api.escalaGestoresReabrir({ semana_inicio: semanaInicio, id_gestor: idGestor });
+      setGestores(data);
+      showToast('Escala reaberta', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao reabrir', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function excluirEscala(idGestor: number, nome: string) {
+    if (!window.confirm(`Excluir a escala de ${nome} nesta semana?`)) return;
+    setSalvando(true);
+    try {
+      const data = await api.escalaGestoresExcluir({ semana_inicio: semanaInicio, id_gestor: idGestor });
+      setGestores(data);
+      showToast('Escala excluída', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao excluir', 'error');
     } finally {
       setSalvando(false);
     }
@@ -1616,7 +1703,7 @@ export default function EscalaVisitasMobileView() {
                       </button>
                       {aberto ? (
                         <>
-                      {podeEditar ? (
+                      {podeEditar && !(ehGestorLoja || gestores?.somente_propria) ? (
                         <label className="ck-escala-gestor__folga">
                           <span>Folga da semana</span>
                           <select
@@ -1638,9 +1725,9 @@ export default function EscalaVisitasMobileView() {
                               )}
                           </select>
                         </label>
-                      ) : (
+                      ) : !(ehGestorLoja || gestores?.somente_propria) ? (
                         <p className="ck-escala-gestor__folga-tag">Folga {linha.folga_padrao || '—'}</p>
-                      )}
+                      ) : null}
                       <div className="ck-escala-gestor__dias">
                         {linha.dias.map((d) => {
                           const inicio = d.hora_inicio || '';
@@ -1654,13 +1741,20 @@ export default function EscalaVisitasMobileView() {
                           return (
                             <div
                               key={d.dia}
-                              className={`ck-escala-gestor__row${d.tipo ? ' is-off' : ''}${d.tipo === 'folga' ? ' is-folga' : ''}${d.tipo === 'ferias' ? ' is-ferias' : ''}${d.tipo === 'falta' ? ' is-falta' : ''}${d.tipo === 'ausencia' ? ' is-atestado' : ''}${isToday ? ' is-today' : ''}`}
+                              role={(ehGestorLoja || gestores?.somente_propria) && podeEditar ? 'button' : undefined}
+                              tabIndex={(ehGestorLoja || gestores?.somente_propria) && podeEditar ? 0 : undefined}
+                              onClick={() => {
+                                if (!(ehGestorLoja || gestores?.somente_propria) || !podeEditar) return;
+                                setHoraSheet({ inicio: d.hora_inicio || '', fim: d.hora_fim || '' });
+                                setDiaGestorSheet(d.dia);
+                              }}
+                              className={`ck-escala-gestor__row${(ehGestorLoja || gestores?.somente_propria) ? ' ck-gestor-app__dia' : ''}${d.tipo ? ' is-off' : ''}${d.tipo === 'folga' ? ' is-folga' : ''}${d.tipo === 'ferias' ? ' is-ferias' : ''}${d.tipo === 'falta' ? ' is-falta' : ''}${d.tipo === 'ausencia' ? ' is-atestado' : ''}${isToday ? ' is-today' : ''}`}
                             >
                               <div className="ck-escala-gestor__when">
                                 <strong>{DIAS_ABREV[d.dia]}</strong>
                                 <small>{fmtDataCurta(addDaysIso(semanaInicio, d.dia))}</small>
                               </div>
-                              {podeEditar && !d.tipo ? (
+                              {podeEditar && !d.tipo && !(ehGestorLoja || gestores?.somente_propria) ? (
                                 <span
                                   className="ck-escala-gestor__horas"
                                   onClick={(e) => e.stopPropagation()}
@@ -1733,9 +1827,12 @@ export default function EscalaVisitasMobileView() {
                                   />
                                 </span>
                               ) : (
-                                <em className={d.tipo ? '' : 'is-hora'}>{resumo}</em>
+                                <em className={d.tipo ? '' : 'is-hora'}>
+                                  {resumo}
+                                  {(ehGestorLoja || gestores?.somente_propria) && podeEditar ? <span aria-hidden> ›</span> : null}
+                                </em>
                               )}
-                              {podeEditar ? (
+                              {podeEditar && !(ehGestorLoja || gestores?.somente_propria) ? (
                                 <select
                                   className={`ck-escala-gestor__tipo${d.tipo ? '' : ' is-empty'}`}
                                   aria-label={`Situação ${linha.nome} ${DIAS_ABREV[d.dia]}`}
@@ -1748,7 +1845,7 @@ export default function EscalaVisitasMobileView() {
                                       d.dia,
                                       v
                                         ? { tipo: v }
-                                        : { tipo: null, hora_inicio: inicio || '08:00', hora_fim: fim || '18:00' },
+                                        : { tipo: null, hora_inicio: inicio || null, hora_fim: fim || null },
                                     );
                                   }}
                                 >
@@ -1763,6 +1860,148 @@ export default function EscalaVisitasMobileView() {
                           );
                         })}
                       </div>
+                      {(ehGestorLoja || gestores?.somente_propria) && podeEditar ? (
+                        <div className="ck-escala__acoes">
+                          <Button
+                            className="ck-escala__cta-salvar"
+                            variant="contained"
+                            fullWidth
+                            disabled={salvando}
+                            onClick={() => void enviarMinhaEscala()}
+                          >
+                            {salvando ? 'Enviando…' : 'Salvar escala'}
+                          </Button>
+                        </div>
+                      ) : null}
+                      {(ehGestorLoja || gestores?.somente_propria) && (gestores?.enviada || linha.enviada) && !podeEditar ? (
+                        <p className="ck-escala-gestor__folga-tag">Escala enviada. Não dá mais para alterar.</p>
+                      ) : null}
+                      <Dialog
+                        open={diaGestorSheet != null && (ehGestorLoja || Boolean(gestores?.somente_propria))}
+                        onClose={() => setDiaGestorSheet(null)}
+                        fullWidth
+                        PaperProps={{ className: 'ck-gestor-app__sheet' }}
+                      >
+                        {(() => {
+                          const dia = linha.dias.find((d) => d.dia === diaGestorSheet);
+                          if (!dia) return null;
+                          const turnos = [
+                            { label: 'Manhã', inicio: '09:00', fim: '17:00' },
+                            { label: 'Tarde', inicio: '14:00', fim: '22:00' },
+                            { label: 'Noite', inicio: '18:00', fim: '00:00' },
+                          ];
+                          const situacoes = [
+                            { id: 'folga', label: 'Folga' },
+                            { id: 'ferias', label: 'Férias' },
+                            { id: 'ausencia', label: 'Atestado' },
+                            { id: 'falta', label: 'Falta' },
+                          ];
+                          return (
+                            <>
+                              <DialogTitle>
+                                {DIAS_ABREV[dia.dia]} · {fmtDataCurta(addDaysIso(semanaInicio, dia.dia))}
+                              </DialogTitle>
+                              <DialogContent>
+                                <div className="ck-gestor-app__horas-livres">
+                                  <label>
+                                    <span>Entrada</span>
+                                    <input
+                                      type="tel"
+                                      inputMode="numeric"
+                                      autoComplete="off"
+                                      maxLength={5}
+                                      placeholder="08:00"
+                                      value={horaSheet.inicio}
+                                      onChange={(e) => setHoraSheet((atual) => ({ ...atual, inicio: formatarHoraDigitada(e.target.value) }))}
+                                    />
+                                  </label>
+                                  <label>
+                                    <span>Saída</span>
+                                    <input
+                                      type="tel"
+                                      inputMode="numeric"
+                                      autoComplete="off"
+                                      maxLength={5}
+                                      placeholder="18:00"
+                                      value={horaSheet.fim}
+                                      onChange={(e) => setHoraSheet((atual) => ({ ...atual, fim: formatarHoraDigitada(e.target.value) }))}
+                                    />
+                                  </label>
+                                </div>
+                                <Button
+                                  variant="contained"
+                                  fullWidth
+                                  disabled={horaSheet.inicio.length < 5 || horaSheet.fim.length < 5}
+                                  onClick={() => {
+                                    patchLinhaGestor(linha.id_gestor, {
+                                      dia: dia.dia,
+                                      tipo: null,
+                                      hora_inicio: horaSheet.inicio,
+                                      hora_fim: horaSheet.fim,
+                                    });
+                                    setDiaGestorSheet(null);
+                                  }}
+                                  sx={{ mb: 1.5 }}
+                                >
+                                  Usar esse horário
+                                </Button>
+                                <div className="ck-gestor-app__sheet-chips">
+                                  {turnos.map((turno) => (
+                                    <button
+                                      key={turno.label}
+                                      type="button"
+                                      className={`ck-gestor-app__chip${dia.hora_inicio === turno.inicio && dia.hora_fim === turno.fim && !dia.tipo ? ' is-on' : ''}`}
+                                      onClick={() => {
+                                        patchLinhaGestor(linha.id_gestor, {
+                                          dia: dia.dia,
+                                          tipo: null,
+                                          hora_inicio: turno.inicio,
+                                          hora_fim: turno.fim,
+                                        });
+                                        setDiaGestorSheet(null);
+                                      }}
+                                    >
+                                      {turno.label}
+                                      <small>{turno.inicio}–{turno.fim}</small>
+                                    </button>
+                                  ))}
+                                  {situacoes.map((sit) => (
+                                    <button
+                                      key={sit.id}
+                                      type="button"
+                                      className={`ck-gestor-app__chip${dia.tipo === sit.id ? ' is-on' : ''}`}
+                                      onClick={() => {
+                                        patchLinhaGestor(linha.id_gestor, {
+                                          dia: dia.dia,
+                                          tipo: sit.id,
+                                          hora_inicio: null,
+                                          hora_fim: null,
+                                        });
+                                        setDiaGestorSheet(null);
+                                      }}
+                                    >
+                                      {sit.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              </DialogContent>
+                              <DialogActions>
+                                <Button onClick={() => setDiaGestorSheet(null)}>Fechar</Button>
+                              </DialogActions>
+                            </>
+                          );
+                        })()}
+                      </Dialog>
+                      {gestores?.pode_reabrir && linha.enviada && semanaInicio >= '2026-11-02' ? (
+                        <div className="ck-gestor-app__lider">
+                          <button type="button" disabled={salvando} onClick={() => void reabrirEscala(linha.id_gestor)}>
+                            Reabrir
+                          </button>
+                          <button type="button" disabled={salvando} onClick={() => void excluirEscala(linha.id_gestor, linha.nome)}>
+                            Excluir
+                          </button>
+                        </div>
+                      ) : null}
                         </>
                       ) : null}
                     </div>

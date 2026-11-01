@@ -19,6 +19,9 @@ import {
 } from '../escalaVisitas.js';
 import {
   carregarGradeGestores,
+  enviarEscalaGestor,
+  excluirEscalaGestor,
+  reabrirEscalaGestor,
   salvarGradeGestores,
   upsertGestorCadastro,
   desativarGestorCadastro,
@@ -52,7 +55,8 @@ function erroHttp(e, res, next) {
     msg.includes('Semanas iguais') ||
     msg.includes('Delivery') ||
     msg.includes('Envio') ||
-    msg.includes('Não há')
+    msg.includes('Não há') ||
+    msg.includes('já enviada')
   ) {
     return res.status(400).json({ error: msg });
   }
@@ -334,6 +338,53 @@ router.put('/gestores', async (req, res, next) => {
       acao: 'salvar_escala_gestores',
       entidade: 'escala_gestores',
       descricao: `Escala de gestores semana ${grade?.semana_inicio || ''}`,
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/gestores/enviar', async (req, res, next) => {
+  try {
+    const grade = await enviarEscalaGestor(req.user, req.body || {});
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'enviar_escala_gestor',
+      entidade: 'escala_gestores',
+      descricao: `Gestor enviou a escala da semana ${grade?.semana_inicio || ''}`,
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/gestores/reabrir', async (req, res, next) => {
+  try {
+    const grade = await reabrirEscalaGestor(req.user, req.body || {});
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'reabrir_escala_gestor',
+      entidade: 'escala_gestores',
+      idReferencia: req.body?.id_gestor,
+      descricao: `Reabriu a escala do gestor #${req.body?.id_gestor || ''} na semana ${grade?.semana_inicio || ''}`,
+    });
+    res.json(grade);
+  } catch (e) {
+    return erroHttp(e, res, next);
+  }
+});
+
+router.post('/gestores/excluir', async (req, res, next) => {
+  try {
+    const grade = await excluirEscalaGestor(req.user, req.body || {});
+    await auditar(req, {
+      modulo: 'escalas',
+      acao: 'excluir_escala_gestor',
+      entidade: 'escala_gestores',
+      idReferencia: req.body?.id_gestor,
+      descricao: `Excluiu a escala do gestor #${req.body?.id_gestor || ''} na semana ${grade?.semana_inicio || ''}`,
     });
     res.json(grade);
   } catch (e) {

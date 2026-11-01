@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import Autocomplete from '@mui/material/Autocomplete';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
-import MenuItem from '@mui/material/MenuItem';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
-import { FOLGA_GESTOR_OPCOES } from './escalaVisitasUtils';
+import FolgasSemanaCampo from './FolgasSemanaCampo';
+import { diasDaFolgaPadrao, rotuloFolgaDias } from './escalaVisitasUtils';
 
 export type LojaOpcaoGestor = {
   id_loja: number;
@@ -99,24 +100,14 @@ export default function EscalaGestorCadastroDialog({
             isOptionEqualToValue={(a, b) => a.id_loja === b.id_loja}
             renderInput={(params) => <TextField {...params} label="Loja" />}
           />
-          <TextField
-            select
-            label="Folga padrão"
-            value={folga}
-            onChange={(e) => setFolga(e.target.value)}
-            fullWidth
-          >
-            <MenuItem value="">—</MenuItem>
-            {FOLGA_GESTOR_OPCOES.map((op) => (
-              <MenuItem key={op} value={op}>
-                {op}
-              </MenuItem>
-            ))}
-            <MenuItem value="combinado com Camilla">combinado com Camilla</MenuItem>
-            {folga &&
-              !(FOLGA_GESTOR_OPCOES as readonly string[]).includes(folga) &&
-              folga !== 'combinado com Camilla' && <MenuItem value={folga}>{folga}</MenuItem>}
-          </TextField>
+          <Box>
+            <Box sx={{ mb: 0.75, fontSize: 12, fontWeight: 700, color: 'text.secondary' }}>Folgas da semana</Box>
+            <FolgasSemanaCampo
+              dias={diasDaFolgaPadrao(folga)}
+              rotuloExtra={diasDaFolgaPadrao(folga).length ? null : folga}
+              onChange={(dias) => setFolga(rotuloFolgaDias(dias))}
+            />
+          </Box>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2, justifyContent: 'space-between' }}>

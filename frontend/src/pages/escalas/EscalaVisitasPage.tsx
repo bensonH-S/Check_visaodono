@@ -36,6 +36,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PlaceIcon from '@mui/icons-material/Place';
 import TwoWheelerIcon from '@mui/icons-material/TwoWheeler';
 import EventOutlinedIcon from '@mui/icons-material/EventOutlined';
+import LockOpenOutlinedIcon from '@mui/icons-material/LockOpenOutlined';
 import {
   api,
   type EscalaGestoresGrade,
@@ -64,11 +65,12 @@ import LojaBkMarca from '../../components/escalas/LojaBkMarca';
 import { gerarPngEscala } from '../../utils/gerarPngEscala';
 import { gerarPngEscalaGestores } from '../../utils/gerarPngEscalaGestores';
 import EscalaGestorCadastroDialog from '../../components/escalas/EscalaGestorCadastroDialog';
+import FolgasSemanaCampo from '../../components/escalas/FolgasSemanaCampo';
 import EscalaPlanejamentoPanel from '../../components/escalas/EscalaPlanejamentoPanel';
 import {
   addDaysIso,
   agruparRegionaisEscala,
-  FOLGA_GESTOR_OPCOES,
+  diasDaFolgaPadrao,
   ehMinhaLinhaGestor,
   linhasGestoresLoja,
   fmtDataCurta,
@@ -76,6 +78,7 @@ import {
   montarCardsAprovacaoEscala,
   mensagemShareEscalaTecnicosPorGrupos,
   primeiroNome,
+  rotuloFolgaDias,
   segundaFeiraAtual,
 } from '../../components/escalas/escalaVisitasUtils';
 
@@ -163,9 +166,6 @@ function formatarHoraDigitada(raw: string): string {
   return `${digitos.slice(0, 2)}:${digitos.slice(2)}`;
 }
 
-const HORA_PADRAO_INICIO = '08:00';
-const HORA_PADRAO_FIM = '18:00';
-
 function lerParHorario(input: HTMLInputElement) {
   const inputs = input.parentElement?.querySelectorAll('input');
   return {
@@ -214,7 +214,7 @@ function InputsHorario({
         inputMode="numeric"
         autoComplete="off"
         maxLength={5}
-        placeholder="08:00"
+        placeholder=""
         aria-label={ariaInicio}
         value={inicio}
         disabled={disabled}
@@ -243,7 +243,7 @@ function InputsHorario({
         inputMode="numeric"
         autoComplete="off"
         maxLength={5}
-        placeholder="18:00"
+        placeholder=""
         aria-label={ariaFim}
         value={fim}
         disabled={disabled}
@@ -269,9 +269,6 @@ function InputsHorario({
 }
 
 function horarioDoDia(d: { tipo?: string | null; hora_inicio?: string | null; hora_fim?: string | null }) {
-  if (!d.tipo && !d.hora_inicio && !d.hora_fim) {
-    return { hora_inicio: HORA_PADRAO_INICIO, hora_fim: HORA_PADRAO_FIM };
-  }
   return { hora_inicio: d.hora_inicio || '', hora_fim: d.hora_fim || '' };
 }
 
@@ -775,13 +772,39 @@ export default function EscalaVisitasPage() {
     }
   }
 
-  async function salvarFolgaPadraoGestor(idGestor: number, folgaPadrao: string) {
-    if (!gestores?.pode_editar) return;
+  async function reabrirEscala(idGestor: number) {
+    setSalvando(true);
+    try {
+      const data = await api.escalaGestoresReabrir({ semana_inicio: semanaInicio, id_gestor: idGestor });
+      setGestores(data);
+      showToast('Escala reaberta. O gestor já pode alterar no app e salvar de novo.', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Erro ao reabrir', 'error');
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function salvarFolgasDaSemana(idGestor: number, dias: number[]) {
+    const linha = gestores?.linhas.find((l) => l.id_gestor === idGestor);
+    const atuais = new Set<number>([
+      ...diasDaFolgaPadrao(linha?.folga_padrao),
+      ...(linha?.dias.filter((d) => d.tipo === 'folga').map((d) => d.dia) ?? []),
+    ]);
+    const proximos = new Set(dias.filter((dia) => dia >= 0 && dia <= 6));
+    const celulas: Array<{ id_gestor: number; dia: number; tipo: string | null }> = [];
+    for (const dia of atuais) {
+      if (!proximos.has(dia)) celulas.push({ id_gestor: idGestor, dia, tipo: null });
+    }
+    for (const dia of proximos) {
+      if (!atuais.has(dia)) celulas.push({ id_gestor: idGestor, dia, tipo: 'folga' });
+    }
     setSalvando(true);
     try {
       const data = await api.escalaGestoresSalvar({
         semana_inicio: semanaInicio,
-        gestores: [{ id_gestor: idGestor, folga_padrao: folgaPadrao || null }],
+        gestores: [{ id_gestor: idGestor, folga_padrao: rotuloFolgaDias([...proximos]) || null }],
+        celulas,
       });
       setGestores(data);
     } catch (e) {
@@ -2228,6 +2251,7 @@ export default function EscalaVisitasPage() {
                     <TableCell sx={{ minWidth: 120, fontWeight: 700, whiteSpace: 'nowrap', borderBottom: `1px solid ${colors.border}` }}>
                       Folga
                     </TableCell>
+                    <TableCell sx={{ width: 40, p: 0, borderBottom: `1px solid ${colors.border}` }} />
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -2350,8 +2374,8 @@ export default function EscalaVisitasPage() {
                                         ? { tipo: valor }
                                         : {
                                             tipo: null,
-                                            hora_inicio: HORA_PADRAO_INICIO,
-                                            hora_fim: HORA_PADRAO_FIM,
+                                            hora_inicio: d.hora_inicio || null,
+                                            hora_fim: d.hora_fim || null,
                                           },
                                     )
                                   }
@@ -2361,41 +2385,33 @@ export default function EscalaVisitasPage() {
                           </TableCell>
                         );
                       })}
-                      <TableCell sx={{ minWidth: 120, borderBottom: `1px solid ${colors.border}` }}>
-                        {gestores?.pode_editar ? (
-                          <Select
-                            variant="standard"
-                            disableUnderline
-                            displayEmpty
-                            value={linha.folga_padrao || ''}
-                            onChange={(e) =>
-                              void salvarFolgaPadraoGestor(linha.id_gestor, String(e.target.value))
-                            }
-                            sx={{
-                              fontSize: '0.8rem',
-                              fontWeight: 700,
-                              color: colors.textPrimary,
-                              '& .MuiSelect-select': { py: 0.2 },
-                            }}
-                          >
-                            <MenuItem value="">—</MenuItem>
-                            {FOLGA_GESTOR_OPCOES.map((op) => (
-                              <MenuItem key={op} value={op}>
-                                {op}
-                              </MenuItem>
-                            ))}
-                            <MenuItem value="combinado com Camilla">combinado com Camilla</MenuItem>
-                            {linha.folga_padrao &&
-                              !(FOLGA_GESTOR_OPCOES as readonly string[]).includes(linha.folga_padrao) &&
-                              linha.folga_padrao !== 'combinado com Camilla' && (
-                                <MenuItem value={linha.folga_padrao}>{linha.folga_padrao}</MenuItem>
-                              )}
-                          </Select>
-                        ) : (
-                          <Typography sx={{ fontSize: '0.8rem', fontWeight: 700 }}>
-                            {linha.folga_padrao || '—'}
-                          </Typography>
-                        )}
+                      <TableCell sx={{ minWidth: 148, borderBottom: `1px solid ${colors.border}` }}>
+                        <FolgasSemanaCampo
+                          dias={[...new Set([
+                            ...diasDaFolgaPadrao(linha.folga_padrao),
+                            ...linha.dias.filter((d) => d.tipo === 'folga').map((d) => d.dia),
+                          ])]}
+                          rotuloExtra={linha.folga_padrao}
+                          disabled={!gestores?.pode_editar || salvando}
+                          onChange={(dias) => void salvarFolgasDaSemana(linha.id_gestor, dias)}
+                        />
+                      </TableCell>
+                      <TableCell align="center" sx={{ width: 40, px: 0.5, borderBottom: `1px solid ${colors.border}` }}>
+                        {gestores?.pode_reabrir && linha.enviada && semanaInicio >= '2026-11-02' ? (
+                          <Tooltip title="Reabrir escala">
+                            <span>
+                              <IconButton
+                                size="small"
+                                disabled={salvando}
+                                aria-label={`Reabrir escala de ${linha.nome}`}
+                                onClick={() => void reabrirEscala(linha.id_gestor)}
+                                sx={{ color: colors.textMuted, '&:hover': { color: colors.textPrimary } }}
+                              >
+                                <LockOpenOutlinedIcon sx={{ fontSize: 16 }} />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -2405,8 +2421,7 @@ export default function EscalaVisitasPage() {
           )}
           {gestores?.pode_editar && linhasGestores.length > 0 && (
             <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1, display: 'block' }}>
-              Clique no nome do gestor para alterar ou remover. Use + Gestor para incluir outro. A seta no horário abre
-              Folga, Férias, Atestado ou Falta.
+              Clique no nome do gestor para alterar ou remover. A seta no horário abre Folga, Férias, Atestado ou Falta.
             </Typography>
           )}
         </Paper>

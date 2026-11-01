@@ -1140,6 +1140,31 @@ export const api = {
     request<EscalaGestoresGrade>(
       `/escalas/visitas/gestores?semana_inicio=${encodeURIComponent(semanaInicio)}`,
     ),
+  escalaGestoresReabrir: (body: { semana_inicio: string; id_gestor: number }) =>
+    request<EscalaGestoresGrade>('/escalas/visitas/gestores/reabrir', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  escalaGestoresExcluir: (body: { semana_inicio: string; id_gestor: number }) =>
+    request<EscalaGestoresGrade>('/escalas/visitas/gestores/excluir', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  escalaGestoresEnviar: (body: {
+    semana_inicio: string;
+    celulas?: Array<{
+      id_gestor: number;
+      dia: number;
+      tipo?: string | null;
+      hora_inicio?: string | null;
+      hora_fim?: string | null;
+    }>;
+    gestores?: Array<{ id_gestor: number; folga_padrao?: string | null }>;
+  }) =>
+    request<EscalaGestoresGrade>('/escalas/visitas/gestores/enviar', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   escalaGestoresSalvar: (body: {
     semana_inicio: string;
     celulas?: Array<{
@@ -3313,6 +3338,7 @@ export interface EscalaGestoresLinha {
   nome: string;
   grupo: 'loja' | 'campo';
   folga_padrao: string | null;
+  enviada?: boolean;
   dias: EscalaGestoresDia[];
 }
 
@@ -3322,6 +3348,8 @@ export interface EscalaGestoresGrade {
   pode_editar: boolean;
   /** Gestor de loja recebe só a própria linha e pode montá-la. */
   somente_propria?: boolean;
+  enviada?: boolean;
+  pode_reabrir?: boolean;
   linhas: EscalaGestoresLinha[];
 }
 
