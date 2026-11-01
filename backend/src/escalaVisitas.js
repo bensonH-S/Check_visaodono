@@ -1,5 +1,5 @@
 import { pool } from './db.js';
-import { acessoTodasLojas, temPermissao } from './permissoes.js';
+import { temPermissao } from './permissoes.js';
 import { carregarRegioesAtuacaoTecnico } from './lojasUsuario.js';
 
 /**
@@ -382,7 +382,7 @@ export function formatarDataBr(iso) {
 }
 
 async function usuarioAtuaEmTodasRegioesEscala(user) {
-  if (acessoTodasLojas(user) || podeGerenciarEscalaVisitas(user)) return true;
+  if (podeGerenciarEscalaVisitas(user)) return true;
   const emailJwt = String(user?.email || '').trim().toLowerCase();
   if (emailJwt === 'igor@grupoalvim.com.br') return true;
   if (!user?.sub) return false;
@@ -488,6 +488,7 @@ export async function listarRegioesEscala(user) {
 }
 
 async function lojasGrade(user, idRegiaoFiltro) {
+  const veTodaRede = await usuarioAtuaEmTodasRegioesEscala(user);
   const idsRegiao = await idsRegioesVisiveis(user);
   let filtroRegiao = idRegiaoFiltro ? Number(idRegiaoFiltro) : null;
 
@@ -504,11 +505,7 @@ async function lojasGrade(user, idRegiaoFiltro) {
       SELECT 1 FROM frota_regiao_lojas rl
       WHERE rl.id_loja = l.id_loja AND rl.id_regiao = $${params.length}
     )`;
-  } else if (
-    !acessoTodasLojas(user) &&
-    !podeGerenciarEscalaVisitas(user) &&
-    !temPermissao(user, 'escalas.visitas.editar_delivery')
-  ) {
+  } else if (!veTodaRede && !temPermissao(user, 'escalas.visitas.editar_delivery')) {
     if (idsRegiao.length) {
       params.push(idsRegiao);
       where += ` AND EXISTS (

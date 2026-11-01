@@ -1,4 +1,5 @@
 import { pool } from './db.js';
+import { carregarRegioesAtuacaoTecnico } from './lojasUsuario.js';
 import { temPermissao } from './permissoes.js';
 import { findBrandAsset } from './projectPaths.js';
 import { sendMail } from './services/mailer.js';
@@ -152,7 +153,7 @@ async function dadosUsuario(user) {
   return rows[0] || null;
 }
 
-/** Gestor de loja monta só a própria escala. Diretor e regional continuam vendo a rede. */
+/** Gestor de loja monta só a própria escala. Regional fica na região dele. */
 function ehGestorSomentePropria(user, dados) {
   if (!user || !dados) return false;
   if (podeGerenciarEscalaVisitas(user) || podeEditarEscalaRegiao(user)) return false;
@@ -180,6 +181,29 @@ function podeReabrirEscalaGestor(user, dados) {
     return true;
   }
   return EMAILS_LIDERANCA_ESCALA.has(String(dados.email || user.email || '').trim().toLowerCase());
+}
+
+/** Diretoria, TI e Igor veem a rede. Regional não, mesmo com acesso a todas as lojas. */
+function veRedeTodaGestores(user, dados) {
+  if (podeGerenciarEscalaVisitas(user)) return true;
+  const cargo = String(dados?.cargo_aprovacao || dados?.perfil || user?.perfil || '').toLowerCase();
+  if (['diretor', 'ceo', 'administrador', 'dono', 'ti', 'supervisor_geral'].includes(cargo)) return true;
+  const email = String(dados?.email || user?.email || '').trim().toLowerCase();
+  if (EMAILS_LIDERANCA_ESCALA.has(email) || email === 'igor@grupoalvim.com.br') return true;
+  return primeiroNome(dados?.nome || user?.nome) === 'igor';
+}
+
+async function idsLojasRegiaoUsuario(user) {
+  const id = Number(user?.sub || user?.id_usuario);
+  if (!id) return new Set();
+  const regioes = await carregarRegioesAtuacaoTecnico(id);
+  const idsRegiao = regioes.map((r) => Number(r.id_regiao)).filter(Boolean);
+  if (!idsRegiao.length) return new Set();
+  const { rows } = await pool.query(
+    `SELECT DISTINCT id_loja FROM frota_regiao_lojas WHERE id_regiao = ANY($1::int[])`,
+    [idsRegiao],
+  );
+  return new Set(rows.map((r) => Number(r.id_loja)));
 }
 
 function linhasDoUsuario(linhas, dados) {
@@ -282,7 +306,11 @@ export async function carregarGradeGestores(user, { semana_inicio, mostrarGravad
     };
   });
 
-  const linhasVisiveis = somentePropria ? linhasDoUsuario(linhas, dados) : linhas;
+  let linhasVisiveis = somentePropria ? linhasDoUsuario(linhas, dados) : linhas;
+  if (!somentePropria && !veRedeTodaGestores(user, dados)) {
+    const idsLoja = await idsLojasRegiaoUsuario(user);
+    linhasVisiveis = linhas.filter((l) => l.id_loja != null && idsLoja.has(Number(l.id_loja)));
+  }
   const enviada = somentePropria && linhasVisiveis.some((l) => l.enviada);
 
   return {
@@ -600,6 +628,17 @@ async function exigirReabertura(user, idGestor, semanaInicio) {
   }
   const id = Number(idGestor);
   if (!id) throw new Error('Gestor inválido');
+  if (!veRedeTodaGestores(user, dados)) {
+    const idsLoja = await idsLojasRegiaoUsuario(user);
+    const { rows } = await pool.query(
+      `SELECT id_loja FROM escala_gestores WHERE id_gestor = $1`,
+      [id],
+    );
+    const idLoja = rows[0]?.id_loja != null ? Number(rows[0].id_loja) : null;
+    if (!idLoja || !idsLoja.has(idLoja)) {
+      throw new Error('Sem permissão para reabrir a escala');
+    }
+  }
   await garantirSchemaGestores();
   const inicio = segundaFeiraDaSemana(semanaInicio || new Date());
   return { id, inicio };
