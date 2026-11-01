@@ -18,6 +18,7 @@ import SendIcon from '@mui/icons-material/Send';
 import ShareIcon from '@mui/icons-material/Share';
 import {
   api,
+  type EscalaGestoresDia,
   type EscalaGestoresGrade,
   type EscalaManutencaoGrade,
   type EscalaVisitasAtribuicao,
@@ -47,7 +48,6 @@ import {
   DIAS_ABREV,
   DIAS_LONGO,
   FOLGA_GESTOR_OPCOES,
-  diasDaFolgaPadrao,
   ehMinhaLinhaGestor,
   linhasGestoresLoja,
   addDaysIso,
@@ -625,7 +625,7 @@ export default function EscalaVisitasMobileView() {
 
   function patchLinhaGestor(
     idGestor: number,
-    patch: { folga_padrao?: string | null; dia?: number; tipo?: string | null; hora_inicio?: string | null; hora_fim?: string | null },
+    patch: { folga_padrao?: string | null; dia?: number; tipo?: EscalaGestoresDia['tipo']; hora_inicio?: string | null; hora_fim?: string | null },
   ) {
     setGestores((prev) => {
       if (!prev) return prev;
@@ -634,7 +634,15 @@ export default function EscalaVisitasMobileView() {
         linhas: prev.linhas.map((linha) => {
           if (linha.id_gestor !== idGestor) return linha;
           if (patch.dia == null) return { ...linha, folga_padrao: patch.folga_padrao ?? linha.folga_padrao };
-          const dias = linha.dias.map((d) => (d.dia !== patch.dia ? d : { ...d, ...patch, dia: d.dia }));
+          const dias = linha.dias.map((d) => {
+            if (d.dia !== patch.dia) return d;
+            return {
+              ...d,
+              tipo: patch.tipo === undefined ? d.tipo : patch.tipo,
+              hora_inicio: patch.hora_inicio === undefined ? d.hora_inicio : patch.hora_inicio,
+              hora_fim: patch.hora_fim === undefined ? d.hora_fim : patch.hora_fim,
+            };
+          });
           const folgas = dias.filter((d) => d.tipo === 'folga').map((d) => d.dia);
           return {
             ...linha,
@@ -1880,7 +1888,7 @@ export default function EscalaVisitasMobileView() {
                         open={diaGestorSheet != null && (ehGestorLoja || Boolean(gestores?.somente_propria))}
                         onClose={() => setDiaGestorSheet(null)}
                         fullWidth
-                        PaperProps={{ className: 'ck-gestor-app__sheet' }}
+                        slotProps={{ paper: { className: 'ck-gestor-app__sheet' } }}
                       >
                         {(() => {
                           const dia = linha.dias.find((d) => d.dia === diaGestorSheet);
@@ -1890,7 +1898,7 @@ export default function EscalaVisitasMobileView() {
                             { label: 'Tarde', inicio: '14:00', fim: '22:00' },
                             { label: 'Noite', inicio: '18:00', fim: '00:00' },
                           ];
-                          const situacoes = [
+                          const situacoes: { id: EscalaGestoresDia['tipo']; label: string }[] = [
                             { id: 'folga', label: 'Folga' },
                             { id: 'ferias', label: 'Férias' },
                             { id: 'ausencia', label: 'Atestado' },
