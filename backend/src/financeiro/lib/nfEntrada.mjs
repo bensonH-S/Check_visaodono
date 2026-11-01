@@ -224,7 +224,8 @@ async function criarDespesasNfeSemDda({ financePool, notas, nfeIdsJaLigados }) {
   const refs = conferidas.map((n) => docRefNfe(n.id))
   const idsNfe = conferidas.map((n) => String(n.id))
   const existentes = await financePool.query(
-    `select id::text as id, documento_ref, nfe_id, status
+    `select id::text as id, documento_ref, nfe_id, status,
+            coalesce(excluida_manualmente, false) as excluida
        from despesas
       where documento_ref = any($1::text[])
          or nfe_id = any($2::text[])`,
@@ -254,6 +255,10 @@ async function criarDespesasNfeSemDda({ financePool, notas, nfeIdsJaLigados }) {
     if (!vencimento) continue
 
     const ja = porRef.get(ref) || porNfeId.get(nfeId)
+    if (ja?.excluida) {
+      nfeIdsJaLigados.add(nfeId)
+      continue
+    }
     if (ja && ja.status !== 'cancelada') {
       // Já existe lançamento ativo (ex.: NF|chave da Receita) — só garante o selo.
       await financePool.query(

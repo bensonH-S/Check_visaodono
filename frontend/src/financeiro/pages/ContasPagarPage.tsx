@@ -371,13 +371,18 @@ export function ContasPagarPage() {
     return true
   }), [despesas, loja])
 
-  /** Agenda: só vencimento no período (Free Control incluso). */
+  /** Agenda: vencimento no período, ou a semana em que foi informada e depois levada. */
   const noPeriodo = useMemo(() => naAgenda.filter((e) => {
-    const vencimento = (e.vencimento || '').slice(0, 10)
-    if (!vencimento) return !de && !ate
-    if (de && vencimento < de) return false
-    if (ate && vencimento > ate) return false
-    return true
+    const cabe = (dia?: string | null) => {
+      const vencimento = (dia || '').slice(0, 10)
+      if (!vencimento) return !de && !ate
+      if (de && vencimento < de) return false
+      if (ate && vencimento > ate) return false
+      return true
+    }
+    if (cabe(e.vencimento)) return true
+    const aparicoes = Array.isArray(e.aparicoes) ? e.aparicoes : []
+    return aparicoes.some((a) => !a.conta && cabe(a.vencimento))
   }), [naAgenda, de, ate])
 
   const linhas = useMemo(() => {
@@ -414,7 +419,12 @@ export function ContasPagarPage() {
   const visiveis = linhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
 
   // Cards = totais da semana (não somem ao filtrar a lista).
-  const somaPeriodo = (pred: (e: Despesa) => boolean) => noPeriodo.filter(pred).reduce((a, e) => a + Number(e.valor), 0)
+  const somaPeriodo = (pred: (e: Despesa) => boolean) => noPeriodo.filter(pred).reduce((a, e) => {
+    const vencimento = (e.vencimento || '').slice(0, 10)
+    const viva = (!de || vencimento >= de) && (!ate || vencimento <= ate) && !!vencimento
+    if (!viva) return a
+    return a + Number(e.valor)
+  }, 0)
   const lojas = useMemo(
     () => ordenarEmpresas(empresas.filter((e) => e.tipo === 'loja' || e.tipo === 'holding')),
     [empresas],
@@ -663,6 +673,16 @@ export function ContasPagarPage() {
               const tomChave = situacao(e)
               const tom = TOM_CLARO[tomChave] || TOM_CLARO.a_pagar
               const rotulo = ROTULO[tomChave] || ROTULO.a_pagar
+              const vencimentoAtual = (e.vencimento || '').slice(0, 10)
+              const vivaAqui = (!de || vencimentoAtual >= de) && (!ate || vencimentoAtual <= ate) && !!vencimentoAtual
+              const passada = vivaAqui
+                ? null
+                : (Array.isArray(e.aparicoes) ? e.aparicoes : []).find((a) => {
+                    const dia = (a.vencimento || '').slice(0, 10)
+                    return !a.conta && (!de || dia >= de) && (!ate || dia <= ate)
+                  })
+              const valorLinha = passada ? Number(passada.valor) : Number(e.valor)
+              const vencimentoLinha = passada?.vencimento || e.vencimento
               return (
               <TableRow
                 key={e.id}
@@ -874,12 +894,17 @@ export function ContasPagarPage() {
                 <TableCell align="center" sx={{ verticalAlign: 'middle', color: FIN_MUTED, fontVariantNumeric: 'tabular-nums' }}>
                   {dataBr(e.data_lancamento || e.competencia)}
                 </TableCell>
-                <TableCell align="center" sx={{ verticalAlign: 'middle', color: estaVencida(e) ? '#B91C1C' : FIN_TEXT }}>
-                  {dataBr(e.vencimento)}
+                <TableCell align="center" sx={{ verticalAlign: 'middle', color: estaVencida(e) && !passada ? '#B91C1C' : FIN_TEXT }}>
+                  {dataBr(vencimentoLinha)}
+                  {!passada && e.vencimento_original && e.vencimento_original.slice(0, 10) !== vencimentoAtual ? (
+                    <Typography sx={{ fontSize: 10.5, color: FIN_MUTED, lineHeight: 1.2 }}>original {dataBr(e.vencimento_original)}</Typography>
+                  ) : null}
                 </TableCell>
                 <TableCell align="center" sx={{ verticalAlign: 'middle', fontWeight: 600, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>
-                  <Typography sx={{ fontSize: 12.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{brl(Number(e.valor))}</Typography>
-                  {linhaAcrescimo(e) ? (
+                  <Typography sx={{ fontSize: 12.5, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{brl(valorLinha)}</Typography>
+                  {passada ? (
+                    <Typography sx={{ fontSize: 10.5, color: FIN_MUTED, lineHeight: 1.2 }}>Informada nesta semana</Typography>
+                  ) : linhaAcrescimo(e) ? (
                     <Typography sx={{ fontSize: 10.5, color: '#B45309', lineHeight: 1.2 }}>{linhaAcrescimo(e)}</Typography>
                   ) : null}
                 </TableCell>

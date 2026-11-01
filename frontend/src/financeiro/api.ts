@@ -200,6 +200,14 @@ export type Despesa = {
   modo_acrescimo?: 'total' | 'taxas' | null
   vencimento: string | null
   vencimento_original?: string | null
+  /** Semanas em que a despesa foi informada. conta=false fica no histórico e não soma de novo. */
+  aparicoes?: Array<{
+    vencimento: string
+    valor: number
+    juros?: number
+    multa?: number
+    conta: boolean
+  }>
   /** Dia em que o gasto aconteceu / entrou no sistema — não é o vencimento. */
   data_lancamento?: string | null
   competencia: string | null

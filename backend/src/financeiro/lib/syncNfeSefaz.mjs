@@ -1230,6 +1230,24 @@ export async function lancarNotaNaAgenda(financePool, id) {
   }
   if (!empresaId) throw erroStatus(400, 'Essa nota não está ligada a uma empresa do financeiro.')
 
+  const bloqueada = await financePool.query(
+    `SELECT id::text AS id FROM despesas
+     WHERE empresa_origem_id = $1
+       AND coalesce(excluida_manualmente, false)
+       AND (documento_ref = $2 OR documento_ref LIKE $3 OR nfe_id = $4)
+     LIMIT 1`,
+    [empresaId, `NF|${nota.chave}`, `NF|${nota.chave}|%`, String(nota.id || '')],
+  )
+  if (bloqueada.rowCount) {
+    return {
+      id: bloqueada.rows[0].id,
+      vencimento: null,
+      quantidade: 0,
+      ja_existia: true,
+      vinculou_dda: false,
+    }
+  }
+
   const existentes = await financePool.query(
     `SELECT id, vencimento::text AS vencimento
      FROM despesas

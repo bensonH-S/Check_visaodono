@@ -26,6 +26,7 @@ import {
 import { removerCadastro, salvarCadastro, usoDe } from './lib/cadastros.mjs'
 import { garantirSchemaCaixa, lerComprovante, mesFechamentos, receberHeartbeat, receberIngestao, resumoCanaisPeriodo, salvarFechamento } from './lib/fechamentoCaixa.mjs'
 import { montarCustosCo } from './lib/custosCo.mjs'
+import { acharParaLevar, gravarAparicaoVigente, levarDespesa } from './lib/despesaAparicao.mjs'
 import { gerarDanfe } from './lib/danfe.mjs'
 import { baixarBoletoDaDespesa, baixarNotaDaDespesa } from './lib/boletoEsupri.mjs'
 import { sincronizarNfesConferidas } from './lib/nfEntrada.mjs'
@@ -99,6 +100,7 @@ async function garantirSchemaFonte(db) {
   await db.query(fs.readFileSync(path.join(root, 'db', '016_despesa_acrescimos.sql'), 'utf8'))
   await db.query(fs.readFileSync(path.join(root, 'db', '017_despesa_conferencia.sql'), 'utf8'))
   await db.query(fs.readFileSync(path.join(root, 'db', '018_despesa_lancamento_dono.sql'), 'utf8'))
+  await db.query(fs.readFileSync(path.join(root, 'db', '019_despesa_aparicao.sql'), 'utf8'))
   try {
     const { garantirSchemaFreecontrol } = await import('./lib/importFreecontrol.mjs')
     await garantirSchemaFreecontrol(db)
@@ -263,7 +265,7 @@ async function contextoDda() {
       left join plano_contas p on p.id = f.plano_conta_id
       where f.ativo
     `),
-    pool.query(`select empresa_origem_id, documento_ref from despesas where documento_ref is not null and status <> 'cancelada'`),
+    pool.query(`select empresa_origem_id, documento_ref from despesas where documento_ref is not null and (status <> 'cancelada' or coalesce(excluida_manualmente, false))`),
   ])
   return {
     empresas: empresas.rows,
@@ -434,13 +436,14 @@ async function lancarPdfNaAgenda(buffer, nomeArquivo, { paraAgenda = true } = {}
   }
   const status = paraAgenda ? 'pronta' : 'rascunho'
   if (parsed.documento_ref) {
-    const dup = await pool.query(
-      `SELECT id::text AS id, status FROM despesas
-       WHERE empresa_origem_id = $1 AND documento_ref = $2 AND status <> 'cancelada'
-       LIMIT 1`,
-      [empresa.id, parsed.documento_ref],
-    )
-    if (dup.rows[0]) {
+      const dup = await pool.query(
+        `SELECT id::text AS id, status, coalesce(excluida_manualmente, false) AS excluida FROM despesas
+         WHERE empresa_origem_id = $1 AND documento_ref = $2
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [empresa.id, parsed.documento_ref],
+      )
+      if (dup.rows[0]?.excluida || (dup.rows[0] && dup.rows[0].status !== 'cancelada')) {
       return {
         criadas: 0,
         ja_existia: true,
@@ -488,6 +491,38 @@ async function lancarDda(selecionadas, { paraAgenda = false } = {}) {
   for (const linha of prontas) {
     const status = paraAgenda ? 'pronta' : (linha.fornecedor_id ? 'classificada' : 'rascunho')
     const descricao = descricaoDda(linha)
+    if (linha.documento) {
+      const aberta = await pool.query(
+        `
+        select id::text as id, valor::float8 as valor, coalesce(valor_face, valor)::float8 as face
+        from despesas
+        where empresa_origem_id = $1::uuid
+          and btrim(coalesce(numero_nf, '')) = btrim($2)
+          and status not in ('paga', 'conciliada', 'cancelada')
+          and coalesce(excluida_manualmente, false) = false
+        limit 2
+        `,
+        [linha.empresa_id, String(linha.documento)],
+      )
+      if (aberta.rows.length === 1) {
+        const face = Number(aberta.rows[0].face) || Number(linha.valor) || 0
+        const total = Number(linha.valor) || face
+        const juros = Math.max(0, Math.round((total - face) * 100) / 100)
+        await levarDespesa(pool, aberta.rows[0].id, {
+          vencimento: linha.vencimento,
+          total,
+          face,
+          multa: 0,
+          juros,
+          outras: 0,
+          desconto: 0,
+          modo: juros > 0 ? 'taxas' : 'total',
+        })
+        ids.push(aberta.rows[0].id)
+        criadas += 1
+        continue
+      }
+    }
     const { rows } = await pool.query(`
       insert into despesas (
         id, descricao, fornecedor_id, empresa_origem_id, plano_conta_id,
@@ -741,7 +776,19 @@ async function listarDespesas(empresaId, { empresaIds = null } = {}) {
            (nr.id is not null) as tem_nfe_receita,
            nr.chave as nfe_chave,
            nr.tem_xml as nfe_tem_xml,
-           coalesce(d.pendente_inbox, false) as pendente_inbox
+           coalesce(d.pendente_inbox, false) as pendente_inbox,
+           coalesce(d.excluida_manualmente, false) as excluida_manualmente,
+           coalesce((
+             select json_agg(json_build_object(
+               'vencimento', to_char(a.vencimento, 'YYYY-MM-DD'),
+               'valor', a.valor::float8,
+               'juros', a.juros::float8,
+               'multa', a.multa::float8,
+               'conta', a.conta
+             ) order by a.vencimento)
+             from despesa_aparicoes a
+             where a.despesa_id = d.id
+           ), '[]'::json) as aparicoes
     from despesas d
     join empresas eo on eo.id = d.empresa_origem_id
     left join (
@@ -1410,6 +1457,23 @@ export async function handleFinance(req, res) {
       if (body.forma_pagamento && !FORMAS.has(body.forma_pagamento)) {
         return send(res, 400, JSON.stringify({ erro: 'Forma de pagamento inválida.' }))
       }
+      const ja = await acharParaLevar(pool, {
+        empresaId: body.empresa_origem_id,
+        documentoRef: body.documento_ref || null,
+        numeroNf: body.numero_nf || null,
+        fornecedorId: body.fornecedor_id || null,
+      })
+      if (ja?.excluida) {
+        return send(res, 409, JSON.stringify({ erro: 'Essa despesa foi excluída da agenda.' }))
+      }
+      if (ja?.paga) {
+        return send(res, 409, JSON.stringify({ erro: 'Essa despesa já foi paga.' }))
+      }
+      if (ja?.id) {
+        await levarDespesa(pool, ja.id, acrescimo)
+        const status = await pool.query(`select status from despesas where id = $1::uuid`, [ja.id])
+        return send(res, 200, JSON.stringify({ id: ja.id, status: status.rows[0]?.status || 'pronta', levada: true }))
+      }
       // Idempotência: clique duplo no "Criar" em poucos segundos não gera 2ª despesa.
       const recent = await pool.query(`
         select id::text as id, status
@@ -1474,6 +1538,7 @@ export async function handleFinance(req, res) {
         body.dados_pagamento ? String(body.dados_pagamento).trim() : null,
         status,
       ])
+      await gravarAparicaoVigente(pool, inserted.rows[0].id)
       return send(res, 201, JSON.stringify(inserted.rows[0]))
     }
     if (req.method === 'POST' && url.pathname === '/api/despesas/agenda') {
@@ -1740,10 +1805,20 @@ export async function handleFinance(req, res) {
       if (body.forma_pagamento && !FORMAS.has(body.forma_pagamento)) {
         return send(res, 400, JSON.stringify({ erro: 'Forma de pagamento inválida.' }))
       }
+      const antes = await pool.query(
+        `select to_char(vencimento, 'YYYY-MM-DD') as vencimento from despesas where id = $1::uuid`,
+        [id],
+      )
+      if (antes.rows[0]?.vencimento && acrescimo.vencimento && antes.rows[0].vencimento !== acrescimo.vencimento) {
+        const { arquivarSemanaAtual } = await import('./lib/despesaAparicao.mjs')
+        await arquivarSemanaAtual(pool, id)
+      }
       const updated = await pool.query(`
         update despesas set
           descricao = $1, fornecedor_id = $2, empresa_origem_id = $3, conta_saida_id = $4, plano_conta_id = $5,
-          documento_ref = $6, vencimento = $7, vencimento_original = $8, valor = $9, valor_face = $10,
+          documento_ref = $6, vencimento = $7::date,
+          vencimento_original = coalesce(vencimento_original, $8::date, vencimento),
+          valor = $9, valor_face = coalesce(valor_face, $10),
           multa = $11, juros = $12, outras_taxas = $13, desconto = $14, modo_acrescimo = $15,
           forma_pagamento = $16, dados_pagamento = $17,
           status = case when $19::text is null then status else $19 end,
@@ -1775,11 +1850,18 @@ export async function handleFinance(req, res) {
         body.data_lancamento || null,
       ])
       if (!updated.rowCount) return send(res, 404, JSON.stringify({ erro: 'Despesa não encontrada.' }))
+      await gravarAparicaoVigente(pool, id)
       return send(res, 200, JSON.stringify(updated.rows[0]))
     }
     if (req.method === 'DELETE' && url.pathname.startsWith('/api/despesas/')) {
       const id = url.pathname.split('/').pop()
-      const deleted = await pool.query('delete from despesas where id = $1 returning id', [id])
+      const deleted = await pool.query(
+        `update despesas
+            set status = 'cancelada', excluida_manualmente = true, pendente_inbox = false
+          where id = $1::uuid
+          returning id`,
+        [id],
+      )
       if (!deleted.rowCount) return send(res, 404, JSON.stringify({ erro: 'Despesa não encontrada.' }))
       metaFinanceiro(req, {
         acao: 'excluir',
