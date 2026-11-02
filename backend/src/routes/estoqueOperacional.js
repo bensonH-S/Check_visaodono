@@ -1182,8 +1182,12 @@ router.get('/contagens/mensal/:id/pdf', permOp, async (req, res, next) => {
     const id = Number(req.params.id);
     if (!id) return res.status(400).json({ error: 'Informe a contagem' });
     const { pdf, filename } = await pdfRelatorioMensal(id, idsEstoqueDoUsuario(req));
+    const ascii = filename.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\x20-\x7E]/g, '');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${ascii || 'Contagem mensal.pdf'}"; filename*=UTF-8''${encodeURIComponent(filename)}`,
+    );
     res.send(pdf);
   } catch (e) {
     if (e.status) return res.status(e.status).json({ error: e.message });

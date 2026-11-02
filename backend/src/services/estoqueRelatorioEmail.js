@@ -353,6 +353,19 @@ function gerarPdfBuffer({ contagem, linhas, valor, logos }) {
   return Buffer.from(doc.output('arraybuffer'));
 }
 
+function nomeArquivoContagemMensal(contagem) {
+  const nome = String(contagem?.loja_nome || '')
+    .replace(/^BURGER KING\s*-\s*/i, '')
+    .replace(/^POPEYES\s*-\s*/i, '')
+    .replace(/^POPYES\s*-\s*/i, '')
+    .replace(/[\\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const bk = String(contagem?.loja_codigo || '').replace(/[\\/:*?"<>|]/g, '').trim();
+  const base = [nome, bk, 'Contagem mensal'].filter(Boolean).join(' - ') || 'Contagem mensal';
+  return `${base}.pdf`;
+}
+
 function htmlEmail(contagem, valor) {
   const loja = [contagem.loja_codigo, contagem.loja_nome].filter(Boolean).join(' · ');
   return `<div style="margin:0;padding:24px 12px;background:#F4F7FB;font-family:Arial,sans-serif">
@@ -429,10 +442,9 @@ export async function pdfRelatorioMensal(idContagem, idsPermitidos = null) {
     err.status = 403;
     throw err;
   }
-  const dia = String(dados.contagem.data_contagem).slice(0, 10);
   return {
     pdf,
-    filename: `contagem-mensal-${dados.contagem.loja_codigo || idLoja}-${dia}.pdf`,
+    filename: nomeArquivoContagemMensal(dados.contagem),
   };
 }
 
@@ -456,7 +468,7 @@ async function enviarUma(user, idContagem) {
     html: htmlEmail(dados.contagem, dados.valor),
     attachments: [
       {
-        filename: `contagem-mensal-${dados.contagem.loja_codigo || dados.contagem.id_loja}-${String(dados.contagem.data_contagem).slice(0, 10)}.pdf`,
+        filename: nomeArquivoContagemMensal(dados.contagem),
         content: pdf,
         contentType: 'application/pdf',
       },

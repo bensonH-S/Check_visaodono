@@ -12,7 +12,104 @@ import { api, type EstoqueContagemRedeItem } from '../../../api/client';
 function nomeCurto(nome: string) {
   return String(nome || '')
     .replace(/^BURGER KING\s*-\s*/i, '')
+    .replace(/^POPEYES\s*-\s*/i, '')
     .replace(/^POPYES\s*-\s*/i, '');
+}
+
+function nomeArquivoLoja(loja: EstoqueContagemRedeItem) {
+  const nome = nomeCurto(loja.name).replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim();
+  const bk = String(loja.bk_number || '').replace(/[\\/:*?"<>|]/g, '').trim();
+  return `${[nome, bk, 'Contagem mensal'].filter(Boolean).join(' - ')}.pdf`;
+}
+
+function baixarBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+function crc32(data: Uint8Array) {
+  let crc = 0xffffffff;
+  for (let i = 0; i < data.length; i += 1) {
+    crc ^= data[i];
+    for (let bit = 0; bit < 8; bit += 1) {
+      crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+    }
+  }
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+function u16(n: number) {
+  return [n & 255, (n >>> 8) & 255];
+}
+
+function u32(n: number) {
+  return [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+}
+
+function juntar(partes: Uint8Array[]) {
+  const total = partes.reduce((soma, parte) => soma + parte.length, 0);
+  const out = new Uint8Array(total);
+  let pos = 0;
+  for (const parte of partes) {
+    out.set(parte, pos);
+    pos += parte.length;
+  }
+  return out;
+}
+
+/** ZIP sem compressão. O PDF já é compacto e o nome de cada loja fica intacto. */
+function zipPdfs(arquivos: { nome: string; dados: Uint8Array }[]) {
+  const agora = new Date();
+  const hora = (agora.getHours() << 11) | (agora.getMinutes() << 5) | (agora.getSeconds() >> 1);
+  const data = ((agora.getFullYear() - 1980) << 9) | ((agora.getMonth() + 1) << 5) | agora.getDate();
+  const encoder = new TextEncoder();
+  const locais: Uint8Array[] = [];
+  const centrais: Uint8Array[] = [];
+  let offset = 0;
+  for (const arquivo of arquivos) {
+    const nome = encoder.encode(arquivo.nome);
+    const crc = crc32(arquivo.dados);
+    const local = juntar([
+      new Uint8Array([
+        0x50, 0x4b, 0x03, 0x04,
+        ...u16(20), ...u16(0x800), ...u16(0),
+        ...u16(hora), ...u16(data),
+        ...u32(crc), ...u32(arquivo.dados.length), ...u32(arquivo.dados.length),
+        ...u16(nome.length), ...u16(0),
+      ]),
+      nome,
+      arquivo.dados,
+    ]);
+    const central = juntar([
+      new Uint8Array([
+        0x50, 0x4b, 0x01, 0x02,
+        ...u16(20), ...u16(20), ...u16(0x800), ...u16(0),
+        ...u16(hora), ...u16(data),
+        ...u32(crc), ...u32(arquivo.dados.length), ...u32(arquivo.dados.length),
+        ...u16(nome.length), ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0),
+        ...u32(offset),
+      ]),
+      nome,
+    ]);
+    locais.push(local);
+    centrais.push(central);
+    offset += local.length;
+  }
+  const central = juntar(centrais);
+  const fim = new Uint8Array([
+    0x50, 0x4b, 0x05, 0x06,
+    ...u16(0), ...u16(0),
+    ...u16(arquivos.length), ...u16(arquivos.length),
+    ...u32(central.length), ...u32(offset),
+    ...u16(0),
+  ]);
+  return new Blob([juntar([...locais, central, fim]).buffer], { type: 'application/zip' });
 }
 
 export function CcEnvioMensalDialog({
@@ -34,6 +131,7 @@ export function CcEnvioMensalDialog({
   const pendentes = lojas.filter((loja) => loja.status !== 'contou');
   const [sel, setSel] = useState<number[]>([]);
   const [enviando, setEnviando] = useState(false);
+  const [baixando, setBaixando] = useState(false);
   const [vendo, setVendo] = useState<number | null>(null);
   const [aviso, setAviso] = useState('');
 
@@ -62,6 +160,38 @@ export function CcEnvioMensalDialog({
     }
   };
 
+  const baixar = async () => {
+    const escolhidas = contaram.filter((loja) => sel.includes(Number(loja.id_contagem)));
+    if (!escolhidas.length || baixando) return;
+    setBaixando(true);
+    setAviso('');
+    const falhas: string[] = [];
+    const arquivos: { nome: string; dados: Uint8Array }[] = [];
+    for (let i = 0; i < escolhidas.length; i += 1) {
+      const loja = escolhidas[i];
+      setAviso(`Preparando ${i + 1} de ${escolhidas.length}…`);
+      try {
+        const blob = await api.estoquePdfMensal(Number(loja.id_contagem));
+        arquivos.push({ nome: nomeArquivoLoja(loja), dados: new Uint8Array(await blob.arrayBuffer()) });
+      } catch (e) {
+        falhas.push(`${nomeCurto(loja.name)}: ${e instanceof Error ? e.message : 'falhou'}`);
+      }
+    }
+    if (arquivos.length === 1) {
+      baixarBlob(new Blob([arquivos[0].dados.buffer], { type: 'application/pdf' }), arquivos[0].nome);
+    } else if (arquivos.length > 1) {
+      baixarBlob(zipPdfs(arquivos), 'Contagem mensal.zip');
+    }
+    setAviso(
+      falhas.length
+        ? `Baixou ${arquivos.length} de ${escolhidas.length}. ${falhas[0]}`
+        : arquivos.length === 1
+          ? 'PDF baixado.'
+          : `${arquivos.length} PDFs no arquivo Contagem mensal.zip.`,
+    );
+    setBaixando(false);
+  };
+
   const enviar = async () => {
     if (!sel.length || enviando) return;
     setEnviando(true);
@@ -83,7 +213,7 @@ export function CcEnvioMensalDialog({
   };
 
   return (
-    <Dialog open={aberto} onClose={enviando ? undefined : onFechar} fullWidth maxWidth="sm">
+    <Dialog open={aberto} onClose={enviando || baixando ? undefined : onFechar} fullWidth maxWidth="sm">
       <DialogTitle sx={{ pr: 3, pb: 0.5 }}>
         <Typography sx={{ fontSize: 16, fontWeight: 800 }}>Contagem mensal</Typography>
         <Typography sx={{ mt: 0.35, fontSize: 12.5, color: 'text.secondary', fontWeight: 500 }}>
@@ -95,9 +225,10 @@ export function CcEnvioMensalDialog({
           <Typography sx={{ fontSize: 11, fontWeight: 800, letterSpacing: '.04em', color: 'text.secondary' }}>
             QUEM CONTOU
           </Typography>
-          {podeEnviar && contaram.length ? (
+          {contaram.length ? (
             <Button
               size="small"
+              disabled={enviando || baixando}
               onClick={() => setSel(todasMarcadas ? [] : idsContaram)}
               sx={{ textTransform: 'none', fontSize: 11, fontWeight: 700, minWidth: 0 }}
             >
@@ -113,7 +244,7 @@ export function CcEnvioMensalDialog({
               key={loja.id_loja}
               sx={{
                 display: 'grid',
-                gridTemplateColumns: podeEnviar ? '28px minmax(0,1fr) auto auto' : 'minmax(0,1fr) auto auto',
+                gridTemplateColumns: '28px minmax(0,1fr) auto auto',
                 alignItems: 'center',
                 gap: 0.5,
                 minHeight: 36,
@@ -121,14 +252,13 @@ export function CcEnvioMensalDialog({
                 borderRadius: 1,
               }}
             >
-              {podeEnviar ? (
-                <Checkbox
-                  size="small"
-                  checked={marcada}
-                  onChange={() => setSel((atual) => (atual.includes(id) ? atual.filter((item) => item !== id) : [...atual, id]))}
-                  slotProps={{ input: { 'aria-label': `Selecionar ${nomeCurto(loja.name)}` } }}
-                />
-              ) : null}
+              <Checkbox
+                size="small"
+                checked={marcada}
+                disabled={enviando || baixando}
+                onChange={() => setSel((atual) => (atual.includes(id) ? atual.filter((item) => item !== id) : [...atual, id]))}
+                slotProps={{ input: { 'aria-label': `Selecionar ${nomeCurto(loja.name)}` } }}
+              />
               <Typography noWrap sx={{ fontSize: 13, fontWeight: 700 }}>
                 {nomeCurto(loja.name)}
               </Typography>
@@ -180,7 +310,15 @@ export function CcEnvioMensalDialog({
         ) : null}
       </DialogContent>
       <DialogActions sx={{ px: 2, py: 1.25 }}>
-        <Button onClick={onFechar} disabled={enviando} sx={{ textTransform: 'none' }}>Fechar</Button>
+        <Button onClick={onFechar} disabled={enviando || baixando} sx={{ textTransform: 'none' }}>Fechar</Button>
+        <Button
+          variant="outlined"
+          disabled={!sel.length || enviando || baixando}
+          onClick={() => void baixar()}
+          sx={{ textTransform: 'none', fontWeight: 800 }}
+        >
+          {baixando ? 'Baixando…' : `Baixar ${sel.length} selecionada${sel.length === 1 ? '' : 's'}`}
+        </Button>
         {podeEnviar ? (
           <Button
             variant="contained"

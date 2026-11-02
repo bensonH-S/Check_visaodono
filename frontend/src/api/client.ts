@@ -1691,7 +1691,7 @@ export const api = {
       '/estoque/contagens/mensal/enviar-todas',
       { method: 'POST', body: JSON.stringify({ mes, ids_contagem }) },
     ),
-  estoqueAbrirPdfMensal: async (id_contagem: number) => {
+  estoquePdfMensal: async (id_contagem: number) => {
     const res = await fetch(`${BASE}/estoque/contagens/mensal/${id_contagem}/pdf`, {
       headers: authHeaders(),
     });
@@ -1699,17 +1699,31 @@ export const api = {
       const err = await res.json().catch(() => ({ error: res.statusText }));
       throw new Error(err.error || 'Erro ao abrir a contagem');
     }
-    const blob = await res.blob();
+    return res.blob();
+  },
+  estoqueAbrirPdfMensal: async (id_contagem: number) => {
+    const blob = await api.estoquePdfMensal(id_contagem);
     const url = URL.createObjectURL(blob);
     const aberto = window.open(url, '_blank', 'noopener');
     if (!aberto) {
       const a = document.createElement('a');
       a.href = url;
-      a.download = `contagem-mensal-${id_contagem}.pdf`;
+      a.download = `Contagem mensal.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
     }
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  },
+  estoqueBaixarPdfMensal: async (id_contagem: number, filename: string) => {
+    const blob = await api.estoquePdfMensal(id_contagem);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   },
   estoqueContagensRede: (opts?: {
