@@ -75,7 +75,7 @@ import {
   linhasTabelaSx,
 } from './estoquePadrao';
 import {
-  agendaContagem,
+  agendaDaLoja,
   rotuloTipoContagem,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
@@ -402,6 +402,7 @@ export default function ControleEstoquePage() {
   const [loading, setLoading] = useState(false);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
   const [listaContagens, setListaContagens] = useState<EstoqueContagemResumo[]>([]);
+  const [listaCarregada, setListaCarregada] = useState(false);
   const [filtroStatus, setFiltroStatus] = useState<'todas' | 'aberta' | 'finalizada'>('todas');
   const [contagem, setContagem] = useState<EstoqueContagemDetalhe | null>(null);
   const [verDetalhe, setVerDetalhe] = useState(false);
@@ -517,8 +518,10 @@ export default function ControleEstoquePage() {
 
   const carregarListaContagens = useCallback(async () => {
     if (!idLoja) return [];
+    setListaCarregada(false);
     const rows = await api.estoqueContagens(idLoja);
     setListaContagens(rows);
+    setListaCarregada(true);
     return rows;
   }, [idLoja]);
 
@@ -620,7 +623,11 @@ export default function ControleEstoquePage() {
 
   const iniciarSabado = async (tipo: TipoContagemEstoque = 'diaria') => {
     if (!podeEditarConferencia || !idLoja) return;
-    const agenda = agendaContagem();
+    const agenda = agendaDaLoja(listaContagens);
+    if (agenda.mensalPendente && tipo !== 'completa') {
+      showToast('Conclua a contagem mensal antes de abrir outra.', 'info');
+      return;
+    }
     if (tipo === 'diaria' && !agenda.diaria) {
       showToast(agenda.dia1 ? 'No dia 1 use a contagem mensal' : 'Na segunda use a contagem semanal', 'info');
       return;
@@ -906,6 +913,10 @@ export default function ControleEstoquePage() {
   const editavel = !!podeEditarConferencia && contagem?.status === 'aberta';
   /** Só bloqueia outras abas ao editar conferência aberta (não ao só visualizar finalizada). */
   const bloqueiaOutrasAbas = verDetalhe && contagem?.status === 'aberta';
+  const agendaLoja = useMemo(
+    () => agendaDaLoja(listaContagens, new Date(), listaCarregada),
+    [listaContagens, listaCarregada],
+  );
   const abertasCount = listaContagens.filter((c) => c.status === 'aberta').length;
   const fechadasCount = listaContagens.filter((c) => c.status === 'finalizada').length;
   const listaFiltrada = useMemo(() => {
@@ -1204,25 +1215,27 @@ export default function ControleEstoquePage() {
                       {podeEditarConferencia && (
                         <>
                           <Button
-                            variant={agendaContagem().diaria ? 'contained' : 'outlined'}
+                            variant={agendaLoja.diaria ? 'contained' : 'outlined'}
                             startIcon={<PlayArrowIcon />}
-                            disabled={iniciando || !agendaContagem().diaria}
+                            disabled={iniciando || !agendaLoja.diaria}
+                            title={agendaLoja.mensalPendente ? 'Conclua a contagem mensal antes de abrir outra.' : undefined}
                             onClick={() => void iniciarSabado('diaria')}
                           >
                             Diária
                           </Button>
                           <Button
-                            variant={agendaContagem().semanal ? 'contained' : 'outlined'}
+                            variant={agendaLoja.semanal ? 'contained' : 'outlined'}
                             startIcon={<PlayArrowIcon />}
-                            disabled={iniciando || !agendaContagem().semanal}
+                            disabled={iniciando || !agendaLoja.semanal}
+                            title={agendaLoja.mensalPendente ? 'Conclua a contagem mensal antes de abrir outra.' : undefined}
                             onClick={() => void iniciarSabado('critica_semanal')}
                           >
                             Semanal
                           </Button>
                           <Button
-                            variant={agendaContagem().mensal ? 'contained' : 'outlined'}
+                            variant={agendaLoja.mensal ? 'contained' : 'outlined'}
                             startIcon={<PlayArrowIcon />}
-                            disabled={iniciando || !agendaContagem().mensal}
+                            disabled={iniciando || !agendaLoja.mensal}
                             onClick={() => void iniciarSabado('completa')}
                           >
                             Mensal

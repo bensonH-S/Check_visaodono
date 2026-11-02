@@ -26,7 +26,7 @@ import NotificacoesSino from '../../components/NotificacoesSino';
 import AppHubDock from '../../components/hub/AppHubDock';
 import { showToast } from '../../utils/toast';
 import {
-  agendaContagem,
+  agendaDaLoja,
   type TipoContagemEstoque,
 } from '../../components/estoque/estoqueContagemTipo';
 import {
@@ -397,9 +397,15 @@ export default function EstoqueMobileListaPage() {
     ? nomeLojaCurta(nomeLoja(lojaAtual), lojaAtual.bk_number)
     : 'Selecionar loja';
 
+  const agendaLoja = useMemo(() => agendaDaLoja(lista, new Date(), !loading), [lista, loading]);
+
   const iniciar = async (tipo: TipoContagemEstoque) => {
     if (!idLoja) return;
-    const agenda = agendaContagem();
+    const agenda = agendaDaLoja(lista, new Date(), !loading);
+    if (agenda.mensalPendente && tipo !== 'completa') {
+      showToast('Conclua a contagem mensal antes de abrir outra.', 'info');
+      return;
+    }
     if (tipo === 'diaria' && !agenda.diaria) {
       showToast(agenda.dia1 ? 'No dia 1 use a contagem mensal' : 'Na segunda use a contagem semanal', 'info');
       return;
@@ -921,35 +927,43 @@ export default function EstoqueMobileListaPage() {
                   </button>
                 </div>
                 <p className="ck-estoque-hub__sheet-tipo-text">
-                  Terça a domingo: diária. Segunda: semanal. Dia 1: mensal.
+                  {agendaLoja.mensalPendente && !agendaLoja.dia1
+                    ? 'Esta loja ainda não concluiu a mensal. Só ela abre até finalizar.'
+                    : 'Terça a domingo: diária. Segunda: semanal. Dia 1: mensal.'}
                 </p>
                 <div className="ck-estoque-hub__sheet-tipo-actions">
                   {([
                     {
                       tipo: 'diaria' as const,
                       titulo: 'Contagem diária',
-                      ativo: agendaContagem().diaria,
-                      detalhe: agendaContagem().diaria
+                      ativo: agendaLoja.diaria,
+                      detalhe: agendaLoja.diaria
                         ? 'Carne, frango, queijo, bacon, pão, batata, copos e mix'
-                        : agendaContagem().dia1
-                          ? 'Desligada. Hoje é dia 1: abre a mensal.'
-                          : 'Desligada. Hoje é segunda: abre a semanal.',
+                        : agendaLoja.mensalPendente
+                          ? 'Desligada. Conclua a mensal deste mês primeiro.'
+                          : agendaLoja.dia1
+                            ? 'Desligada. Hoje é dia 1: abre a mensal.'
+                            : 'Desligada. Hoje é segunda: abre a semanal.',
                     },
                     {
                       tipo: 'critica_semanal' as const,
                       titulo: 'Contagem semanal',
-                      ativo: agendaContagem().semanal,
-                      detalhe: agendaContagem().semanal
+                      ativo: agendaLoja.semanal,
+                      detalhe: agendaLoja.semanal
                         ? 'Os mesmos itens da lista de pedido'
-                        : 'Desligada. Só abre na segunda-feira.',
+                        : agendaLoja.mensalPendente
+                          ? 'Desligada. Conclua a mensal deste mês primeiro.'
+                          : 'Desligada. Só abre na segunda-feira.',
                     },
                     {
                       tipo: 'completa' as const,
                       titulo: 'Contagem mensal',
-                      ativo: agendaContagem().mensal,
-                      detalhe: agendaContagem().mensal
-                        ? 'Inventário geral da loja'
-                        : 'Desligada. Só abre no dia 1.',
+                      ativo: agendaLoja.mensal,
+                      detalhe: agendaLoja.mensalPendente && !agendaLoja.dia1
+                        ? 'Inventário do dia 1. Esta loja ainda não concluiu.'
+                        : agendaLoja.mensal
+                          ? 'Inventário geral da loja'
+                          : 'Desligada. Só abre no dia 1.',
                     },
                   ]).map((opcao) => (
                     <button

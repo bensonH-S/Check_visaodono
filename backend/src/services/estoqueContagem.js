@@ -468,8 +468,8 @@ export function precisaFatorFracionada(unidadeFracionada, unidadeContagem) {
 /** Mix/latas antigo. O alerta de CMV continua desligado. A semanal da segunda usa a lista do pedido. */
 export const CONTAGEM_SEMANAL_ATIVA = false;
 
-export function assertTipoContagemAtivo(tipoContagem, agora = new Date()) {
-  assertTipoContagemNaAgenda(tipoContagem, agora);
+export function assertTipoContagemAtivo(tipoContagem, agora = new Date(), opts = {}) {
+  assertTipoContagemNaAgenda(tipoContagem, agora, opts);
 }
 
 /**

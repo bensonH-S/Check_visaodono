@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { agendaContagem } from './estoqueContagemAgenda.js';
+import { agendaContagem, assertTipoContagemNaAgenda } from './estoqueContagemAgenda.js';
 
 function emSp(y, m, d, hora = 12) {
   return new Date(Date.UTC(y, m - 1, d, hora + 3, 0, 0));
@@ -33,6 +33,20 @@ describe('agenda da contagem', () => {
     assert.equal(a.semanal, false);
     assert.equal(a.mensal, true);
     assert.equal(a.tipo, 'completa');
+  });
+
+  it('segunda com a mensal do mês em aberto: só a mensal, semanal bloqueada', () => {
+    const quando = emSp(2026, 11, 2);
+    const a = agendaContagem(quando, { mensalPendente: true });
+    assert.equal(a.diaria, false);
+    assert.equal(a.semanal, false);
+    assert.equal(a.mensal, true);
+    assert.equal(a.tipo, 'completa');
+    assert.throws(
+      () => assertTipoContagemNaAgenda('critica_semanal', quando, { mensalPendente: true }),
+      /mensal/,
+    );
+    assert.doesNotThrow(() => assertTipoContagemNaAgenda('completa', quando, { mensalPendente: true }));
   });
 
   it('dia 1 que cai na segunda: a mensal fica, a semanal não abre', () => {

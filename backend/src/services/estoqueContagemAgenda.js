@@ -17,25 +17,74 @@ export function partesContagemSp(agora = new Date()) {
   };
 }
 
+export const MSG_MENSAL_PENDENTE = 'Conclua a contagem mensal antes de abrir outra.';
+
+/** Dia 1 do mês corrente em Brasília. A mensal da loja fica nessa data. */
+export function dataMensalSp(agora = new Date()) {
+  const p = partesContagemSp(agora);
+  return `${p.data.slice(0, 8)}01`;
+}
+
 /**
  * Qual contagem pode ser iniciada.
  * Dia 1: só a mensal (a lista dela não muda).
  * Segunda que não é dia 1: só a semanal.
  * Nos outros dias: só a diária. A mensal não abre.
+ * Se a loja ainda não finalizou a mensal do mês, só a mensal abre.
  */
-export function agendaContagem(agora = new Date()) {
+export function agendaContagem(agora = new Date(), { mensalPendente = false } = {}) {
   const p = partesContagemSp(agora);
+  if (mensalPendente) {
+    return { ...p, tipo: 'completa', diaria: false, semanal: false, mensal: true, mensalPendente: true };
+  }
   if (p.dia1) {
-    return { ...p, tipo: 'completa', diaria: false, semanal: false, mensal: true };
+    return { ...p, tipo: 'completa', diaria: false, semanal: false, mensal: true, mensalPendente: false };
   }
   if (p.segunda) {
-    return { ...p, tipo: 'critica_semanal', diaria: false, semanal: true, mensal: false };
+    return { ...p, tipo: 'critica_semanal', diaria: false, semanal: true, mensal: false, mensalPendente: false };
   }
-  return { ...p, tipo: 'diaria', diaria: true, semanal: false, mensal: false };
+  return { ...p, tipo: 'diaria', diaria: true, semanal: false, mensal: false, mensalPendente: false };
 }
 
-export function assertTipoContagemNaAgenda(tipoContagem, agora = new Date()) {
-  const agenda = agendaContagem(agora);
+/** A mensal do dia 1 deste mês já foi finalizada nesta loja? */
+export async function situacaoMensalLoja(idLoja, agora = new Date()) {
+  const data = dataMensalSp(agora);
+  const { pool } = await import('../db.js');
+  const { rows } = await pool.query(
+    `SELECT
+       EXISTS (
+         SELECT 1 FROM estoque_contagens
+         WHERE id_loja = $1
+           AND COALESCE(tipo, 'completa') = 'completa'
+           AND data_contagem = $2::date
+           AND status = 'finalizada'
+       ) AS feita,
+       (
+         SELECT id_contagem FROM estoque_contagens
+         WHERE id_loja = $1
+           AND COALESCE(tipo, 'completa') = 'completa'
+           AND data_contagem = $2::date
+           AND status = 'aberta'
+         ORDER BY id_contagem DESC
+         LIMIT 1
+       ) AS id_aberta`,
+    [idLoja, data],
+  );
+  const row = rows[0] || {};
+  return {
+    data,
+    feita: row.feita === true,
+    idAberta: row.id_aberta ? Number(row.id_aberta) : null,
+  };
+}
+
+export function assertTipoContagemNaAgenda(tipoContagem, agora = new Date(), { mensalPendente = false } = {}) {
+  const agenda = agendaContagem(agora, { mensalPendente });
+  if (mensalPendente && tipoContagem !== 'completa') {
+    const err = new Error(MSG_MENSAL_PENDENTE);
+    err.status = 400;
+    throw err;
+  }
   if (tipoContagem === 'diaria' && !agenda.diaria) {
     const err = new Error(
       agenda.dia1

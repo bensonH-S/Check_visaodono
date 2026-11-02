@@ -30,6 +30,7 @@ import {
   validarUnidadeFracionadaCadastro,
 } from '../services/estoqueContagem.js';
 import { avaliarForaJanela, carregarPerfil } from '../services/estoqueCiclo.js';
+import { MSG_MENSAL_PENDENTE, situacaoMensalLoja } from '../services/estoqueContagemAgenda.js';
 import { idsInsumosListaPedido } from '../services/estoquePedidoRascunho.js';
 import {
   classificarInsumos,
@@ -141,11 +142,11 @@ function erroSemItensTipo(tipoContagem) {
 
 async function criarContagemComItens(
   client,
-  { id_loja, data_contagem, titulo, observacao, idUsuario, usarUltimo, tipo = 'completa' },
+  { id_loja, data_contagem, titulo, observacao, idUsuario, usarUltimo, tipo = 'completa', mensalPendente = false },
 ) {
   if (!id_loja) throw Object.assign(new Error('Loja obrigatória'), { status: 400 });
   const tipoContagem = normalizarTipoContagem(tipo);
-  assertTipoContagemAtivo(tipoContagem);
+  assertTipoContagemAtivo(tipoContagem, new Date(), { mensalPendente: Boolean(mensalPendente) });
   let filtroItens = filtroItensPorTipo(tipoContagem);
   const paramsItens = [];
   if (tipoContagem === 'critica_semanal') {
@@ -1628,6 +1629,15 @@ router.get('/contagens/:id', permConferencia, async (req, res, next) => {
   }
 });
 
+/** Diária e semanal não seguem enquanto a mensal do dia 1 deste mês estiver em aberto. */
+async function recusarSemMensal(res, idLoja, tipo) {
+  if ((tipo || 'completa') === 'completa') return false;
+  const situacao = await situacaoMensalLoja(idLoja);
+  if (situacao.feita) return false;
+  res.status(400).json({ error: MSG_MENSAL_PENDENTE });
+  return true;
+}
+
 /** No máximo uma contagem por loja, tipo e dia. A finalizada ganha de uma aberta vazia criada depois. */
 async function contagemDoDia(idLoja, dataIso, tipo) {
   const { rows } = await pool.query(
@@ -1662,7 +1672,13 @@ router.post('/contagens', permConferencia, async (req, res, next) => {
       req.body?.observacao != null ? String(req.body.observacao).trim() || null : null;
     const usarUltimo = req.body?.usar_ultimo_estoque !== false;
     const reutilizarAberta = req.body?.reutilizar_aberta !== false;
-    const dataRef = data_contagem || hojeISOBrasil();
+    const situacao = await situacaoMensalLoja(id_loja);
+    if (!situacao.feita && tipo !== 'completa') {
+      return res.status(400).json({ error: MSG_MENSAL_PENDENTE });
+    }
+    const dataRef = !situacao.feita && tipo === 'completa'
+      ? situacao.data
+      : (data_contagem || hojeISOBrasil());
 
     const doDia = await contagemDoDia(id_loja, dataRef, tipo);
     if (doDia) {
@@ -1686,12 +1702,13 @@ router.post('/contagens', permConferencia, async (req, res, next) => {
     await client.query('BEGIN');
     const idContagem = await criarContagemComItens(client, {
       id_loja,
-      data_contagem,
-      titulo,
+      data_contagem: dataRef,
+      titulo: !situacao.feita && tipo === 'completa' ? tituloConferencia(situacao.data, 'completa') : titulo,
       observacao,
       idUsuario: req.user?.id_usuario || req.user?.sub,
       usarUltimo,
       tipo,
+      mensalPendente: !situacao.feita && tipo === 'completa',
     });
     await client.query('COMMIT');
     await auditar(req, {
@@ -1723,6 +1740,40 @@ router.post('/contagens/iniciar-sabado', permConferencia, async (req, res, next)
     const idUsuario = req.user?.id_usuario || req.user?.sub || null;
     const tipo = normalizarTipoContagem(req.body?.tipo || 'diaria');
     const metaBase = { hoje, id_loja: idLoja, tipo };
+    const situacao = await situacaoMensalLoja(idLoja);
+    if (!situacao.feita && tipo !== 'completa') {
+      return res.status(400).json({ error: MSG_MENSAL_PENDENTE });
+    }
+    if (!situacao.feita && tipo === 'completa') {
+      if (situacao.idAberta) {
+        const detalhe = await carregarContagem(situacao.idAberta);
+        return res.json({
+          ...detalhe,
+          meta: { ...metaBase, iniciada_agora: false, ja_existia: true, ja_finalizada: false },
+        });
+      }
+      await client.query('BEGIN');
+      const idContagem = await criarContagemComItens(client, {
+        id_loja: idLoja,
+        data_contagem: situacao.data,
+        titulo: tituloConferencia(situacao.data, 'completa'),
+        observacao: null,
+        idUsuario,
+        usarUltimo: true,
+        tipo: 'completa',
+        mensalPendente: true,
+      });
+      await client.query('COMMIT');
+      await auditar(req, {
+        modulo: 'estoque',
+        acao: 'criar',
+        entidade: 'estoque_contagem',
+        idReferencia: idContagem,
+        descricao: `Mensal pendente iniciada (#${idContagem}) loja ${idLoja} em ${situacao.data}`,
+      });
+      const detalhe = await carregarContagem(idContagem);
+      return res.status(201).json({ ...detalhe, meta: { ...metaBase, iniciada_agora: true } });
+    }
 
     const existente = await contagemDoDia(idLoja, hoje, tipo);
     if (existente) {
@@ -1786,12 +1837,14 @@ router.put('/contagens/:id/itens', permConferencia, async (req, res, next) => {
   try {
     const id = Number(req.params.id);
     const { rows: cont } = await pool.query(
-      'SELECT id_contagem, id_loja, status FROM estoque_contagens WHERE id_contagem = $1',
+      `SELECT id_contagem, id_loja, status, COALESCE(tipo, 'completa') AS tipo
+       FROM estoque_contagens WHERE id_contagem = $1`,
       [id],
     );
     if (!cont.length) return res.status(404).json({ error: 'Contagem não encontrada' });
     const bloqueio = acessoLoja(req, cont[0].id_loja);
     if (bloqueio) return res.status(bloqueio.status).json({ error: bloqueio.error });
+    if (await recusarSemMensal(res, cont[0].id_loja, cont[0].tipo)) return;
     if (cont[0].status === 'finalizada') {
       return res.status(400).json({ error: 'Contagem finalizada — não pode ser editada' });
     }
@@ -1994,6 +2047,7 @@ router.post('/contagens/:id/finalizar', permConferencia, async (req, res, next) 
     if (detalhe.status === 'finalizada') {
       return res.status(400).json({ error: 'Contagem já finalizada' });
     }
+    if (await recusarSemMensal(res, detalhe.id_loja, detalhe.tipo)) return;
 
     const idUsuario = req.user?.id_usuario || req.user?.sub || null;
     await client.query('BEGIN');

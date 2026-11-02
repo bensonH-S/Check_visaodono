@@ -21,12 +21,48 @@ export function agendaContagem(agora = new Date()) {
   const dia = Number(partes.find((p) => p.type === 'day')?.value);
   const segunda = partes.find((p) => p.type === 'weekday')?.value === 'Mon';
   if (dia === 1) {
-    return { dia1: true, segunda, diaria: false, semanal: false, mensal: true };
+    return { dia1: true, segunda, diaria: false, semanal: false, mensal: true, mensalPendente: false };
   }
   if (segunda) {
-    return { dia1: false, segunda: true, diaria: false, semanal: true, mensal: false };
+    return { dia1: false, segunda: true, diaria: false, semanal: true, mensal: false, mensalPendente: false };
   }
-  return { dia1: false, segunda: false, diaria: true, semanal: false, mensal: false };
+  return { dia1: false, segunda: false, diaria: true, semanal: false, mensal: false, mensalPendente: false };
+}
+
+export function dataMensalDoMes(agora = new Date()): string {
+  const iso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(agora);
+  return `${iso.slice(0, 8)}01`;
+}
+
+/** A mensal do dia 1 deste mês já está finalizada na lista da loja. */
+export function mensalDoMesConcluida(
+  contagens: Array<{ tipo?: string | null; status?: string | null; data_contagem?: string | null }>,
+  agora = new Date(),
+): boolean {
+  const data = dataMensalDoMes(agora);
+  return contagens.some((c) => {
+    const tipo = c.tipo || 'completa';
+    return tipo === 'completa' && c.status === 'finalizada' && String(c.data_contagem || '').slice(0, 10) === data;
+  });
+}
+
+/**
+ * Sem a mensal do mês finalizada, diária e semanal ficam desligadas.
+ * `carregada` falso mantém o calendário até a lista da loja chegar.
+ */
+export function agendaDaLoja(
+  contagens: Array<{ tipo?: string | null; status?: string | null; data_contagem?: string | null }>,
+  agora = new Date(),
+  carregada = true,
+) {
+  const base = agendaContagem(agora);
+  if (!carregada || mensalDoMesConcluida(contagens, agora)) return base;
+  return { ...base, diaria: false, semanal: false, mensal: true, mensalPendente: true };
 }
 
 export function rotuloTipoContagem(tipo?: string | null) {
