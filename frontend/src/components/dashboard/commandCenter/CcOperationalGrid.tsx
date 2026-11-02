@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
@@ -28,8 +28,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import type { EstoqueContagemRedeItem } from '../../../api/client';
-import { rotuloContagemRede, tipoContagemDaData } from '../../estoque/estoqueContagemTipo';
+import { api, type EstoqueContagemRedeItem } from '../../../api/client';
+import { agendaContagem } from '../../estoque/estoqueContagemTipo';
+import { CcEnvioMensalDialog } from './CcEnvioMensalDialog';
 import type { Despesa } from '../../../financeiro/api';
 import { portalPanelSx } from '../../../theme/tokens';
 
@@ -433,25 +434,166 @@ export function CcFinancePanel({ despesas, loading, grade }: Pick<Props, 'despes
   );
 }
 
+type AbaContagem = 'diaria' | 'semanal' | 'mensal';
+
+function hojeSp() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date());
+}
+
+function somarDiasIso(iso: string, dias: number) {
+  const [ano, mes, dia] = iso.split('-').map(Number);
+  const data = new Date(Date.UTC(ano, mes - 1, dia, 15));
+  data.setUTCDate(data.getUTCDate() + dias);
+  return data.toISOString().slice(0, 10);
+}
+
+function segundaDaSemanaSp() {
+  const hoje = hojeSp();
+  const [ano, mes, dia] = hoje.split('-').map(Number);
+  const data = new Date(Date.UTC(ano, mes - 1, dia, 15));
+  const semana = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Sao_Paulo', weekday: 'short' }).format(data);
+  const ordem: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const desdeSegunda = (ordem[semana] + 6) % 7;
+  data.setUTCDate(data.getUTCDate() - desdeSegunda);
+  return data.toISOString().slice(0, 10);
+}
+
+/** Na segunda e no dia 1 a diária não abre. O card mostra o último dia em que ela abriu. */
+function dataDiariaVisivel() {
+  let iso = hojeSp();
+  for (let i = 0; i < 14; i++) {
+    if (agendaContagem(new Date(`${iso}T15:00:00-03:00`)).diaria) return iso;
+    iso = somarDiasIso(iso, -1);
+  }
+  return hojeSp();
+}
+
+function dataCurta(iso: string) {
+  const pedaco = String(iso || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(pedaco)) return '';
+  const [, mes, dia] = pedaco.split('-');
+  return `${dia}/${mes}`;
+}
+
+function abaInicial(): AbaContagem {
+  const agenda = agendaContagem();
+  if (agenda.mensal) return 'mensal';
+  if (agenda.semanal) return 'semanal';
+  return 'diaria';
+}
+
 export function CcCountPanel({ lojas, loading, error }: { lojas: EstoqueContagemRedeItem[]; loading: boolean; error: string }) {
+  const [aba, setAba] = useState<AbaContagem>(abaInicial);
+  const [porAba, setPorAba] = useState<Record<AbaContagem, EstoqueContagemRedeItem[]>>({
+    diaria: [],
+    semanal: [],
+    mensal: [],
+  });
+  const [podeEnviar, setPodeEnviar] = useState(false);
+  const [envioAberto, setEnvioAberto] = useState(false);
   const [filter, setFilter] = useState<'todas' | 'contou' | 'pendente'>('pendente');
-  const counted = lojas.filter((item) => item.status === 'contou').length;
-  const pending = lojas.filter((item) => item.status === 'faltou' || item.status === 'aberta');
-  const rows = (filter === 'contou' ? lojas.filter((item) => item.status === 'contou') : filter === 'pendente' ? pending : lojas).slice(0, 20);
-  const progress = lojas.length ? (counted / lojas.length) * 100 : 0;
+  const [datas, setDatas] = useState(() => ({
+    diaria: dataDiariaVisivel(),
+    semanal: segundaDaSemanaSp(),
+    mensal: `${hojeSp().slice(0, 7)}-01`,
+  }));
+
+  const carregarAbas = useCallback(async () => {
+    const hoje = hojeSp();
+    const diaDiaria = dataDiariaVisivel();
+    const diaSemanal = segundaDaSemanaSp();
+    const mes = hoje.slice(0, 7);
+    const [diaria, semanal, mensal] = await Promise.all([
+      api.estoqueContagensRede({ tipo: 'diaria', data: diaDiaria, leve: true }).catch(() => null),
+      api.estoqueContagensRede({ tipo: 'critica_semanal', data: diaSemanal, leve: true }).catch(() => null),
+      api.estoqueEnvioMensal(mes).catch(() => null),
+    ]);
+    const redeMensal = mensal
+      ? null
+      : await api.estoqueContagensRede({ tipo: 'completa', data: `${mes}-01`, leve: true }).catch(() => null);
+    const lojasMensal = mensal?.lojas || redeMensal?.lojas || [];
+    const dataMensal = mensal?.data || redeMensal?.hoje || `${mes}-01`;
+    setDatas({
+      diaria: diaria?.hoje || diaDiaria,
+      semanal: semanal?.hoje || diaSemanal,
+      mensal: dataMensal,
+    });
+    setPorAba({
+      diaria: diaria?.lojas || [],
+      semanal: semanal?.lojas || [],
+      mensal: lojasMensal.map((loja) => ({
+        ...loja,
+        status: loja.status === 'contou' || loja.status === 'aberta' ? loja.status : 'faltou',
+        status_label: loja.status === 'contou' ? 'Contou' : loja.status === 'aberta' ? 'Em andamento' : 'Não contou',
+        titulo: loja.titulo ?? null,
+        tipo: 'completa',
+        data_contagem: loja.data_contagem || dataMensal,
+        criado_em: loja.criado_em ?? null,
+        finalizado_em: loja.finalizado_em ?? null,
+        contado_em: loja.contado_em ?? null,
+        ultima_data: loja.ultima_data ?? null,
+        ultima_finalizado_em: loja.ultima_finalizado_em ?? null,
+        criado_por_nome: loja.criado_por_nome || null,
+      })),
+    });
+    setPodeEnviar(Boolean(mensal?.pode_enviar));
+  }, []);
+
+  useEffect(() => {
+    void carregarAbas();
+  }, [carregarAbas]);
+
+  const lojasAba = porAba[aba].length ? porAba[aba] : aba === abaInicial() ? lojas : porAba[aba];
+  const counted = lojasAba.filter((item) => item.status === 'contou').length;
+  const pending = lojasAba.filter((item) => item.status === 'faltou' || item.status === 'aberta');
+  const enviados = lojasAba.filter((item) => item.status === 'contou' && item.enviado).length;
+  const rows = filter === 'contou' ? lojasAba.filter((item) => item.status === 'contou') : filter === 'pendente' ? pending : lojasAba;
+  const progress = lojasAba.length ? (counted / lojasAba.length) * 100 : 0;
+  const refData = dataCurta(datas[aba]);
+  const tituloAba = aba === 'mensal' ? 'Contagem mensal' : aba === 'semanal' ? 'Contagem semanal' : 'Contagem diária';
 
   const action = (
-    <IconButton component={RouterLink} to="/estoque" size="small" sx={{ width: 28, height: 28, color: 'text.secondary' }} aria-label="Abrir estoque">
-      <OpenInNewRoundedIcon sx={{ fontSize: 15 }} />
-    </IconButton>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.45, flexShrink: 0 }}>
+      <Box sx={{ display: 'flex', p: 0.25, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+        {([
+          ['diaria', 'Diária'],
+          ['semanal', 'Semanal'],
+          ['mensal', 'Mensal'],
+        ] as const).map(([id, label]) => (
+          <Button
+            key={id}
+            size="small"
+            onClick={() => setAba(id)}
+            sx={{
+              minWidth: 0,
+              height: 22,
+              px: 0.75,
+              borderRadius: 0.75,
+              textTransform: 'none',
+              fontSize: 9.5,
+              fontWeight: 800,
+              color: aba === id ? '#fff' : 'text.secondary',
+              bgcolor: aba === id ? '#0F766E' : 'transparent',
+              '&:hover': { bgcolor: aba === id ? '#0F766E' : 'action.hover' },
+            }}
+          >
+            {label}
+          </Button>
+        ))}
+      </Box>
+      <IconButton component={RouterLink} to="/estoque" size="small" sx={{ width: 28, height: 28, color: 'text.secondary' }} aria-label="Abrir estoque">
+        <OpenInNewRoundedIcon sx={{ fontSize: 15 }} />
+      </IconButton>
+    </Box>
   );
 
   return (
+    <>
     <Paper elevation={0} sx={{ ...portalPanelSx, p: 1.15, height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <PanelHeader
         icon={<FactCheckOutlinedIcon sx={{ fontSize: 17 }} />}
         color="#0F766E"
-        title={rotuloContagemRede(lojas.find((item) => item.tipo)?.tipo || tipoContagemDaData())}
+        title={tituloAba}
         subtitle={pending.length ? `${pending.length} lojas exigem atenção` : 'Rede em dia'}
         action={action}
       />
@@ -463,7 +605,7 @@ export function CcCountPanel({ lojas, loading, error }: { lojas: EstoqueContagem
           <Typography sx={{ mt: 0.3, fontSize: 8.5, fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '.04em' }}>
             concluído
           </Typography>
-          <Typography sx={{ mt: 0.25, fontSize: 9, color: 'text.secondary' }}>{counted} de {lojas.length} lojas</Typography>
+          <Typography sx={{ mt: 0.25, fontSize: 9, color: 'text.secondary' }}>{counted} de {lojasAba.length} lojas</Typography>
         </Box>
         <Box sx={{ minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 0.7 }}>
           <Box sx={{ display: 'flex', height: 11, borderRadius: 99, overflow: 'hidden', bgcolor: 'divider' }}>
@@ -522,14 +664,29 @@ export function CcCountPanel({ lojas, loading, error }: { lojas: EstoqueContagem
                 fontWeight: 800,
               }}
             >
-              Todas {lojas.length}
+              Todas {lojasAba.length}
             </Button>
           </Box>
         </Box>
       </Box>
-      <Box sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {aba === 'mensal' ? (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 0.6, mb: 0.45, flexShrink: 0 }}>
+          <Typography sx={{ fontSize: 9, color: 'text.secondary', lineHeight: 1.25 }}>
+            {enviados} enviado(s). Quem não contou não fica marcado.
+          </Typography>
+          <Button
+            size="small"
+            onClick={() => setEnvioAberto(true)}
+            sx={{ flexShrink: 0, height: 22, px: 0.8, textTransform: 'none', fontSize: 9, fontWeight: 800 }}
+          >
+            {podeEnviar ? 'Ver e enviar' : 'Ver contagens'}
+          </Button>
+        </Box>
+      ) : null}
+      <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', overflowX: 'hidden' }}>
         <Typography sx={{ position: 'sticky', top: 0, zIndex: 1, py: 0.25, bgcolor: 'background.paper', fontSize: 8.5, fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '.04em' }}>
           {filter === 'contou' ? 'Lojas que contaram' : filter === 'pendente' ? 'Lojas pendentes' : 'Todas as lojas'}
+          {refData ? ` · ${refData}` : ''}
         </Typography>
         {error ? <Typography sx={{ py: 2, fontSize: 11, color: 'text.secondary', textAlign: 'center' }}>{error}</Typography> : null}
         {!error ? (
@@ -539,22 +696,28 @@ export function CcCountPanel({ lojas, loading, error }: { lojas: EstoqueContagem
               gridTemplateColumns: { xs: 'repeat(2,minmax(0,1fr))', md: 'repeat(4,minmax(0,1fr))' },
               gap: 0.35,
               alignContent: 'start',
+              pb: 0.25,
             }}
           >
             {rows.map((row) => {
               const ok = row.status === 'contou';
+              const enviado = Boolean(row.enviado);
               const who = row.criado_por_nome || row.ultima_por_nome || (ok ? 'Finalizada' : 'Aguardando');
+              const envioTxt = aba === 'mensal' ? (enviado ? ' · enviado' : ok ? ' · ainda não enviado' : '') : '';
               return (
-                <Tooltip key={row.id_loja} title={`${nomeCurto(row.name)} · ${who} · ${ok ? 'Concluída' : 'Pendente'}`}>
+                <Tooltip key={row.id_loja} title={`${nomeCurto(row.name)} · ${who} · ${ok ? 'Concluída' : 'Pendente'}${envioTxt}`}>
                   <Box
                     sx={{
                       display: 'flex',
                       alignItems: 'center',
                       gap: 0.45,
                       minWidth: 0,
+                      maxWidth: '100%',
+                      overflow: 'hidden',
                       height: 19,
                       px: 0.5,
                       borderRadius: 0.75,
+                      cursor: 'default',
                       bgcolor: ok ? 'rgba(22,163,74,.07)' : 'rgba(220,38,38,.06)',
                       border: '1px solid',
                       borderColor: ok ? 'rgba(22,163,74,.16)' : 'rgba(220,38,38,.14)',
@@ -564,6 +727,9 @@ export function CcCountPanel({ lojas, loading, error }: { lojas: EstoqueContagem
                     <Typography sx={{ minWidth: 0, fontSize: 9.2, fontWeight: 800, lineHeight: 1 }} noWrap>
                       {nomeCurto(row.name)}
                     </Typography>
+                    {aba === 'mensal' && enviado ? (
+                      <Typography sx={{ ml: 'auto', fontSize: 8, fontWeight: 800, color: '#15803D', flexShrink: 0 }}>ok</Typography>
+                    ) : null}
                   </Box>
                 </Tooltip>
               );
@@ -572,6 +738,15 @@ export function CcCountPanel({ lojas, loading, error }: { lojas: EstoqueContagem
         ) : null}
       </Box>
     </Paper>
+    <CcEnvioMensalDialog
+      aberto={envioAberto}
+      onFechar={() => setEnvioAberto(false)}
+      lojas={porAba.mensal}
+      podeEnviar={podeEnviar}
+      mes={datas.mensal.slice(0, 7)}
+      onEnviado={() => { void carregarAbas(); }}
+    />
+    </>
   );
 }
 

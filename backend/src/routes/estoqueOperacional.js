@@ -38,6 +38,12 @@ import {
   reabrirMesEstoque,
 } from '../services/estoqueCmvReal.js';
 import { acessoTodasLojas } from '../permissoes.js';
+import {
+  enviarRelatorioMensal,
+  enviarRelatoriosMensaisPendentes,
+  painelEnvioMensal,
+  pdfRelatorioMensal,
+} from '../services/estoqueRelatorioEmail.js';
 import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js';
 import { syncVendasBkOffice, getBkOfficeStatus } from '../services/bkoffice/syncVendas.js';
 import { statusKitParaPortal } from '../services/bkoffice/kitSyncLease.js';
@@ -1125,6 +1131,62 @@ router.get('/sync/lojas', permOp, async (req, res, next) => {
     const result = await listarStatusSyncVendasLojas(ids);
     res.json(result);
   } catch (e) {
+    next(e);
+  }
+});
+
+function idsEstoqueDoUsuario(req) {
+  const idsEstoque = req.user?.lojas_ids_estoque;
+  return Array.isArray(idsEstoque) && idsEstoque.length
+    ? idsEstoque.map(Number).filter((n) => n > 0)
+    : null;
+}
+
+/** Quem já contou a mensal do mês, quem falta, e o que já foi enviado. */
+router.get('/contagens/mensal/envio', permOp, async (req, res, next) => {
+  try {
+    const mes = String(req.query.mes || '').slice(0, 7);
+    res.json(await painelEnvioMensal(req.user, mes, idsEstoqueDoUsuario(req)));
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.post('/contagens/mensal/enviar', permOp, async (req, res, next) => {
+  try {
+    const id = Number(req.body?.id_contagem);
+    if (!id) return res.status(400).json({ error: 'Informe a contagem' });
+    const result = await enviarRelatorioMensal(req.user, id);
+    res.json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.post('/contagens/mensal/enviar-todas', permOp, async (req, res, next) => {
+  try {
+    const mes = String(req.body?.mes || req.query.mes || '').slice(0, 7);
+    const ids = Array.isArray(req.body?.ids_contagem) ? req.body.ids_contagem : null;
+    const result = await enviarRelatoriosMensaisPendentes(req.user, mes, idsEstoqueDoUsuario(req), ids);
+    res.json(result);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
+    next(e);
+  }
+});
+
+router.get('/contagens/mensal/:id/pdf', permOp, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) return res.status(400).json({ error: 'Informe a contagem' });
+    const { pdf, filename } = await pdfRelatorioMensal(id, idsEstoqueDoUsuario(req));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.send(pdf);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);
   }
 });

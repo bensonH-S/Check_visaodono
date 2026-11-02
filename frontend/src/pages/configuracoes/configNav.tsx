@@ -6,6 +6,7 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import HistoryIcon from '@mui/icons-material/History';
 import EmailIcon from '@mui/icons-material/Email';
+import ForwardToInboxOutlinedIcon from '@mui/icons-material/ForwardToInboxOutlined';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import PeopleIcon from '@mui/icons-material/People';
@@ -154,6 +155,13 @@ const CONFIG_NAV: ConfigNavSection[] = [
         label: 'E-mail (SMTP)',
         descricao: 'Servidor de e-mail do sistema.',
         icon: <EmailIcon fontSize="small" />,
+        permissoes: ['configuracoes.ver', 'usuarios.gerenciar'],
+      },
+      {
+        to: '/configuracoes/emails',
+        label: 'Quem recebe e-mail',
+        descricao: 'Escala, estoque e visita.',
+        icon: <ForwardToInboxOutlinedIcon fontSize="small" />,
         permissoes: ['configuracoes.ver', 'usuarios.gerenciar'],
       },
     ],

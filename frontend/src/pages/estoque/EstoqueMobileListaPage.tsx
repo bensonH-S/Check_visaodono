@@ -920,41 +920,49 @@ export default function EstoqueMobileListaPage() {
                     Fechar
                   </button>
                 </div>
-                <p className="ck-estoque-hub__sheet-tipo-text">Selecione o tipo de contagem:</p>
+                <p className="ck-estoque-hub__sheet-tipo-text">
+                  Terça a domingo: diária. Segunda: semanal. Dia 1: mensal.
+                </p>
                 <div className="ck-estoque-hub__sheet-tipo-actions">
-                  {agendaContagem().diaria && (
+                  {([
+                    {
+                      tipo: 'diaria' as const,
+                      titulo: 'Contagem diária',
+                      ativo: agendaContagem().diaria,
+                      detalhe: agendaContagem().diaria
+                        ? 'Carne, frango, queijo, bacon, pão, batata, copos e mix'
+                        : agendaContagem().dia1
+                          ? 'Desligada. Hoje é dia 1: abre a mensal.'
+                          : 'Desligada. Hoje é segunda: abre a semanal.',
+                    },
+                    {
+                      tipo: 'critica_semanal' as const,
+                      titulo: 'Contagem semanal',
+                      ativo: agendaContagem().semanal,
+                      detalhe: agendaContagem().semanal
+                        ? 'Os mesmos itens da lista de pedido'
+                        : 'Desligada. Só abre na segunda-feira.',
+                    },
+                    {
+                      tipo: 'completa' as const,
+                      titulo: 'Contagem mensal',
+                      ativo: agendaContagem().mensal,
+                      detalhe: agendaContagem().mensal
+                        ? 'Inventário geral da loja'
+                        : 'Desligada. Só abre no dia 1.',
+                    },
+                  ]).map((opcao) => (
                     <button
+                      key={opcao.tipo}
                       type="button"
-                      className="ck-estoque-hub__sheet-tipo-btn"
-                      disabled={iniciando}
-                      onClick={() => void iniciar('diaria')}
+                      className={`ck-estoque-hub__sheet-tipo-btn${opcao.ativo ? '' : ' is-off'}`}
+                      disabled={iniciando || !opcao.ativo}
+                      onClick={() => void iniciar(opcao.tipo)}
                     >
-                      <strong>Contagem diária</strong>
-                      <small>Carne, frango, queijo, bacon, pão, batata, copos e mix</small>
+                      <strong>{opcao.titulo}</strong>
+                      <small>{opcao.detalhe}</small>
                     </button>
-                  )}
-                  {agendaContagem().semanal && (
-                    <button
-                      type="button"
-                      className="ck-estoque-hub__sheet-tipo-btn"
-                      disabled={iniciando}
-                      onClick={() => void iniciar('critica_semanal')}
-                    >
-                      <strong>Contagem semanal</strong>
-                      <small>Os mesmos itens da lista de pedido</small>
-                    </button>
-                  )}
-                {agendaContagem().mensal && (
-                <button
-                  type="button"
-                  className="ck-estoque-hub__sheet-tipo-btn"
-                  disabled={iniciando}
-                  onClick={() => void iniciar('completa')}
-                >
-                  <strong>Contagem completa</strong>
-                  <small>Inventário geral da loja</small>
-                </button>
-                )}
+                  ))}
                 </div>
               </div>
             </div>

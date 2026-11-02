@@ -13,6 +13,7 @@ import {
   caminhoBackupSeguro,
 } from '../services/dbBackup.js';
 import { obterConfiguracaoSmtp, salvarConfiguracaoSmtp } from '../services/smtpConfig.js';
+import { listarEmailRelatorio, salvarEmailRelatorio } from '../services/emailRelatorioConfig.js';
 import { testarEnvioSmtp } from '../services/mailer.js';
 import { carregarModulosCanal, salvarModulosCanal } from '../services/appModulosCanal.js';
 
@@ -152,6 +153,24 @@ router.put('/modulos-canal', requireConfigVer, async (req, res, next) => {
     });
     res.json(config);
   } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/email-relatorios', requireConfigVer, async (_req, res, next) => {
+  try {
+    res.json({ tipos: await listarEmailRelatorio() });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.put('/email-relatorios/:tipo', requireConfigVer, async (req, res, next) => {
+  try {
+    const salvo = await salvarEmailRelatorio(req.params.tipo, req.body || {}, req.user?.sub);
+    res.json(salvo);
+  } catch (e) {
+    if (e.status) return res.status(e.status).json({ error: e.message });
     next(e);
   }
 });

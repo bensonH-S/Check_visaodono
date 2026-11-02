@@ -3,16 +3,9 @@ import { carregarVisitaDetalhe } from './visitaDetalhe.js';
 import { gerarPdfVisitaBuffer } from './gerarPdfVisita.js';
 import { sendMail, getBrandEmailAttachments, smtpConfigurado } from './mailer.js';
 import { fmtData, fmtNota, formatarHoraVisita } from '../utils/visitaFormat.js';
-import {
-  resolverRegionaisLoja,
-  resolverGerentesLoja,
-  REGIONAIS_SUPERVISORES_EMAIL,
-  RELATORIO_EMAIL_SEMPRE,
-  RELATORIO_EMAIL_CC,
-} from './timeCampoRegional.js';
+import { montarEmailsRelatorio } from './emailRelatorioConfig.js';
 
 const TIPO_NOTIF = 'relatorio_email';
-const REGIONAIS_SET = new Set(REGIONAIS_SUPERVISORES_EMAIL.map((e) => e.toLowerCase()));
 
 export function emailRelatorioHabilitado() {
   if (String(process.env.VISITA_RELATORIO_EMAIL_ENABLED || 'true').toLowerCase() === 'false') {
@@ -33,12 +26,6 @@ function escHtml(s) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-function normalizeEmail(email) {
-  return String(email || '')
-    .trim()
-    .toLowerCase();
 }
 
 function bodyToHtml(text) {
@@ -77,71 +64,26 @@ async function registrarEnvio({ idVisita, idLoja, idUsuario, email, metadata = {
 }
 
 /**
- * Destinatários do relatório de Auditoria Operacional:
- * - To: gestor/gerente da unidade (só da loja)
- * - Cc: regional da loja (só da região) + liderança fixa (Felipe, Renato, Igor, Benson — todas as lojas)
- * - Sem gerente: liderança fixa no To
+ * Destinatários do relatório de visita, conforme Configurações → Quem recebe e-mail.
+ * Gerente da loja vai no Para. Regional e a lista fixa vão na cópia.
+ * Sem gerente, a lista fixa vai no Para.
  */
 export async function resolverDestinatariosRelatorio(idLoja) {
-  const toMap = new Map();
-  const ccMap = new Map();
-
-  const add = (mapa, entry) => {
-    const email = normalizeEmail(entry.email);
-    if (!email) return;
-    if (toMap.has(email) || ccMap.has(email) || mapa.has(email)) return;
-    mapa.set(email, { ...entry, email });
-  };
-
-  const gerentes = await resolverGerentesLoja(idLoja);
-  for (const g of gerentes) {
-    add(toMap, {
-      email: g.email,
-      id_usuario: g.id_usuario,
-      nome: g.nome,
-      papel: 'gerente',
-      regiao: null,
-    });
+  const { pessoas } = await montarEmailsRelatorio('visita', [idLoja]);
+  const entrada = (pessoa) => ({
+    email: pessoa.email,
+    id_usuario: null,
+    nome: pessoa.nome || '',
+    papel: pessoa.papel,
+    regiao: null,
+  });
+  const gerentes = pessoas.filter((p) => p.papel === 'gerente').map(entrada);
+  const regionais = pessoas.filter((p) => p.papel === 'regional').map(entrada);
+  const fixos = pessoas.filter((p) => p.papel !== 'gerente' && p.papel !== 'regional').map(entrada);
+  if (gerentes.length) {
+    return { to: gerentes, cc: [...regionais, ...fixos] };
   }
-
-  const regionais = await resolverRegionaisLoja(idLoja);
-  for (const r of regionais) {
-    const email = normalizeEmail(r.email);
-    if (!email || !REGIONAIS_SET.has(email)) continue;
-    add(ccMap, {
-      email,
-      id_usuario: r.id_usuario,
-      nome: r.nome,
-      papel: 'regional',
-      regiao: r.nome_regiao,
-    });
-  }
-
-  const liderancaMap = toMap.size === 0 ? toMap : ccMap;
-  for (const fixo of RELATORIO_EMAIL_SEMPRE) {
-    add(liderancaMap, {
-      email: fixo.email,
-      id_usuario: null,
-      nome: fixo.nome,
-      papel: fixo.papel,
-      regiao: null,
-    });
-  }
-
-  for (const emailTi of RELATORIO_EMAIL_CC) {
-    add(ccMap, {
-      email: emailTi,
-      id_usuario: null,
-      nome: 'TI',
-      papel: 'ti',
-      regiao: null,
-    });
-  }
-
-  return {
-    to: [...toMap.values()],
-    cc: [...ccMap.values()],
-  };
+  return { to: fixos, cc: regionais };
 }
 
 function ehAuditoriaOperacional(visita) {

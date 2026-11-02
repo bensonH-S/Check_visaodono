@@ -88,6 +88,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: [
         'Logo_Alvim_Icone.png',
+        'Logo_GA_Laranja.png',
+        'Logo_Meridian_Gestao.png',
         'Fundo_Principal.png',
         'favicon.png',
         'favicon-32x32.png',

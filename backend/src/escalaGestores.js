@@ -3,7 +3,7 @@ import { carregarRegioesAtuacaoTecnico } from './lojasUsuario.js';
 import { temPermissao } from './permissoes.js';
 import { findBrandAsset } from './projectPaths.js';
 import { sendMail } from './services/mailer.js';
-import { resolverRegionaisLoja } from './services/timeCampoRegional.js';
+import { montarEmailsRelatorio } from './services/emailRelatorioConfig.js';
 import {
   segundaFeiraDaSemana,
   podeVerEscalaGestores,
@@ -14,12 +14,6 @@ import {
 const TIPOS = new Set(['folga', 'ferias', 'falta', 'ausencia']);
 const ROTULO_TIPO = { folga: 'Folga', ferias: 'Férias', falta: 'Falta', ausencia: 'Atestado' };
 const DIAS_EMAIL = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo'];
-const EMAILS_REDE_TODA = [
-  'felipe@grupoalvim.com.br',
-  'frotadf@gmail.com',
-  'benson@grupoalvim.com.br',
-  'benson.henrique@grupoalvim.com.br',
-];
 
 const DIA_FOLGA_NOME = [
   ['segunda', 0],
@@ -475,27 +469,11 @@ function anexoCentralGa() {
   }];
 }
 
-/** Regional da loja recebe a escala. CEO, diretor e TI recebem todas. */
+/** Quem recebe a escala fica em Configurações → Quem recebe e-mail. */
 async function destinatariosEscalaGestor(linhas) {
-  const emails = new Set(EMAILS_REDE_TODA);
-  const { rows: lideres } = await pool.query(
-    `SELECT email
-     FROM usuarios
-     WHERE ativo = TRUE
-       AND email IS NOT NULL
-       AND TRIM(email) <> ''
-       AND lower(COALESCE(cargo_aprovacao, perfil::text, '')) IN ('ceo', 'diretor', 'ti')`,
-  );
-  for (const row of lideres) emails.add(String(row.email).trim().toLowerCase());
   const lojas = [...new Set(linhas.map((l) => Number(l.id_loja)).filter((id) => id > 0))];
-  for (const idLoja of lojas) {
-    const regionais = await resolverRegionaisLoja(idLoja);
-    for (const regional of regionais) {
-      const email = String(regional.email || '').trim().toLowerCase();
-      if (email) emails.add(email);
-    }
-  }
-  return [...emails];
+  const { emails } = await montarEmailsRelatorio('escala', lojas);
+  return emails;
 }
 
 function htmlRelatorio(linhas, inicio, fim, quem) {

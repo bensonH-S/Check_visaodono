@@ -93,6 +93,7 @@ import NotificacoesPage from './pages/configuracoes/NotificacoesPage';
 import AuditoriaPage from './pages/configuracoes/AuditoriaPage';
 import TicketsTiPage from './pages/configuracoes/TicketsTiPage';
 import SmtpPage from './pages/configuracoes/SmtpPage';
+import EmailRelatoriosPage from './pages/configuracoes/EmailRelatoriosPage';
 import ModulosCanalPage from './pages/configuracoes/ModulosCanalPage';
 import EstoqueSyncNfPage from './pages/configuracoes/EstoqueSyncNfPage';
 import ConfiguracaoContagemPage from './pages/configuracoes/ConfiguracaoContagemPage';
@@ -766,6 +767,14 @@ export default function App() {
                 element={
                   <RotaPermissao permissoes={['configuracoes.ver', 'usuarios.gerenciar']}>
                     <SmtpPage />
+                  </RotaPermissao>
+                }
+              />
+              <Route
+                path="emails"
+                element={
+                  <RotaPermissao permissoes={['configuracoes.ver', 'usuarios.gerenciar']}>
+                    <EmailRelatoriosPage />
                   </RotaPermissao>
                 }
               />

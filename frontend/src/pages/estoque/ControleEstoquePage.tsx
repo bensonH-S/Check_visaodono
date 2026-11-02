@@ -1203,36 +1203,30 @@ export default function ControleEstoquePage() {
                       />
                       {podeEditarConferencia && (
                         <>
-                          {agendaContagem().diaria && (
-                            <Button
-                              variant="contained"
-                              startIcon={<PlayArrowIcon />}
-                              disabled={iniciando}
-                              onClick={() => void iniciarSabado('diaria')}
-                            >
-                              Diária
-                            </Button>
-                          )}
-                          {agendaContagem().semanal && (
                           <Button
-                            variant="outlined"
+                            variant={agendaContagem().diaria ? 'contained' : 'outlined'}
                             startIcon={<PlayArrowIcon />}
-                            disabled={iniciando}
+                            disabled={iniciando || !agendaContagem().diaria}
+                            onClick={() => void iniciarSabado('diaria')}
+                          >
+                            Diária
+                          </Button>
+                          <Button
+                            variant={agendaContagem().semanal ? 'contained' : 'outlined'}
+                            startIcon={<PlayArrowIcon />}
+                            disabled={iniciando || !agendaContagem().semanal}
                             onClick={() => void iniciarSabado('critica_semanal')}
                           >
                             Semanal
                           </Button>
-                          )}
-                          {agendaContagem().mensal && (
                           <Button
-                            variant="outlined"
+                            variant={agendaContagem().mensal ? 'contained' : 'outlined'}
                             startIcon={<PlayArrowIcon />}
-                            disabled={iniciando}
+                            disabled={iniciando || !agendaContagem().mensal}
                             onClick={() => void iniciarSabado('completa')}
                           >
-                            Completa
+                            Mensal
                           </Button>
-                          )}
                         </>
                       )}
                       <Button

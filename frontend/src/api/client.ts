@@ -200,6 +200,14 @@ export const api = {
   modulosCanalSalvar: (body: Partial<ModulosCanalMapa>) =>
     request<ModulosCanalMapa>('/sistema/modulos-canal', { method: 'PUT', body: JSON.stringify(body) }),
 
+  emailRelatoriosObter: () =>
+    request<{ tipos: EmailRelatorioConfig[] }>('/sistema/email-relatorios'),
+  emailRelatorioSalvar: (tipo: EmailRelatorioTipo, body: EmailRelatorioConfig) =>
+    request<EmailRelatorioConfig>(`/sistema/email-relatorios/${tipo}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    }),
+
   smtpObter: () => request<ConfiguracaoSmtp>('/sistema/smtp'),
   smtpSalvar: (body: Partial<ConfiguracaoSmtpInput>) =>
     request<ConfiguracaoSmtp>('/sistema/smtp', { method: 'POST', body: JSON.stringify(body) }),
@@ -1658,6 +1666,51 @@ export const api = {
     return request<{ ate: string; lancamentos: EstoqueBreakRedeItem[] }>(
       `/estoque/break/rede${qs ? `?${qs}` : ''}`,
     );
+  },
+  estoqueEnvioMensal: (mes?: string) => {
+    const q = new URLSearchParams();
+    if (mes) q.set('mes', mes);
+    const qs = q.toString();
+    return request<{
+      mes: string;
+      data: string;
+      pode_enviar: boolean;
+      contaram: number;
+      pendentes: number;
+      enviados: number;
+      lojas: Array<EstoqueContagemRedeItem & { enviado?: boolean; enviado_em?: string | null }>;
+    }>(`/estoque/contagens/mensal/envio${qs ? `?${qs}` : ''}`);
+  },
+  estoqueEnviarRelatorioMensal: (id_contagem: number) =>
+    request<{ id_contagem: number; id_loja: number; loja: string; destinatarios: string[] }>(
+      '/estoque/contagens/mensal/enviar',
+      { method: 'POST', body: JSON.stringify({ id_contagem }) },
+    ),
+  estoqueEnviarRelatoriosMensais: (mes?: string, ids_contagem?: number[]) =>
+    request<{ mes: string; enviados: number; falhas: Array<{ loja: string; erro: string }>; sem_contagem: number }>(
+      '/estoque/contagens/mensal/enviar-todas',
+      { method: 'POST', body: JSON.stringify({ mes, ids_contagem }) },
+    ),
+  estoqueAbrirPdfMensal: async (id_contagem: number) => {
+    const res = await fetch(`${BASE}/estoque/contagens/mensal/${id_contagem}/pdf`, {
+      headers: authHeaders(),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      throw new Error(err.error || 'Erro ao abrir a contagem');
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const aberto = window.open(url, '_blank', 'noopener');
+    if (!aberto) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `contagem-mensal-${id_contagem}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   },
   estoqueContagensRede: (opts?: {
     tipo?: 'diaria' | 'critica_semanal' | 'completa';
@@ -4242,6 +4295,8 @@ export interface EstoquePedidoRascunhoItem {
   descricao: string;
   fornecedor: string;
   ritmo_dia: number;
+  ritmo_origem?: 'modelo' | 'regra';
+  demanda_7?: number | null;
   saldo_atual: number;
   unidade?: string | null;
   a_caminho: number;
@@ -4551,6 +4606,9 @@ export interface EstoqueContagemRedeItem {
   finalizado_em: string | null;
   contado_em: string | null;
   criado_por_nome: string | null;
+  /** Relatório mensal já enviado à diretoria. Ausente quando a loja não contou. */
+  enviado?: boolean;
+  enviado_em?: string | null;
   ultima_data: string | null;
   ultima_finalizado_em: string | null;
   ultima_id_contagem?: number | null;
@@ -5216,6 +5274,24 @@ export interface ConfiguracaoSmtp {
   atualizado_em?: string | null;
   atualizado_por?: string | null;
   origem?: 'banco' | 'env';
+}
+
+export type EmailRelatorioTipo = 'escala' | 'estoque' | 'visita';
+
+export interface EmailRelatorioDestinatario {
+  email: string;
+  nome: string;
+  ativo: boolean;
+}
+
+export interface EmailRelatorioConfig {
+  tipo: EmailRelatorioTipo;
+  incluir_regional: boolean;
+  incluir_gerente: boolean;
+  incluir_cargo_ti: boolean;
+  incluir_cargo_diretor: boolean;
+  incluir_cargo_ceo: boolean;
+  destinatarios: EmailRelatorioDestinatario[];
 }
 
 export interface ConfiguracaoSmtpInput {
