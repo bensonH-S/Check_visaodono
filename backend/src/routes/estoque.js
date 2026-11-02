@@ -2153,7 +2153,8 @@ router.patch('/contagens/:id/reabrir', permReabrirContagem, async (req, res, nex
   try {
     const id = Number(req.params.id);
     const { rows } = await pool.query(
-      `SELECT id_contagem, id_loja, status, titulo, data_contagem,
+      `SELECT id_contagem, id_loja, status, titulo,
+              to_char(data_contagem, 'YYYY-MM-DD') AS data_contagem,
               COALESCE(tipo, 'completa') AS tipo
        FROM estoque_contagens WHERE id_contagem = $1`,
       [id],
@@ -2167,7 +2168,7 @@ router.patch('/contagens/:id/reabrir', permReabrirContagem, async (req, res, nex
     }
 
     const tipo = cont.tipo || 'completa';
-    const diaCont = String(cont.data_contagem || '').slice(0, 10);
+    const diaCont = String(cont.data_contagem || '');
     const { rows: outrasAbertas } = await pool.query(
       `SELECT id_contagem, titulo, to_char(data_contagem, 'YYYY-MM-DD') AS data_contagem
        FROM estoque_contagens
@@ -2193,8 +2194,11 @@ router.patch('/contagens/:id/reabrir', permReabrirContagem, async (req, res, nex
     };
 
     for (const outra of outrasAbertas) {
-      const mesmoDia = tipo !== 'diaria' || String(outra.data_contagem || '') === diaCont;
-      if (!mesmoDia) continue;
+      const outraDia = String(outra.data_contagem || '');
+      const mesmoDia = outraDia === diaCont;
+      // Diária e mensal: uma aberta por data. Outubro aberta não trava novembro.
+      // Semanal segue com no máximo uma aberta por loja.
+      if ((tipo === 'diaria' || tipo === 'completa') && !mesmoDia) continue;
       if (!(await temLancamento(outra.id_contagem))) {
         await pool.query('DELETE FROM estoque_contagens WHERE id_contagem = $1 AND status = $2', [
           outra.id_contagem,
@@ -2210,8 +2214,12 @@ router.patch('/contagens/:id/reabrir', permReabrirContagem, async (req, res, nex
         continue;
       }
       const rotulo = outra.titulo ? `“${outra.titulo}” (#${outra.id_contagem})` : `#${outra.id_contagem}`;
+      const [ano, mes, dia] = outraDia.split('-');
+      const onde = mesmoDia
+        ? 'neste dia'
+        : (dia && mes && ano ? `em ${dia}/${mes}/${ano}` : '');
       return res.status(400).json({
-        error: `Já existe conferência aberta ${rotulo} neste dia. Finalize ou exclua ela para reabrir esta.`,
+        error: `Já existe conferência aberta ${rotulo}${onde ? ` ${onde}` : ''}. Finalize ou exclua ela para reabrir esta.`,
         id_contagem_aberta: outra.id_contagem,
       });
     }
