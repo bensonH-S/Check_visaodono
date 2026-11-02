@@ -1,6 +1,6 @@
 import type { EstoqueSaldoItem } from '../../api/client';
 
-export type AbaEstoqueHub = 'visao' | 'insumos' | 'nf' | 'movimentos';
+export type AbaEstoqueHub = 'visao' | 'contagens' | 'insumos' | 'nf' | 'movimentos';
 export type FiltroInsumoHub = 'todos' | 'zerados' | 'abaixo' | 'criticos' | 'supercriticos';
 export type StatusSaldoHub = 'ok' | 'zerado' | 'abaixo';
 

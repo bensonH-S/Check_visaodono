@@ -10,6 +10,7 @@ import SyncAltOutlinedIcon from '@mui/icons-material/SyncAltOutlined';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import HistoryOutlinedIcon from '@mui/icons-material/HistoryOutlined';
 import {
   api,
   type EstoqueContagemResumo,
@@ -59,10 +60,36 @@ const LOJA_STORAGE_KEY = 'estoque.id_loja';
 
 const ABAS: { id: AbaEstoqueHub; label: string; icon: typeof VisibilityOutlinedIcon }[] = [
   { id: 'visao', label: 'Visão', icon: VisibilityOutlinedIcon },
+  { id: 'contagens', label: 'Contagens', icon: HistoryOutlinedIcon },
   { id: 'insumos', label: 'Insumos', icon: Inventory2OutlinedIcon },
   { id: 'nf', label: 'NF', icon: DescriptionOutlinedIcon },
   { id: 'movimentos', label: 'Movim.', icon: SyncAltOutlinedIcon },
 ];
+
+type FiltroTipoContagem = 'todas' | TipoContagemEstoque;
+
+function rotuloTipoCurto(tipo?: string | null) {
+  if (tipo === 'diaria') return 'Diária';
+  if (tipo === 'critica_semanal') return 'Semanal';
+  return 'Mensal';
+}
+
+function fmtBrlContagem(v: number | null | undefined) {
+  if (v == null || Number.isNaN(Number(v))) return '—';
+  return Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function fmtDataContagem(iso?: string | null) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 const CHIPS: { id: FiltroInsumoHub; label: string }[] = [
   { id: 'todos', label: 'Todos' },
@@ -217,6 +244,7 @@ export default function EstoqueMobileListaPage() {
   const [filtroInsumo, setFiltroInsumo] = useState<FiltroInsumoHub>('todos');
   const [busca, setBusca] = useState('');
   const [filtroNf, setFiltroNf] = useState('todas');
+  const [filtroTipoContagem, setFiltroTipoContagem] = useState<FiltroTipoContagem>('todas');
   const [saldos, setSaldos] = useState<EstoqueSaldoItem[]>([]);
   const [nfes, setNfes] = useState<EstoqueNfeResumo[]>([]);
   const [movimentos, setMovimentos] = useState<EstoqueMovimento[]>([]);
@@ -398,6 +426,13 @@ export default function EstoqueMobileListaPage() {
     : 'Selecionar loja';
 
   const agendaLoja = useMemo(() => agendaDaLoja(lista, new Date(), !loading), [lista, loading]);
+  const contagensFiltradas = useMemo(() => {
+    return lista.filter((c) => {
+      const tipo = c.tipo || 'completa';
+      if (filtroTipoContagem !== 'todas' && tipo !== filtroTipoContagem) return false;
+      return true;
+    });
+  }, [lista, filtroTipoContagem]);
 
   const iniciar = async (tipo: TipoContagemEstoque) => {
     if (!idLoja) return;
@@ -607,6 +642,44 @@ export default function EstoqueMobileListaPage() {
           </div>
         ) : null}
 
+        {aba === 'contagens' ? (
+          <div className="ck-estoque-hub__lock ck-estoque-hub__lock--contagens">
+            <div className="ck-estoque-hub__sec-head">
+              <div>
+                <h2>
+                  <HistoryOutlinedIcon className="ck-estoque-hub__sec-ico" />
+                  Contagens
+                </h2>
+                <p>
+                  {contagensFiltradas.length}{' '}
+                  {contagensFiltradas.length === 1 ? 'contagem' : 'contagens'}
+                </p>
+              </div>
+            </div>
+            <div className="ck-estoque-hub__seg" role="tablist" aria-label="Tipo de contagem">
+              {(
+                [
+                  ['todas', 'Todas'],
+                  ['diaria', 'Diária'],
+                  ['critica_semanal', 'Semanal'],
+                  ['completa', 'Mensal'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={filtroTipoContagem === id}
+                  className={filtroTipoContagem === id ? 'is-on' : undefined}
+                  onClick={() => setFiltroTipoContagem(id)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {aba === 'visao' || aba === 'insumos' ? (
           <>
             <div className="ck-estoque-hub__lock">
@@ -709,6 +782,53 @@ export default function EstoqueMobileListaPage() {
 
       <div className="ck-estoque-hub__scroll">
         <div className="ck-estoque-hub__body ck-estoque-hub__body--scroll">
+          {aba === 'contagens' ? (
+            <div className="ck-estoque-hub__table ck-estoque-hub__table--body ck-estoque-hub__table--contagens">
+            <div className="ck-estoque-hub__lista">
+              {!loading && !contagensFiltradas.length ? (
+                <p className="ck-estoque-hub__empty">Nenhuma contagem neste filtro.</p>
+              ) : (
+                contagensFiltradas.map((c) => {
+                  const aberta = c.status === 'aberta';
+                  const quando = aberta
+                    ? fmtDataContagem(c.criado_em)
+                    : fmtDataContagem(c.finalizado_em || c.criado_em);
+                  return (
+                    <button
+                      key={c.id_contagem}
+                      type="button"
+                      className="ck-estoque-hub__row ck-estoque-hub__row--contagem"
+                      onClick={() =>
+                        navigate(`/estoque/mobile/${c.id_contagem}`, { state: { aba: 'contagens' } })
+                      }
+                    >
+                      <span className="ck-estoque-hub__contagem-copy">
+                        <strong>{c.titulo || `Conferência #${c.id_contagem}`}</strong>
+                        <small>
+                          {rotuloTipoCurto(c.tipo)}
+                          {c.criado_por_nome ? ` · ${c.criado_por_nome}` : ''}
+                        </small>
+                        <small>
+                          {quando || (aberta ? 'Em aberto' : '—')}
+                          {c.itens_total != null ? ` · ${c.itens_total} itens` : ''}
+                        </small>
+                      </span>
+                      <span className="ck-estoque-hub__contagem-side">
+                        <strong>{fmtBrlContagem(c.valor_atual ?? c.total_valor)}</strong>
+                        <span className={`ck-estoque-hub__status ${aberta ? 'is-aberta' : 'is-ok'}`}>
+                          <i />
+                          {aberta ? 'Aberta' : 'Finalizada'}
+                        </span>
+                      </span>
+                      <ChevronRightIcon className="ck-estoque-hub__chev" sx={{ fontSize: 16 }} />
+                    </button>
+                  );
+                })
+              )}
+            </div>
+            </div>
+          ) : null}
+
           {aba === 'visao' || aba === 'insumos' ? (
             <div className="ck-estoque-hub__table ck-estoque-hub__table--body">
               <div className="ck-estoque-hub__lista">

@@ -118,7 +118,7 @@
   justify-content: center;
   gap: 3px;
   padding: 0 1px 10px;
-  font-size: 0.72rem;
+  font-size: 0.64rem;
   white-space: nowrap;
 }
 
@@ -849,6 +849,10 @@
 
 .ck-estoque-hub__status.is-ok {
   color: var(--eh-green);
+}
+
+.ck-estoque-hub__status.is-aberta {
+  color: var(--eh-yellow);
 }
 
 .ck-estoque-hub__status.is-abaixo {
@@ -2142,4 +2146,92 @@
   background: #333840 !important;
   color: #f5f5f5 !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+.ck-estoque-hub__seg {
+  display: flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: #22262c;
+}
+
+.ck-estoque-hub__seg button {
+  flex: 1 1 0;
+  min-width: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #a3a3a3;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
+  padding: 8px 4px;
+  cursor: pointer;
+}
+
+.ck-estoque-hub__seg button.is-on {
+  background: #0548d1;
+  color: #fff;
+}
+
+.ck-estoque-hub--hero .ck-estoque-hub__lock--contagens {
+  margin-bottom: 0;
+  border-radius: 16px 16px 0 0;
+  padding-bottom: 12px;
+}
+
+.ck-estoque-hub--hero .ck-estoque-hub__table--contagens {
+  margin-top: 0;
+  padding-top: 0;
+  border-radius: 0 0 16px 16px;
+  background: rgba(51, 56, 64, 0.72);
+}
+
+.ck-estoque-hub--hero .ck-estoque-hub__body--scroll:has(.ck-estoque-hub__table--contagens) {
+  padding-top: 0;
+}
+
+.ck-estoque-hub__row.ck-estoque-hub__row--contagem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  grid-template-columns: none;
+}
+
+.ck-estoque-hub__contagem-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ck-estoque-hub__contagem-copy strong {
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.ck-estoque-hub__contagem-copy small {
+  color: #9a9a9a;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ck-estoque-hub__contagem-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ck-estoque-hub__contagem-side strong {
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
 }

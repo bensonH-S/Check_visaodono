@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import LinearProgress from '@mui/material/LinearProgress';
-import LockOpenIcon from '@mui/icons-material/LockOpen';
 import {
   api,
   type EstoqueContagemDetalhe,
   type EstoqueItem,
 } from '../../api/client';
-import { getUsuario, podeReabrirContagemEstoque } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { assetUrl, ICONE_PWA } from '../../config/paths';
 import '../../components/visitas/visitas-mobile.css';
@@ -125,7 +123,13 @@ type TecladoAtivo = {
   substituir: boolean;
 };
 
-type LocationState = { contagemPreload?: EstoqueContagemDetalhe };
+type LocationState = { contagemPreload?: EstoqueContagemDetalhe; aba?: 'contagens' };
+
+function tituloTipo(tipo?: string | null) {
+  if (tipo === 'diaria') return 'DIÁRIA';
+  if (tipo === 'critica_semanal') return 'SEMANAL';
+  return 'MENSAL';
+}
 
 export default function EstoqueMobileConferenciaPage() {
   const { idContagem } = useParams<{ idContagem: string }>();
@@ -133,7 +137,6 @@ export default function EstoqueMobileConferenciaPage() {
   const location = useLocation();
   const id = Number(idContagem);
   const preload = (location.state as LocationState | null)?.contagemPreload;
-  const podeReabrir = podeReabrirContagemEstoque(getUsuario());
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const [contagem, setContagem] = useState<EstoqueContagemDetalhe | null>(() =>
@@ -146,8 +149,6 @@ export default function EstoqueMobileConferenciaPage() {
   const [salvando, setSalvando] = useState(false);
   const [autoSalvando, setAutoSalvando] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
-  const [reabrindo, setReabrindo] = useState(false);
-  const [dlgReabrir, setDlgReabrir] = useState(false);
   const [dlgFinalizar, setDlgFinalizar] = useState(false);
   const [teclado, setTeclado] = useState<TecladoAtivo | null>(null);
   const [busca, setBusca] = useState('');
@@ -584,29 +585,11 @@ export default function EstoqueMobileConferenciaPage() {
       dirtyRef.current = false;
       await api.estoqueFinalizarContagem(contagem.id_contagem);
       showToast('Conferência finalizada');
-      navigate('/estoque/mobile', { replace: true });
+      navigate('/estoque/mobile', { replace: true, state: { aba: 'contagens' } });
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao finalizar', 'error');
     } finally {
       setFinalizando(false);
-    }
-  };
-
-  const confirmarReabrir = async () => {
-    if (!contagem?.id_contagem || contagem.status !== 'finalizada') return;
-    setReabrindo(true);
-    try {
-      const det = await api.estoqueReabrirContagem(contagem.id_contagem);
-      setContagem(det);
-      setRascunho(aplicarDraft(det));
-      setIndiceSecao(0);
-      dirtyRef.current = false;
-      setDlgReabrir(false);
-      showToast('Conferência reaberta para edição', 'success');
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Erro ao reabrir', 'error');
-    } finally {
-      setReabrindo(false);
     }
   };
 
@@ -619,7 +602,8 @@ export default function EstoqueMobileConferenciaPage() {
         /* ainda assim volta */
       }
     }
-    navigate('/estoque/mobile');
+    const aba = (location.state as LocationState | null)?.aba;
+    navigate('/estoque/mobile', aba ? { state: { aba } } : undefined);
   };
 
   return (
@@ -641,7 +625,7 @@ export default function EstoqueMobileConferenciaPage() {
             ←
           </button>
           <h1 className="ck-estoque__contagem-title">
-            {contagem?.tipo === 'diaria' ? 'DIÁRIA' : 'CONTAGEM'}
+            {tituloTipo(contagem?.tipo)}
           </h1>
           <div className="ck-estoque__contagem-total">
             <span>TOTAL</span>
@@ -811,23 +795,10 @@ export default function EstoqueMobileConferenciaPage() {
                 </div>
               )}
 
-              {!editavel && podeReabrir && contagem.status === 'finalizada' && (
-                <div className="ck-estoque__actions ck-estoque__actions--inline">
-                  <button
-                    type="button"
-                    className="ck-estoque__btn ck-estoque__btn--save"
-                    disabled={reabrindo}
-                    onClick={() => setDlgReabrir(true)}
-                  >
-                    <LockOpenIcon fontSize="small" style={{ marginRight: 6 }} />
-                    Reabrir conferência
-                  </button>
-                </div>
-              )}
-
-              {contagem.finalizado_em && (
+              {contagem.status === 'finalizada' && (
                 <p className="ck-estoque__meta-foot">
-                  Finalizada em {fmtDataHora(contagem.finalizado_em)}
+                  Finalizada{contagem.finalizado_em ? ` em ${fmtDataHora(contagem.finalizado_em)}` : ''}.
+                  Para editar, regional, diretor ou TI reabre no portal.
                 </p>
               )}
             </>
@@ -974,22 +945,6 @@ export default function EstoqueMobileConferenciaPage() {
         </div>
       )}
 
-      {dlgReabrir && (
-        <div className="ck-estoque__dlg-backdrop" role="presentation">
-          <div className="ck-estoque__dlg" role="dialog" aria-modal="true">
-            <h2>Reabrir conferência?</h2>
-            <p>Você poderá editar CAIXA / PC/FD / KG-UND novamente.</p>
-            <div className="ck-estoque__dlg-actions">
-              <button type="button" onClick={() => setDlgReabrir(false)} disabled={reabrindo}>
-                Cancelar
-              </button>
-              <button type="button" onClick={() => void confirmarReabrir()} disabled={reabrindo}>
-                {reabrindo ? 'Reabrindo…' : 'Reabrir'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
