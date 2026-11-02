@@ -126,7 +126,7 @@ export function CcEnvioMensalDialog({
                   size="small"
                   checked={marcada}
                   onChange={() => setSel((atual) => (atual.includes(id) ? atual.filter((item) => item !== id) : [...atual, id]))}
-                  inputProps={{ 'aria-label': `Selecionar ${nomeCurto(loja.name)}` }}
+                  slotProps={{ input: { 'aria-label': `Selecionar ${nomeCurto(loja.name)}` } }}
                 />
               ) : null}
               <Typography noWrap sx={{ fontSize: 13, fontWeight: 700 }}>
