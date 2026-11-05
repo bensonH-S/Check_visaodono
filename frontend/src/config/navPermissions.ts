@@ -8,6 +8,8 @@ export type RotaNav = {
 
 /** Ordem de fallback quando o usuário acessa rota sem permissão */
 export const ROTAS_NAV: RotaNav[] = [
+  // Contabilidade: Inbox de notas antes do Command Center
+  { path: '/financeiro/inbox', permissoes: ['financeiro.nfe.ver'] },
   { path: '/dashboard', permissoes: ['portal.dashboard.ver'] },
   {
     path: '/estoque',

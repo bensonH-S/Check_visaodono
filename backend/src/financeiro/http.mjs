@@ -35,6 +35,7 @@ import {
   amarrarDdaComNotasReceita,
   coletarNotasReceita,
   danfeNotaReceita,
+  xmlNotaReceita,
   garantirSchemaSefaz,
   importarXmlNaAgenda,
   lancarNotaNaAgenda,
@@ -2298,6 +2299,20 @@ export async function handleFinance(req, res) {
         return enviarPdf(res, pdf, `DANFE-${id}.pdf`)
       } catch (err) {
         return send(res, err.status || 502, JSON.stringify({ erro: err.message || 'Não abriu o DANFE.' }))
+      }
+    }
+    if (req.method === 'GET' && /^\/api\/nfe\/recebidas\/[^/]+\/xml$/.test(url.pathname)) {
+      const id = url.pathname.split('/')[4]
+      try {
+        const arquivo = await xmlNotaReceita(pool, id)
+        res.writeHead(200, {
+          'content-type': 'application/xml; charset=utf-8',
+          'content-disposition': `attachment; filename="${arquivo.nome}"`,
+          'cache-control': 'no-store',
+        })
+        return res.end(arquivo.xml)
+      } catch (err) {
+        return send(res, err.status || 502, JSON.stringify({ erro: err.message || 'Não baixou o XML.' }))
       }
     }
     if (req.method === 'POST' && /^\/api\/nfe\/recebidas\/[^/]+\/agenda$/.test(url.pathname)) {

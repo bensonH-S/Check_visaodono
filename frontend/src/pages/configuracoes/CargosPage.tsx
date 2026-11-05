@@ -47,6 +47,11 @@ const MENUS_SISTEMA: { titulo: string; descricao: string; codigos: string[] }[] 
     codigos: ['financeiro.ver'],
   },
   {
+    titulo: 'Notas fiscais',
+    descricao: 'Consultar e baixar DANFE e XML, sem editar pagamentos',
+    codigos: ['financeiro.nfe.ver'],
+  },
+  {
     titulo: 'AutoREV / Checklist',
     descricao: 'Acesso e execução em loja',
     codigos: ['checklist.ver', 'checklist.executar'],

@@ -43,6 +43,7 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'energia.abrir', nome: 'Registrar protocolo e fotos de ocorrência de energia', grupo: 'Energia', ordem: 176 },
   { codigo: 'financeiro.ver', nome: 'Ver módulo Financeiro (contas a pagar, caixa, DDA)', grupo: 'Financeiro', ordem: 185 },
   { codigo: 'financeiro.resumo.ver', nome: 'Ver gastos e pagamentos no Command Center', grupo: 'Financeiro', ordem: 186 },
+  { codigo: 'financeiro.nfe.ver', nome: 'Consultar notas fiscais (DANFE e XML), sem editar', grupo: 'Financeiro', ordem: 187 },
   { codigo: 'freelancers.aprovar', nome: 'Aprovar turnos de freelancers (ponto) na região', grupo: 'Freelancers', ordem: 180 },
   { codigo: 'sistema.backup', nome: 'Gerar e baixar dump do banco (TI)', grupo: 'Sistema', ordem: 190 },
   { codigo: 'ti.tickets.abrir', nome: 'Abrir chamado para o TI', grupo: 'TI / Tickets', ordem: 200 },

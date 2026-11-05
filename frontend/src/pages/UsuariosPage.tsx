@@ -116,6 +116,7 @@ function resumoAcessosPerfil(cargo: Cargo | undefined): string[] {
   const grupos: { titulo: string; codigos: string[] }[] = [
     { titulo: 'Command Center', codigos: ['portal.dashboard.ver', 'financeiro.resumo.ver'] },
     { titulo: 'Financeiro', codigos: ['financeiro.ver'] },
+    { titulo: 'Notas fiscais', codigos: ['financeiro.nfe.ver'] },
     { titulo: 'AutoREV', codigos: ['checklist.ver', 'checklist.executar'] },
     { titulo: 'Chamados', codigos: ['chamados.ver', 'chamados.abrir', 'chamados.assumir', 'chamados.aprovar'] },
     { titulo: 'Energia', codigos: ['energia.ver', 'energia.abrir'] },

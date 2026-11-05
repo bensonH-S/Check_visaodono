@@ -554,7 +554,7 @@ export default function App() {
               <Route
                 path="inbox"
                 element={
-                  <RotaFinanceiro>
+                  <RotaFinanceiro permitirConsulta>
                     <InboxDdaPage />
                   </RotaFinanceiro>
                 }

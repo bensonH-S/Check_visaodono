@@ -1042,6 +1042,15 @@ export async function danfeNotaReceita(financePool, id) {
   }
 }
 
+export async function xmlNotaReceita(financePool, id) {
+  await garantirSchemaSefaz(financePool)
+  const nota = await notaPorId(financePool, id)
+  if (!nota) throw erroStatus(404, 'Nota não encontrada.')
+  const xml = await xmlCompletoDaNota(financePool, nota)
+  const nome = `NF-${nota.numero || nota.chave || id}.xml`.replace(/[^\w.-]+/g, '_')
+  return { xml, nome }
+}
+
 function lerEnvArquivo(file) {
   if (!file || !fs.existsSync(file)) return {}
   const env = {}

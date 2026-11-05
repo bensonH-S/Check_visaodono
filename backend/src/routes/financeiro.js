@@ -36,8 +36,17 @@ function podeLeituraResumo(req) {
   return false;
 }
 
+/** Escritório contábil: lista de NF-e, DANFE e XML. Sem lançar, confirmar ou editar. */
+function podeLerNotas(req) {
+  if (req.method !== 'GET') return false;
+  if (!temPermissao(req.user, 'financeiro.nfe.ver') && !temPermissao(req.user, 'financeiro.ver')) return false;
+  if (req.path === '/nfe/recebidas' || req.path === '/empresas') return true;
+  return /^\/nfe\/recebidas\/[^/]+\/(danfe|xml)$/.test(req.path);
+}
+
 router.use((req, res, next) => {
   if (req.method === 'POST' && semPermissaoDeTela.has(req.path)) return next();
+  if (podeLerNotas(req)) return next();
   if (podeLeituraResumo(req)) {
     if (temPermissao(req.user, 'financeiro.ver') || temPermissao(req.user, 'financeiro.resumo.ver')) {
       return next();

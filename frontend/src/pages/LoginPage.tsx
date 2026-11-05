@@ -15,6 +15,7 @@ import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined
 import SupportContact from '../components/SupportContact';
 import { api } from '../api/client';
 import { setSessao, logout } from '../lib/auth';
+import { primeiraRotaPermitida } from '../config/navPermissions';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useAppConfig } from '../hooks/useAppConfig';
 import { assetUrl, LOGO_MERIDIAN_GESTAO, LOGO_MERIDIAN_MARK_M, normalizeAppRoute } from '../config/paths';
@@ -83,7 +84,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { version, environment } = useAppConfig();
-  const from = normalizeAppRoute((location.state as { from?: string })?.from || '/dashboard');
+  const fromPedido = (location.state as { from?: string })?.from;
   const versionLabel =
     version === 'dev' ? 'dev' : version.startsWith('v') ? version : `v${version}`;
 
@@ -132,7 +133,10 @@ export default function LoginPage() {
     try {
       const data = await api.login(emailTrim, senha);
       setSessao(data.accessToken, data.usuario);
-      navigate(from, { replace: true, state: { welcome: data.usuario.nome } });
+      const destino = fromPedido
+        ? normalizeAppRoute(fromPedido)
+        : primeiraRotaPermitida(data.usuario);
+      navigate(destino, { replace: true, state: { welcome: data.usuario.nome } });
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       setErro(

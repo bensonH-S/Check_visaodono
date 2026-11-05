@@ -1018,6 +1018,21 @@ export const api = {
     const url = URL.createObjectURL(await res.blob())
     window.open(url, '_blank', 'noopener')
   },
+  baixarXmlNota: async (id: string) => {
+    const res = await financeFetch(`${apiRoot}/nfe/recebidas/${id}/xml`)
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      throw new Error(data.erro || 'Não baixou o XML')
+    }
+    const disposto = res.headers.get('content-disposition') || ''
+    const nome = /filename="([^"]+)"/.exec(disposto)?.[1] || `NF-${id}.xml`
+    const url = URL.createObjectURL(await res.blob())
+    const link = document.createElement('a')
+    link.href = url
+    link.download = nome
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  },
   lancarNotaAgenda: async (id: string) => {
     const res = await financeFetch(`${apiRoot}/nfe/recebidas/${id}/agenda`, { method: 'POST' })
     const data = await res.json()

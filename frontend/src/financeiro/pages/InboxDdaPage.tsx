@@ -26,12 +26,14 @@ import IconButton from '@mui/material/IconButton'
 import AddIcon from '@mui/icons-material/Add'
 import AccountBalanceWalletOutlinedIcon from '@mui/icons-material/AccountBalanceWalletOutlined'
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined'
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutlined'
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined'
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined'
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined'
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined'
 import { api, brl, emCache, estaNoInbox, linhaAcrescimo, urlDespesas, urlEmpresas, urlNotas, type Despesa, type Empresa, type NotaReceita } from '../api'
+import { consultaSomenteNfe } from '../../lib/auth'
 import { DespesaForm } from './ContasPagarPage'
 import { ordenarEmpresas, ordenarLancamentosPorEmpresa } from '../ordemEmpresas'
 import { rotuloDespesa } from '../rotuloDespesa'
@@ -221,7 +223,8 @@ function rotuloDescricao(e: Despesa) {
 export function InboxDdaPage() {
   const { t, idioma } = usePrefs()
   const navigate = useNavigate()
-  const [aba, setAba] = useState(0)
+  const consulta = consultaSomenteNfe()
+  const [aba, setAba] = useState(() => (consultaSomenteNfe() ? 1 : 0))
   const [empresas, setEmpresas] = useState<Empresa[]>(() => emCache<Empresa[]>(urlEmpresas()) ?? [])
   const [despesas, setDespesas] = useState<Despesa[]>(() => emCache<Despesa[]>(urlDespesas()) ?? [])
   const [loja, setLoja] = useState('')
@@ -240,7 +243,7 @@ export function InboxDdaPage() {
   const [filtroNf, setFiltroNf] = useState<(typeof FILTROS_NF)[number]>('Todas')
   const [buscandoNf, setBuscandoNf] = useState(false)
   const [aviso, setAviso] = useState('')
-  const [acaoNf, setAcaoNf] = useState<{ id: string; tipo: 'danfe' | 'agenda' } | null>(null)
+  const [acaoNf, setAcaoNf] = useState<{ id: string; tipo: 'danfe' | 'agenda' | 'xml' } | null>(null)
   const [confirmacao, setConfirmacao] = useState<{
     titulo: string
     texto: string
@@ -276,7 +279,7 @@ export function InboxDdaPage() {
 
   useEffect(() => {
     api.empresas().then(setEmpresas).catch(() => undefined)
-    void carregar()
+    if (!consultaSomenteNfe()) void carregar()
     carregarNotas('')
   }, [])
 
@@ -404,6 +407,19 @@ export function InboxDdaPage() {
       setNotas((lista) => lista.map((item) => (item.id === n.id ? { ...item, tem_xml: true } : item)))
     } catch (err) {
       setErro(err instanceof Error ? err.message : t('Não abriu o DANFE', 'Could not open the DANFE'))
+    } finally {
+      setAcaoNf(null)
+    }
+  }
+
+  const baixarXmlLinha = async (n: NotaReceita) => {
+    setAcaoNf({ id: n.id, tipo: 'xml' })
+    setErro('')
+    setAviso('')
+    try {
+      await api.baixarXmlNota(n.id)
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : t('Não baixou o XML', 'Could not download the XML'))
     } finally {
       setAcaoNf(null)
     }
@@ -759,7 +775,13 @@ export function InboxDdaPage() {
           }}
         />
         <Box sx={{ flex: 1 }} />
-        {aba === 0 ? (
+        {consulta ? (
+          <Chip
+            size="small"
+            label={t('Somente consulta', 'View only')}
+            sx={{ fontWeight: 600, bgcolor: 'rgba(27,110,243,0.1)', color: '#1B6EF3', border: '1px solid rgba(27,110,243,0.28)' }}
+          />
+        ) : aba === 0 ? (
           <>
             <Button
               type="button"
@@ -888,12 +910,16 @@ export function InboxDdaPage() {
           '& .MuiTab-iconWrapper': { mb: '0 !important', mr: 0, display: 'inline-flex', alignItems: 'center' },
         }}
       >
+        {!consulta && (
+          <Tab
+            value={0}
+            icon={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 18 }} />}
+            iconPosition="start"
+            label={t(`DDA (${linhas.length})`, `DDA (${linhas.length})`)}
+          />
+        )}
         <Tab
-          icon={<AccountBalanceWalletOutlinedIcon sx={{ fontSize: 18 }} />}
-          iconPosition="start"
-          label={t(`DDA (${linhas.length})`, `DDA (${linhas.length})`)}
-        />
-        <Tab
+          value={1}
           icon={<ReceiptLongOutlinedIcon sx={{ fontSize: 18 }} />}
           iconPosition="start"
           label={t(`Notas fiscais (${notasLinhas.length})`, `Invoices (${notasLinhas.length})`)}
@@ -1109,7 +1135,9 @@ export function InboxDdaPage() {
                           nota={n}
                           ocupado={acaoNf?.id === n.id}
                           t={t}
+                          somenteConsulta={consulta}
                           onDanfe={() => abrirDanfeLinha(n)}
+                          onXml={() => baixarXmlLinha(n)}
                           onAgenda={() => lancarLinha(n)}
                         />
                       </Box>
@@ -1453,13 +1481,17 @@ function SimbolosNota({
   nota,
   ocupado,
   t,
+  somenteConsulta = false,
   onDanfe,
+  onXml,
   onAgenda,
 }: {
   nota: NotaReceita
   ocupado: boolean
   t: (pt: string, en: string) => string
+  somenteConsulta?: boolean
   onDanfe: () => void
+  onXml: () => void
   onAgenda: () => void
 }) {
   const cancelada = nota.situacao === 'cancelada' || nota.situacao === 'denegada'
@@ -1501,23 +1533,33 @@ function SimbolosNota({
           </IconButton>
         </span>
       </Tooltip>
-      <Tooltip title={nota.tem_dda
-        ? t('Unida ao boleto DDA', 'Linked to the DDA boleto')
-        : nota.despesa_id
-          ? t('Já enviada à agenda', 'Already sent to the agenda')
-          : t('Lançar na agenda', 'Add to the agenda')}
-      >
-        <span>
-          <IconButton
-            size="small"
-            disabled={ocupado || (cancelada && !nota.despesa_id)}
-            onClick={onAgenda}
-            sx={{ ...botao, color: nota.despesa_id ? '#D97706' : '#94A3B8' }}
-          >
-            <PaymentsOutlinedIcon sx={{ fontSize: 18 }} />
-          </IconButton>
-        </span>
-      </Tooltip>
+      {somenteConsulta ? (
+        <Tooltip title={t('Baixar XML', 'Download XML')}>
+          <span>
+            <IconButton size="small" disabled={ocupado} onClick={onXml} sx={{ ...botao, color: nota.tem_xml ? '#1D4ED8' : '#94A3B8' }}>
+              <FileDownloadOutlinedIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+      ) : (
+        <Tooltip title={nota.tem_dda
+          ? t('Unida ao boleto DDA', 'Linked to the DDA boleto')
+          : nota.despesa_id
+            ? t('Já enviada à agenda', 'Already sent to the agenda')
+            : t('Lançar na agenda', 'Add to the agenda')}
+        >
+          <span>
+            <IconButton
+              size="small"
+              disabled={ocupado || (cancelada && !nota.despesa_id)}
+              onClick={onAgenda}
+              sx={{ ...botao, color: nota.despesa_id ? '#D97706' : '#94A3B8' }}
+            >
+              <PaymentsOutlinedIcon sx={{ fontSize: 18 }} />
+            </IconButton>
+          </span>
+        </Tooltip>
+      )}
       {alerta ? (
         <Tooltip title={alerta}>
           <WarningAmberOutlinedIcon sx={{ fontSize: 18, color: '#EA580C', justifySelf: 'center' }} />

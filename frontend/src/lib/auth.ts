@@ -611,6 +611,16 @@ export function podeVerFinanceiro(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('financeiro.ver', usuario);
 }
 
+/** Inbox de NF-e: financeiro completo ou o perfil da contabilidade. */
+export function podeConsultarNfe(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('financeiro.ver', usuario) || temPermissao('financeiro.nfe.ver', usuario);
+}
+
+/** Contabilidade: consulta DANFE e XML, sem lançar nem editar. */
+export function consultaSomenteNfe(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('financeiro.nfe.ver', usuario) && !temPermissao('financeiro.ver', usuario);
+}
+
 /** Dono (Felipe) na Agenda: recusar e alterar valor, mesmo sem financeiro.ver. */
 export function ehDonoFinanceiro(usuario?: UsuarioSessao | null): boolean {
   const u = usuario ?? getUsuario();
