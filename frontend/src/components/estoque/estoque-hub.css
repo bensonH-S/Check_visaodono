@@ -851,6 +851,10 @@
   color: var(--eh-green);
 }
 
+.ck-estoque-hub__status.is-warn {
+  color: var(--eh-yellow);
+}
+
 .ck-estoque-hub__status.is-aberta {
   color: var(--eh-yellow);
 }
@@ -893,6 +897,11 @@
 
 .ck-estoque-hub__status.is-ok i {
   display: block;
+}
+
+.ck-estoque-hub__status.is-warn i {
+  display: block;
+  background: var(--eh-yellow);
 }
 
 .ck-estoque-hub__chev {

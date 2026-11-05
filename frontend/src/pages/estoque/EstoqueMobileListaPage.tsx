@@ -122,6 +122,15 @@ function fmtDataNf(iso: string | null | undefined) {
   return `${d}/${m}`;
 }
 
+/** Pendente / Confirmada / Confirmada parcial — gestor só confere o que ainda está pendente. */
+function rotuloStatusNf(n: Pick<EstoqueNfeResumo, 'entrada_registrada' | 'status_entrega'>) {
+  if (!n.entrada_registrada) return { texto: 'Pendente', classe: 'is-abaixo' as const };
+  if (n.status_entrega === 'divergente') {
+    return { texto: 'Confirmada parcial', classe: 'is-warn' as const };
+  }
+  return { texto: 'Confirmada', classe: 'is-ok' as const };
+}
+
 function buscaNf(n: EstoqueNfeResumo, q: string) {
   const t = q.trim().toLowerCase();
   if (!t) return true;
@@ -318,7 +327,7 @@ export default function EstoqueMobileListaPage() {
         const [saldoRows, nfeRows] = await Promise.all([
           api.estoqueSaldos(idLoja),
           // conferir: todas as pendentes (Platlog/Gimba/SEFAZ…). origem=sefaz escondia o portal.
-          api.estoqueNfes(idLoja, { conferir: true, limit: 400, mesAtual: true }),
+          api.estoqueNfes(idLoja, { conferir: true, limit: 400, dias: 45 }),
         ]);
         if (cancel) return;
         setSaldos(saldoRows);
@@ -415,7 +424,7 @@ export default function EstoqueMobileListaPage() {
     recarregouXml.current = true;
     const timer = window.setTimeout(() => {
       api
-        .estoqueNfes(idLoja, { conferir: true, limit: 400, mesAtual: true })
+        .estoqueNfes(idLoja, { conferir: true, limit: 400, dias: 45 })
         .then(setNfes)
         .catch(() => {});
     }, 15000);
@@ -874,9 +883,9 @@ export default function EstoqueMobileListaPage() {
                             <strong>{forn.nome}</strong>
                             <small>
                               {forn.feitas === forn.qtd
-                                ? 'Entrada feita'
+                                ? 'Todas confirmadas'
                                 : forn.feitas
-                                  ? `${forn.qtd - forn.feitas} pendente${forn.qtd - forn.feitas === 1 ? '' : 's'} · ${forn.feitas} com entrada`
+                                  ? `${forn.qtd - forn.feitas} pendente${forn.qtd - forn.feitas === 1 ? '' : 's'} · ${forn.feitas} confirmada${forn.feitas === 1 ? '' : 's'}`
                                   : forn.qtd === 1
                                     ? '1 nota'
                                     : `${forn.qtd} notas`}
@@ -921,9 +930,9 @@ export default function EstoqueMobileListaPage() {
                               ? n.valor_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
                               : '?'}
                           </strong>
-                          <span className={`ck-estoque-hub__status ${n.entrada_registrada ? 'is-ok' : 'is-abaixo'}`}>
+                          <span className={`ck-estoque-hub__status ${rotuloStatusNf(n).classe}`}>
                             <i />
-                            {n.entrada_registrada ? 'Entrada feita' : 'Pendente'}
+                            {rotuloStatusNf(n).texto}
                           </span>
                         </span>
                         <ChevronRightIcon className="ck-estoque-hub__chev" sx={{ fontSize: 16 }} />

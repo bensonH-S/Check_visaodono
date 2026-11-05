@@ -1150,9 +1150,23 @@ export async function listarNfesEstoque(
 ) {
   const params = [idLoja];
   let filtro = '';
-  if (conferir || pendentes) {
-    // SEFAZ sem XML/itens: não listar pra conferência (só enche a tela com erro).
-    // A fila agendarXmlPendentesLoja completa o XML; depois a nota passa a aparecer.
+  if (conferir) {
+    // Pendentes (confirmar) + já confirmadas (só consulta). SEFAZ sem item fica de fora até o XML.
+    filtro = ` AND (
+                 (
+                   n.entrada_registrada = FALSE
+                   AND n.status_entrega IN ('aguardando_conferencia', 'em_transito', 'aguardando_portal', 'divergente')
+                   AND (
+                     EXISTS (SELECT 1 FROM estoque_nfe_itens i WHERE i.id_nfe = n.id_nfe)
+                     OR lower(COALESCE(n.fornecedor, '')) <> 'sefaz'
+                   )
+                 )
+                 OR (
+                   n.entrada_registrada = TRUE
+                   AND n.status_entrega IN ('conferida', 'divergente')
+                 )
+               )`;
+  } else if (pendentes) {
     filtro = ` AND n.entrada_registrada = FALSE
                AND n.status_entrega IN ('aguardando_conferencia', 'em_transito', 'aguardando_portal', 'divergente')
                AND (
@@ -1168,15 +1182,18 @@ export async function listarNfesEstoque(
                  OR EXISTS (SELECT 1 FROM estoque_nfe_itens i WHERE i.id_nfe = n.id_nfe)
                )`;
   }
-  // Conferência do gestor: só mês corrente (emissão/saída). Outro mês só gera trabalho.
-  if (mesAtual || (conferir && dias == null)) {
+  // App do gestor: últimos 45 dias (pendente + confirmada). mes_atual só se pedir.
+  if (mesAtual) {
     filtro += ` AND date_trunc('month', COALESCE(n.emissao::date, n.data_saida, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date))
                   = date_trunc('month', (NOW() AT TIME ZONE 'America/Sao_Paulo')::date)`;
   } else {
     const janela = Number(dias);
     if (Number.isFinite(janela) && janela > 0) {
       params.push(Math.min(janela, 365));
-      filtro += ` AND COALESCE(n.emissao::date, CURRENT_DATE) >= CURRENT_DATE - $${params.length}::int`;
+      filtro += ` AND COALESCE(n.emissao::date, n.data_saida, CURRENT_DATE) >= CURRENT_DATE - $${params.length}::int`;
+    } else if (conferir || pendentes) {
+      params.push(45);
+      filtro += ` AND COALESCE(n.emissao::date, n.data_saida, CURRENT_DATE) >= CURRENT_DATE - $${params.length}::int`;
     }
   }
   params.push(Math.min(Math.max(Number(limit) || 50, 1), 400));
@@ -1189,11 +1206,13 @@ export async function listarNfesEstoque(
      FROM estoque_nfe n
      WHERE n.id_loja = $1 ${filtro}
      ORDER BY
+       CASE WHEN n.entrada_registrada THEN 1 ELSE 0 END,
        CASE n.status_entrega
          WHEN 'aguardando_conferencia' THEN 0
          WHEN 'em_transito' THEN 1
          WHEN 'divergente' THEN 2
-         ELSE 3
+         WHEN 'conferida' THEN 3
+         ELSE 4
        END,
        COALESCE(n.data_saida, n.emissao) DESC NULLS LAST,
        n.id_nfe DESC

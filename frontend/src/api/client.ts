@@ -1904,7 +1904,7 @@ export const api = {
       limit?: number;
       origem?: 'sefaz';
       dias?: number;
-      /** Só NFs do mês corrente (emissão/saída). */
+      /** Só NFs do mês corrente (emissão/saída). Sem isso, conferir usa 45 dias. */
       mesAtual?: boolean;
     },
   ) => {

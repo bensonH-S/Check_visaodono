@@ -537,6 +537,11 @@ export default function EstoqueMobileNfePage() {
             <p className="ck-estoque-hub__nfe-sub">
               {rotuloFornecedor(det.fornecedor, det.emitente_nome)}
               {det.valor_total != null ? ` · ${fmtMoeda(det.valor_total)}` : ''}
+              {det.entrada_registrada
+                ? det.status_entrega === 'divergente'
+                  ? ' · Confirmada parcial (só consulta)'
+                  : ' · Confirmada (só consulta)'
+                : ''}
             </p>
           ) : null}
         </div>
@@ -731,7 +736,7 @@ export default function EstoqueMobileNfePage() {
                 </button>
               ) : (
                 <button type="button" className="is-feita" disabled>
-                  Entrada já feita
+                  {det.status_entrega === 'divergente' ? 'Confirmada parcial' : 'Confirmada'} — só consulta
                 </button>
               )}
             </>
