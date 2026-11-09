@@ -91,6 +91,8 @@ const router = Router();
 const permOp = requirePermissao('estoque.operacional');
 /** Saldo da diária: loja consulta no app com permissão de conferência. */
 const permSaldo = requirePermissao('estoque.operacional', 'estoque.conferencia');
+/** Consulta de saldo (contabilidade): lista e movimentos, sem NF nem conferência. */
+const permSaldoConsulta = requirePermissao('estoque.operacional', 'estoque.conferencia', 'estoque.saldo.ver');
 /** Receber NF: gestores, regionais, diretor, Felipe e TI entram com conferência. */
 const permNfe = permSaldo;
 /** Relatório de divergência: estoque ou financeiro (Agenda). */
@@ -237,7 +239,7 @@ router.get('/ciclos/preview', permOp, async (req, res, next) => {
 
 // ── Saldos / movimentos ────────────────────────────────────────────────────
 
-router.get('/saldos', permSaldo, async (req, res, next) => {
+router.get('/saldos', permSaldoConsulta, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);
     const bloqueio = acessoLoja(req, idLoja);
@@ -379,7 +381,7 @@ router.get('/saldos/rede-valor', permSaldo, async (req, res, next) => {
   }
 });
 
-router.get('/movimentos', permOp, async (req, res, next) => {
+router.get('/movimentos', permSaldoConsulta, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);
     const bloqueio = acessoLoja(req, idLoja);

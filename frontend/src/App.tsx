@@ -496,7 +496,7 @@ export default function App() {
             <Route
               path="estoque/:aba"
               element={
-                <RotaPermissao permissoes={['estoque.produtos', 'estoque.conferencia', 'estoque.operacional', 'estoque.break']}>
+                <RotaPermissao permissoes={['estoque.produtos', 'estoque.conferencia', 'estoque.operacional', 'estoque.break', 'estoque.saldo.ver']}>
                   <ControleEstoquePage />
                 </RotaPermissao>
               }
@@ -562,7 +562,7 @@ export default function App() {
               <Route
                 path="conciliacao"
                 element={
-                  <RotaFinanceiro>
+                  <RotaFinanceiro permitirConciliacao>
                     <ConciliacaoPage />
                   </RotaFinanceiro>
                 }
@@ -586,7 +586,7 @@ export default function App() {
               <Route
                 path="custos"
                 element={
-                  <RotaFinanceiro>
+                  <RotaFinanceiro permitirCustos>
                     <CustosCoPage />
                   </RotaFinanceiro>
                 }

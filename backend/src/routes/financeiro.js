@@ -44,9 +44,32 @@ function podeLerNotas(req) {
   return /^\/nfe\/recebidas\/[^/]+\/(danfe|xml)$/.test(req.path);
 }
 
+/** Custos (C_O_): só a consulta da aba. */
+function podeLerCustos(req) {
+  if (req.method !== 'GET') return false;
+  if (!temPermissao(req.user, 'financeiro.custos.ver') && !temPermissao(req.user, 'financeiro.ver')) return false;
+  return req.path === '/custos-co' || req.path === '/empresas';
+}
+
+const CONCILIACAO_ESCRITA = new Set([
+  '/conciliacao/upload',
+  '/conciliacao/confirmar',
+  '/conciliacao/desfazer',
+  '/conciliacao/sem-par',
+]);
+
+/** Conciliação bancária: leitura e as ações desta aba. Sem agenda, caixa ou custos. */
+function podeConciliacao(req) {
+  if (!temPermissao(req.user, 'financeiro.conciliacao.ver') && !temPermissao(req.user, 'financeiro.ver')) return false;
+  if (req.method === 'GET' && (req.path.startsWith('/conciliacao/') || req.path === '/empresas')) return true;
+  return req.method === 'POST' && CONCILIACAO_ESCRITA.has(req.path);
+}
+
 router.use((req, res, next) => {
   if (req.method === 'POST' && semPermissaoDeTela.has(req.path)) return next();
   if (podeLerNotas(req)) return next();
+  if (podeLerCustos(req)) return next();
+  if (podeConciliacao(req)) return next();
   if (podeLeituraResumo(req)) {
     if (temPermissao(req.user, 'financeiro.ver') || temPermissao(req.user, 'financeiro.resumo.ver')) {
       return next();

@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeOperacionalEstoque, podeVerEnergia, podeConsultarNfe, podeVerFinanceiro, podeVerResumoFinanceiro } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeOperacionalEstoque, podeVerEnergia, podeConsultarNfe, podeVerConciliacao, podeVerCustos, podeVerFinanceiro, podeVerResumoFinanceiro } from '../lib/auth';
 import { primeiraRotaPermitida } from '../config/navPermissions';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -374,7 +374,9 @@ function PortalLayoutInner() {
 
     // FINANCEIRO — Inbox (DDA/NF) → Agenda banco → caixa / integrações
     // Agenda: financeiro.ver (editar) ou financeiro.resumo.ver (só visualizar).
-    // Inbox / conciliação / caixa: só módulo completo.
+    // Inbox: financeiro completo ou contabilidade.
+    // Conciliação e Custos (C_O_): módulo completo ou a permissão estreita da contabilidade.
+    // Caixa: só módulo completo.
     { to: '/financeiro/inbox', label: 'Inbox', icon: <InboxOutlinedIcon fontSize="small" />, show: podeConsultarNfe(user), section: secFin },
     {
       to: '/financeiro',
@@ -388,7 +390,7 @@ function PortalLayoutInner() {
       to: '/financeiro/conciliacao',
       label: finEn ? 'Reconciliation' : 'Conciliação',
       icon: <CompareArrowsOutlinedIcon fontSize="small" />,
-      show: podeVerFinanceiro(user),
+      show: podeVerConciliacao(user),
       section: secFin,
     },
     {
@@ -402,7 +404,7 @@ function PortalLayoutInner() {
       to: '/financeiro/custos',
       label: finEn ? 'Costs (C_O_)' : 'Custos (C_O_)',
       icon: <DonutSmallOutlinedIcon fontSize="small" />,
-      show: podeVerFinanceiro(user),
+      show: podeVerCustos(user),
       section: secFin,
     },
     {

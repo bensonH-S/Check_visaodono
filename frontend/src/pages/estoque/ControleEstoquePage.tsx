@@ -53,6 +53,7 @@ import {
   podeOperacionalEstoque,
   podeProdutosEstoque,
   podeReabrirContagemEstoque,
+  podeVerSaldoEstoque,
 } from '../../lib/auth';
 import { showToast } from '../../utils/toast';
 import { tableContainerSx, tablePaperSx, tableSx } from '../../utils/tablePageLayout';
@@ -113,7 +114,7 @@ function isAbaEstoque(v: string | undefined): v is AbaEstoque {
 function abaInicialPermitida(): AbaEstoque {
   if (podeConferenciaEstoque(getUsuario())) return 'conferencia';
   if (podeBreakEstoque(getUsuario())) return 'break';
-  if (podeOperacionalEstoque(getUsuario())) return 'saldo';
+  if (podeOperacionalEstoque(getUsuario()) || podeVerSaldoEstoque(getUsuario())) return 'saldo';
   if (podeProdutosEstoque(getUsuario())) return 'fichas';
   return 'conferencia';
 }
@@ -282,6 +283,7 @@ function AbasControleEstoque({
   podeConferencia,
   podeOperacional,
   podeBreak,
+  podeSaldo,
   idLoja,
   moduloVendas,
 }: {
@@ -291,6 +293,7 @@ function AbasControleEstoque({
   podeConferencia: boolean;
   podeOperacional: boolean;
   podeBreak: boolean;
+  podeSaldo: boolean;
   idLoja: number | '';
   /** Módulo Vendas separado: só Números/Sync/Baixa (sem misturar com estoque). */
   moduloVendas?: boolean;
@@ -340,7 +343,7 @@ function AbasControleEstoque({
       {podeBreak && (
         <Tab disableRipple value="break" label="Break" disabled={semLoja || bloqueiaOutrasAbas} />
       )}
-      {podeOperacional && (
+      {(podeOperacional || podeSaldo) && (
         <Tab disableRipple value="saldo" label="Saldo" disabled={semLoja || bloqueiaOutrasAbas} />
       )}
       {podeOperacional && (
@@ -361,6 +364,7 @@ export default function ControleEstoquePage() {
   const podeConferencia = podeConferenciaEstoque(user);
   const podeOperacional = podeOperacionalEstoque(user);
   const podeBreak = podeBreakEstoque(user);
+  const podeSaldo = podeVerSaldoEstoque(user);
   const podeEditarConferencia = podeConferencia;
   const podeExcluir = podeExcluirEstoque(user);
   const podeReabrir = podeReabrirContagemEstoque(user);
@@ -607,19 +611,23 @@ export default function ControleEstoquePage() {
       navigate('/estoque/conferencia', { replace: true });
       return;
     }
-    const abasOp: AbaEstoque[] = ['saldo', 'fichas'];
     let destino: AbaEstoque | null = null;
+    const fallback = podeConferencia ? 'conferencia' : podeBreak ? 'break' : podeSaldo ? 'saldo' : 'fichas';
     if (aba === 'conferencia' && !podeConferencia) {
-      destino = podeBreak ? 'break' : podeOperacional ? 'saldo' : 'fichas';
+      destino = podeBreak ? 'break' : podeSaldo ? 'saldo' : 'fichas';
     } else if (aba === 'break' && !podeBreak) {
-      destino = podeConferencia ? 'conferencia' : podeOperacional ? 'saldo' : 'fichas';
-    } else if (abasOp.includes(aba) && !podeOperacional) {
-      destino = podeConferencia ? 'conferencia' : podeBreak ? 'break' : 'fichas';
+      destino = podeConferencia ? 'conferencia' : podeSaldo ? 'saldo' : 'fichas';
+    } else if (aba === 'saldo' && !podeSaldo) {
+      destino = fallback;
+    } else if (aba === 'fichas' && !podeOperacional && !podeProdutos) {
+      destino = fallback;
+    } else if (aba === 'pedido' && !podeOperacional) {
+      destino = fallback;
     }
     if (destino && destino !== aba) {
       navigate(`/estoque/${destino}`, { replace: true });
     }
-  }, [aba, abaParam, moduloVendas, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, verDetalhe, contagem?.status]);
+  }, [aba, abaParam, moduloVendas, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, podeSaldo, verDetalhe, contagem?.status]);
 
   const iniciarSabado = async (tipo: TipoContagemEstoque = 'diaria') => {
     if (!podeEditarConferencia || !idLoja) return;
@@ -1122,6 +1130,7 @@ export default function ControleEstoquePage() {
             podeConferencia={podeConferencia}
             podeOperacional={podeOperacional}
             podeBreak={podeBreak}
+            podeSaldo={podeSaldo}
             idLoja={idLoja}
             moduloVendas={moduloVendas}
           />
@@ -1424,6 +1433,7 @@ export default function ControleEstoquePage() {
               )}
 
               {((podeOperacional && (aba === 'vendas' || aba === 'rede' || aba === 'piloto' || aba === 'pedido' || aba === 'saldo' || aba === 'fichas')) ||
+                (podeSaldo && aba === 'saldo') ||
                 (podeBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
                   <Box

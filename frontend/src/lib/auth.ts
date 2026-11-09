@@ -564,12 +564,22 @@ export function podeBreakEstoque(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('estoque.break', usuario) || podeOperacionalEstoque(usuario);
 }
 
+/** Saldo de estoque, sem as outras funções da Gestão. */
+export function podeVerSaldoEstoque(usuario?: UsuarioSessao | null): boolean {
+  return (
+    temPermissao('estoque.saldo.ver', usuario) ||
+    podeOperacionalEstoque(usuario) ||
+    podeConferenciaEstoque(usuario)
+  );
+}
+
 export function podeVerEstoque(usuario?: UsuarioSessao | null): boolean {
   return (
     podeProdutosEstoque(usuario) ||
     podeConferenciaEstoque(usuario) ||
     podeOperacionalEstoque(usuario) ||
-    temPermissao('estoque.break', usuario)
+    temPermissao('estoque.break', usuario) ||
+    temPermissao('estoque.saldo.ver', usuario)
   );
 }
 
@@ -609,6 +619,16 @@ export function podeVerEnergia(usuario?: UsuarioSessao | null): boolean {
 
 export function podeVerFinanceiro(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('financeiro.ver', usuario);
+}
+
+/** Aba Custos (C_O_), sem o restante do financeiro. */
+export function podeVerCustos(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('financeiro.ver', usuario) || temPermissao('financeiro.custos.ver', usuario);
+}
+
+/** Aba de conciliação bancária, sem agenda ou caixa. */
+export function podeVerConciliacao(usuario?: UsuarioSessao | null): boolean {
+  return temPermissao('financeiro.ver', usuario) || temPermissao('financeiro.conciliacao.ver', usuario);
 }
 
 /** Inbox de NF-e: financeiro completo ou o perfil da contabilidade. */

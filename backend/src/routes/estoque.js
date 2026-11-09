@@ -53,6 +53,7 @@ const verModulo = requirePermissao(
   'estoque.conferencia',
   'estoque.operacional',
   'estoque.break',
+  'estoque.saldo.ver',
 );
 
 router.use(estoqueOperacional);

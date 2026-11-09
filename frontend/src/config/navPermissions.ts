@@ -13,7 +13,7 @@ export const ROTAS_NAV: RotaNav[] = [
   { path: '/dashboard', permissoes: ['portal.dashboard.ver'] },
   {
     path: '/estoque',
-    permissoes: ['estoque.produtos', 'estoque.conferencia', 'estoque.operacional', 'estoque.break'],
+    permissoes: ['estoque.produtos', 'estoque.conferencia', 'estoque.operacional', 'estoque.break', 'estoque.saldo.ver'],
   },
   {
     path: '/vendas',

@@ -52,6 +52,16 @@ const MENUS_SISTEMA: { titulo: string; descricao: string; codigos: string[] }[] 
     codigos: ['financeiro.nfe.ver'],
   },
   {
+    titulo: 'Custos (C_O_)',
+    descricao: 'Aba de custos, sem agenda, caixa ou pagamentos',
+    codigos: ['financeiro.custos.ver'],
+  },
+  {
+    titulo: 'Conciliação bancária',
+    descricao: 'Aba de conciliação do extrato, sem agenda ou caixa',
+    codigos: ['financeiro.conciliacao.ver'],
+  },
+  {
     titulo: 'AutoREV / Checklist',
     descricao: 'Acesso e execução em loja',
     codigos: ['checklist.ver', 'checklist.executar'],
@@ -104,6 +114,11 @@ const MENUS_SISTEMA: { titulo: string; descricao: string; codigos: string[] }[] 
       'estoque.operacional',
       'estoque.break',
     ],
+  },
+  {
+    titulo: 'Saldo de estoque',
+    descricao: 'Só a função Saldo, na seção Gestão',
+    codigos: ['estoque.saldo.ver'],
   },
   {
     titulo: 'Metas',
