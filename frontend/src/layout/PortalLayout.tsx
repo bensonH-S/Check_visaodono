@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeOperacionalEstoque, podeVerEnergia, podeConsultarNfe, podeVerConciliacao, podeVerContasPagar, podeVerCustos, podeVerFinanceiro, podeVerResumoFinanceiro } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeOperacionalEstoque, consultaEstoque, podeVerEnergia, podeConsultarNfe, podeVerConciliacao, podeVerContasPagar, podeVerCustos, podeVerFinanceiro, podeVerResumoFinanceiro } from '../lib/auth';
 import { primeiraRotaPermitida } from '../config/navPermissions';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -433,7 +433,7 @@ function PortalLayoutInner() {
       to: '/vendas',
       label: 'Vendas',
       icon: <PointOfSaleOutlinedIcon fontSize="small" />,
-      show: podeOperacionalEstoque(user),
+      show: podeOperacionalEstoque(user) || consultaEstoque(user),
       section: 'GESTÃO',
     },
     {

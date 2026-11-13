@@ -505,7 +505,7 @@ export default function App() {
             <Route
               path="vendas/:aba"
               element={
-                <RotaPermissao permissoes={['estoque.operacional', 'estoque.conferencia', 'estoque.produtos']}>
+                <RotaPermissao permissoes={['estoque.operacional', 'estoque.conferencia', 'estoque.produtos', 'estoque.saldo.ver']}>
                   <ControleEstoquePage />
                 </RotaPermissao>
               }

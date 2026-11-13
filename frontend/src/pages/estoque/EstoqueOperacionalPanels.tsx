@@ -438,6 +438,7 @@ type Props = {
   aba: AbaOp;
   idLoja: number;
   produtos: ProdutoEstoque[];
+  consulta?: boolean;
   onProdutosVendaCountChange?: (n: number) => void;
   onInsumosReload?: () => void;
   onNovoInsumo?: () => void;
@@ -545,6 +546,7 @@ export default function EstoqueOperacionalPanels({
   aba,
   idLoja,
   produtos,
+  consulta = false,
   onProdutosVendaCountChange,
   onInsumosReload,
   onNovoInsumo,
@@ -581,12 +583,13 @@ export default function EstoqueOperacionalPanels({
   if (aba === 'saldo') {
     return <PainelSaldoKardex idLoja={idLoja} onSetHeaderActions={onSetHeaderActions} />;
   }
-  if (aba === 'pedido') return <PainelPedido idLoja={idLoja} />;
+  if (aba === 'pedido') return <PainelPedido idLoja={idLoja} consulta={consulta} />;
   if (aba === 'fichas') {
     return (
       <PainelProdutos
         idLoja={idLoja}
         insumos={produtos}
+        consulta={consulta}
         onCountChange={onProdutosVendaCountChange}
         onInsumosReload={onInsumosReload}
         onNovoInsumo={onNovoInsumo}
@@ -594,7 +597,7 @@ export default function EstoqueOperacionalPanels({
       />
     );
   }
-  return <PainelBreak idLoja={idLoja} />;
+  return <PainelBreak idLoja={idLoja} consulta={consulta} />;
 }
 
 function severidadePeso(s: string | undefined) {
@@ -3618,7 +3621,7 @@ function PainelPedidosPortal({ idLoja, alternar }: { idLoja: number; alternar: R
   );
 }
 
-function PainelPedido({ idLoja }: { idLoja: number }) {
+function PainelPedido({ idLoja, consulta = false }: { idLoja: number; consulta?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [dados, setDados] = useState<EstoquePedidoRascunho | null>(null);
   const [itens, setItens] = useState<EstoquePedidoRascunhoItem[]>([]);
@@ -3974,7 +3977,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
             </Box>
             {alternarVisao}
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: { xs: 0.5, sm: 1 }, pb: 1.5, flexShrink: 0, flexWrap: 'wrap' }}>
+          {!consulta && <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: { xs: 0.5, sm: 1 }, pb: 1.5, flexShrink: 0, flexWrap: 'wrap' }}>
             <Checkbox
               size="small"
               checked={todosMarcados}
@@ -4015,7 +4018,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                 </Button>
               </>
             ) : null}
-          </Box>
+          </Box>}
           <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 0.5, pr: 0.5, pb: 1 }}>
             {cardsSugestao.map((i) => {
               const caixas = Math.max(0, Number(i.pedido_ajustado) || 0);
@@ -4039,6 +4042,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                     borderColor: marcado ? 'rgba(27, 110, 243, 0.45)' : decisao === 'aprovado' ? 'rgba(46, 125, 91, 0.35)' : semSugestao ? 'rgba(15, 23, 42, 0.22)' : 'rgba(15, 23, 42, 0.08)',
                   }}
                 >
+                  {!consulta && (
                   <Checkbox
                     size="small"
                     checked={marcado}
@@ -4050,6 +4054,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                     })}
                     sx={{ p: 0.25, color: 'rgba(15, 23, 42, 0.35)', '&.Mui-checked': { color: '#1B6EF3' } }}
                   />
+                  )}
                   <Box
                     component="img"
                     src={assetUrl(thumbInsumo({ codigo: i.codigo, descricao: i.descricao }))}
@@ -4080,17 +4085,21 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'inline-flex', alignItems: 'center', height: 28, px: 0.25, borderRadius: '999px', bgcolor: 'rgba(15, 23, 42, 0.05)', flexShrink: 0 }}>
+                    {!consulta && (
                     <IconButton size="small" disabled={caixas <= 0} onClick={() => definirCaixas(i.codigo, caixas - 1)} sx={{ width: 26, height: 26 }}>
                       <RemoveIcon sx={{ fontSize: 14 }} />
                     </IconButton>
-                    <Typography sx={{ minWidth: 22, textAlign: 'center', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
+                    )}
+                    <Typography sx={{ minWidth: 22, textAlign: 'center', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', px: consulta ? 1 : 0 }}>
                       {fmtNum(caixas, 0)}
                     </Typography>
+                    {!consulta && (
                     <IconButton size="small" onClick={() => definirCaixas(i.codigo, caixas + 1)} sx={{ width: 26, height: 26 }}>
                       <AddIcon sx={{ fontSize: 14 }} />
                     </IconButton>
+                    )}
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
+                  {!consulta && <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flexShrink: 0 }}>
                     {decisao ? (
                       <>
                         <Typography sx={{ fontSize: 12, fontWeight: 600, color: decisao === 'aprovado' ? '#248A3D' : 'text.secondary' }}>
@@ -4125,7 +4134,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
                         </Button>
                       </>
                     )}
-                  </Box>
+                  </Box>}
                 </Box>
               );
             })}
@@ -4530,6 +4539,7 @@ function PainelPedido({ idLoja }: { idLoja: number }) {
 function PainelProdutos({
   idLoja,
   insumos,
+  consulta = false,
   onCountChange,
   onInsumosReload,
   onNovoInsumo,
@@ -4537,6 +4547,7 @@ function PainelProdutos({
 }: {
   idLoja: number;
   insumos: ProdutoEstoque[];
+  consulta?: boolean;
   onCountChange?: (n: number) => void;
   onInsumosReload?: () => void;
   onNovoInsumo?: () => void;
@@ -4956,7 +4967,7 @@ function PainelProdutos({
                 <RefreshIcon sx={{ fontSize: 18 }} />
               </IconButton>
             </Tooltip>
-            {semCustoCount > 0 && (
+            {!consulta && semCustoCount > 0 && (
               <Button
                 size="small"
                 variant="outlined"
@@ -5124,9 +5135,11 @@ function PainelProdutos({
               <RefreshIcon sx={{ fontSize: 18 }} />
             </IconButton>
           </Tooltip>
+          {!consulta && (
           <Button variant="contained" disableElevation startIcon={<AddIcon />} onClick={() => abrirNovo()} sx={{ height: 32 }}>
             Novo produto
           </Button>
+          )}
         </Box>
         <TableContainer sx={tableContainerSx}>
           <Table
@@ -5249,6 +5262,14 @@ function PainelProdutos({
                       />
                     </TableCell>
                     <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      {consulta ? (
+                        <Tooltip title="Ver">
+                          <IconButton size="small" onClick={() => void abrirProduto(p)}>
+                            <EditOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      ) : (
+                        <>
                       <Tooltip title="Editar">
                         <IconButton size="small" onClick={() => void abrirProduto(p)}>
                           <EditOutlinedIcon fontSize="small" />
@@ -5263,6 +5284,8 @@ function PainelProdutos({
                           <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
+                        </>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -5595,10 +5618,12 @@ function PainelProdutos({
             label={ativo ? 'Ativo' : 'Inativo'}
           />
           <Box sx={{ flex: 1 }} />
-          <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>Cancelar</Button>
+          <Button onClick={() => setOpen(false)} sx={{ color: 'text.secondary' }}>{consulta ? 'Fechar' : 'Cancelar'}</Button>
+          {!consulta && (
           <Button variant="contained" disableElevation disabled={salvando} onClick={() => void salvar()}>
             Salvar
           </Button>
+          )}
           </Box>
         </Box>
       </Drawer>
@@ -5860,11 +5885,13 @@ function LinhaEmprestimoPendente({
   modo,
   busy,
   onConfirm,
+  ocultarAcao = false,
 }: {
   emp: EstoqueEmprestimoAReceber;
   modo: 'receber' | 'devolver';
   busy: boolean;
   onConfirm: () => void;
+  ocultarAcao?: boolean;
 }) {
   const item = (emp.itens || [])[0];
   const qtd = item ? fmtQtdItemBreak(item) : '';
@@ -5897,7 +5924,7 @@ function LinhaEmprestimoPendente({
         disableElevation
         disabled={busy}
         onClick={onConfirm}
-        sx={{ height: 28, minWidth: 76, px: 1.25, fontSize: 12, flexShrink: 0 }}
+        sx={{ height: 28, minWidth: 76, px: 1.25, fontSize: 12, flexShrink: 0, display: ocultarAcao ? 'none' : undefined }}
       >
         {busy ? '…' : modo === 'receber' ? 'Recebi' : 'Devolver'}
       </Button>
@@ -5905,7 +5932,7 @@ function LinhaEmprestimoPendente({
   );
 }
 
-function PainelBreak({ idLoja }: { idLoja: number }) {
+function PainelBreak({ idLoja, consulta = false }: { idLoja: number; consulta?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [lista, setLista] = useState<EstoqueBreakResumo[]>([]);
   const [produtosVenda, setProdutosVenda] = useState<ProdutoVendaEstoque[]>([]);
@@ -6275,6 +6302,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
             ]}
           />
           <CampoBusca valor={busca} onChange={setBusca} placeholder="Buscar colaborador ou pedido" largura={240} />
+          {!consulta && (
           <Button
             variant="contained"
             disableElevation
@@ -6287,6 +6315,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
           >
             Lançar
           </Button>
+          )}
         </CabecalhoCartao>
         <Box sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
           {!grupos.length ? (
@@ -6424,6 +6453,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                     emp={emp}
                     modo="receber"
                     busy={confirmandoId === emp.id_break}
+                    ocultarAcao={consulta}
                     onConfirm={() => void confirmarRecebimento(emp.id_break)}
                   />
                 ))}
@@ -6443,6 +6473,7 @@ function PainelBreak({ idLoja }: { idLoja: number }) {
                     emp={emp}
                     modo="devolver"
                     busy={confirmandoId === emp.id_break}
+                    ocultarAcao={consulta}
                     onConfirm={() => void confirmarDevolucao(emp.id_break)}
                   />
                 ))}

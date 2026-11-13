@@ -17,7 +17,7 @@ export const ROTAS_NAV: RotaNav[] = [
   },
   {
     path: '/vendas',
-    permissoes: ['estoque.operacional', 'estoque.conferencia', 'estoque.produtos'],
+    permissoes: ['estoque.operacional', 'estoque.conferencia', 'estoque.produtos', 'estoque.saldo.ver'],
   },
   { path: '/frota', permissoes: ['frota.gerenciar', 'frota.regioes'] },
   { path: '/chamados', permissoes: ['chamados.ver'] },

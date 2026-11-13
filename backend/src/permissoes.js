@@ -37,7 +37,7 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'estoque.conferencia.reabrir', nome: 'Reabrir conferências finalizadas para edição', grupo: 'Estoque', ordem: 202 },
   { codigo: 'estoque.operacional', nome: 'Operacional — vendas, ficha, break e saldos', grupo: 'Estoque', ordem: 203 },
   { codigo: 'estoque.break', nome: 'Break — lançar consumo de colaboradores', grupo: 'Estoque', ordem: 204 },
-  { codigo: 'estoque.saldo.ver', nome: 'Ver saldo de estoque, sem pedido, conferência, break ou vendas', grupo: 'Estoque', ordem: 205 },
+  { codigo: 'estoque.saldo.ver', nome: 'Ver o estoque inteiro, sem lançar, conferir ou alterar', grupo: 'Estoque', ordem: 205 },
   { codigo: 'ncs.ver', nome: 'Ver não conformidades da região', grupo: 'Não conformidades', ordem: 170 },
   { codigo: 'ncs.resolver', nome: 'Resolver não conformidades (foto e encerramento)', grupo: 'Não conformidades', ordem: 171 },
   { codigo: 'energia.ver', nome: 'Ver chamados de energia e relatórios', grupo: 'Energia', ordem: 175 },

@@ -121,8 +121,8 @@ const MENUS_SISTEMA: { titulo: string; descricao: string; codigos: string[] }[] 
     ],
   },
   {
-    titulo: 'Saldo de estoque',
-    descricao: 'Só a função Saldo, na seção Gestão',
+    titulo: 'Estoque (consulta)',
+    descricao: 'Vê o estoque inteiro, sem lançar, conferir ou alterar',
     codigos: ['estoque.saldo.ver'],
   },
   {

@@ -1,7 +1,18 @@
 import { Router } from 'express';
 import fs from 'fs';
 import { pool } from '../db.js';
-import { requirePermissao } from '../permissoes.js';
+import { requirePermissao as exigirPermissao, temPermissao } from '../permissoes.js';
+
+/** Consulta do estoque (contabilidade) lê qualquer GET. Escrita continua na permissão original. */
+function requirePermissao(...codigos) {
+  const gate = exigirPermissao(...codigos);
+  return (req, res, next) => {
+    if ((req.method === 'GET' || req.method === 'HEAD') && temPermissao(req.user, 'estoque.saldo.ver')) {
+      return next();
+    }
+    return gate(req, res, next);
+  };
+}
 import { usuarioPodeLojaEstoque } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
 import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';

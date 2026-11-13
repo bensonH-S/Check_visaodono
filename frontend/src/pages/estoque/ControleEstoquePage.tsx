@@ -49,6 +49,7 @@ import {
   getUsuario,
   podeBreakEstoque,
   podeConferenciaEstoque,
+  consultaEstoque,
   podeExcluirEstoque,
   podeOperacionalEstoque,
   podeProdutosEstoque,
@@ -112,10 +113,12 @@ function isAbaEstoque(v: string | undefined): v is AbaEstoque {
 }
 
 function abaInicialPermitida(): AbaEstoque {
-  if (podeConferenciaEstoque(getUsuario())) return 'conferencia';
-  if (podeBreakEstoque(getUsuario())) return 'break';
-  if (podeOperacionalEstoque(getUsuario()) || podeVerSaldoEstoque(getUsuario())) return 'saldo';
-  if (podeProdutosEstoque(getUsuario())) return 'fichas';
+  const user = getUsuario();
+  if (consultaEstoque(user)) return 'pedido';
+  if (podeConferenciaEstoque(user)) return 'conferencia';
+  if (podeBreakEstoque(user)) return 'break';
+  if (podeOperacionalEstoque(user) || podeVerSaldoEstoque(user)) return 'saldo';
+  if (podeProdutosEstoque(user)) return 'fichas';
   return 'conferencia';
 }
 
@@ -365,6 +368,11 @@ export default function ControleEstoquePage() {
   const podeOperacional = podeOperacionalEstoque(user);
   const podeBreak = podeBreakEstoque(user);
   const podeSaldo = podeVerSaldoEstoque(user);
+  const consulta = consultaEstoque(user);
+  const verConferencia = podeConferencia || consulta;
+  const verOperacional = podeOperacional || consulta;
+  const verBreak = podeBreak || consulta;
+  const verFichas = podeOperacional || podeProdutos || consulta;
   const podeEditarConferencia = podeConferencia;
   const podeExcluir = podeExcluirEstoque(user);
   const podeReabrir = podeReabrirContagemEstoque(user);
@@ -546,8 +554,8 @@ export default function ControleEstoquePage() {
     setLoading(true);
     try {
       const jobs: Promise<unknown>[] = [];
-      if (podeProdutos || podeOperacional || podeBreak) jobs.push(carregarProdutos());
-      if (podeConferencia) jobs.push(carregarListaContagens());
+      if (podeProdutos || podeOperacional || podeBreak || consulta) jobs.push(carregarProdutos());
+      if (podeConferencia || consulta) jobs.push(carregarListaContagens());
       await Promise.all(jobs);
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Erro ao carregar estoque', 'error');
@@ -560,6 +568,7 @@ export default function ControleEstoquePage() {
     podeOperacional,
     podeBreak,
     podeConferencia,
+    consulta,
     carregarProdutos,
     carregarListaContagens,
   ]);
@@ -571,9 +580,9 @@ export default function ControleEstoquePage() {
   }, [idLoja]); // eslint-disable-line react-hooks/exhaustive-deps -- só ao trocar loja
 
   useEffect(() => {
-    if (!idLoja || !(podeProdutos || podeOperacional || podeBreak)) return;
+    if (!idLoja || !(podeProdutos || podeOperacional || podeBreak || consulta)) return;
     void carregarProdutos();
-  }, [carregarProdutos, idLoja, podeProdutos, podeOperacional, podeBreak]);
+  }, [carregarProdutos, idLoja, podeProdutos, podeOperacional, podeBreak, consulta]);
 
   useEffect(() => {
     if (moduloVendas) {
@@ -585,7 +594,7 @@ export default function ControleEstoquePage() {
         navigate('/vendas/vendas', { replace: true });
         return;
       }
-      if (!podeOperacional) {
+      if (!podeOperacional && !consulta) {
         navigate('/estoque/conferencia', { replace: true });
       }
       return;
@@ -607,27 +616,27 @@ export default function ControleEstoquePage() {
       navigate(`/vendas/${abaParam}`, { replace: true });
       return;
     }
-    if (verDetalhe && contagem?.status === 'aberta' && aba !== 'conferencia') {
+    if (podeEditarConferencia && verDetalhe && contagem?.status === 'aberta' && aba !== 'conferencia') {
       navigate('/estoque/conferencia', { replace: true });
       return;
     }
     let destino: AbaEstoque | null = null;
-    const fallback = podeConferencia ? 'conferencia' : podeBreak ? 'break' : podeSaldo ? 'saldo' : 'fichas';
-    if (aba === 'conferencia' && !podeConferencia) {
-      destino = podeBreak ? 'break' : podeSaldo ? 'saldo' : 'fichas';
-    } else if (aba === 'break' && !podeBreak) {
-      destino = podeConferencia ? 'conferencia' : podeSaldo ? 'saldo' : 'fichas';
+    const fallback = verConferencia ? 'conferencia' : verBreak ? 'break' : podeSaldo ? 'saldo' : 'fichas';
+    if (aba === 'conferencia' && !verConferencia) {
+      destino = verBreak ? 'break' : podeSaldo ? 'saldo' : 'fichas';
+    } else if (aba === 'break' && !verBreak) {
+      destino = verConferencia ? 'conferencia' : podeSaldo ? 'saldo' : 'fichas';
     } else if (aba === 'saldo' && !podeSaldo) {
       destino = fallback;
-    } else if (aba === 'fichas' && !podeOperacional && !podeProdutos) {
+    } else if (aba === 'fichas' && !verFichas) {
       destino = fallback;
-    } else if (aba === 'pedido' && !podeOperacional) {
+    } else if (aba === 'pedido' && !verOperacional) {
       destino = fallback;
     }
     if (destino && destino !== aba) {
       navigate(`/estoque/${destino}`, { replace: true });
     }
-  }, [aba, abaParam, moduloVendas, navigate, podeConferencia, podeProdutos, podeOperacional, podeBreak, podeSaldo, verDetalhe, contagem?.status]);
+  }, [aba, abaParam, moduloVendas, navigate, podeConferencia, podeOperacional, podeEditarConferencia, podeSaldo, consulta, verConferencia, verOperacional, verBreak, verFichas, verDetalhe, contagem?.status]);
 
   const iniciarSabado = async (tipo: TipoContagemEstoque = 'diaria') => {
     if (!podeEditarConferencia || !idLoja) return;
@@ -920,7 +929,7 @@ export default function ControleEstoquePage() {
 
   const editavel = !!podeEditarConferencia && contagem?.status === 'aberta';
   /** Só bloqueia outras abas ao editar conferência aberta (não ao só visualizar finalizada). */
-  const bloqueiaOutrasAbas = verDetalhe && contagem?.status === 'aberta';
+  const bloqueiaOutrasAbas = podeEditarConferencia && verDetalhe && contagem?.status === 'aberta';
   const agendaLoja = useMemo(
     () => agendaDaLoja(listaContagens, new Date(), listaCarregada),
     [listaContagens, listaCarregada],
@@ -1113,8 +1122,13 @@ export default function ControleEstoquePage() {
               </Box>
             </Popover>
           </Box>
-          {headerActions ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', ml: { md: 'auto' } }}>
+          {consulta || headerActions ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: { md: 'auto' } }}>
+              {consulta ? (
+                <Typography sx={{ fontSize: 12, fontWeight: 650, color: '#1B6EF3', bgcolor: 'rgba(27,110,243,0.1)', border: '1px solid rgba(27,110,243,0.28)', borderRadius: '8px', px: 1, py: 0.35 }}>
+                  Somente consulta
+                </Typography>
+              ) : null}
               {headerActions}
             </Box>
           ) : null}
@@ -1127,14 +1141,14 @@ export default function ControleEstoquePage() {
               irParaAba(proxima);
             }}
             bloqueiaOutrasAbas={bloqueiaOutrasAbas}
-            podeConferencia={podeConferencia}
-            podeOperacional={podeOperacional}
-            podeBreak={podeBreak}
+            podeConferencia={verConferencia}
+            podeOperacional={verOperacional}
+            podeBreak={verBreak}
             podeSaldo={podeSaldo}
             idLoja={idLoja}
             moduloVendas={moduloVendas}
           />
-          {idLoja && podeOperacional && noGrupoVendas && !bloqueiaOutrasAbas ? (
+          {idLoja && verOperacional && noGrupoVendas && !bloqueiaOutrasAbas ? (
             <ToggleButtonGroup
               exclusive
               size="small"
@@ -1168,7 +1182,7 @@ export default function ControleEstoquePage() {
             overflow: chromeCompacto ? 'hidden' : 'auto',
           }}
         >
-          {aba === 'conferencia' && podeConferencia && (
+          {aba === 'conferencia' && verConferencia && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: verDetalhe ? 1 : 1.5, flex: 1, minHeight: 0, overflow: 'hidden' }}>
               {!verDetalhe ? (
                 <>
@@ -1432,9 +1446,9 @@ export default function ControleEstoquePage() {
                 </Box>
               )}
 
-              {((podeOperacional && (aba === 'vendas' || aba === 'rede' || aba === 'piloto' || aba === 'pedido' || aba === 'saldo' || aba === 'fichas')) ||
+              {((verOperacional && (aba === 'vendas' || aba === 'rede' || aba === 'piloto' || aba === 'pedido' || aba === 'saldo' || aba === 'fichas')) ||
                 (podeSaldo && aba === 'saldo') ||
-                (podeBreak && aba === 'break')) &&
+                (verBreak && aba === 'break')) &&
                 typeof idLoja === 'number' && (
                   <Box
                     sx={{
@@ -1449,6 +1463,7 @@ export default function ControleEstoquePage() {
                       aba={aba as AbaOp}
                       idLoja={idLoja}
                       produtos={produtos}
+                      consulta={consulta}
                       onInsumosReload={recarregarInsumos}
                       onNovoInsumo={podeProdutos ? abrirNovoInsumo : undefined}
                       onEditarInsumo={podeProdutos ? abrirEditarInsumo : undefined}

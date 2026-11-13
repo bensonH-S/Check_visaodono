@@ -564,7 +564,18 @@ export function podeBreakEstoque(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('estoque.break', usuario) || podeOperacionalEstoque(usuario);
 }
 
-/** Saldo de estoque, sem as outras funções da Gestão. */
+/** Contabilidade: vê pedido, conferência, break, saldo, cadastro e vendas, sem alterar. */
+export function consultaEstoque(usuario?: UsuarioSessao | null): boolean {
+  if (!temPermissao('estoque.saldo.ver', usuario)) return false;
+  return (
+    !podeOperacionalEstoque(usuario) &&
+    !podeConferenciaEstoque(usuario) &&
+    !podeProdutosEstoque(usuario) &&
+    !temPermissao('estoque.break', usuario)
+  );
+}
+
+/** Saldo de estoque, ou a consulta do módulo inteiro. */
 export function podeVerSaldoEstoque(usuario?: UsuarioSessao | null): boolean {
   return (
     temPermissao('estoque.saldo.ver', usuario) ||
