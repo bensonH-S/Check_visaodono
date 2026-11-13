@@ -546,7 +546,7 @@ export default function App() {
               <Route
                 index
                 element={
-                  <RotaFinanceiro permitirResumo>
+                  <RotaFinanceiro permitirContas>
                     <ContasPagarPage />
                   </RotaFinanceiro>
                 }

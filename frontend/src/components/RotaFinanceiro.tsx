@@ -4,6 +4,7 @@ import {
   getUsuario,
   podeConsultarNfe,
   podeVerConciliacao,
+  podeVerContasPagar,
   podeVerCustos,
   podeVerFinanceiro,
   podeVerResumoFinanceiro,
@@ -14,6 +15,8 @@ type Props = {
   children: ReactNode;
   /** Agenda banco em modo visualização (financeiro.resumo.ver). */
   permitirResumo?: boolean;
+  /** Agenda banco (contas a pagar), inclusive o lançamento da contabilidade. */
+  permitirContas?: boolean;
   /** Inbox de notas para o perfil da contabilidade. */
   permitirConsulta?: boolean;
   /** Custos (C_O_) sem o módulo financeiro completo. */
@@ -25,6 +28,7 @@ type Props = {
 export default function RotaFinanceiro({
   children,
   permitirResumo = false,
+  permitirContas = false,
   permitirConsulta = false,
   permitirCustos = false,
   permitirConciliacao = false,
@@ -36,9 +40,11 @@ export default function RotaFinanceiro({
       ? podeVerConciliacao(user)
       : permitirConsulta
         ? podeConsultarNfe(user)
-        : permitirResumo
-          ? podeVerResumoFinanceiro(user)
-          : podeVerFinanceiro(user);
+        : permitirContas
+          ? podeVerContasPagar(user)
+          : permitirResumo
+            ? podeVerResumoFinanceiro(user)
+            : podeVerFinanceiro(user);
   if (!user || !ok) {
     return <Navigate to={primeiraRotaPermitida(user)} replace />;
   }

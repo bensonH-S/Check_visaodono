@@ -22,7 +22,7 @@ export const ROTAS_NAV: RotaNav[] = [
   { path: '/frota', permissoes: ['frota.gerenciar', 'frota.regioes'] },
   { path: '/chamados', permissoes: ['chamados.ver'] },
   { path: '/energia', permissoes: ['energia.ver', 'energia.abrir'] },
-  { path: '/financeiro', permissoes: ['financeiro.ver', 'financeiro.resumo.ver'] },
+  { path: '/financeiro', permissoes: ['financeiro.ver', 'financeiro.resumo.ver', 'financeiro.contas.ver'] },
   { path: '/chamados/aprovacoes', permissoes: ['chamados.aprovar'] },
   { path: '/visitas', permissoes: ['portal.visitas.ver'] },
   { path: '/metas', permissoes: ['metas.ver', 'metas.gerenciar'] },

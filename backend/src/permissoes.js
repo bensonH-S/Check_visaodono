@@ -47,6 +47,7 @@ export const CATALOGO_PERMISSOES = [
   { codigo: 'financeiro.nfe.ver', nome: 'Consultar notas fiscais (DANFE e XML), sem editar', grupo: 'Financeiro', ordem: 187 },
   { codigo: 'financeiro.custos.ver', nome: 'Ver Custos (C_O_), sem outras telas do financeiro', grupo: 'Financeiro', ordem: 188 },
   { codigo: 'financeiro.conciliacao.ver', nome: 'Acessar conciliação bancária, sem agenda ou caixa', grupo: 'Financeiro', ordem: 189 },
+  { codigo: 'financeiro.contas.ver', nome: 'Lançar e editar contas a pagar (Agenda banco), sem caixa ou reunião', grupo: 'Financeiro', ordem: 190 },
   { codigo: 'freelancers.aprovar', nome: 'Aprovar turnos de freelancers (ponto) na região', grupo: 'Freelancers', ordem: 180 },
   { codigo: 'sistema.backup', nome: 'Gerar e baixar dump do banco (TI)', grupo: 'Sistema', ordem: 190 },
   { codigo: 'ti.tickets.abrir', nome: 'Abrir chamado para o TI', grupo: 'TI / Tickets', ordem: 200 },

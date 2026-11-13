@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeOperacionalEstoque, podeVerEnergia, podeConsultarNfe, podeVerConciliacao, podeVerCustos, podeVerFinanceiro, podeVerResumoFinanceiro } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeOperacionalEstoque, podeVerEnergia, podeConsultarNfe, podeVerConciliacao, podeVerContasPagar, podeVerCustos, podeVerFinanceiro, podeVerResumoFinanceiro } from '../lib/auth';
 import { primeiraRotaPermitida } from '../config/navPermissions';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -373,7 +373,7 @@ function PortalLayoutInner() {
     { to: '/dashboard', label: 'Command Center', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
 
     // FINANCEIRO — Inbox (DDA/NF) → Agenda banco → caixa / integrações
-    // Agenda: financeiro.ver (editar) ou financeiro.resumo.ver (só visualizar).
+    // Agenda (contas a pagar): financeiro.ver, resumo (só ver) ou financeiro.contas.ver.
     // Inbox: financeiro completo ou contabilidade.
     // Conciliação e Custos (C_O_): módulo completo ou a permissão estreita da contabilidade.
     // Caixa: só módulo completo.
@@ -382,7 +382,7 @@ function PortalLayoutInner() {
       to: '/financeiro',
       label: finEn ? 'Bank schedule' : 'Agenda banco',
       icon: <AccountBalanceOutlinedIcon fontSize="small" />,
-      show: podeVerResumoFinanceiro(user),
+      show: podeVerContasPagar(user),
       end: true,
       section: secFin,
     },

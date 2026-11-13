@@ -119,6 +119,7 @@ function resumoAcessosPerfil(cargo: Cargo | undefined): string[] {
     { titulo: 'Notas fiscais', codigos: ['financeiro.nfe.ver'] },
     { titulo: 'Custos (C_O_)', codigos: ['financeiro.custos.ver'] },
     { titulo: 'Conciliação', codigos: ['financeiro.conciliacao.ver'] },
+    { titulo: 'Contas a pagar', codigos: ['financeiro.contas.ver'] },
     { titulo: 'AutoREV', codigos: ['checklist.ver', 'checklist.executar'] },
     { titulo: 'Chamados', codigos: ['chamados.ver', 'chamados.abrir', 'chamados.assumir', 'chamados.aprovar'] },
     { titulo: 'Energia', codigos: ['energia.ver', 'energia.abrir'] },

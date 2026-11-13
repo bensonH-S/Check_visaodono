@@ -62,6 +62,11 @@ const MENUS_SISTEMA: { titulo: string; descricao: string; codigos: string[] }[] 
     codigos: ['financeiro.conciliacao.ver'],
   },
   {
+    titulo: 'Contas a pagar',
+    descricao: 'Agenda banco: lançar e editar, sem caixa ou reunião',
+    codigos: ['financeiro.contas.ver'],
+  },
+  {
     titulo: 'AutoREV / Checklist',
     descricao: 'Acesso e execução em loja',
     codigos: ['checklist.ver', 'checklist.executar'],

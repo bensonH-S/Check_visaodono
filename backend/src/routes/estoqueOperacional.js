@@ -102,6 +102,14 @@ const permDivergenciasNf = requirePermissao(
   'financeiro.ver',
   'financeiro.resumo.ver',
 );
+/** Excel de divergência na Agenda: também quem lança contas a pagar. */
+const permDivergenciasAgenda = requirePermissao(
+  'estoque.operacional',
+  'estoque.conferencia',
+  'financeiro.ver',
+  'financeiro.resumo.ver',
+  'financeiro.contas.ver',
+);
 const permBreak = requirePermissao('estoque.break', 'estoque.operacional');
 const permConfig = requirePermissao('configuracoes.ver', 'estoque.operacional');
 const upload = multer({
@@ -2174,7 +2182,7 @@ router.get('/nfes', permNfe, async (req, res, next) => {
 });
 
 /** Relatório de NF com divergência de quantidade (JSON ou Excel). */
-router.get('/nfes/divergencias', permDivergenciasNf, async (req, res, next) => {
+router.get('/nfes/divergencias', permDivergenciasAgenda, async (req, res, next) => {
   try {
     const idLoja = parseIdLoja(req.query.id_loja);
     const de = req.query.de ? String(req.query.de).slice(0, 10) : null;

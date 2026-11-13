@@ -52,7 +52,7 @@ import { usePrefs } from '../prefs'
 import FiltroIntervaloDatasFrota from '../../components/frota/FiltroIntervaloDatasFrota'
 import { showToast } from '../../utils/toast'
 import CampoDataFinanceiro from '../CampoDataFinanceiro'
-import { ehDonoFinanceiro, getUsuario, podeVerFinanceiro, primeiroNome } from '../../lib/auth'
+import { ehDonoFinanceiro, getUsuario, podeLancarContasPagar, primeiroNome } from '../../lib/auth'
 import SeletorLojaFinanceiro from '../SeletorLojaFinanceiro'
 import {
   FIN_BORDER,
@@ -211,8 +211,8 @@ export function ContasPagarPage() {
   const [params] = useSearchParams()
   const { t, idioma } = usePrefs()
   const user = getUsuario()
-  /** Sem financeiro.ver: só visualiza (abre detalhe sem salvar/excluir/importar). */
-  const somenteLeitura = !podeVerFinanceiro(user)
+  /** Sem lançamento: só visualiza (abre detalhe sem salvar/excluir/importar). */
+  const somenteLeitura = !podeLancarContasPagar(user)
   const [empresas, setEmpresas] = useState<Empresa[]>(() => emCache<Empresa[]>(urlEmpresas()) ?? [])
   const [despesas, setDespesas] = useState<Despesa[]>(() => emCache<Despesa[]>(urlDespesas()) ?? [])
   const [loja, setLoja] = useState(() => params.get('loja') || '')
