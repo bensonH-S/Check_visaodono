@@ -135,6 +135,25 @@ function cicloNf(e: Despesa): 'nao_confirmada' | 'confirmada' | 'divergente' | n
   return null
 }
 
+function casaFiltro(e: Despesa, filtro: (typeof FILTROS)[number]) {
+  if (filtro === 'Pagas') return e.status === 'paga' || e.status === 'conciliada'
+  if (filtro === 'DDA') return e.fonte === 'dda'
+  if (filtro === 'Free Control') return ehFreeControl(e)
+  if (filtro === 'Boletos') return e.forma_pagamento === 'boleto'
+  if (filtro === 'Para autorizar') return e.status === 'pronta'
+  if (filtro === 'Vencidas') return estaVencida(e)
+  if (filtro === 'Recusadas') return !!e.dono_recusa
+  if (filtro === 'NF confirmada') return cicloNf(e) === 'confirmada'
+  if (filtro === 'NF Parcial') return cicloNf(e) === 'divergente'
+  if (filtro === 'NF Pendente') return cicloNf(e) === 'nao_confirmada'
+  return true
+}
+
+/** Todas / Pagas / Vencidas são o recorte dos próprios cards. Os outros chips restringem os três valores. */
+function filtroRecortaCards(filtro: (typeof FILTROS)[number]) {
+  return filtro !== 'Todas' && filtro !== 'Pagas' && filtro !== 'Vencidas'
+}
+
 const TOM_CLARO: Record<string, { color: string; border: string; bg: string }> = {
   a_pagar: { color: '#1D4ED8', border: 'rgba(59,130,246,0.45)', bg: 'rgba(59,130,246,0.1)' },
   pago: { color: '#047857', border: 'rgba(16,185,129,0.45)', bg: 'rgba(16,185,129,0.12)' },
@@ -388,10 +407,7 @@ export function ContasPagarPage() {
   const linhas = useMemo(() => {
     const q = busca.trim().toLowerCase()
     const qDigitos = q.replace(/\D/g, '')
-    const base = filtro === 'Free Control'
-      ? noPeriodo.filter((e) => ehFreeControl(e))
-      : noPeriodo
-    const filtradas = base.filter((e) => {
+    const filtradas = noPeriodo.filter((e) => {
       if (q) {
         const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.plano ?? ''} ${e.numero_nf ?? ''}`.toLowerCase()
         const nfDigitos = String(e.numero_nf || '').replace(/\D/g, '')
@@ -399,17 +415,7 @@ export function ContasPagarPage() {
         const bateNf = qDigitos.length >= 3 && nfDigitos.includes(qDigitos)
         if (!bateTexto && !bateNf) return false
       }
-      if (filtro === 'Pagas') return e.status === 'paga' || e.status === 'conciliada'
-      if (filtro === 'DDA') return e.fonte === 'dda'
-      if (filtro === 'Free Control') return true
-      if (filtro === 'Boletos') return e.forma_pagamento === 'boleto'
-      if (filtro === 'Para autorizar') return e.status === 'pronta'
-      if (filtro === 'Vencidas') return estaVencida(e)
-      if (filtro === 'Recusadas') return !!e.dono_recusa
-      if (filtro === 'NF confirmada') return cicloNf(e) === 'confirmada'
-      if (filtro === 'NF Parcial') return cicloNf(e) === 'divergente'
-      if (filtro === 'NF Pendente') return cicloNf(e) === 'nao_confirmada'
-      return true
+      return casaFiltro(e, filtro)
     })
     return ordenarLancamentosPorEmpresa(filtradas, empresas)
   }, [noPeriodo, busca, filtro, empresas])
@@ -418,8 +424,12 @@ export function ContasPagarPage() {
 
   const visiveis = linhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
 
-  // Cards = totais da semana (não somem ao filtrar a lista).
-  const somaPeriodo = (pred: (e: Despesa) => boolean) => noPeriodo.filter(pred).reduce((a, e) => {
+  // Cards da semana. Free Control, DDA, boletos, NF etc. restringem os três valores.
+  const baseCards = useMemo(
+    () => (filtroRecortaCards(filtro) ? noPeriodo.filter((e) => casaFiltro(e, filtro)) : noPeriodo),
+    [noPeriodo, filtro],
+  )
+  const somaPeriodo = (pred: (e: Despesa) => boolean) => baseCards.filter(pred).reduce((a, e) => {
     const vencimento = (e.vencimento || '').slice(0, 10)
     const viva = (!de || vencimento >= de) && (!ate || vencimento <= ate) && !!vencimento
     if (!viva) return a
@@ -432,6 +442,7 @@ export function ContasPagarPage() {
   const pagoNoPeriodo = somaPeriodo((e) => e.status === 'paga' || e.status === 'conciliada')
   const vencida = somaPeriodo((e) => estaVencida(e))
   const totalSemana = somaPeriodo(() => true)
+  const cardsNoFiltro = filtroRecortaCards(filtro)
 
   const aplicarCard = (alvo: 'Todas' | 'Pagas' | 'Vencidas') => {
     setFiltro((atual) => (atual === alvo ? 'Todas' : alvo))
@@ -532,7 +543,7 @@ export function ContasPagarPage() {
           cor="#0F172A"
           rotulo={t('Total da semana', 'Week total')}
           valor={brl(totalSemana)}
-          detalhe={t('tudo da semana', 'all this week')}
+          detalhe={cardsNoFiltro ? t('só este filtro', 'this filter only') : t('tudo da semana', 'all this week')}
           ativo={filtro === 'Todas'}
           onClick={() => aplicarCard('Todas')}
         />
@@ -540,7 +551,11 @@ export function ContasPagarPage() {
           cor="#10B981"
           rotulo={t('Pago', 'Paid')}
           valor={brl(pagoNoPeriodo)}
-          detalhe={filtro === 'Pagas' ? t('filtrando a lista', 'filtering the list') : t('toque para ver na lista', 'tap to see in the list')}
+          detalhe={filtro === 'Pagas'
+            ? t('filtrando a lista', 'filtering the list')
+            : cardsNoFiltro
+              ? t('pagas neste filtro', 'paid in this filter')
+              : t('toque para ver na lista', 'tap to see in the list')}
           ativo={filtro === 'Pagas'}
           onClick={() => aplicarCard('Pagas')}
         />
@@ -548,7 +563,11 @@ export function ContasPagarPage() {
           cor="#EF4444"
           rotulo={t('Vencida', 'Overdue')}
           valor={brl(vencida)}
-          detalhe={filtro === 'Vencidas' ? t('filtrando a lista', 'filtering the list') : t('toque para ver na lista', 'tap to see in the list')}
+          detalhe={filtro === 'Vencidas'
+            ? t('filtrando a lista', 'filtering the list')
+            : cardsNoFiltro
+              ? t('vencidas neste filtro', 'overdue in this filter')
+              : t('toque para ver na lista', 'tap to see in the list')}
           alerta={vencida > 0}
           ativo={filtro === 'Vencidas'}
           onClick={() => aplicarCard('Vencidas')}

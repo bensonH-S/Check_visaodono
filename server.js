@@ -20,12 +20,13 @@ function normalizeAppVersion(raw) {
 dotenv.config({ path: path.join(__dirname, '.env'), override: true });
 // backend/.env só aplica chave não vazia (WPP_HOST local, flags). Não apaga DB_* da raiz.
 const backendEnvPath = path.join(__dirname, 'backend', '.env');
+const dbDaRaiz = new Set(['DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASS', 'DB_NAME', 'DB_SSL']);
 if (fs.existsSync(backendEnvPath)) {
   const local = dotenv.parse(fs.readFileSync(backendEnvPath));
   for (const [key, value] of Object.entries(local)) {
-    if (value !== undefined && String(value).trim() !== '') {
-      process.env[key] = value;
-    }
+    if (value === undefined || String(value).trim() === '') continue;
+    if (dbDaRaiz.has(key) && process.env[key]) continue;
+    process.env[key] = value;
   }
 }
 
