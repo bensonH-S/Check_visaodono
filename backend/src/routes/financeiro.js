@@ -65,20 +65,13 @@ function podeConciliacao(req) {
   return req.method === 'POST' && CONCILIACAO_ESCRITA.has(req.path);
 }
 
-/** Agenda banco (contas a pagar): lançar, editar e importar. Sem caixa, reunião ou ação do dono. */
+/** Agenda banco (contas a pagar): só consulta. Sem lançar, editar, importar ou excluir. */
 function podeContasPagar(req) {
+  if (req.method !== 'GET') return false;
   if (!temPermissao(req.user, 'financeiro.contas.ver')) return false;
   const p = req.path;
-  if (req.method === 'GET') {
-    if (p === '/despesas' || p === '/empresas' || p === '/despesas/planilha-banco' || p === '/fornecedores' || p === '/plano' || p === '/plano/todos' || p === '/contas') return true;
-    return /^\/despesas\/[^/]+\/(nota|boleto)$/.test(p);
-  }
-  if (req.method === 'POST') {
-    if (p === '/despesas' || p === '/despesas/freecontrol-sync' || p === '/despesas/importar-arquivos' || p === '/despesas/importar-arquivos/previa') return true;
-    return /^\/despesas\/[^/]+\/(nf-status|conferencia)$/.test(p);
-  }
-  if (req.method === 'PATCH' || req.method === 'DELETE') return /^\/despesas\/[^/]+$/.test(p);
-  return false;
+  if (p === '/despesas' || p === '/empresas' || p === '/despesas/planilha-banco' || p === '/fornecedores' || p === '/plano' || p === '/plano/todos' || p === '/contas') return true;
+  return /^\/despesas\/[^/]+\/(nota|boleto)$/.test(p);
 }
 
 router.use((req, res, next) => {

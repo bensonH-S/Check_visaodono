@@ -631,7 +631,7 @@ export function podeVerConciliacao(usuario?: UsuarioSessao | null): boolean {
   return temPermissao('financeiro.ver', usuario) || temPermissao('financeiro.conciliacao.ver', usuario);
 }
 
-/** Agenda banco (contas a pagar): módulo completo, resumo ou a permissão estreita da contabilidade. */
+/** Agenda banco (contas a pagar): módulo completo, resumo ou a consulta da contabilidade. */
 export function podeVerContasPagar(usuario?: UsuarioSessao | null): boolean {
   return (
     temPermissao('financeiro.ver', usuario) ||
@@ -640,9 +640,9 @@ export function podeVerContasPagar(usuario?: UsuarioSessao | null): boolean {
   );
 }
 
-/** Lançar e editar na Agenda. O resumo continua só visualização. */
+/** Lançar e editar na Agenda. Contabilidade e resumo só visualizam. */
 export function podeLancarContasPagar(usuario?: UsuarioSessao | null): boolean {
-  return temPermissao('financeiro.ver', usuario) || temPermissao('financeiro.contas.ver', usuario);
+  return temPermissao('financeiro.ver', usuario);
 }
 
 /** Inbox de NF-e: financeiro completo ou o perfil da contabilidade. */

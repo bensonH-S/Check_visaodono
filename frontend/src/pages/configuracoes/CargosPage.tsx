@@ -63,7 +63,7 @@ const MENUS_SISTEMA: { titulo: string; descricao: string; codigos: string[] }[] 
   },
   {
     titulo: 'Contas a pagar',
-    descricao: 'Agenda banco: lançar e editar, sem caixa ou reunião',
+    descricao: 'Agenda banco: só visualizar, sem lançar, editar ou importar',
     codigos: ['financeiro.contas.ver'],
   },
   {

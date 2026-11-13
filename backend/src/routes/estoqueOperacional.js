@@ -102,7 +102,7 @@ const permDivergenciasNf = requirePermissao(
   'financeiro.ver',
   'financeiro.resumo.ver',
 );
-/** Excel de divergência na Agenda: também quem lança contas a pagar. */
+/** Excel de divergência na Agenda: também quem consulta contas a pagar. */
 const permDivergenciasAgenda = requirePermissao(
   'estoque.operacional',
   'estoque.conferencia',

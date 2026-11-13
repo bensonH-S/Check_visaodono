@@ -373,7 +373,7 @@ function PortalLayoutInner() {
     { to: '/dashboard', label: 'Command Center', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
 
     // FINANCEIRO — Inbox (DDA/NF) → Agenda banco → caixa / integrações
-    // Agenda (contas a pagar): financeiro.ver, resumo (só ver) ou financeiro.contas.ver.
+    // Agenda (contas a pagar): financeiro.ver edita; resumo e contabilidade só veem.
     // Inbox: financeiro completo ou contabilidade.
     // Conciliação e Custos (C_O_): módulo completo ou a permissão estreita da contabilidade.
     // Caixa: só módulo completo.

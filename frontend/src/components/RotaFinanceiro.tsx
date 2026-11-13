@@ -15,7 +15,7 @@ type Props = {
   children: ReactNode;
   /** Agenda banco em modo visualização (financeiro.resumo.ver). */
   permitirResumo?: boolean;
-  /** Agenda banco (contas a pagar), inclusive o lançamento da contabilidade. */
+  /** Agenda banco (contas a pagar). A contabilidade entra só para consultar. */
   permitirContas?: boolean;
   /** Inbox de notas para o perfil da contabilidade. */
   permitirConsulta?: boolean;

@@ -609,7 +609,7 @@ export function ContasPagarPage() {
               const ligar = filtro !== item
               setFiltro(ligar ? item : 'Todas')
               setPagina(0)
-              if (ligar && item === 'Free Control') {
+              if (ligar && item === 'Free Control' && !somenteLeitura) {
                 void api.syncFreecontrol()
                   .then(() => carregar())
                   .catch(() => undefined)
@@ -679,6 +679,8 @@ export function ContasPagarPage() {
                           'Ajuste o período, a loja ou o filtro acima para ver outros lançamentos.',
                           'Adjust the period, store or filter above to see other entries.',
                         )
+                        : somenteLeitura
+                        ? t('Nenhuma despesa neste período.', 'No expenses in this period.')
                         : t(
                           'Crie a despesa no Inbox e confirme para ela entrar aqui. Importar ainda lança direto na agenda. Os boletos do Inbox entram depois da confirmação.',
                           'Create the expense in the Inbox and confirm it to land here. Import still posts straight to the agenda. Inbox boletos appear after confirmation.',
