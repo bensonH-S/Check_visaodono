@@ -541,7 +541,11 @@ export default function EstoqueMobileNfePage() {
                 ? det.status_entrega === 'divergente'
                   ? ' · Confirmada parcial (só consulta)'
                   : ' · Confirmada (só consulta)'
-                : ''}
+                : det.status_pedido === 'Entregue'
+                  ? ' · Entregue pela Platlog · falta confirmar'
+                  : det.status_pedido === 'Faturado' || det.status_pedido === 'Expedido' || det.status_pedido === 'Em processo'
+                    ? ` · A caminho (${det.status_pedido})`
+                    : ''}
             </p>
           ) : null}
         </div>

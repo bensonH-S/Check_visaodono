@@ -53,6 +53,7 @@ import {
   type EstoqueCmvVariancia,
   type EstoqueDisciplina,
   type EstoqueMetaVendas,
+  type EstoqueCobrancaEntrada,
   type EstoqueNfeDetalhe,
   type EstoqueNfeResumo,
   type EstoquePedidoRascunho,
@@ -893,7 +894,7 @@ function PainelVendas({
   );
 }
 
-type VistaRede = 'vendas' | 'contou' | 'break' | 'completo' | 'incompleto' | 'emprestimo';
+type VistaRede = 'vendas' | 'contou' | 'cobrar' | 'break' | 'completo' | 'incompleto' | 'emprestimo';
 
 function corSyncVenda(status: string) {
   if (status === 'hoje') return '#127846';
@@ -1055,6 +1056,7 @@ function CampoDrawer({ label, children }: { label: string; children: React.React
 const TITULO_SYNC: Record<VistaRede, string> = {
   vendas: 'Vendas',
   contou: 'Contagem',
+  cobrar: 'Cobrar entrada',
   break: 'Break',
   completo: 'Desperdício completo',
   incompleto: 'Desperdício incompleto',
@@ -1065,6 +1067,63 @@ type SyncAberto =
   | { kind: 'vendas'; loja: EstoqueSyncLojaStatus }
   | { kind: 'contou'; loja: EstoqueContagemRedeItem }
   | { kind: 'uso'; vista: Exclude<VistaRede, 'vendas' | 'contou'>; loja: LojaUsoRede };
+
+function CobrancaEntradaTabela({ dados }: { dados: EstoqueCobrancaEntrada | null }) {
+  const notas = dados?.notas || [];
+  const totais = dados?.totais;
+  return (
+    <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <Typography sx={{ px: 2.5, pt: 1.5, pb: 1, fontSize: 13, color: 'text.secondary', flexShrink: 0 }}>
+        {totais
+          ? `${totais.notas} ${totais.notas === 1 ? 'nota' : 'notas'} em ${totais.lojas} ${totais.lojas === 1 ? 'loja' : 'lojas'} · Platlog marcou entregue e a loja não deu entrada · ${fmtMoeda(totais.valor)}`
+          : 'Platlog marcou entregue e a loja não deu entrada.'}
+      </Typography>
+      <TableContainer sx={tableContainerSx}>
+        <Table stickyHeader sx={syncTableSx}>
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ ...vendasThSx, pl: 2.5 }}>Loja</TableCell>
+              <TableCell sx={vendasThSx}>Nota</TableCell>
+              <TableCell sx={vendasThSx}>Entrega</TableCell>
+              <TableCell align="right" sx={vendasThSx}>Dias</TableCell>
+              <TableCell align="right" sx={{ ...vendasThSx, pr: 2.5 }}>Valor</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {notas.length ? (
+              notas.map((n) => (
+                <TableRow key={n.id_nfe}>
+                  <TableCell sx={{ pl: 2.5, fontWeight: 600 }}>{nomeLojaCurto(n.loja)}</TableCell>
+                  <TableCell sx={{ fontVariantNumeric: 'tabular-nums' }}>{n.numero || n.id_nfe}</TableCell>
+                  <TableCell sx={{ whiteSpace: 'nowrap' }}>{fmtDataBR(n.data_entrega)}</TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      fontWeight: 700,
+                      fontVariantNumeric: 'tabular-nums',
+                      color: n.dias >= 7 ? '#B42318' : n.dias > 0 ? '#C2410C' : colors.textPrimary,
+                    }}
+                  >
+                    {n.dias}
+                  </TableCell>
+                  <TableCell align="right" sx={{ pr: 2.5, fontVariantNumeric: 'tabular-nums' }}>
+                    {fmtMoeda(n.valor)}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={5} sx={{ color: colors.textSecondary, py: 5, borderBottom: 0 }}>
+                  Nenhuma nota entregue sem entrada.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Paper>
+  );
+}
 
 function PainelSyncRede({
   idLoja,
@@ -1084,6 +1143,7 @@ function PainelSyncRede({
   const [carregandoEmp, setCarregandoEmp] = useState(false);
   const [diffContou, setDiffContou] = useState<EstoqueContagemDiffs | null>(null);
   const [carregandoDiff, setCarregandoDiff] = useState(false);
+  const [cobranca, setCobranca] = useState<EstoqueCobrancaEntrada | null>(null);
   const [regionais, setRegionais] = useState<EstoqueRegionalDiff[]>([]);
   const [filtroRegiao, setFiltroRegiao] = useState<number | 'todos'>('todos');
   const [baixandoDiff, setBaixandoDiff] = useState(false);
@@ -1091,14 +1151,16 @@ function PainelSyncRede({
   const carregar = useCallback(async (silencioso = false) => {
     if (!silencioso) setLoading(true);
     try {
-      const [painel, cont, breaks] = await Promise.all([
+      const [painel, cont, breaks, cobrar] = await Promise.all([
         api.estoqueSyncLojas(),
         api.estoqueContagensRede({ tipo: tipoContagemDaData() }).catch(() => null),
         api.estoqueBreaksRede().catch(() => null),
+        api.estoqueCobrancaEntrada().catch(() => null),
       ]);
       setSyncLojas(painel?.lojas || []);
       setContagens(cont?.lojas || []);
       setLancamentos(breaks?.lancamentos || []);
+      setCobranca(cobrar);
     } catch (e) {
       if (!silencioso) {
         showToast(e instanceof Error ? e.message : 'Erro ao carregar o sync', 'error');
@@ -1332,7 +1394,7 @@ function PainelSyncRede({
   );
 
   const contouHoje = contagens.filter((l) => l.status === 'contou').length;
-  const linhasUso = vista === 'vendas' || vista === 'contou' ? [] : porTipo[vista];
+  const linhasUso = vista === 'vendas' || vista === 'contou' || vista === 'cobrar' ? [] : porTipo[vista];
   const linhasUsoFiltradas = linhasUso.filter((l) => naRegiao(l.id_loja));
   const idAberto = aberto
     ? aberto.kind === 'uso'
@@ -1365,6 +1427,7 @@ function PainelSyncRede({
           [
             { id: 'vendas' as const, label: 'Vendas', qtd: syncLojas.length },
             { id: 'contou' as const, label: 'Contou', qtd: contouHoje },
+            { id: 'cobrar' as const, label: 'Cobrar entrada', qtd: cobranca?.totais.notas || 0 },
             { id: 'break' as const, label: 'Break', qtd: porTipo.break.filter((l) => l.vezes > 0).length },
             { id: 'completo' as const, label: 'Completo', qtd: porTipo.completo.filter((l) => l.vezes > 0).length },
             { id: 'incompleto' as const, label: 'Incompleto', qtd: porTipo.incompleto.filter((l) => l.vezes > 0).length },
@@ -1409,6 +1472,9 @@ function PainelSyncRede({
         </Box>
       ) : null}
 
+      {vista === 'cobrar' ? (
+        <CobrancaEntradaTabela dados={cobranca} />
+      ) : (
       <Paper sx={{ ...tablePaperSx, flex: 1, minHeight: 0 }}>
         <TableContainer sx={tableContainerSx}>
           <Table stickyHeader sx={syncTableSx}>
@@ -1600,6 +1666,7 @@ function PainelSyncRede({
           </Table>
         </TableContainer>
       </Paper>
+      )}
 
       <Drawer
         anchor="right"

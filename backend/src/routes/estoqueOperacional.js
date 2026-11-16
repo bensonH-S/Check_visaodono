@@ -42,6 +42,7 @@ import {
   conferirRecebimentoNfe,
   reabrirConferenciaNfe,
   listarNfesEstoque,
+  listarCobrancaEntradaPlatlog,
   listarRelatorioDivergenciasNfe,
   obterNfeDetalhe,
   statusDisciplinaEstoque,
@@ -2235,6 +2236,24 @@ router.get('/nfes/divergencias', permDivergenciasAgenda, async (req, res, next) 
     );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(buf);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Pedido Platlog já entregue e a loja ainda não deu entrada. */
+router.get('/nfes/cobranca-entrada', permOp, async (req, res, next) => {
+  try {
+    let idsLoja = null;
+    if (!acessoTodasLojas(req.user)) {
+      const ids = Array.isArray(req.user?.lojas_ids_estoque)
+        ? req.user.lojas_ids_estoque
+        : req.user?.lojas_ids || [];
+      idsLoja = ids.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+      if (!idsLoja.length) return res.status(403).json({ error: 'Sem acesso a lojas de estoque' });
+    }
+    const dados = await listarCobrancaEntradaPlatlog({ ids_loja: idsLoja });
+    res.json(dados);
   } catch (e) {
     next(e);
   }

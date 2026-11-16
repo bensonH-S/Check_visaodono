@@ -1094,6 +1094,14 @@ export async function obterNfeDetalhe(idNfe) {
   const { rows } = await pool.query(`SELECT * FROM estoque_nfe WHERE id_nfe = $1`, [id]);
   if (!rows.length) return null;
   const nfe = rows[0];
+  const { rows: pedidos } = await pool.query(
+    `SELECT status, to_char(data_entrega, 'YYYY-MM-DD') AS entrega
+       FROM estoque_pedido_platlog
+      WHERE id_loja = $1 AND codigo = nullif(btrim($2), '')
+      LIMIT 1`,
+    [nfe.id_loja, nfe.pedido_esupri],
+  );
+  const pedido = pedidos[0] || null;
   const { rows: itens } = await pool.query(
     `SELECT i.*, ins.codigo AS codigo_insumo, ins.descricao AS descricao_insumo,
             ins.unidade_contagem
@@ -1119,6 +1127,8 @@ export async function obterNfeDetalhe(idNfe) {
     emitente_nome: nfe.emitente_nome,
     emitente_cnpj: nfe.emitente_cnpj,
     pedido_esupri: nfe.pedido_esupri || null,
+    status_pedido: pedido?.status || null,
+    entrega_pedido: pedido?.entrega || null,
     valor_total: nfe.valor_total != null ? num(nfe.valor_total) : null,
     entrada_registrada: !!nfe.entrada_registrada,
     tem_xml: !!(nfe.xml_path && String(nfe.xml_path).trim()),
@@ -1141,6 +1151,74 @@ export async function obterNfeDetalhe(idNfe) {
       descricao_insumo: i.descricao_insumo,
       unidade_contagem: i.unidade_contagem,
     })),
+  };
+}
+
+/**
+ * Platlog já marcou o pedido como Entregue e a loja ainda não deu entrada.
+ * Janela igual à do app do gestor: 45 dias pela emissão.
+ */
+export async function listarCobrancaEntradaPlatlog({ ids_loja = null } = {}) {
+  const params = [];
+  let lojaFiltro = '';
+  if (Array.isArray(ids_loja)) {
+    params.push(ids_loja.map(Number).filter((n) => Number.isFinite(n) && n > 0));
+    lojaFiltro = `AND n.id_loja = ANY($${params.length}::int[])`;
+  }
+  const { rows } = await pool.query(
+    `SELECT l.name AS loja,
+            n.id_loja,
+            n.id_nfe,
+            n.numero,
+            n.valor_total::float8 AS valor,
+            to_char(n.emissao::date, 'YYYY-MM-DD') AS emissao,
+            to_char(ped.data_entrega, 'YYYY-MM-DD') AS data_entrega,
+            ped.codigo AS pedido,
+            GREATEST((CURRENT_DATE - ped.data_entrega), 0)::int AS dias
+       FROM estoque_nfe n
+       JOIN lojas l ON l.id_loja = n.id_loja
+       JOIN estoque_pedido_platlog ped
+         ON ped.id_loja = n.id_loja
+        AND ped.codigo = nullif(btrim(n.pedido_esupri), '')
+      WHERE n.entrada_registrada = FALSE
+        AND ped.status = 'Entregue'
+        AND (
+          lower(coalesce(n.fornecedor, '')) = 'platlog'
+          OR coalesce(n.emitente_nome, '') ~* 'platlog'
+        )
+        AND coalesce(n.emissao::date, n.data_saida, CURRENT_DATE) >= CURRENT_DATE - 45
+        ${lojaFiltro}
+      ORDER BY ped.data_entrega NULLS LAST, l.name, n.numero`,
+    params,
+  );
+
+  const porLoja = new Map();
+  for (const r of rows) {
+    const cur = porLoja.get(r.loja) || { loja: r.loja, id_loja: r.id_loja, notas: 0, valor: 0, dias_max: 0 };
+    cur.notas += 1;
+    cur.valor += Number(r.valor) || 0;
+    cur.dias_max = Math.max(cur.dias_max, Number(r.dias) || 0);
+    porLoja.set(r.loja, cur);
+  }
+
+  return {
+    notas: rows.map((r) => ({
+      id_nfe: r.id_nfe,
+      id_loja: r.id_loja,
+      loja: r.loja,
+      numero: r.numero,
+      valor: r.valor != null ? num(r.valor) : null,
+      emissao: r.emissao,
+      data_entrega: r.data_entrega,
+      pedido: r.pedido,
+      dias: Number(r.dias) || 0,
+    })),
+    por_loja: [...porLoja.values()].sort((a, b) => b.notas - a.notas || a.loja.localeCompare(b.loja, 'pt-BR')),
+    totais: {
+      notas: rows.length,
+      lojas: porLoja.size,
+      valor: rows.reduce((s, r) => s + (Number(r.valor) || 0), 0),
+    },
   };
 }
 
@@ -1202,11 +1280,25 @@ export async function listarNfesEstoque(
     `SELECT n.*,
             (SELECT COUNT(*)::int FROM estoque_nfe_itens i WHERE i.id_nfe = n.id_nfe) AS itens,
             (SELECT COUNT(*)::int FROM estoque_nfe_itens i
-              WHERE i.id_nfe = n.id_nfe AND i.id_insumo IS NOT NULL) AS itens_casados
+              WHERE i.id_nfe = n.id_nfe AND i.id_insumo IS NOT NULL) AS itens_casados,
+            ped.status AS status_pedido,
+            to_char(ped.data_entrega, 'YYYY-MM-DD') AS entrega_pedido
      FROM estoque_nfe n
+     LEFT JOIN LATERAL (
+       SELECT p.status, p.data_entrega
+         FROM estoque_pedido_platlog p
+        WHERE p.id_loja = n.id_loja
+          AND p.codigo = nullif(btrim(n.pedido_esupri), '')
+        LIMIT 1
+     ) ped ON TRUE
      WHERE n.id_loja = $1 ${filtro}
      ORDER BY
        CASE WHEN n.entrada_registrada THEN 1 ELSE 0 END,
+       CASE
+         WHEN ped.status = 'Entregue' THEN 0
+         WHEN ped.status IN ('Faturado', 'Expedido', 'Em processo') THEN 2
+         ELSE 1
+       END,
        CASE n.status_entrega
          WHEN 'aguardando_conferencia' THEN 0
          WHEN 'em_transito' THEN 1
@@ -1214,7 +1306,7 @@ export async function listarNfesEstoque(
          WHEN 'conferida' THEN 3
          ELSE 4
        END,
-       COALESCE(n.data_saida, n.emissao) DESC NULLS LAST,
+       COALESCE(ped.data_entrega, n.data_saida, n.emissao) ASC NULLS LAST,
        n.id_nfe DESC
      LIMIT $${params.length}`,
     params,
@@ -1249,6 +1341,8 @@ export async function listarNfesEstoque(
     data_vencimento: r.data_vencimento,
     status_portal: r.status_portal,
     status_entrega: r.status_entrega,
+    status_pedido: r.status_pedido || null,
+    entrega_pedido: r.entrega_pedido || null,
     emitente_nome: r.emitente_nome,
     valor_total: r.valor_total != null ? num(r.valor_total) : null,
     entrada_registrada: !!r.entrada_registrada,

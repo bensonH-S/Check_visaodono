@@ -1917,6 +1917,8 @@ export const api = {
     if (opts?.mesAtual) params.set('mes_atual', '1');
     return request<EstoqueNfeResumo[]>(`/estoque/nfes?${params}`);
   },
+  estoqueCobrancaEntrada: () =>
+    request<EstoqueCobrancaEntrada>('/estoque/nfes/cobranca-entrada'),
   estoqueNfeDetalhe: (idNfe: number) => request<EstoqueNfeDetalhe>(`/estoque/nfes/${idNfe}`),
   estoqueNfeCobranca: (idNfe: number) =>
     request<{
@@ -4024,6 +4026,10 @@ export interface EstoqueNfeResumo {
   data_vencimento?: string | null;
   status_portal?: string | null;
   status_entrega?: string | null;
+  /** Status do pedido no eSupri: Entregue, Faturado, Expedido, Em processo. */
+  status_pedido?: string | null;
+  /** Data de entrega do pedido no eSupri. */
+  entrega_pedido?: string | null;
   emitente_nome?: string | null;
   emitente_cnpj?: string | null;
   valor_total?: number | null;
@@ -4033,6 +4039,24 @@ export interface EstoqueNfeResumo {
   itens_casados?: number;
   /** Título conciliado no financeiro. */
   pago?: boolean;
+}
+
+export interface EstoqueCobrancaEntradaNota {
+  id_nfe: number;
+  id_loja: number;
+  loja: string;
+  numero?: string | null;
+  valor?: number | null;
+  emissao?: string | null;
+  data_entrega?: string | null;
+  pedido?: string | null;
+  dias: number;
+}
+
+export interface EstoqueCobrancaEntrada {
+  notas: EstoqueCobrancaEntradaNota[];
+  por_loja: Array<{ loja: string; id_loja: number; notas: number; valor: number; dias_max: number }>;
+  totais: { notas: number; lojas: number; valor: number };
 }
 
 export interface EstoqueNfeItem {

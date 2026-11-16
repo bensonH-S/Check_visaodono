@@ -122,13 +122,27 @@ function fmtDataNf(iso: string | null | undefined) {
   return `${d}/${m}`;
 }
 
-/** Pendente / Confirmada / Confirmada parcial — gestor só confere o que ainda está pendente. */
-function rotuloStatusNf(n: Pick<EstoqueNfeResumo, 'entrada_registrada' | 'status_entrega'>) {
-  if (!n.entrada_registrada) return { texto: 'Pendente', classe: 'is-abaixo' as const };
-  if (n.status_entrega === 'divergente') {
-    return { texto: 'Confirmada parcial', classe: 'is-warn' as const };
+/** Entregue no eSupri sobe para confirmar. Faturado/expedido/em processo fica a caminho. */
+function rotuloStatusNf(n: Pick<EstoqueNfeResumo, 'entrada_registrada' | 'status_entrega' | 'status_pedido'>) {
+  if (n.entrada_registrada) {
+    if (n.status_entrega === 'divergente') {
+      return { texto: 'Confirmada parcial', classe: 'is-warn' as const };
+    }
+    return { texto: 'Confirmada', classe: 'is-ok' as const };
   }
-  return { texto: 'Confirmada', classe: 'is-ok' as const };
+  const pedido = String(n.status_pedido || '');
+  if (pedido === 'Entregue') return { texto: 'Entregue · confirmar', classe: 'is-abaixo' as const };
+  if (pedido === 'Faturado' || pedido === 'Expedido' || pedido === 'Em processo') {
+    return { texto: 'A caminho', classe: 'is-aberta' as const };
+  }
+  return { texto: 'Pendente', classe: 'is-abaixo' as const };
+}
+
+function ordemFilaNf(n: EstoqueNfeResumo) {
+  if (n.entrada_registrada) return 3;
+  if (n.status_pedido === 'Entregue') return 0;
+  if (n.status_pedido === 'Faturado' || n.status_pedido === 'Expedido' || n.status_pedido === 'Em processo') return 2;
+  return 1;
 }
 
 function buscaNf(n: EstoqueNfeResumo, q: string) {
@@ -409,9 +423,13 @@ export default function EstoqueMobileListaPage() {
   }, [fornecedoresNf, busca]);
   const notasDoFornecedor = useMemo(
     () =>
-      [...nfesFiltradas].sort(
-        (a, b) => Number(a.entrada_registrada) - Number(b.entrada_registrada),
-      ),
+      [...nfesFiltradas].sort((a, b) => {
+        const ordem = ordemFilaNf(a) - ordemFilaNf(b);
+        if (ordem !== 0) return ordem;
+        const da = String(a.entrega_pedido || a.emissao || '');
+        const db = String(b.entrega_pedido || b.emissao || '');
+        return da.localeCompare(db);
+      }),
     [nfesFiltradas],
   );
   const recarregouXml = useRef(false);

@@ -1,6 +1,6 @@
 /**
- * Scheduler diário do sync de fornecedor (Platlog NF-e + catálogo / Coca NF).
- * Platlog: conta VERONICA no eSupri, filtro por loja. Coca: Conecta Brasal por loja.
+ * Scheduler diário do sync de fornecedor (catálogo Platlog / NF Coca, Gimba, Ideal Work).
+ * XML de NF-e da Platlog entra só pela Receita Federal. O eSupri segue para pedido e preço.
  */
 import { pool } from '../../db.js';
 import {
@@ -8,7 +8,6 @@ import {
   credencialBrasal,
   credencialLoja,
   credencialPlatlog,
-  findEsupriLojaByBk,
   motivoConexao,
   usuarioCredencial,
 } from '../../config/fornecedoresLojas.js';
@@ -16,7 +15,6 @@ import { gravarCredencialLoja, JANELA_NF_DIAS } from '../estoqueFornecedorCreden
 import { syncNfeCoca } from '../brasal/syncNfeCoca.js';
 import { syncNfeGimba } from '../gimba/syncNfeGimba.js';
 import { syncNfeIdealWork } from '../idealwork/syncNfeIdealWork.js';
-import { syncNfePlatlog } from './syncNfePlatlog.js';
 import { syncPrecosCatalogoPlatlog } from './syncPrecosCatalogoPlatlog.js';
 
 const FORNECEDORES_NF = ['platlog', 'coca', 'idealwork', 'gimba'];
@@ -92,7 +90,6 @@ export async function executarSyncFornecedor(row, { forcar = false, soNfe = fals
   const bkNumber = await bkNumberDaLoja(row.id_loja);
   let user = '';
   let pass = '';
-  let esupriLojaCodigo = '';
   if (fornecedor === 'platlog') {
     const cred = credencialPlatlog(bkNumber);
     user = cred.user;
@@ -102,14 +99,6 @@ export async function executarSyncFornecedor(row, { forcar = false, soNfe = fals
         status: 400,
       });
     }
-    const esupri = findEsupriLojaByBk(bkNumber);
-    if (!esupri?.esupri_codigo) {
-      throw Object.assign(
-        new Error(`Loja BK ${bkNumber || row.id_loja} sem código eSupri no mapeamento`),
-        { status: 400 },
-      );
-    }
-    esupriLojaCodigo = esupri.esupri_codigo;
   } else if (fornecedor === 'coca') {
     const cred = credencialBrasal(bkNumber);
     user = cred.user;
@@ -236,22 +225,9 @@ export async function executarSyncFornecedor(row, { forcar = false, soNfe = fals
       return { id_sync: idSync, status, result };
     }
 
-    const syncNfe = process.env.ESUPRI_SYNC_NFE !== '0';
+    // XML da nota entra pela Receita. O portal não baixa mais DANFE.
     const syncCat = !soNfe && process.env.ESUPRI_SYNC_CATALOGO === '1';
-    const nfeResult = syncNfe
-      ? await syncNfePlatlog({
-          id_loja: row.id_loja,
-          user,
-          pass,
-          esupriLojaCodigo,
-          limit: row.limite || 80,
-          meses: 3,
-          aplicar: true,
-          registrar_entrada: false,
-          pular_existentes: !forcar,
-          headless: true,
-        })
-      : { baixadas: 0, processadas: [] };
+    const nfeResult = { baixadas: 0, processadas: [] };
     const catResult = syncCat
       ? await syncPrecosCatalogoPlatlog({
           id_loja: row.id_loja,
