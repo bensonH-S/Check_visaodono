@@ -192,6 +192,7 @@ const portalNotificacoesRouter = (await import('./backend/src/routes/portalNotif
 const freelancersAprovacaoRouter = (await import('./backend/src/routes/freelancersAprovacao.js')).default;
 const energiaRouter = (await import('./backend/src/routes/energia.js')).default;
 const financeiroRouter = (await import('./backend/src/routes/financeiro.js')).default;
+const myctoFiscalRouter = (await import('./backend/src/routes/myctoFiscal.js')).default;
 const sistemaRouter = (await import('./backend/src/routes/sistema.js')).default;
 await import('./backend/src/cryptoMedia.js');
 initPushNotifications();
@@ -361,6 +362,9 @@ api.use((req, res, next) => {
 
 app.post('/financas/api/caixa/ingest', responderCaixaLoja);
 app.post('/financas/api/caixa/heartbeat', responderCaixaLoja);
+
+// Mycto: Bearer próprio (MYCTO_API_TOKEN ou api_clientes). Não passa pelo JWT do portal.
+api.use('/mycto', myctoFiscalRouter);
 
 api.use(authMiddleware);
 api.use(attachPermissoesUsuario);
