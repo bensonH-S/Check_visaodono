@@ -341,7 +341,7 @@ export default function EstoqueMobileListaPage() {
         const [saldoRows, nfeRows] = await Promise.all([
           api.estoqueSaldos(idLoja),
           // conferir: todas as pendentes (Platlog/Gimba/SEFAZ…). origem=sefaz escondia o portal.
-          api.estoqueNfes(idLoja, { conferir: true, limit: 400, dias: 45 }),
+          api.estoqueNfes(idLoja, { conferir: true, limit: 400, mesAtual: true }),
         ]);
         if (cancel) return;
         setSaldos(saldoRows);
@@ -442,7 +442,7 @@ export default function EstoqueMobileListaPage() {
     recarregouXml.current = true;
     const timer = window.setTimeout(() => {
       api
-        .estoqueNfes(idLoja, { conferir: true, limit: 400, dias: 45 })
+        .estoqueNfes(idLoja, { conferir: true, limit: 400, mesAtual: true })
         .then(setNfes)
         .catch(() => {});
     }, 15000);
@@ -879,7 +879,7 @@ export default function EstoqueMobileListaPage() {
               <div className="ck-estoque-hub__lista">
                 {!fornecedorAberto && !fornecedoresVisiveis.length ? (
                   <p className="ck-estoque-hub__empty">
-                    Nenhuma NF pendente de conferência nos últimos 45 dias.
+                    Nenhuma NF neste mês.
                   </p>
                 ) : null}
                 {!fornecedorAberto

@@ -34,6 +34,27 @@ function isoDate(v) {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
 }
 
+/** Entrega antes deste dia já entrou nas contagens. Confirmar a nota não lança saldo. */
+const CORTE_MOVIMENTO_NF = '2026-11-16';
+
+async function entregaDoPedido(nfe) {
+  if (!nfe?.pedido_esupri) return null;
+  const { rows } = await pool.query(
+    `SELECT to_char(data_entrega, 'YYYY-MM-DD') AS entrega
+       FROM estoque_pedido_platlog
+      WHERE id_loja = $1 AND codigo = nullif(btrim($2), '')
+      LIMIT 1`,
+    [nfe.id_loja, nfe.pedido_esupri],
+  );
+  return isoDate(rows[0]?.entrega);
+}
+
+function lancaSaldoNaConfirmacao(dataIso) {
+  const d = isoDate(dataIso);
+  if (!d) return true;
+  return d >= CORTE_MOVIMENTO_NF;
+}
+
 function addDaysISO(iso, days) {
   const d = new Date(`${iso}T12:00:00`);
   d.setDate(d.getDate() + days);
@@ -543,20 +564,30 @@ export async function confirmarEntradaNfe({
     }));
   }
 
-  if (!itens.length) {
+  const dataMovimento = (await entregaDoPedido(nfe)) || dataEntrega;
+  const lancaSaldo = lancaSaldoNaConfirmacao(dataMovimento);
+
+  if (!itens.length && lancaSaldo) {
     throw Object.assign(new Error('NF sem itens casados com quantidade de estoque'), {
       status: 400,
     });
   }
 
-  const result = await registrarEntradas({
-    id_loja: nfe.id_loja,
-    id_nfe: idNfe,
-    data_entrega: dataEntrega,
-    observacao: `NF ${nfe.numero || nfe.chave} entrega ${dataEntrega}`,
-    criado_por,
-    itens,
-  });
+  const result = lancaSaldo
+    ? await registrarEntradas({
+        id_loja: nfe.id_loja,
+        id_nfe: idNfe,
+        data_entrega: dataEntrega,
+        observacao: `NF ${nfe.numero || nfe.chave} entrega ${dataEntrega}`,
+        criado_por,
+        itens,
+      })
+    : {
+        entradas: [],
+        erros: [
+          `Entrega ${dataMovimento} anterior a ${CORTE_MOVIMENTO_NF} — conferida sem movimento de estoque`,
+        ],
+      };
 
   await pool.query(
     `UPDATE estoque_nfe
@@ -578,6 +609,7 @@ export async function confirmarEntradaNfe({
     emissao: nfe.emissao,
     entradas: result.entradas,
     erros: result.erros,
+    sem_movimento: !lancaSaldo,
   };
 }
 
@@ -1156,7 +1188,7 @@ export async function obterNfeDetalhe(idNfe) {
 
 /**
  * Platlog já marcou o pedido como Entregue e a loja ainda não deu entrada.
- * Janela igual à do app do gestor: 45 dias pela emissão.
+ * Mês corrente pela emissão ou pela entrega: nota de novembro que chega em dezembro continua.
  */
 export async function listarCobrancaEntradaPlatlog({ ids_loja = null } = {}) {
   const params = [];
@@ -1186,7 +1218,12 @@ export async function listarCobrancaEntradaPlatlog({ ids_loja = null } = {}) {
           lower(coalesce(n.fornecedor, '')) = 'platlog'
           OR coalesce(n.emitente_nome, '') ~* 'platlog'
         )
-        AND coalesce(n.emissao::date, n.data_saida, CURRENT_DATE) >= CURRENT_DATE - 45
+        AND (
+          coalesce(n.emissao::date, n.data_saida::date, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date)
+            >= date_trunc('month', (NOW() AT TIME ZONE 'America/Sao_Paulo')::date)::date
+          OR coalesce(ped.data_entrega, n.data_saida::date)
+            >= date_trunc('month', (NOW() AT TIME ZONE 'America/Sao_Paulo')::date)::date
+        )
         ${lojaFiltro}
       ORDER BY ped.data_entrega NULLS LAST, l.name, n.numero`,
     params,
@@ -1260,10 +1297,14 @@ export async function listarNfesEstoque(
                  OR EXISTS (SELECT 1 FROM estoque_nfe_itens i WHERE i.id_nfe = n.id_nfe)
                )`;
   }
-  // App do gestor: últimos 45 dias (pendente + confirmada). mes_atual só se pedir.
+  // App: mês corrente. Emissão de hoje com entrega no mês seguinte continua na lista.
   if (mesAtual) {
-    filtro += ` AND date_trunc('month', COALESCE(n.emissao::date, n.data_saida, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date))
-                  = date_trunc('month', (NOW() AT TIME ZONE 'America/Sao_Paulo')::date)`;
+    filtro += ` AND (
+                  COALESCE(n.emissao::date, n.data_saida::date, (NOW() AT TIME ZONE 'America/Sao_Paulo')::date)
+                    >= date_trunc('month', (NOW() AT TIME ZONE 'America/Sao_Paulo')::date)::date
+                  OR COALESCE(ped.data_entrega, n.data_saida::date)
+                    >= date_trunc('month', (NOW() AT TIME ZONE 'America/Sao_Paulo')::date)::date
+                )`;
   } else {
     const janela = Number(dias);
     if (Number.isFinite(janela) && janela > 0) {

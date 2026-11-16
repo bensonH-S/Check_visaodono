@@ -2411,7 +2411,9 @@ router.post('/nfes/:id/conferir', permNfe, async (req, res, next) => {
       entidade_id: idNfe,
       descricao: nenhumChegou || result.nenhum_chegou
         ? `Marcou NF #${idNfe} como não chegou — ${result.data_entrega}`
-        : `Conferiu NF #${idNfe} — entrega ${result.data_entrega} — ${result.status_entrega}`,
+        : result.sem_movimento
+          ? `Conferiu NF #${idNfe} — entrega ${result.data_entrega} — sem movimento de estoque`
+          : `Conferiu NF #${idNfe} — entrega ${result.data_entrega} — ${result.status_entrega}`,
     });
 
     // Espelha NF conferida/divergente no financeiro (só marca selo na despesa existente).

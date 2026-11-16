@@ -409,10 +409,12 @@ export default function EstoqueMobileNfePage() {
       });
       const r = await api.estoqueNfeConferir(det.id_nfe, { itens });
       showToast(
-        r.divergente
-          ? `NF lançada com divergência · ${fmtDataBR(r.data_entrega)}`
-          : 'Recebimento OK � estoque atualizado',
-        r.divergente ? 'warning' : 'success',
+        r.sem_movimento
+          ? 'Nota confirmada, sem lançar no estoque'
+          : r.divergente
+            ? `NF lançada com divergência · ${fmtDataBR(r.data_entrega)}`
+            : 'Recebimento OK — estoque atualizado',
+        r.divergente && !r.sem_movimento ? 'warning' : 'success',
       );
       navigate('/estoque/mobile', { replace: true, state: { aba: 'nf' } });
     } catch (e) {

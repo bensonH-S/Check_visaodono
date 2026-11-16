@@ -1990,6 +1990,7 @@ export const api = {
       emissao: string | null;
       status_entrega: string;
       divergente?: boolean;
+      sem_movimento?: boolean;
       entradas: unknown[];
       erros: string[];
     }>(`/estoque/nfes/${idNfe}/conferir`, {
