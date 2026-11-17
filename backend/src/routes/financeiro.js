@@ -9,6 +9,7 @@ iniciarFinanceiro();
 const semPermissaoDeTela = new Set([
   '/caixa/ingest',
   '/caixa/heartbeat',
+  '/caixa/nfc',
   '/despesas/freecontrol-lote',
 ]);
 

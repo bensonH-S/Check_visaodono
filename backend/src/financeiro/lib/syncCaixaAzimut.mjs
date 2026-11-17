@@ -6,6 +6,7 @@ import pg from 'pg'
 
 let rodando = false
 let ultimo = null
+let nfcCursor = null
 
 function poolOpts(env, database, searchPath) {
   const ssl = env.DB_SSL === '1' || env.DB_SSL === 'true'
@@ -22,6 +23,83 @@ function poolOpts(env, database, searchPath) {
     max: 2,
     ...(searchPath ? { options: `-c search_path=${searchPath}` } : {}),
   }
+}
+
+async function sincronizarNfc(azimut, meridian, porBk) {
+  try {
+    await azimut.query(`select 1 from public.nfc_venda limit 1`)
+  } catch (err) {
+    if (err.code === '42P01') return 0
+    throw err
+  }
+  await meridian.query(`
+    create table if not exists public.nfc_venda (
+      id uuid primary key default gen_random_uuid(),
+      empresa_id uuid,
+      bk_number text,
+      chave text not null unique,
+      data date not null,
+      numero text,
+      serie text,
+      valor numeric(14, 2),
+      tipo text not null default 'autorizada',
+      xml text not null,
+      criado_em timestamptz not null default now(),
+      atualizado_em timestamptz not null default now()
+    )
+  `)
+  if (!nfcCursor) {
+    const atual = await meridian.query(`
+      select atualizado_em, chave
+      from public.nfc_venda
+      order by atualizado_em desc, chave desc
+      limit 1
+    `)
+    const row = atual.rows[0]
+    nfcCursor = row
+      ? { em: row.atualizado_em, chave: row.chave }
+      : { em: new Date(0), chave: '' }
+  }
+  let copiadas = 0
+  for (let volta = 0; volta < 25; volta += 1) {
+    const lote = await azimut.query(`
+      select n.chave, n.data::text as data, n.numero, n.serie, n.valor, n.tipo, n.xml, n.atualizado_em,
+             regexp_replace(coalesce(n.bk_number, e.bk_number, ''), '\\D', '', 'g') as bk
+      from public.nfc_venda n
+      left join empresas e on e.id = n.empresa_id
+      where n.atualizado_em > $1
+         or (n.atualizado_em = $1 and n.chave > $2)
+      order by n.atualizado_em, n.chave
+      limit 200
+    `, [nfcCursor.em, nfcCursor.chave])
+    if (!lote.rows.length) break
+    for (const row of lote.rows) {
+      nfcCursor = { em: row.atualizado_em, chave: row.chave }
+      const empresaId = porBk.get(row.bk)
+      if (!empresaId) continue
+      await meridian.query(`
+        insert into public.nfc_venda (
+          empresa_id, bk_number, chave, data, numero, serie, valor, tipo, xml, atualizado_em
+        ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        on conflict (chave) do update set
+          empresa_id = excluded.empresa_id,
+          bk_number = excluded.bk_number,
+          data = excluded.data,
+          numero = excluded.numero,
+          serie = excluded.serie,
+          valor = excluded.valor,
+          tipo = excluded.tipo,
+          xml = excluded.xml,
+          atualizado_em = excluded.atualizado_em
+      `, [
+        empresaId, row.bk, row.chave, row.data, row.numero, row.serie,
+        row.valor, row.tipo, row.xml, row.atualizado_em,
+      ])
+      copiadas += 1
+    }
+    if (lote.rows.length < 200) break
+  }
+  return copiadas
 }
 
 export async function syncCaixaAzimutParaMeridian(env = process.env, { dias = 45 } = {}) {
@@ -116,7 +194,8 @@ export async function syncCaixaAzimutParaMeridian(env = process.env, { dias = 45
       if (gravou.rows[0]?.inserido) fechNovos += 1
     }
 
-    ultimo = { ok: true, statusOk, fechOk, fechNovos, em: new Date().toISOString() }
+    const nfcCopiadas = await sincronizarNfc(azimut, meridian, porBk)
+    ultimo = { ok: true, statusOk, fechOk, fechNovos, nfcCopiadas, em: new Date().toISOString() }
     return ultimo
   } finally {
     rodando = false
@@ -133,7 +212,7 @@ export function iniciarSyncCaixaAzimut(env = process.env) {
   const tick = () => {
     syncCaixaAzimutParaMeridian(env).then((r) => {
       if (r?.skipped) return
-      console.log(`[caixa] ponte Azimut→Meridian: ${r.statusOk} status, ${r.fechOk} fechamentos, ${r.fechNovos || 0} novos`)
+      console.log(`[caixa] ponte Azimut→Meridian: ${r.statusOk} status, ${r.fechOk} fechamentos, ${r.fechNovos || 0} novos, ${r.nfcCopiadas || 0} xml`)
     }).catch((err) => {
       console.warn(`[caixa] ponte Azimut falhou: ${err.message}`)
     })

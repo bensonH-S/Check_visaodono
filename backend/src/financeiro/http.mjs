@@ -24,7 +24,7 @@ import {
   salvarAcessoBb,
 } from './lib/bbDda.mjs'
 import { removerCadastro, salvarCadastro, usoDe } from './lib/cadastros.mjs'
-import { garantirSchemaCaixa, lerComprovante, mesFechamentos, receberHeartbeat, receberIngestao, resumoCanaisPeriodo, salvarFechamento } from './lib/fechamentoCaixa.mjs'
+import { garantirSchemaCaixa, lerComprovante, mesFechamentos, receberHeartbeat, receberIngestao, receberXmlVenda, resumoCanaisPeriodo, salvarFechamento } from './lib/fechamentoCaixa.mjs'
 import { montarCustosCo } from './lib/custosCo.mjs'
 import { acharParaLevar, gravarAparicaoVigente, levarDespesa } from './lib/despesaAparicao.mjs'
 import { gerarDanfe } from './lib/danfe.mjs'
@@ -926,14 +926,17 @@ function servirArquivo(res, file) {
 export async function receberCaixaLoja(req, res) {
   const caminho = String(req.originalUrl || req.url || '')
   const pulso = caminho.includes('/heartbeat')
+  const nfc = caminho.includes('/caixa/nfc')
   const body = await readBody(req)
   const auth = String(req.headers.authorization || '')
   const token = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : ''
   const esperado = env.CAIXA_INGEST_TOKEN || process.env.CAIXA_INGEST_TOKEN
   try {
-    const resultado = pulso
-      ? await receberHeartbeat(pool, body, esperado, token)
-      : await receberIngestao(pool, body, esperado, token)
+    const resultado = nfc
+      ? await receberXmlVenda(pool, body, esperado, token)
+      : pulso
+        ? await receberHeartbeat(pool, body, esperado, token)
+        : await receberIngestao(pool, body, esperado, token)
     return send(res, 200, JSON.stringify(resultado))
   } catch (err) {
     return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não recebeu o caixa da loja.' }))
@@ -2047,6 +2050,21 @@ export async function handleFinance(req, res) {
         )))
       } catch (err) {
         return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não recebeu o caixa da loja.' }))
+      }
+    }
+    if (req.method === 'POST' && url.pathname === '/api/caixa/nfc') {
+      const body = await readBody(req)
+      const auth = String(req.headers.authorization || '')
+      const token = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : ''
+      try {
+        return send(res, 200, JSON.stringify(await receberXmlVenda(
+          pool,
+          body,
+          env.CAIXA_INGEST_TOKEN || process.env.CAIXA_INGEST_TOKEN,
+          token,
+        )))
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não recebeu o XML da venda.' }))
       }
     }
     if (req.method === 'POST' && url.pathname === '/api/caixa/heartbeat') {

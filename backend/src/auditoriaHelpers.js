@@ -367,6 +367,7 @@ const IGNORAR_PATHS = [
   /\/auditoria\/evento$/i,
   /\/caixa\/ingest/i,
   /\/caixa\/heartbeat/i,
+  /\/caixa\/nfc/i,
 ];
 
 function caminhoRequest(req) {

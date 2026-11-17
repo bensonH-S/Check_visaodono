@@ -8,6 +8,7 @@ const lancamentosPath = path.join(rootDir, 'db', '008_fechamento_caixa_lancament
 const statusPath = path.join(rootDir, 'db', '009_caixa_bandeiras_status.sql')
 const chavesPath = path.join(rootDir, 'db', '012_caixa_chaves.sql')
 const idPath = path.join(rootDir, 'db', '014_fechamento_caixa_id.sql')
+const nfcPath = path.join(rootDir, 'db', '020_nfc_venda.sql')
 const pastaComprovantes = path.join(rootDir, 'data', 'caixa', 'comprovantes')
 const MAX_COMPROVANTE = 8 * 1024 * 1024
 const MIME_COMPROVANTE = {
@@ -33,6 +34,7 @@ export function garantirSchemaCaixa(pool) {
     await pool.query(fs.readFileSync(statusPath, 'utf8'))
     await pool.query(fs.readFileSync(chavesPath, 'utf8'))
     await pool.query(fs.readFileSync(idPath, 'utf8'))
+    await pool.query(fs.readFileSync(nfcPath, 'utf8'))
   })().catch((err) => {
     schemaCaixa = null
     throw err
@@ -482,6 +484,56 @@ export async function receberHeartbeat(pool, body, tokenEsperado, tokenRecebido)
   await garantirSchemaCaixa(pool)
   await marcarStatusLoja(pool, empresa, { mensagem: 'tamos conectado' })
   return { ok: true, mensagem: 'tamos conectado', empresa: empresa.apelido || empresa.razao_social, bk_number: bk }
+}
+
+function xmlDaNota(nota) {
+  if (nota && nota.xml_b64) {
+    try {
+      return Buffer.from(String(nota.xml_b64), 'base64').toString('utf8')
+    } catch {
+      return ''
+    }
+  }
+  return String(nota?.xml || '')
+}
+
+export async function receberXmlVenda(pool, body, tokenEsperado, tokenRecebido) {
+  if (!tokenEsperado) throw erro('Recepção do caixa ainda não tem chave.', 503)
+  if (!tokenRecebido || tokenRecebido !== tokenEsperado) throw erro('Chave inválida.', 401)
+  const bk = String(body.bk_number || '').replace(/\D/g, '')
+  const data = String(body.data || '').trim()
+  if (!bk || !/^\d{4}-\d{2}-\d{2}$/.test(data)) throw erro('Informe o número da loja e a data.')
+  const empresa = await empresaPorBk(pool, bk)
+  if (!empresa) throw erro('Loja não cadastrada no Meridian.', 404)
+  await garantirSchemaCaixa(pool)
+  const notas = Array.isArray(body.notas) ? body.notas.slice(0, 30) : []
+  let gravadas = 0
+  for (const nota of notas) {
+    const chave = String(nota.chave || '').replace(/\D/g, '')
+    if (chave.length !== 44) continue
+    const xml = xmlDaNota(nota)
+    if (!xml || xml.length > 500000 || !xml.includes('<infNFe')) continue
+    const tipo = nota.tipo === 'contingencia' ? 'contingencia' : 'autorizada'
+    const serie = String(Number(chave.slice(22, 25)))
+    const numero = String(Number(chave.slice(25, 34)))
+    await pool.query(`
+      insert into public.nfc_venda (
+        empresa_id, bk_number, chave, data, numero, serie, valor, tipo, xml
+      ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      on conflict (chave) do update set
+        empresa_id = excluded.empresa_id,
+        bk_number = excluded.bk_number,
+        data = excluded.data,
+        numero = excluded.numero,
+        serie = excluded.serie,
+        valor = excluded.valor,
+        tipo = excluded.tipo,
+        xml = excluded.xml,
+        atualizado_em = now()
+    `, [empresa.id, bk, chave, data, numero, serie, dinheiro(nota.valor), tipo, xml])
+    gravadas += 1
+  }
+  return { ok: true, gravadas, data, bk_number: bk }
 }
 
 export async function receberIngestao(pool, body, tokenEsperado, tokenRecebido) {

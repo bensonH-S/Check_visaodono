@@ -348,7 +348,7 @@ function responderFreecontrolLote(req, res) {
 api.use((req, res, next) => {
   if (
     req.method === 'POST'
-    && (req.path === '/financeiro/caixa/ingest' || req.path === '/financeiro/caixa/heartbeat')
+    && (req.path === '/financeiro/caixa/ingest' || req.path === '/financeiro/caixa/heartbeat' || req.path === '/financeiro/caixa/nfc')
   ) {
     return responderCaixaLoja(req, res);
   }
@@ -361,6 +361,7 @@ api.use((req, res, next) => {
 
 app.post('/financas/api/caixa/ingest', responderCaixaLoja);
 app.post('/financas/api/caixa/heartbeat', responderCaixaLoja);
+app.post('/financas/api/caixa/nfc', responderCaixaLoja);
 
 api.use(authMiddleware);
 api.use(attachPermissoesUsuario);
