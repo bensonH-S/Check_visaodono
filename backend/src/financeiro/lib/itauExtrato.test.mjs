@@ -151,3 +151,36 @@ describe('sugestão de conciliação', () => {
     assert.equal(pares[0].despesa_id, 'd1')
   })
 })
+
+describe('certificado dinâmico', async () => {
+  const { inspecionarCertificado } = await import('./itauExtrato.mjs')
+  const { execFileSync } = await import('node:child_process')
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'itau-cert-'))
+  execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(dir, 'k.pem'), '-out', path.join(dir, 'c.pem'), '-subj', '/CN=cli-teste/OU=TESTE', '-days', '10'], { stdio: 'ignore' })
+  execFileSync('openssl', ['genpkey', '-algorithm', 'RSA', '-out', path.join(dir, 'outra.pem')], { stdio: 'ignore' })
+  const cert = fs.readFileSync(path.join(dir, 'c.pem'), 'utf8')
+  const key = fs.readFileSync(path.join(dir, 'k.pem'), 'utf8')
+  const outra = fs.readFileSync(path.join(dir, 'outra.pem'), 'utf8')
+
+  it('lê CN, validade e confere a chave', () => {
+    const info = inspecionarCertificado(cert, key, 'cli-teste')
+    assert.equal(info.cn, 'cli-teste')
+    assert.equal(info.chave_confere, true)
+    assert.ok(info.dias_restantes >= 9)
+    assert.ok(info.avisos.some((a) => a.includes('vence em')))
+  })
+
+  it('acusa chave que não é o par', () => {
+    const info = inspecionarCertificado(cert, outra, 'cli-teste')
+    assert.equal(info.chave_confere, false)
+    assert.equal(info.ok, false)
+  })
+
+  it('acusa CN diferente do client_id e PEM inválido', () => {
+    assert.ok(inspecionarCertificado(cert, key, 'outro').avisos.some((a) => a.includes('CN')))
+    assert.equal(inspecionarCertificado('lixo', key).ok, false)
+  })
+})

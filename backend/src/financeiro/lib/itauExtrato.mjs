@@ -6,10 +6,15 @@ import { fileURLToPath } from 'node:url'
 
 const schemaPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'db', '013_itau_extrato.sql')
 
-/** URLs de produção pedidas pelo Itaú no acompanhamento da API de Extrato. */
+/**
+ * URLs de produção da API de Extrato.
+ * O host da API é account-statement.api.itau.com (sem .br): o antigo
+ * account-statement.api.itau.com.br não existe no DNS público (NXDOMAIN em 17/11/2026).
+ * ITAU_EXTRATO_TOKEN_URL / ITAU_EXTRATO_API_URL sobrescrevem sem mexer no código.
+ */
 export const URLS_PRODUCAO = {
   token: 'https://sts.itau.com.br/as/token.oauth2',
-  api: 'https://account-statement.api.itau.com.br/account-statement/v1',
+  api: 'https://account-statement.api.itau.com/account-statement/v1',
 }
 
 const JANELA_DIAS = 7
@@ -31,7 +36,12 @@ function centavos(valor) {
 }
 
 export function urlsAmbiente(ambiente, env = process.env) {
-  if (ambiente !== 'homologacao') return URLS_PRODUCAO
+  if (ambiente !== 'homologacao') {
+    return {
+      token: texto(env.ITAU_EXTRATO_TOKEN_URL) || URLS_PRODUCAO.token,
+      api: (texto(env.ITAU_EXTRATO_API_URL) || URLS_PRODUCAO.api).replace(/\/$/, ''),
+    }
+  }
   const token = texto(env.ITAU_EXTRATO_HM_TOKEN_URL)
   const api = texto(env.ITAU_EXTRATO_HM_API_URL).replace(/\/$/, '')
   if (!token || !api) {
@@ -207,13 +217,18 @@ export function periodoPadrao(agora = new Date()) {
 function pedir(url, { method = 'GET', headers = {}, body = null, tls = null } = {}) {
   return new Promise((resolve, reject) => {
     const destino = new URL(url)
+    const cabecalhos = { ...headers }
+    if (body && !Object.keys(cabecalhos).some((k) => k.toLowerCase() === 'content-length')) {
+      cabecalhos['content-length'] = Buffer.byteLength(body)
+    }
     const req = https.request({
       protocol: destino.protocol,
       hostname: destino.hostname,
       port: destino.port || 443,
       path: `${destino.pathname}${destino.search}`,
       method,
-      headers,
+      headers: cabecalhos,
+      timeout: 30000,
       ...(tls || {}),
     }, (res) => {
       const partes = []
@@ -235,6 +250,7 @@ function pedir(url, { method = 'GET', headers = {}, body = null, tls = null } = 
         })
       })
     })
+    req.on('timeout', () => req.destroy(new Error('O Itaú não respondeu em 30 segundos.')))
     req.on('error', reject)
     if (body) req.write(body)
     req.end()
@@ -259,6 +275,47 @@ function mensagemItau(resposta) {
     || dados.error
     || resposta.bruto,
   ).replace(/\s+/g, ' ').slice(0, 280)
+}
+
+/**
+ * Lê o certificado dinâmico: validade, CN e se a chave privada é o par dele.
+ * Não lança: devolve { ok:false, erro } para a tela mostrar.
+ */
+export function inspecionarCertificado(certPem, keyPem, clientId = '', agora = new Date()) {
+  const cert = texto(certPem)
+  if (!cert) return { ok: false, erro: 'Sem certificado.' }
+  let x509
+  try {
+    x509 = new crypto.X509Certificate(cert)
+  } catch {
+    return { ok: false, erro: 'O arquivo do certificado não é um PEM/CRT válido.' }
+  }
+  const validoAte = new Date(x509.validTo)
+  const validoDe = new Date(x509.validFrom)
+  const cn = (/(?:^|\n|,\s*)CN=([^\n,]+)/.exec(x509.subject) || [])[1] || ''
+  const dias = Math.floor((validoAte.getTime() - agora.getTime()) / 86400000)
+  let chaveConfere = null
+  if (texto(keyPem)) {
+    try {
+      chaveConfere = x509.checkPrivateKey(crypto.createPrivateKey(texto(keyPem)))
+    } catch {
+      chaveConfere = false
+    }
+  }
+  const avisos = []
+  if (chaveConfere === false) avisos.push('A chave privada não é o par deste certificado.')
+  if (dias < 0) avisos.push('Certificado vencido. Emita um novo no portal Itaú.')
+  else if (dias <= 30) avisos.push(`Certificado vence em ${dias} dia(s). Renove no portal Itaú (exige aprovação no Bankline).`)
+  if (clientId && cn && cn !== texto(clientId)) avisos.push('O CN do certificado é diferente do Client ID informado.')
+  return {
+    ok: chaveConfere !== false && dias >= 0,
+    cn,
+    valido_de: validoDe.toISOString(),
+    valido_ate: validoAte.toISOString(),
+    dias_restantes: dias,
+    chave_confere: chaveConfere,
+    avisos,
+  }
 }
 
 export function configPronta(config) {
@@ -299,6 +356,12 @@ export async function consultarExtrato(config, statementId, opcoes = {}) {
   }
   const urls = urlsAmbiente(config.ambiente, env)
   const tls = tlsDe(config)
+  if (!opcoes.pedir) {
+    const info = inspecionarCertificado(config.cert_pem, config.key_pem, config.client_id)
+    if (info.erro) throw new Error(info.erro)
+    if (info.dias_restantes < 0) throw new Error('Certificado dinâmico do Itaú vencido. Emita um novo no portal.')
+    if (info.chave_confere === false) throw new Error('A chave privada não é o par do certificado dinâmico.')
+  }
   const token = await tokenItau(config, pedirFn, env)
   const lancamentos = []
   let saldo = null
@@ -369,6 +432,9 @@ function publico(linha) {
     chave_definida: Boolean(credencial.key_pem),
     ativo: credencial.ativo,
     pronta: configPronta(credencial),
+    certificado: credencial.cert_pem
+      ? inspecionarCertificado(credencial.cert_pem, credencial.key_pem, credencial.client_id)
+      : null,
     ultima_coleta: linha.ultima_coleta || null,
     ultimo_ok: linha.ultimo_ok ?? null,
     ultima_mensagem: linha.ultima_mensagem || '',
@@ -409,6 +475,13 @@ export async function salvarCredencialExtrato(pool, body) {
     ativo: body.ativo === false ? false : true,
   }
   if (!novo.client_id) throw Object.assign(new Error('Informe o Client ID gerado no Developers.'), { status: 400 })
+  if (novo.cert_pem) {
+    const info = inspecionarCertificado(novo.cert_pem, novo.key_pem, novo.client_id)
+    if (info.erro) throw Object.assign(new Error(info.erro), { status: 400 })
+    if (info.chave_confere === false) {
+      throw Object.assign(new Error('A chave privada (.key) não é o par deste certificado (.crt). Envie os dois arquivos baixados juntos no portal.'), { status: 400 })
+    }
+  }
   const salvo = atual
     ? await pool.query(`
         update itau_extrato_credenciais

@@ -92,7 +92,14 @@ export function ExtratoItauPage() {
     { titulo: t('Credencial', 'Credential'), render: (item) => <Titulo texto={item.nome} sub={item.empresa || t('Grupo inteiro', 'Whole group')} /> },
     { titulo: t('Ambiente', 'Environment'), render: (item) => (item.ambiente === 'producao' ? t('Produção', 'Production') : t('Homologação', 'Sandbox')) },
     { titulo: 'Client ID', render: (item) => <Box component="span" sx={{ fontFamily: 'monospace', fontSize: 12 }}>{item.client_id || '—'}</Box> },
-    { titulo: t('Certificado', 'Certificate'), render: (item) => (item.certificado_definido && item.chave_definida ? t('Dinâmico', 'Dynamic') : '—') },
+    { titulo: t('Certificado', 'Certificate'), render: (item) => {
+      if (!(item.certificado_definido && item.chave_definida)) return '—'
+      const c = item.certificado
+      if (!c?.valido_ate) return t('Dinâmico', 'Dynamic')
+      const ate = new Date(c.valido_ate).toLocaleDateString('pt-BR')
+      const sub = c.avisos?.length ? c.avisos.join(' ') : t(`vence em ${c.dias_restantes} dia(s)`, `expires in ${c.dias_restantes} day(s)`)
+      return <Titulo texto={t(`Dinâmico até ${ate}`, `Dynamic until ${ate}`)} sub={sub} />
+    } },
     { titulo: t('Situação', 'Status'), render: (item) => { const s = situacao(item, t); return <Selo texto={s.texto} tom={s.tom} /> } },
     {
       titulo: t('Última consulta', 'Last pull'),

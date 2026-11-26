@@ -455,6 +455,15 @@ export type CredencialExtratoItau = {
   client_id: string
   segredo_definido: boolean
   certificado_definido: boolean
+  certificado?: {
+    ok: boolean
+    erro?: string
+    cn?: string
+    valido_ate?: string
+    dias_restantes?: number
+    chave_confere?: boolean | null
+    avisos?: string[]
+  } | null
   chave_definida: boolean
   ativo: boolean
   pronta: boolean
