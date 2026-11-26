@@ -537,6 +537,24 @@ export type FechamentoDia = {
   observacao: string
   status: 'rascunho' | 'conferido' | 'fechado'
   atualizado_em: string | null
+  xml_notas?: number
+}
+
+export type LojaXml = {
+  id: string
+  loja: string
+  bk_number: string
+  notas: number
+  ultima_data: string | null
+  situacao: 'em_dia' | 'parou' | 'sem_xml'
+}
+
+export type PainelXmlLojas = {
+  ontem: string
+  lojas: LojaXml[]
+  paradas: LojaXml[]
+  sem_xml: LojaXml[]
+  em_dia: LojaXml[]
 }
 
 export type MesFechamento = {
@@ -1103,6 +1121,23 @@ export const api = {
   },
   caixaMes: (mes: string, empresaId: string) =>
     get<MesFechamento>(urlCaixa(mes, empresaId)),
+  xmlLojas: () => get<PainelXmlLojas>(`${apiRoot}/caixa/xml-lojas`),
+  baixarXmlCaixa: async (empresaId: string, data: string) => {
+    const q = new URLSearchParams({ empresa: empresaId, data })
+    const res = await financeFetch(`${apiRoot}/caixa/xml?${q}`)
+    if (!res.ok) {
+      const corpo = await res.json().catch(() => ({}))
+      throw new Error((corpo as { erro?: string }).erro || 'Não baixou o XML')
+    }
+    const disposto = res.headers.get('content-disposition') || ''
+    const nome = /filename="([^"]+)"/.exec(disposto)?.[1] || `xml-${data}.zip`
+    const url = URL.createObjectURL(await res.blob())
+    const link = document.createElement('a')
+    link.href = url
+    link.download = nome
+    link.click()
+    URL.revokeObjectURL(url)
+  },
   custosCo: (mes: string, empresaId: string) => {
     const q = new URLSearchParams({ mes, empresa: empresaId })
     return get<CustosCoPainel>(`${apiRoot}/custos-co?${q}`)

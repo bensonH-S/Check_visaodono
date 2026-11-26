@@ -301,6 +301,9 @@ export async function mesFechamentos(pool, { mes, empresaId }) {
     })
   }
 
+  const contagemXml = await contarXmlMes(pool, empresa.id, inicio)
+  for (const dia of dias) dia.xml_notas = contagemXml.get(dia.data) || 0
+
   const preenchidos = dias.filter((d) => d.id)
   const totais = CAMPOS.reduce((acc, campo) => {
     acc[campo] = Math.round(preenchidos.reduce((s, d) => s + (Number(d[campo]) || 0), 0) * 100) / 100
@@ -691,4 +694,158 @@ export async function salvarFechamento(pool, body) {
     order by l.criado_em
   `, [fechamentoId])).rows.map(lancamentoPublico)
   return linhaPublica({ ...completo, lancamentos: lans })
+}
+
+export function ontemSp(agora = new Date()) {
+  const hoje = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(agora)
+  const data = new Date(`${hoje}T12:00:00Z`)
+  data.setUTCDate(data.getUTCDate() - 1)
+  return data.toISOString().slice(0, 10)
+}
+
+export function situacaoXml(ultimaData, ontem) {
+  if (!ultimaData) return 'sem_xml'
+  return String(ultimaData).slice(0, 10) >= ontem ? 'em_dia' : 'parou'
+}
+
+async function contarXmlMes(pool, empresaId, inicio) {
+  const { rows } = await pool.query(`
+    select data::text as data, count(*)::int as notas
+    from public.nfc_venda
+    where empresa_id = $1
+      and data >= $2::date
+      and data < ($2::date + interval '1 month')
+    group by data
+  `, [empresaId, inicio])
+  return new Map(rows.map((row) => [String(row.data).slice(0, 10), row.notas]))
+}
+
+export async function painelXmlLojas(pool) {
+  await garantirSchemaCaixa(pool)
+  const ontem = ontemSp()
+  const { rows } = await pool.query(`
+    select e.id,
+           coalesce(nullif(e.apelido, ''), e.razao_social) as loja,
+           regexp_replace(coalesce(e.bk_number, ''), '\\D', '', 'g') as bk_number,
+           count(n.chave)::int as notas,
+           max(n.data)::text as ultima_data
+    from empresas e
+    left join public.nfc_venda n on n.empresa_id = e.id
+    where e.ativo and e.tipo = 'loja'
+    group by e.id, loja, bk_number
+    order by loja
+  `)
+  const lojas = rows.map((row) => ({
+    id: row.id,
+    loja: row.loja,
+    bk_number: row.bk_number,
+    notas: row.notas,
+    ultima_data: row.ultima_data ? String(row.ultima_data).slice(0, 10) : null,
+    situacao: situacaoXml(row.ultima_data, ontem),
+  }))
+  return {
+    ontem,
+    lojas,
+    paradas: lojas.filter((loja) => loja.situacao === 'parou'),
+    sem_xml: lojas.filter((loja) => loja.situacao === 'sem_xml'),
+    em_dia: lojas.filter((loja) => loja.situacao === 'em_dia'),
+  }
+}
+
+const CRC_TABLE = (() => {
+  const tabela = new Uint32Array(256)
+  for (let i = 0; i < 256; i += 1) {
+    let c = i
+    for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    tabela[i] = c >>> 0
+  }
+  return tabela
+})()
+
+function crc32(buf) {
+  let c = 0xffffffff
+  for (let i = 0; i < buf.length; i += 1) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8)
+  return (c ^ 0xffffffff) >>> 0
+}
+
+function u16(n) {
+  const b = Buffer.alloc(2)
+  b.writeUInt16LE(n, 0)
+  return b
+}
+
+function u32(n) {
+  const b = Buffer.alloc(4)
+  b.writeUInt32LE(n >>> 0, 0)
+  return b
+}
+
+function zipEntry(nome, data, offset) {
+  const nameBuf = Buffer.from(nome, 'utf8')
+  const crc = crc32(data)
+  const local = Buffer.concat([
+    Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+    u16(20), u16(0), u16(0), u16(0), u16(0),
+    u32(crc), u32(data.length), u32(data.length),
+    u16(nameBuf.length), u16(0),
+    nameBuf, data,
+  ])
+  const central = Buffer.concat([
+    Buffer.from([0x50, 0x4b, 0x01, 0x02]),
+    u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+    u32(crc), u32(data.length), u32(data.length),
+    u16(nameBuf.length), u16(0), u16(0), u16(0), u16(0),
+    u32(0), u32(offset),
+    nameBuf,
+  ])
+  return { local, central, nextOffset: offset + local.length }
+}
+
+export async function zipXmlDia(pool, empresaId, data) {
+  await garantirSchemaCaixa(pool)
+  if (!empresaId) throw erro('Informe a loja.')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data || ''))) throw erro('Informe o dia.')
+  const empresa = (await pool.query(`
+    select id, coalesce(nullif(apelido, ''), razao_social) as loja,
+           regexp_replace(coalesce(bk_number, ''), '\\D', '', 'g') as bk_number
+    from empresas
+    where id = $1 and ativo and tipo = 'loja'
+  `, [empresaId])).rows[0]
+  if (!empresa) throw erro('Loja não encontrada.', 404)
+  const notas = (await pool.query(`
+    select chave, numero, xml
+    from public.nfc_venda
+    where empresa_id = $1 and data = $2::date
+    order by numero, chave
+  `, [empresaId, data])).rows
+  if (!notas.length) throw erro('Este dia não tem XML de venda.', 404)
+  const locals = []
+  const centrais = []
+  let offset = 0
+  for (const nota of notas) {
+    const nome = `${String(nota.numero || 'nota')}-${nota.chave}.xml`
+    const entrada = zipEntry(nome, Buffer.from(String(nota.xml || ''), 'utf8'), offset)
+    locals.push(entrada.local)
+    centrais.push(entrada.central)
+    offset = entrada.nextOffset
+  }
+  const centralDir = Buffer.concat(centrais)
+  const fim = Buffer.concat([
+    Buffer.from([0x50, 0x4b, 0x05, 0x06]),
+    u16(0), u16(0),
+    u16(notas.length), u16(notas.length),
+    u32(centralDir.length), u32(offset),
+    u16(0),
+  ])
+  const loja = String(empresa.loja || 'loja').replace(/[^\w.-]+/g, '-').slice(0, 40)
+  return {
+    nome: `xml-${empresa.bk_number || 'loja'}-${data}-${loja}.zip`,
+    buffer: Buffer.concat([...locals, centralDir, fim]),
+    notas: notas.length,
+  }
 }

@@ -24,13 +24,14 @@ import {
   salvarAcessoBb,
 } from './lib/bbDda.mjs'
 import { removerCadastro, salvarCadastro, usoDe } from './lib/cadastros.mjs'
-import { garantirSchemaCaixa, lerComprovante, mesFechamentos, receberHeartbeat, receberIngestao, receberXmlVenda, resumoCanaisPeriodo, salvarFechamento } from './lib/fechamentoCaixa.mjs'
+import { garantirSchemaCaixa, lerComprovante, mesFechamentos, painelXmlLojas, receberHeartbeat, receberIngestao, receberXmlVenda, resumoCanaisPeriodo, salvarFechamento, zipXmlDia } from './lib/fechamentoCaixa.mjs'
 import { montarCustosCo } from './lib/custosCo.mjs'
 import { acharParaLevar, gravarAparicaoVigente, levarDespesa } from './lib/despesaAparicao.mjs'
 import { gerarDanfe } from './lib/danfe.mjs'
 import { baixarBoletoDaDespesa, baixarNotaDaDespesa } from './lib/boletoEsupri.mjs'
 import { sincronizarNfesConferidas } from './lib/nfEntrada.mjs'
 import { hojeBR, lerConfigBkoffice, registrarFalhaVendas, resumoVendas, salvarConfigBkoffice, sincronizarVendasBk } from './lib/bkofficeVendas.mjs'
+import { sendMail } from '../services/mailer.js'
 import {
   amarrarDdaComNotasReceita,
   coletarNotasReceita,
@@ -1975,6 +1976,26 @@ export async function handleFinance(req, res) {
         return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não gerou o ZIP.' }))
       }
     }
+    if (req.method === 'GET' && url.pathname === '/api/caixa/xml-lojas') {
+      try {
+        return send(res, 200, JSON.stringify(await painelXmlLojas(pool)))
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não listou o XML das lojas.' }))
+      }
+    }
+    if (req.method === 'GET' && url.pathname === '/api/caixa/xml') {
+      try {
+        const zip = await zipXmlDia(pool, url.searchParams.get('empresa') || '', url.searchParams.get('data') || '')
+        res.writeHead(200, {
+          'content-type': 'application/zip',
+          'content-disposition': `attachment; filename="${zip.nome}"`,
+          'cache-control': 'no-store',
+        })
+        return res.end(zip.buffer)
+      } catch (err) {
+        return send(res, err.status || 400, JSON.stringify({ erro: err.message || 'Não gerou o ZIP do XML.' }))
+      }
+    }
     if (req.method === 'GET' && url.pathname === '/api/caixa') {
       try {
         return send(res, 200, JSON.stringify(await mesFechamentos(pool, {
@@ -2581,6 +2602,57 @@ async function cicloVendas() {
   }
 }
 
+let avisoXmlDia = ''
+let avisoXmlChave = ''
+
+function dataBr(iso) {
+  const texto = String(iso || '')
+  if (!/^\d{4}-\d{2}-\d{2}/.test(texto)) return texto
+  return `${texto.slice(8, 10)}/${texto.slice(5, 7)}/${texto.slice(0, 4)}`
+}
+
+async function avisarXmlParado() {
+  const agora = new Date()
+  const hora = Number(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo',
+    hour: 'numeric',
+    hourCycle: 'h23',
+  }).format(agora))
+  if (hora < 8) return
+  const dia = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(agora)
+  const painel = await painelXmlLojas(pool)
+  const paradas = painel.paradas
+  const chave = paradas.map((loja) => loja.bk_number).sort().join(',')
+  if (avisoXmlDia === dia && avisoXmlChave === chave) return
+  if (!paradas.length) {
+    avisoXmlDia = dia
+    avisoXmlChave = ''
+    return
+  }
+  const para = String(env.SUPPORT_EMAIL || process.env.SUPPORT_EMAIL || env.MAIL_REPLY_TO || '').trim()
+  if (!para) return
+  const linhas = paradas.map((loja) => `${loja.loja} — último XML ${dataBr(loja.ultima_data)} — ${loja.notas} notas`)
+  await sendMail({
+    to: para,
+    subject: `XML de venda parou em ${paradas.length} loja${paradas.length > 1 ? 's' : ''}`,
+    text: [
+      'Estas lojas já tinham enviado XML de venda e o último dia ficou para trás.',
+      '',
+      ...linhas,
+      '',
+      'O fechamento de caixa também mostra essa lista.',
+    ].join('\n'),
+  })
+  avisoXmlDia = dia
+  avisoXmlChave = chave
+  console.log(`[caixa] aviso de XML parado enviado para ${para}`)
+}
+
 let iniciado = false
 
 export function getFinancePool() {
@@ -2606,6 +2678,8 @@ export function iniciarFinanceiro() {
   garantirSchemaExtratoItau(pool).catch((err) => console.error(`[financeiro] itau extrato: ${err.message}`))
   garantirSchemaConciliacao(pool).catch((err) => console.error(`[financeiro] conciliacao: ${err.message}`))
   garantirSchemaCaixa(pool).catch((err) => console.error(`[financeiro] caixa: ${err.message}`))
+  setTimeout(() => avisarXmlParado().catch((err) => console.warn(`[caixa] aviso xml: ${err.message}`)), 60000)
+  setInterval(() => avisarXmlParado().catch((err) => console.warn(`[caixa] aviso xml: ${err.message}`)), 60 * 60 * 1000)
   garantirSchemaSefaz(pool).catch((err) => console.error(`[financeiro] sefaz: ${err.message}`))
   const puxarFc = () =>
     import('./lib/importFreecontrol.mjs')

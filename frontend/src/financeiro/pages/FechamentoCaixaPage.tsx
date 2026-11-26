@@ -37,7 +37,7 @@ import QrCode2OutlinedIcon from '@mui/icons-material/QrCode2Outlined'
 import RestaurantOutlinedIcon from '@mui/icons-material/RestaurantOutlined'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import InsertDriveFileOutlinedIcon from '@mui/icons-material/InsertDriveFileOutlined'
-import { api, brl, emCache, lojaCaixaSalva, salvarLojaCaixa, urlCaixa, urlEmpresas, type Empresa, type FechamentoDia, type Fornecedor, type LancamentoCaixa, type MesFechamento } from '../api'
+import { api, brl, emCache, lojaCaixaSalva, salvarLojaCaixa, urlCaixa, urlEmpresas, type Empresa, type FechamentoDia, type Fornecedor, type LancamentoCaixa, type LojaXml, type MesFechamento } from '../api'
 import { ordenarEmpresas } from '../ordemEmpresas'
 import { usePrefs } from '../prefs'
 import FiltroMesFinanceiro from '../FiltroMesFinanceiro'
@@ -304,9 +304,16 @@ export function FechamentoCaixaPage() {
   const [debitoAberto, setDebitoAberto] = useState(false)
   const [creditoAberto, setCreditoAberto] = useState(false)
   const [verTotal, setVerTotal] = useState(false)
+  const [xmlLojas, setXmlLojas] = useState<LojaXml[]>([])
+  const [verXml, setVerXml] = useState(false)
+  const [baixandoXml, setBaixandoXml] = useState(false)
 
   const lojas = useMemo(() => ordenarEmpresas(empresas.filter((e) => e.tipo === 'loja')), [empresas])
   const hoje = hojeIso()
+
+  useEffect(() => {
+    api.xmlLojas().then((painel) => setXmlLojas(painel.lojas)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     api.empresas().then((lista) => {
@@ -407,6 +414,25 @@ export function FechamentoCaixaPage() {
         gaveta: caixaGaveta(diaPainel),
       }
 
+  const dataBr = (iso: string | null) => {
+    if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return '—'
+    return `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`
+  }
+  const paradas = xmlLojas.filter((loja) => loja.situacao === 'parou')
+  const semXml = xmlLojas.filter((loja) => loja.situacao === 'sem_xml')
+  const lojasXmlOrdenadas = [...xmlLojas].sort((a, b) => {
+    const peso = { parou: 0, sem_xml: 1, em_dia: 2 }
+    return peso[a.situacao] - peso[b.situacao] || a.loja.localeCompare(b.loja, 'pt-BR')
+  })
+  const baixarXml = (dia: FechamentoDia) => {
+    if (!empresaId || !dia.xml_notas) return
+    setBaixandoXml(true)
+    api.baixarXmlCaixa(empresaId, dia.data)
+      .then(() => setAviso(t('XML do dia baixado.', 'Day XML downloaded.')))
+      .catch((err: unknown) => setErro(err instanceof Error ? err.message : t('Não baixou o XML.', 'Could not download the XML.')))
+      .finally(() => setBaixandoXml(false))
+  }
+
   const rotuloDia = (dia: FechamentoDia) => {
     if (dia.status === 'fechado' && dia.id) return 'fechado'
     if (chegouDoPdv(dia)) return 'conferido'
@@ -460,6 +486,27 @@ export function FechamentoCaixaPage() {
           />
         </Tooltip>
       </Stack>
+
+      {xmlLojas.length ? (
+        <Alert
+          severity={paradas.length ? 'warning' : 'info'}
+          action={(
+            <Button color="inherit" size="small" onClick={() => setVerXml(true)}>
+              {t('Ver lojas', 'See stores')}
+            </Button>
+          )}
+        >
+          {paradas.length
+            ? t(
+              `Parou de receber XML: ${paradas.map((loja) => `${loja.loja} (último ${dataBr(loja.ultima_data)})`).join(', ')}.`,
+              `Stopped receiving XML: ${paradas.map((loja) => `${loja.loja} (last ${dataBr(loja.ultima_data)})`).join(', ')}.`,
+            )
+            : t('Nenhuma loja que já enviou XML parou.', 'No store that already sent XML has stopped.')}
+          {semXml.length
+            ? ` ${t(`${semXml.length} loja(s) ainda sem XML.`, `${semXml.length} store(s) still without XML.`)}`
+            : ''}
+        </Alert>
+      ) : null}
 
       {erro ? <Alert severity="error" onClose={() => setErro('')}>{erro}</Alert> : null}
 
@@ -549,6 +596,9 @@ export function FechamentoCaixaPage() {
                       <Typography sx={{ alignSelf: 'flex-end', fontSize: 13, fontWeight: 500, color: FIN_MUTED, lineHeight: 1, zIndex: 1 }}>
                         {Number(dia.data.slice(8, 10))}
                       </Typography>
+                      {dia.xml_notas ? (
+                        <Typography sx={{ fontSize: 10, fontWeight: 700, color: '#047857', lineHeight: 1.2 }}>XML</Typography>
+                      ) : null}
                       {chave === 'aguardando' && rotulo ? (
                         <Box
                           sx={{
@@ -710,6 +760,17 @@ export function FechamentoCaixaPage() {
           </Box>
 
           <Box sx={{ flexShrink: 0, px: 2.5, py: 1.5, borderTop: '1px solid', borderColor: FIN_BORDER }}>
+            {!verTotal && diaPainel && (diaPainel.xml_notas || 0) > 0 ? (
+              <Button
+                fullWidth
+                variant="outlined"
+                disabled={baixandoXml}
+                onClick={() => baixarXml(diaPainel)}
+                sx={{ mb: 1 }}
+              >
+                {t(`Baixar XML do dia (${diaPainel.xml_notas})`, `Download day XML (${diaPainel.xml_notas})`)}
+              </Button>
+            ) : null}
             {verTotal ? (
               <Typography sx={{ fontSize: 13, color: FIN_MUTED }}>
                 {t('Soma dos dias com venda neste mês. Clique num dia para o detalhe.', 'Sum of days with sales this month. Click a day for the detail.')}
@@ -758,6 +819,53 @@ export function FechamentoCaixaPage() {
           }}
         />
       ) : null}
+
+      <Dialog open={verXml} onClose={() => setVerXml(false)} fullWidth maxWidth="sm">
+        <DialogTitle>{t('XML de venda das lojas', 'Store sales XML')}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 13, color: FIN_MUTED, mb: 1.5 }}>
+            {t('Clique na loja para abrir o caixa. No dia com a marca XML, baixe o arquivo.', 'Click a store to open its cash day. On a day marked XML, download the file.')}
+          </Typography>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('Loja', 'Store')}</TableCell>
+                <TableCell>{t('Último XML', 'Last XML')}</TableCell>
+                <TableCell align="right">{t('Notas', 'Notes')}</TableCell>
+                <TableCell>{t('Situação', 'Status')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {lojasXmlOrdenadas.map((loja) => (
+                <TableRow
+                  key={loja.id}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    setEmpresaId(loja.id)
+                    salvarLojaCaixa(loja.id)
+                    setVerXml(false)
+                  }}
+                >
+                  <TableCell>{loja.loja}</TableCell>
+                  <TableCell>{dataBr(loja.ultima_data)}</TableCell>
+                  <TableCell align="right">{loja.notas}</TableCell>
+                  <TableCell>
+                    {loja.situacao === 'parou'
+                      ? t('Parou', 'Stopped')
+                      : loja.situacao === 'em_dia'
+                        ? t('Em dia', 'Up to date')
+                        : t('Sem XML', 'No XML')}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVerXml(false)}>{t('Fechar', 'Close')}</Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar open={!!aviso} autoHideDuration={3200} onClose={() => setAviso('')} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
         <Alert severity="success" variant="filled" onClose={() => setAviso('')}>{aviso}</Alert>
