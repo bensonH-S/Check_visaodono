@@ -243,6 +243,11 @@ export function resolverConsumoEstoque({
 
 let schemaPilotoOk = false;
 
+/** Só para testes: permite rodar o seed de novo no mesmo processo. */
+export function _resetSchemaPilotoParaTeste() {
+  schemaPilotoOk = false;
+}
+
 export async function garantirSchemaPilotoBaixa(client) {
   if (schemaPilotoOk) return;
   await client.query(`
@@ -353,13 +358,18 @@ export async function garantirSchemaPilotoBaixa(client) {
   schemaPilotoOk = true;
 }
 
+/**
+ * v3.1.161: o piloto de baixa foi desligado na rede (todo insumo da ficha baixa, não só contagem_diaria).
+ * O boot NÃO pode mais recolocar piloto_baixa=TRUE: só cria o perfil de loja nova (já sem piloto)
+ * e respeita o que estiver gravado em lojas_estoque_perfil.
+ */
 async function semearPilotoBaixa(client) {
   await client.query(`
     INSERT INTO lojas_estoque_perfil (id_loja, piloto_baixa)
-    SELECT l.id_loja, TRUE
+    SELECT l.id_loja, FALSE
     FROM lojas l
     WHERE l.bk_number IS NOT NULL AND TRIM(l.bk_number::text) <> ''
-    ON CONFLICT (id_loja) DO UPDATE SET piloto_baixa = TRUE, atualizado_em = NOW()
+    ON CONFLICT (id_loja) DO NOTHING
   `);
   await client.query(`
     INSERT INTO estoque_conversoes (id_insumo, unidade_origem, unidade_destino, fator, origem_dado, status, validado_em)
