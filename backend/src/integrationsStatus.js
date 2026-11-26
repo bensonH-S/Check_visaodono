@@ -34,7 +34,10 @@ function freecontrolConfigurado() {
 }
 
 function bkOfficeConfigurado() {
-  return Boolean(process.env.BKOFFICE_USER && process.env.BKOFFICE_PASS);
+  return Boolean(
+    (process.env.BKOFFICE_USER && process.env.BKOFFICE_PASS) ||
+      String(process.env.BKOFFICE_API_TOKEN || '').trim(),
+  );
 }
 
 async function probeUrl(url, { headers, timeoutMs = 3500 } = {}) {
@@ -253,6 +256,13 @@ async function statusBkOffice() {
     } else if (st.server_sync) {
       detail =
         'VPS liberado — defina BKOFFICE_SYNC_CRON_MS>=60000 + Bright Data (BRIGHTDATA_PROXY_PASSWORD)';
+    } else if (
+      String(process.env.BKOFFICE_API_TOKEN || '').trim() &&
+      process.env.BKOFFICE_EXCEL_SYNC !== '1' &&
+      String(process.env.BKOFFICE_VENDAS_FONTE || 'api').toLowerCase() !== 'excel'
+    ) {
+      detail =
+        'Vendas pela API oficial (job 05:00, dia anterior). Excel automático legado desligado.';
     } else {
       detail =
         'Sync no VPS desligado (BKOFFICE_SERVER_SYNC≠1). Kit PC gerência é legado/opcional.';

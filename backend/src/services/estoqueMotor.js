@@ -13,9 +13,9 @@ import {
   resolverInsumoCanonico,
   erroConversaoOperacional,
 } from './estoqueConsumo.js';
+import { FILTRO_VENDA_BK, SQL_VENDA_FONTE_BK } from './bkoffice/fonteVendas.js';
 
-/** Só vendas do kit BK Office — ignora upload/manual duplicado. */
-const FILTRO_VENDA_BK = "AND v.origem = 'bkoffice'";
+export { FILTRO_VENDA_BK };
 
 function num(v, fallback = 0) {
   if (v === null || v === undefined || v === '') return fallback;
@@ -540,10 +540,10 @@ async function resumoFrescorVendas(idLoja) {
   const hoje = hojeSpISO();
   const { rows: cab } = await pool.query(
     `
-    SELECT MAX(data_venda)::text AS ultima_data,
-           MAX(COALESCE(processado_em, criado_em)) AS ultimo_sync_em
-    FROM estoque_vendas
-    WHERE id_loja = $1 AND origem = 'bkoffice'
+    SELECT MAX(v.data_venda)::text AS ultima_data,
+           MAX(COALESCE(v.processado_em, v.criado_em)) AS ultimo_sync_em
+    FROM estoque_vendas v
+    WHERE v.id_loja = $1 ${FILTRO_VENDA_BK}
     `,
     [idLoja],
   );
@@ -779,7 +779,7 @@ export async function listarStatusSyncVendasLojas(idsPermitidos = null) {
       ), 0)::float AS venda_hoje
     FROM lojas l
     LEFT JOIN estoque_vendas v
-      ON v.id_loja = l.id_loja AND v.origem = 'bkoffice'
+      ON v.id_loja = l.id_loja AND ${SQL_VENDA_FONTE_BK}
     LEFT JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
     WHERE l.bk_number IS NOT NULL AND trim(l.bk_number) <> ''
       AND ($3::int[] IS NULL OR l.id_loja = ANY($3::int[]))
@@ -959,6 +959,8 @@ export async function baixarPorProdutoVenda(
     referencia_id = null,
     observacao = null,
     criado_por = null,
+    /** Data de negócio da venda. CMV e o ciclo usam esta, não o instante da importação. */
+    data_movimento = null,
     /** Break / desperdício: conversão ausente aborta o documento (rollback). */
     rigido = false,
   },
@@ -1056,6 +1058,7 @@ export async function baixarPorProdutoVenda(
       referencia_id,
       observacao: observacao || `Baixa unitária: ${codVenda} x${qtde}`,
       criado_por,
+      data_movimento,
     });
     await auditoria?.log({
       status: STATUS_AUDITORIA_PILOTO.MOVIMENTO_GERADO,
@@ -1206,6 +1209,7 @@ export async function baixarPorProdutoVenda(
         observacao ||
         `Baixa ${tipo}: ${codigo_venda} x${qtde} → ${insumo.codigo} (receita ${item.quantidade} ${item.unidade_receita || 'und'} = ${porUnidadeVenda} ${insumo.unidade_contagem || ''} via ${consumo.origemConversao})`,
       criado_por,
+      data_movimento,
     });
     await auditoria?.log({
       status: STATUS_AUDITORIA_PILOTO.MOVIMENTO_GERADO,
@@ -1248,7 +1252,11 @@ export async function baixarPorProdutoVenda(
 }
 
 /** Processa itens pendentes de uma venda importada. */
-export async function processarVenda(idVenda, { criado_por = null } = {}, externalClient = null) {
+export async function processarVenda(
+  idVenda,
+  { criado_por = null, data_movimento = null } = {},
+  externalClient = null,
+) {
   const client = externalClient || (await pool.connect());
   const ownClient = !externalClient;
   try {
@@ -1260,6 +1268,7 @@ export async function processarVenda(idVenda, { criado_por = null } = {}, extern
     );
     if (!vendas.length) throw Object.assign(new Error('Venda não encontrada'), { status: 404 });
     const venda = vendas[0];
+    const dataMov = data_movimento || isoDate(venda.data_venda);
 
     const { rows: itens } = await client.query(
       `SELECT * FROM estoque_venda_itens
@@ -1283,6 +1292,7 @@ export async function processarVenda(idVenda, { criado_por = null } = {}, extern
         referencia_id: item.id_item,
         observacao: `Venda #${idVenda} ${venda.data_venda} — ${item.codigo}`,
         criado_por,
+        data_movimento: dataMov,
       });
 
       if (result.sem_ficha) {
@@ -2434,6 +2444,7 @@ export async function importarVendasLoja(
               referencia_id: ant.id_item,
               observacao: `Reimport venda #${idVenda} ${data_venda} — ${codigo} delta ${deltaQ}`,
               criado_por,
+              data_movimento: data_venda,
             });
             if (baixa.sem_ficha) {
               await client.query(

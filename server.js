@@ -652,6 +652,14 @@ ${row()}
       logger.warn('server', 'Scheduler BK Office não iniciado', { error: e.message });
     }
     try {
+      const { iniciarSchedulerVendasBkOfficeApi } = await import(
+        './backend/src/services/bkoffice/importVendasApi.js'
+      );
+      iniciarSchedulerVendasBkOfficeApi();
+    } catch (e) {
+      logger.warn('server', 'Scheduler API BK Office não iniciado', { error: e.message });
+    }
+    try {
       const { iniciarSchedulerPlatlog } = await import(
         './backend/src/services/platlog/schedulerPlatlog.js'
       );

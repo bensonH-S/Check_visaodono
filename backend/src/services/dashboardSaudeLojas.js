@@ -4,6 +4,7 @@
 import { pool } from '../db.js';
 import { SQL_NC_CHECKLIST_FINALIZADO } from '../naoConformidadesChecklist.js';
 import { filtroSqlLojas } from '../lojasUsuario.js';
+import { FILTRO_VENDA_BK } from './bkoffice/fonteVendas.js';
 
 const META_CMV = 0.38;
 
@@ -58,6 +59,7 @@ async function cmvMesPorLojas(idsLojas, { de, ate, meta = META_CMV } = {}) {
       WHERE v.id_loja = ANY($1::int[])
         AND v.data_venda >= $2::date
         AND v.data_venda <= $3::date
+        ${FILTRO_VENDA_BK}
     ),
     custos AS (
       SELECT

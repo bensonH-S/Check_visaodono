@@ -12,6 +12,7 @@ import {
   calcularCmvTeorico,
   registrarEntradas,
 } from './estoqueMotor.js';
+import { FILTRO_VENDA_BK } from './bkoffice/fonteVendas.js';
 
 function num(v, fallback = 0) {
   if (v === null || v === undefined || v === '') return fallback;
@@ -416,6 +417,7 @@ export async function calcularVarianciaInsumos(
       WHERE v.id_loja = $3
         AND v.data_venda >= $6::date
         AND v.data_venda <= $5::date
+        ${FILTRO_VENDA_BK}
       GROUP BY ins.id_insumo
     ),
     base AS (

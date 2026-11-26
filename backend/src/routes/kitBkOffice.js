@@ -12,6 +12,7 @@ import { parseVendasExcelBuffer } from '../services/bkoffice/parseVendasExcel.js
 import { importarVendasGrupoExcel } from '../services/bkoffice/importVendasGrupo.js';
 import { listarLojasBkOfficeSync } from '../services/bkoffice/syncVendas.js';
 import { carregarAliasesBkn } from '../services/bkoffice/bknAlias.js';
+import { excelSyncLegadoAtivo, erroExcelLegadoDesligado } from '../services/bkoffice/fonteVendas.js';
 import {
   adquirirLease,
   liberarLease,
@@ -59,6 +60,10 @@ function requireKitToken(req, res, next) {
  */
 router.post('/estoque/vendas-import', requireKitToken, upload.single('arquivo'), async (req, res, next) => {
   try {
+    if (!excelSyncLegadoAtivo()) {
+      const err = erroExcelLegadoDesligado();
+      return res.status(err.status).json({ error: err.message, code: err.code });
+    }
     const idLoja = Number(req.body?.id_loja);
     if (!Number.isFinite(idLoja) || idLoja <= 0) {
       return res.status(400).json({ error: 'id_loja inválido' });
@@ -149,6 +154,10 @@ router.post('/estoque/vendas-import', requireKitToken, upload.single('arquivo'),
  */
 router.post('/estoque/vendas-import-grupo', requireKitToken, upload.single('arquivo'), async (req, res, next) => {
   try {
+    if (!excelSyncLegadoAtivo()) {
+      const err = erroExcelLegadoDesligado();
+      return res.status(err.status).json({ error: err.message, code: err.code });
+    }
     if (!req.file?.buffer?.length) {
       return res.status(400).json({ error: 'Envie o Excel no campo arquivo' });
     }

@@ -16,6 +16,7 @@ function requirePermissao(...codigos) {
 import { usuarioPodeLojaEstoque } from '../lojasUsuario.js';
 import { auditar } from '../auditoriaHelpers.js';
 import { ajustarSaldoPorContagem } from '../services/estoqueMotor.js';
+import { FILTRO_VENDA_BK } from '../services/bkoffice/fonteVendas.js';
 import { MOTIVO_CONVERSAO } from '../services/estoqueConsumo.js';
 import {
   anexarFatoresFracionada,
@@ -535,7 +536,8 @@ async function resumoMesLoja(idLoja, dataRef) {
      JOIN estoque_venda_itens vi ON vi.id_venda = v.id_venda
      WHERE v.id_loja = $1
        AND v.data_venda >= $2::date
-       AND v.data_venda <= $3::date`,
+       AND v.data_venda <= $3::date
+       ${FILTRO_VENDA_BK}`,
     [idLoja, de, hoje],
   );
 

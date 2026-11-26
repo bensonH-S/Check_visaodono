@@ -93,6 +93,7 @@
     "estoque:sync-platlog": "node backend/scripts/sync-platlog-nfe.mjs",
     "estoque:sync-coca": "node backend/scripts/sync-coca-nfe.mjs",
     "estoque:sync-bkoffice": "node backend/scripts/sync-bkoffice-vendas.mjs",
+    "estoque:reimportar-bkoffice-api": "node backend/scripts/reimportar-vendas-bkoffice-api.mjs",
     "estoque:bkoffice-worker": "node workers/bkoffice/loop.mjs",
     "estoque:bkoffice-install-service": "powershell -ExecutionPolicy Bypass -File scripts/windows/install-servico-bkoffice.ps1",
     "estoque:bkoffice-uninstall-service": "powershell -ExecutionPolicy Bypass -File scripts/windows/uninstall-servico-bkoffice.ps1",

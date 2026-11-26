@@ -10,6 +10,7 @@ import { importarVendasLoja } from '../estoqueMotor.js';
 import { parseVendasExcelBuffer } from './parseVendasExcel.js';
 import { resolveBkOfficePlaywrightProxy, logProxyBkOffice } from './bkofficeProxy.js';
 import { bknParaDownloadNoBkOffice, carregarAliasesBkn, aplicarAliasBknItem } from './bknAlias.js';
+import { excelSyncLegadoAtivo, erroExcelLegadoDesligado, apiSyncAtivo } from './fonteVendas.js';
 
 const BASE_URL = process.env.BKOFFICE_URL || 'https://bkoffice-franquia.burgerking.com.br';
 
@@ -153,6 +154,9 @@ export function getBkOfficeStatus() {
         ? 'manual_servidor'
         : 'legado_kit_opcional',
     lojas_env: parseIdsLojasBkOfficeEnv(),
+    excel_legado: !excelSyncLegadoAtivo(),
+    api_ativa: apiSyncAtivo(),
+    api_token: Boolean(String(process.env.BKOFFICE_API_TOKEN || '').trim()),
     scheduler: {
       ativo: schedulerInfo.ativo,
       intervalo_ms: schedulerInfo.intervalo_ms || (cronMs >= 60000 ? cronMs : 0),
@@ -918,6 +922,7 @@ export async function syncVendasBkOffice({
   processar = true,
   agruparPorDia = true,
 }) {
+  if (!excelSyncLegadoAtivo()) throw erroExcelLegadoDesligado();
   adquirirLocksSync({ id_loja, global: true });
   const t0 = Date.now();
 
@@ -1041,6 +1046,7 @@ export async function syncVendasBkOfficeTodas({
   processar = true,
   modo = null,
 } = {}) {
+  if (!excelSyncLegadoAtivo()) throw erroExcelLegadoDesligado();
   adquirirLocksSync({ global: true });
   const t0 = Date.now();
   const lojas = await listarLojasBkOfficeSync({ ids });
@@ -1210,6 +1216,7 @@ export async function syncVendasBkOfficeGrupo({
   criado_por = null,
   processar = true,
 } = {}) {
+  if (!excelSyncLegadoAtivo()) throw erroExcelLegadoDesligado();
   adquirirLocksSync({ global: true });
   const { rows: jobRows } = await pool.query(
     `INSERT INTO estoque_sync_jobs
@@ -1271,6 +1278,13 @@ export async function syncVendasBkOfficeGrupo({
  * Kit PC gerência permanece opcional (código legado), não é mais o fluxo principal.
  */
 export function iniciarSchedulerBkOffice() {
+  if (!excelSyncLegadoAtivo()) {
+    schedulerInfo = { ativo: false, intervalo_ms: 0, id_loja: 0, id_lojas: [], iniciado_em: null };
+    console.log(
+      '[bkoffice] Importação Excel marcada como legada (BKOFFICE_EXCEL_SYNC≠1). Scheduler Playwright não inicia.',
+    );
+    return null;
+  }
   const serverSync =
     process.env.BKOFFICE_SERVER_SYNC === '1' ||
     process.env.BKOFFICE_SERVER_SYNC === 'true';
