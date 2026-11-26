@@ -194,9 +194,12 @@ function campo(obj, nome) {
 
 export function normalizarItemApi(raw) {
   if (!raw || typeof raw !== 'object') return null;
+  // codMerc vem com zeros à esquerda ('000000000007700076'); produtos.codigo é '7700076'.
   const codigo = String(
     raw.codMerc ?? raw.cod_merc ?? raw.codigo ?? raw.codigoProduto ?? raw.sku ?? '',
-  ).trim();
+  )
+    .trim()
+    .replace(/^0+(?=\d)/, '');
   if (!codigo) return null;
   const qtde = numeroApi(raw.qtdVendidaItem ?? raw.qtde ?? raw.quantidade ?? raw.qtd);
   if (!(qtde > 0)) return null;
@@ -205,7 +208,7 @@ export function normalizarItemApi(raw) {
   );
   const desconto = numeroApi(raw.desconto ?? raw.valorDesconto ?? raw.valor_desconto);
   const descricao = String(
-    raw.descricao ?? raw.descMerc ?? raw.descricaoMerc ?? raw.nome ?? raw.produto ?? '',
+    raw.descricao ?? raw.item ?? raw.descMerc ?? raw.descricaoMerc ?? raw.nome ?? raw.produto ?? '',
   ).trim();
   return {
     codigo,
@@ -239,12 +242,57 @@ function linhasDaLista(lista) {
   return out;
 }
 
+function checarTransactionStatus(body) {
+  const statusTx = campo(body, 'transactionStatus') || {};
+  const status = campo(statusTx, 'status');
+  const description = String(campo(statusTx, 'description') || '');
+  if (status === false && descricaoNaoAutorizado(description)) {
+    throw erroNaoAutorizado();
+  }
+  if (status === false) {
+    throw Object.assign(
+      new Error(description || 'API BK Office recusou a consulta'),
+      { code: 'API_RECUSADA', retryable: false },
+    );
+  }
+}
+
+export function extrairPaginaApiSales(body) {
+  checarTransactionStatus(body);
+  const vendas = campo(body, 'apiSales');
+  if (vendas != null && !Array.isArray(vendas)) {
+    throw Object.assign(new Error('apiSales da API BK Office não é uma lista'), {
+      code: 'RESPOSTA_INVALIDA',
+      retryable: false,
+    });
+  }
+  const lista = vendas || [];
+  const pag = campo(body, 'pagination') || {};
+  const end = Number(campo(pag, 'end'));
+  const total = Number(campo(pag, 'totalItens'));
+  const itens = [];
+  for (const venda of lista) {
+    for (const raw of (venda && campo(venda, 'itens')) || []) {
+      const item = normalizarItemApi(raw);
+      if (item) itens.push(item);
+    }
+  }
+  const temProxima =
+    lista.length > 0 && Number.isFinite(end) && Number.isFinite(total) && end < total;
+  return { itens, temProxima, vendas: lista.length, totalItens: Number.isFinite(total) ? total : null };
+}
+
 /**
  * Página oficial: listPayment + transactionStatus.
  * listPayment null ou [] encerra a paginação.
  * status false com "CNPJ INCORRETO OU USUÁRIO NÃO AUTORIZADO" é loja não autorizada.
  */
 export function extrairPaginaVendas(body) {
+  // Resposta real de /salePaymentComplete: listPayment sempre null; as vendas vêm em
+  // apiSales[].itens[] e a paginação em pagination { initial, end, totalItens, page }.
+  if (body && typeof body === 'object' && !Array.isArray(body) && campo(body, 'apiSales') !== undefined) {
+    return extrairPaginaApiSales(body);
+  }
   if (!body || typeof body !== 'object' || Array.isArray(body) || !('listPayment' in body || 'ListPayment' in body)) {
     const temLista =
       body &&
@@ -632,6 +680,21 @@ export async function executarImportacaoLojas({ lojas, datas, buscarDia, onDia =
         const bruto = await buscarDia({ loja, data, cnpj: cls.cnpj });
         const lista = Array.isArray(bruto) ? bruto : bruto?.itens || [];
         const itens = agregarItensVendaApi(lista);
+        if (!itens.length) {
+          // Segurança: API sem nenhum item não zera o dia nem desfaz baixa.
+          relatorio.push({
+            id_loja: loja.id_loja,
+            name: loja.name || '',
+            bk_number: loja.bk_number || null,
+            cnpj: cls.cnpj,
+            data,
+            status: 'vazio',
+            mensagem: 'API sem vendas no dia — mantido o que já existe',
+            itens: [],
+            linhas: 0,
+          });
+          continue;
+        }
         if (onDia) await onDia({ loja, data, cnpj: cls.cnpj, itens });
         relatorio.push({
           id_loja: loja.id_loja,

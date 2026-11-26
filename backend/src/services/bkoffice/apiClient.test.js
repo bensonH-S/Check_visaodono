@@ -16,6 +16,7 @@ import {
   diffReimportacao,
   executarImportacaoLojas,
   extrairPaginaVendas,
+  normalizarItemApi,
   janelaDiaCivil,
   listarVendasDia,
   montarPlanoItens,
@@ -394,5 +395,42 @@ describe('limite de recuperação do job', () => {
       deveDispararJobDiario({ horaMinuto: '05:01', diaCivil: '2026-11-26', horario: '05:00', limite: '12:00' }),
       true,
     );
+  });
+});
+
+describe('resposta real (apiSales)', () => {
+  const venda = (itens) => ({ restaurant: {}, dateSale: '2026-11-24', itens });
+  const real = (vendas, end, totalItens, status = true, description = 'OK') => ({
+    listPayment: null,
+    transactionStatus: { permission: true, session: true, status, description },
+    pagination: { initial: 1, end, totalItens, page: 1 },
+    apiSales: vendas,
+  });
+  it('lê itens de apiSales e tira zeros do codMerc', () => {
+    const p = extrairPaginaVendas(
+      real([venda([{ codMerc: '000000000007700076', item: 'SHAKE CROCANTE 2020', qtdVendidaItem: 1, valorTotalItem: 23.9, valorDesconto: 0 }])], 50, 209),
+    );
+    assert.equal(p.itens.length, 1);
+    assert.equal(p.itens[0].codigo, '7700076');
+    assert.equal(p.itens[0].descricao, 'SHAKE CROCANTE 2020');
+    assert.equal(p.temProxima, true);
+  });
+  it('última página encerra pela paginação', () => {
+    const p = extrairPaginaVendas(real([venda([{ codMerc: '0001', qtdVendidaItem: 2, valorTotalItem: 10 }])], 209, 209));
+    assert.equal(p.temProxima, false);
+  });
+  it('não autorizado com apiSales vazio', () => {
+    assert.throws(
+      () => extrairPaginaVendas(real([], 0, 0, false, 'CNPJ INCORRETO OU USUÁRIO NÃO AUTORIZADO PARA CONSULTA')),
+      (e) => e.code === 'NAO_AUTORIZADO',
+    );
+  });
+  it('dia sem itens não é importado (status vazio)', async () => {
+    const rel = await executarImportacaoLojas({
+      lojas: [{ id_loja: 9, name: 'BURGER KING - TESTE', cnpj: '47994803000172' }],
+      datas: ['2026-11-24'],
+      buscarDia: async () => [],
+    });
+    assert.equal(rel[0].status, 'vazio');
   });
 });
