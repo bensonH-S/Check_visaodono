@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import pg from 'pg'
 import { pool as appPool } from '../../db.js'
 import { persistirEstoqueNfe } from '../../services/estoquePersistirNfe.js'
-import { casarItensNfe, parseNfeXml } from '../../services/nfeXml.js'
+import { casarItensNfe, parseNfeXml, SQL_INSUMOS_CASAMENTO_NFE } from '../../services/nfeXml.js'
 import { cnpjsDosCertificados, garantirSchemaBb, tlsDaCredencial } from './bbDda.mjs'
 import { cruzarDdaComNotas, escolherDdaParaNota } from './cruzarDdaNfe.mjs'
 import { acharFornecedor, competenciaDe } from './dda.mjs'
@@ -196,11 +196,7 @@ async function gravarItensNaNota({ idNfe, idLoja, doc, xml }) {
   const arquivo = path.join(dir, `${doc.chave}.xml`)
   fs.writeFileSync(arquivo, xml, 'utf8')
   const nfe = doc.nfe
-  const { rows: insumos } = await appPool.query(
-    `SELECT id_insumo, codigo, descricao, und_convertida, und_parcial, unidade_contagem
-     FROM insumos WHERE id_loja = $1 AND ativo = TRUE`,
-    [idLoja],
-  )
+  const { rows: insumos } = await appPool.query(SQL_INSUMOS_CASAMENTO_NFE, [idLoja])
   const linhas = casarItensNfe(nfe.itens || [], insumos)
   await appPool.query(
     `UPDATE estoque_nfe SET
@@ -284,11 +280,7 @@ async function gravarNoGestor({ idLoja, doc, xml }) {
   fs.mkdirSync(dir, { recursive: true })
   const arquivo = path.join(dir, `${doc.chave}.xml`)
   fs.writeFileSync(arquivo, xml, 'utf8')
-  const { rows: insumos } = await appPool.query(
-    `SELECT id_insumo, codigo, descricao, und_convertida, und_parcial, unidade_contagem
-     FROM insumos WHERE id_loja = $1 AND ativo = TRUE`,
-    [idLoja],
-  )
+  const { rows: insumos } = await appPool.query(SQL_INSUMOS_CASAMENTO_NFE, [idLoja])
   const r = await persistirEstoqueNfe({
     idLoja,
     fornecedor: 'sefaz',

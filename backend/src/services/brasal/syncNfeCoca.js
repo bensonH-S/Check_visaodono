@@ -7,7 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool } from '../../db.js';
 import { atualizarCustoInsumo, registrarEntradas } from '../estoqueMotor.js';
-import { casarItensNfe } from '../nfeXml.js';
+import { casarItensNfe, SQL_INSUMOS_CASAMENTO_NFE } from '../nfeXml.js';
 import { baixarNfesBrasal } from './brasalClient.js';
 import { classificarStatusPortal } from '../estoqueCmvReal.js';
 
@@ -66,11 +66,7 @@ export async function syncNfeCoca({
     onLog: log,
   });
 
-  const { rows: insumos } = await pool.query(
-    `SELECT id_insumo, codigo, descricao, und_convertida, und_parcial, unidade_contagem
-     FROM insumos WHERE id_loja = $1 AND ativo = TRUE`,
-    [idLoja],
-  );
+  const { rows: insumos } = await pool.query(SQL_INSUMOS_CASAMENTO_NFE, [idLoja]);
 
   const processadas = [];
 

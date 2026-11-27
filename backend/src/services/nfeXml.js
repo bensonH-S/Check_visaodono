@@ -312,11 +312,32 @@ function familiaCompativel(famNf, famIns, dIns = '') {
   return true;
 }
 
+/**
+ * Insumos da loja para casar itens de NF. `aliases_nf` = códigos de NF do fornecedor
+ * cadastrados em estoque_insumo_aliases com prefixo "NF:" (ex.: NF:039141 → Pão BK 5).
+ * O prefixo separa estes aliases dos códigos de ficha (mesma tabela, chaves diferentes).
+ * Fator de caixa = und_convertida do insumo (mesma regra do casamento por código).
+ */
+export const PREFIXO_ALIAS_NF = 'NF:';
+export const SQL_INSUMOS_CASAMENTO_NFE = `
+  SELECT i.id_insumo, i.codigo, i.descricao, i.und_convertida, i.und_parcial, i.unidade_contagem,
+         COALESCE((SELECT array_agg(UPPER(TRIM(SUBSTRING(a.codigo_ficha FROM 4))))
+                     FROM estoque_insumo_aliases a
+                    WHERE a.id_loja = i.id_loja AND a.id_insumo = i.id_insumo
+                      AND a.codigo_ficha LIKE 'NF:%'), '{}') AS aliases_nf
+  FROM insumos i
+  WHERE i.id_loja = $1 AND i.ativo = TRUE`;
+
 export function casarItensNfe(itensNfe, insumosLoja) {
   const byCod = new Map();
   const byDesc = new Map();
   const insumosNorm = [];
+  const byAliasNf = new Map();
   for (const ins of insumosLoja || []) {
+    for (const a of ins.aliases_nf || []) {
+      const k = String(a || '').trim().toUpperCase();
+      if (k && !byAliasNf.has(k)) byAliasNf.set(k, ins);
+    }
     const cod = String(ins.codigo || '').trim().toUpperCase();
     // Só código exato — NÃO strip de zeros (020754≠20754 no catálogo Terraço).
     if (cod) byCod.set(cod, ins);
@@ -347,6 +368,13 @@ export function casarItensNfe(itensNfe, insumosLoja) {
       }
     }
     let match_tipo = match ? 'codigo' : null;
+
+    // Código da NF cadastrado como alias "NF:<código>" (fornecedor trocou o código do produto).
+    // Só depois do código exato do catálogo, para nunca desviar um item que já casa por código.
+    if (!match && codNf && byAliasNf.has(codNf)) {
+      match = byAliasNf.get(codNf);
+      match_tipo = 'codigo_alias';
+    }
 
     if (!match && it.ean && it.ean !== 'SEM GTIN') {
       match = byCod.get(String(it.ean).trim().toUpperCase()) || null;
