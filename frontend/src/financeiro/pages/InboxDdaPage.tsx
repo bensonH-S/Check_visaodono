@@ -158,6 +158,30 @@ function notaConfirmada(e: Despesa) {
   if (notaParcial(e)) return false
   return e.nf_ciclo === 'confirmada' || (!!e.nf_confirmada && !e.nf_divergente) || e.fonte === 'nfe'
 }
+
+/** "18977" casa com "018977-01". Texto com letra continua busca normal, dentro do período. */
+function numeroDaBusca(busca: string) {
+  const limpo = busca.trim()
+  if (!limpo || /[a-zA-ZÀ-ÿ]/.test(limpo)) return ''
+  const digitos = limpo.replace(/\D/g, '').replace(/^0+/, '')
+  return digitos.length >= 3 ? digitos : ''
+}
+
+function tokensNumero(valor: string | null | undefined) {
+  return (String(valor ?? '').match(/\d+/g) || [])
+    .map((n) => n.replace(/^0+/, ''))
+    .filter((n) => n.length >= 3)
+}
+
+function casaBusca(campos: Array<string | null | undefined>, busca: string) {
+  const q = busca.trim().toLowerCase()
+  if (!q) return true
+  const texto = campos.filter(Boolean).join(' ').toLowerCase()
+  if (texto.includes(q)) return true
+  const numero = numeroDaBusca(busca)
+  if (!numero) return false
+  return campos.some((campo) => tokensNumero(campo).includes(numero))
+}
 const COR_MANUAL = '#D97706'
 const FILTROS_NF = ['Todas', 'Autorizadas', 'Confirmadas', 'Pendentes', 'Canceladas', 'Com XML'] as const
 const hoje = new Date().toISOString().slice(0, 10)
@@ -233,6 +257,7 @@ export function InboxDdaPage() {
   const [ate, setAte] = useState(() => periodoAtual().ate)
   const [deNf, setDeNf] = useState(() => periodoNotas().de)
   const [ateNf, setAteNf] = useState(() => periodoNotas().ate)
+  const [recorteNf, setRecorteNf] = useState<'emissao' | 'vencimento'>('emissao')
   const [filtro, setFiltro] = useState<(typeof FILTROS)[number]>('Todas')
   const [erro, setErro] = useState('')
   const [marcadas, setMarcadas] = useState<Set<string>>(new Set())
@@ -311,12 +336,17 @@ export function InboxDdaPage() {
   }), [despesas, loja, de, ate])
 
   const linhas = useMemo(() => {
-    const fonte = (filtro === 'NF confirmada' || filtro === 'NF Parcial')
-      ? [...noPeriodo, ...historicoNf]
-      : noPeriodo
+    const porNumero = numeroDaBusca(busca)
+    const fonte = porNumero
+      ? despesas.filter((e) => {
+          if (loja && e.origem_id !== loja) return false
+          return e.status !== 'cancelada'
+        })
+      : (filtro === 'NF confirmada' || filtro === 'NF Parcial')
+        ? [...noPeriodo, ...historicoNf]
+        : noPeriodo
     const filtradas = fonte.filter((e) => {
-      const texto = `${e.descricao} ${e.fornecedor ?? ''} ${e.origem} ${e.numero_nf ?? ''}`.toLowerCase()
-      if (busca && !texto.includes(busca.toLowerCase())) return false
+      if (!casaBusca([e.descricao, e.fornecedor, e.origem, e.numero_nf], busca)) return false
       if (filtro === 'Manuais') return e.fonte === 'manual'
       if (filtro === 'Vencidas') return !!e.vencimento && e.vencimento < hoje
       if (filtro === 'NF confirmada') return notaConfirmada(e)
@@ -330,28 +360,40 @@ export function InboxDdaPage() {
       return true
     })
     return ordenarLancamentosPorEmpresa(filtradas, empresas)
-  }, [noPeriodo, historicoNf, busca, filtro, empresas])
+  }, [noPeriodo, historicoNf, busca, filtro, empresas, despesas, loja])
 
   const notasNoPeriodo = useMemo(() => notas.filter((n) => {
-    const emissao = (n.emissao || '').slice(0, 10)
-    if (!emissao) return !deNf && !ateNf
-    if (deNf && emissao < deNf) return false
-    if (ateNf && emissao > ateNf) return false
+    const bruto = recorteNf === 'vencimento' ? n.agenda_vencimento : n.emissao
+    const data = (bruto || '').slice(0, 10)
+    if (!data) return false
+    if (deNf && data < deNf) return false
+    if (ateNf && data > ateNf) return false
     return true
-  }), [notas, deNf, ateNf])
+  }), [notas, deNf, ateNf, recorteNf])
 
-  const notasLinhas = useMemo(() => notasNoPeriodo.filter((n) => {
-    const texto = `${n.emitente_nome ?? ''} ${n.numero ?? ''} ${n.origem ?? ''} ${n.chave}`.toLowerCase()
-    if (busca && !texto.includes(busca.toLowerCase())) return false
-    if (filtroNf === 'Autorizadas') return n.situacao === 'autorizada'
-    if (filtroNf === 'Confirmadas') return n.status_entrega === 'conferida'
-    if (filtroNf === 'Pendentes') return n.status_entrega !== 'conferida' && n.status_entrega !== 'divergente'
-    if (filtroNf === 'Canceladas') return n.situacao === 'cancelada'
-    if (filtroNf === 'Com XML') return n.tem_xml
-    return true
-  }), [notasNoPeriodo, busca, filtroNf])
+  const notasLinhas = useMemo(() => {
+    const porNumero = numeroDaBusca(busca)
+    const base = porNumero ? notas : notasNoPeriodo
+    return base.filter((n) => {
+      const campos = porNumero
+        ? [n.numero, n.emitente_nome, n.origem]
+        : [n.emitente_nome, n.numero, n.origem, n.chave]
+      if (!casaBusca(campos, busca)) return false
+      if (filtroNf === 'Autorizadas') return n.situacao === 'autorizada'
+      if (filtroNf === 'Confirmadas') return n.status_entrega === 'conferida'
+      if (filtroNf === 'Pendentes') return n.status_entrega !== 'conferida' && n.status_entrega !== 'divergente'
+      if (filtroNf === 'Canceladas') return n.situacao === 'cancelada'
+      if (filtroNf === 'Com XML') return n.tem_xml
+      return true
+    })
+  }, [notas, notasNoPeriodo, busca, filtroNf])
 
-  useEffect(() => { setPagina(0) }, [busca, de, ate, deNf, ateNf, loja, filtro, filtroNf, aba])
+  const notasVisiveisOrdem = useMemo(() => {
+    if (recorteNf !== 'vencimento' || numeroDaBusca(busca)) return notasLinhas
+    return [...notasLinhas].sort((a, b) => (a.agenda_vencimento || '').localeCompare(b.agenda_vencimento || ''))
+  }, [notasLinhas, recorteNf, busca])
+
+  useEffect(() => { setPagina(0) }, [busca, de, ate, deNf, ateNf, loja, filtro, filtroNf, aba, recorteNf])
 
   const comNf = noPeriodo.filter((e) => e.nf_confirmada || e.fonte === 'nfe')
   const semNf = noPeriodo.filter((e) => !e.nf_confirmada && e.fonte !== 'nfe')
@@ -362,7 +404,7 @@ export function InboxDdaPage() {
   const notasCanceladas = notasNoPeriodo.filter((n) => n.situacao === 'cancelada')
   const notasConferidas = notasNoPeriodo.filter((n) => n.status_entrega === 'conferida')
   const visiveis = linhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
-  const visiveisNf = notasLinhas.slice(pagina * porPagina, pagina * porPagina + porPagina)
+  const visiveisNf = notasVisiveisOrdem.slice(pagina * porPagina, pagina * porPagina + porPagina)
   const idsPagina = visiveis.filter((e) => e.id && estaNoInbox(e)).map((e) => e.id)
   const todasMarcadas = idsPagina.length > 0 && idsPagina.every((id) => marcadas.has(id))
 
@@ -761,6 +803,30 @@ export function InboxDdaPage() {
             onChangeFim={aba === 1 ? setAteNf : setAte}
           />
         </Box>
+        {aba === 1 && (
+          <Stack direction="row" spacing={0.75} sx={{ flexShrink: 0 }}>
+            {(['emissao', 'vencimento'] as const).map((modo) => {
+              const ativo = recorteNf === modo
+              return (
+                <Chip
+                  key={modo}
+                  size="small"
+                  label={modo === 'emissao' ? t('Emissão', 'Issue date') : t('Vencimento', 'Due date')}
+                  variant="outlined"
+                  onClick={() => { setRecorteNf(modo); setPagina(0) }}
+                  sx={{
+                    height: 32,
+                    fontSize: 12,
+                    fontWeight: 650,
+                    bgcolor: ativo ? 'rgba(27, 110, 243, 0.1)' : INBOX_SURFACE,
+                    borderColor: ativo ? '#1B6EF3' : INBOX_BORDER,
+                    color: ativo ? '#0D4ECC' : INBOX_MUTED,
+                  }}
+                />
+              )
+            })}
+          </Stack>
+        )}
         <SeletorLojaFinanceiro
           lojas={lojas}
           value={loja}
@@ -854,7 +920,7 @@ export function InboxDdaPage() {
           </>
         ) : (
           <>
-            <Resumo cor="#1B6EF3" rotulo={t('No período', 'In period')} valor={String(notasNoPeriodo.length)} detalhe={t('notas da Receita', 'Receita invoices')} />
+            <Resumo cor="#1B6EF3" rotulo={t('No período', 'In period')} valor={String(notasNoPeriodo.length)} detalhe={recorteNf === 'vencimento' ? t('por vencimento', 'by due date') : t('por emissão', 'by issue date')} />
             <Resumo cor="#10B981" rotulo={t('Autorizadas', 'Authorized')} valor={String(notasAutorizadas.length)} detalhe={t('no nome da empresa', 'issued to the company')} />
             <Resumo cor="#10B981" rotulo={t('Confirmadas', 'Confirmed')} valor={String(notasConferidas.length)} detalhe={t('pelo gestor', 'by the manager')} />
             <Resumo cor="#EF4444" rotulo={t('Canceladas', 'Cancelled')} valor={String(notasCanceladas.length)} detalhe={t('na Receita', 'at Receita')} alerta={notasCanceladas.length > 0} />
@@ -1100,7 +1166,7 @@ export function InboxDdaPage() {
                   <TableCell sx={{ width: 132 }}>{t('Gestor', 'Manager')}</TableCell>
                   <TableCell sx={{ width: '28%' }}>{t('Emitente', 'Issuer')}</TableCell>
                   <TableCell align="center" sx={{ width: '15%', ...celulaCentroSx }}>{t('Loja', 'Store')}</TableCell>
-                  <TableCell sx={{ width: 108 }}>{t('Emissão', 'Issue date')}</TableCell>
+                  <TableCell sx={{ width: 118 }}>{recorteNf === 'vencimento' ? t('Vencimento', 'Due date') : t('Emissão', 'Issue date')}</TableCell>
                   <TableCell align="right" sx={{ width: 128, pr: 2.5 }}>{t('Valor', 'Amount')}</TableCell>
                 </TableRow>
               </TableHead>
@@ -1117,7 +1183,9 @@ export function InboxDdaPage() {
                         }
                         texto={
                           notas.length
-                            ? t('Mude o período, a loja ou o filtro para ver outras NF-e.', 'Change the period, store or filter to see other invoices.')
+                            ? recorteNf === 'vencimento'
+                              ? t('Nenhuma nota vence neste período. Ajuste as datas para lançar o boleto na agenda.', 'No invoice is due in this period. Adjust the dates to post the boleto to the schedule.')
+                              : t('Mude o período, a loja ou o filtro para ver outras NF-e.', 'Change the period, store or filter to see other invoices.')
                             : t(
                               'Clique em “Buscar na Receita” para trazer as NF-e do CNPJ da empresa. Depois confira o XML e lance na agenda.',
                               'Click “Pull from Receita” to fetch NF-e for the company CNPJ. Then check the XML and post to the schedule.',
@@ -1153,7 +1221,16 @@ export function InboxDdaPage() {
                     <TableCell align="center" sx={celulaCentroSx}>
                       <Typography noWrap sx={{ fontSize: 12 }}>{n.origem || '—'}</Typography>
                     </TableCell>
-                    <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>{dataBr(n.emissao)}</TableCell>
+                    <TableCell sx={{ fontVariantNumeric: 'tabular-nums', fontSize: 12.5 }}>
+                      {dataBr(recorteNf === 'vencimento' ? n.agenda_vencimento : n.emissao)}
+                      <Typography noWrap sx={{ fontSize: 10.5, color: INBOX_MUTED, lineHeight: 1.2 }}>
+                        {recorteNf === 'vencimento'
+                          ? `${t('Emit.', 'Issued')} ${dataBr(n.emissao)}`
+                          : n.agenda_vencimento
+                            ? `${t('Venc.', 'Due')} ${dataBr(n.agenda_vencimento)}`
+                            : ''}
+                      </Typography>
+                    </TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontSize: 12.5, pr: 2.5 }}>
                       {n.valor_total != null ? brl(n.valor_total) : '—'}
                     </TableCell>
