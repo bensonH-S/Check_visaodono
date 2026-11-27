@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { pool } from '../../db.js';
-import { parseNfeXml } from '../nfeXml.js';
+import { parseNfeXml, SQL_INSUMOS_CASAMENTO_NFE } from '../nfeXml.js';
 import { persistirEstoqueNfe } from '../estoquePersistirNfe.js';
 import { baixarNfesGimba } from './gimbaClient.js';
 import { JANELA_NF_DIAS } from '../estoqueFornecedorCredencial.js';
@@ -59,11 +59,7 @@ export async function syncNfeGimba({
     onLog: log,
   });
 
-  const { rows: insumos } = await pool.query(
-    `SELECT id_insumo, codigo, descricao, und_convertida, und_parcial, unidade_contagem
-     FROM insumos WHERE id_loja = $1 AND ativo = TRUE`,
-    [idLoja],
-  );
+  const { rows: insumos } = await pool.query(SQL_INSUMOS_CASAMENTO_NFE, [idLoja]);
 
   const processadas = [];
   for (const dl of downloads) {
