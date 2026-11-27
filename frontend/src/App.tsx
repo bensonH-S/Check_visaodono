@@ -37,6 +37,7 @@ import FrotaAcompanhamentoPage from './pages/frota/FrotaAcompanhamentoPage';
 import FrotaVeiculoDetalhePage from './pages/frota/FrotaVeiculoDetalhePage';
 import FrotaTermosPortalPage from './pages/frota/FrotaTermosPortalPage';
 import FrotaRegioesPortalPage from './pages/frota/FrotaRegioesPortalPage';
+import WarRoomFrotaPage from './pages/warroom/WarRoomFrotaPage';
 import MapaTecnicosMobilePage from './pages/mapa/MapaTecnicosMobilePage';
 import EscalaVisitasPage from './pages/escalas/EscalaVisitasPage';
 import EscalaVisitasMobilePage from './pages/escalas/EscalaVisitasMobilePage';
@@ -341,6 +342,14 @@ export default function App() {
             <Route path="portais/mobile" element={<PortaisPage />} />
             <Route path="relatorio/mobile/visita/:id" element={<RelatorioPage />} />
           </Route>
+          <Route
+            path="war-room"
+            element={
+              <RequireAuth>
+                <WarRoomFrotaPage />
+              </RequireAuth>
+            }
+          />
           <Route
             element={
               <RequireAuth>

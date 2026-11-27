@@ -4,7 +4,7 @@ import { resolvePageTitle } from '../config/pageTitles';
 import PageHeaderTitle from '../components/PageHeaderTitle';
 import PortalSidebar from './PortalSidebar';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeOperacionalEstoque, consultaEstoque, podeVerEnergia, podeConsultarNfe, podeVerConciliacao, podeVerContasPagar, podeVerCustos, podeVerFinanceiro, podeVerResumoFinanceiro } from '../lib/auth';
+import { getUsuario, logout, temPermissao, podeUsarChecklist, podeReceberPainelDiretorChamados, podeVerEscalaVisitas, podeVerEscalaGestores, podeVerMetas, podeVerEstoque, podeOperacionalEstoque, consultaEstoque, podeVerEnergia, podeConsultarNfe, podeVerConciliacao, podeVerContasPagar, podeVerCustos, podeVerFinanceiro, podeVerResumoFinanceiro, podeVerMapaTecnicosMobile } from '../lib/auth';
 import { primeiraRotaPermitida } from '../config/navPermissions';
 import Box from '@mui/material/Box';
 import IconButton from '@mui/material/IconButton';
@@ -16,6 +16,7 @@ import ClickAwayListener from '@mui/material/ClickAwayListener';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import HistoryIcon from '@mui/icons-material/History';
 import BuildIcon from '@mui/icons-material/Build';
@@ -371,6 +372,13 @@ function PortalLayoutInner() {
   const secFin = finEn ? 'FINANCE' : 'FINANCEIRO';
   const nav: NavItem[] = [
     { to: '/dashboard', label: 'Command Center', icon: <DashboardIcon fontSize="small" />, show: temPermissao('portal.dashboard.ver', user), end: true },
+    {
+      to: '/war-room',
+      label: 'War Room',
+      icon: <GpsFixedIcon fontSize="small" />,
+      show: podeVerMapaTecnicosMobile(user) || podeAcessarModuloFrota(user),
+      end: true,
+    },
 
     // FINANCEIRO — Inbox (DDA/NF) → Agenda banco → caixa / integrações
     // Agenda (contas a pagar): financeiro.ver edita; resumo e contabilidade só veem.
